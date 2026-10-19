@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+
+# setuptools-scm output (regenerated on install)
+src/mas_optimiser/_version.py
+
+# environment and secrets
+.venv/
+.env
+
+# run outputs (W&B and Langfuse keep the record)
+runs/
+wandb/
+
+# editor / IDE
+.vscode/
+.idea/

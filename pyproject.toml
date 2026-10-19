@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=77", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mas-optimiser"
+dynamic = ["version"]
+description = "Evolving the planning layer of a multi-agent system, tested on EnterpriseOps-Gym"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Cameron McCormack" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest", "ruff"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib -m 'not integration'"
+markers = [
+    "integration: needs the benchmark's servers or a real model; run with -m integration",
+]
+
+[tool.ruff]
+line-length = 88
+extend-exclude = ["src/mas_optimiser/_version.py"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP", "SIM"]
+ignore = ["E501"]
+
+[tool.setuptools_scm]
+version_file = "src/mas_optimiser/_version.py"
+fallback_version = "0.0.0"
+
+[tool.setuptools.packages.find]
+where = ["src"]
