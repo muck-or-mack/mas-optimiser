@@ -16,7 +16,9 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "httpx",
+]
 
 [dependency-groups]
 dev = ["pytest", "ruff"]
@@ -35,6 +37,12 @@ extend-exclude = ["src/mas_optimiser/_version.py", "vendor"]
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "B", "C4", "UP", "SIM"]
 ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+# The benchmark's modules only resolve once mas_optimiser.benchmarks.enterpriseops
+# has put the submodule on sys.path, so they sort after first-party imports.
+section-order = ["future", "standard-library", "third-party", "first-party", "enterpriseops-gym", "local-folder"]
+sections = { enterpriseops-gym = ["benchmark", "orchestrators"] }
 
 [tool.setuptools_scm]
 version_file = "src/mas_optimiser/_version.py"

@@ -25,6 +25,19 @@ This fetches the benchmark submodule, installs exactly the versions in
 Afterwards, run commands inside the environment with `uv run`, for example
 `uv run pytest`.
 
+## Benchmark servers
+
+Each [EnterpriseOps-Gym](https://github.com/ServiceNow/EnterpriseOps-Gym)
+domain runs as its own server in Docker. Start the ITSM, CSM and HR servers,
+then check that they answer:
+
+```bash
+docker compose -f docker/compose.yaml up -d
+uv run pytest -m integration
+```
+
+Stop them with `docker compose -f docker/compose.yaml down`.
+
 ## Licence
 
 MIT; see `LICENSE`. Third-party material is listed in `NOTICE.md`.
