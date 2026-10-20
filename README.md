@@ -8,7 +8,8 @@ on tasks it has not seen supports it. The system is evaluated on
 benchmark of enterprise IT-operations workflows graded by SQL checks on the
 final database state.
 
-Status: early development. Nothing here produces results yet.
+Status: early development. The benchmark's own agent can be run on its
+tasks; the planner and the optimiser are not written yet.
 
 ## Install
 
