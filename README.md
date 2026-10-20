@@ -49,6 +49,8 @@ uv run python -m mas_optimiser.benchmarks.enterpriseops.runner \
     --model configs/models/haiku-5-5.yaml --domain itsm --limit 5
 ```
 
+`./scripts/demo.sh` does the same, starting the servers first if needed.
+
 Each run writes a folder under `runs/` (gitignored) with `results.csv` (one
 row per task), `run.json` (settings and totals), `run.log` (the benchmark's
 log) and `tasks/` (the executor's result for each task, or the error if it
