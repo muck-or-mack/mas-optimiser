@@ -1,0 +1,3 @@
+[submodule "vendor/enterpriseops-gym"]
+	path = vendor/enterpriseops-gym
+	url = https://github.com/ServiceNow/EnterpriseOps-Gym.git

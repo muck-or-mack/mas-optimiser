@@ -20,10 +20,11 @@ root:
 ./setup.sh
 ```
 
-This installs exactly the versions in `uv.lock` and runs the unit tests.
+This fetches the benchmark submodule, installs exactly the versions in
+`uv.lock`, unpacks the benchmark's seed databases and runs the unit tests.
 Afterwards, run commands inside the environment with `uv run`, for example
 `uv run pytest`.
 
 ## Licence
 
-MIT; see `LICENSE`.
+MIT; see `LICENSE`. Third-party material is listed in `NOTICE.md`.
