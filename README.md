@@ -38,6 +38,23 @@ uv run pytest -m integration
 
 Stop them with `docker compose -f docker/compose.yaml down`.
 
+## Running benchmark tasks
+
+Copy `.env.example` to `.env` and add the API key. With the servers up, run
+the benchmark's own ReAct agent on the first five ITSM tasks:
+
+```bash
+uv run python -m mas_optimiser.benchmarks.enterpriseops.runner \
+    --model configs/models/haiku-5-5.yaml --domain itsm --limit 5
+```
+
+Each run writes a folder under `runs/` (gitignored) with `results.csv` (one
+row per task), `run.json` (settings and totals), `run.log` (the benchmark's
+log) and `tasks/` (the executor's result for each task, or the error if it
+never started). A task whose run raises an error counts as failed and the
+error count is reported separately; the benchmark keeps no token counts for
+such a run.
+
 ## Licence
 
 MIT; see `LICENSE`. Third-party material is listed in `NOTICE.md`.

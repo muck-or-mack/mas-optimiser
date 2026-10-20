@@ -1,0 +1,12 @@
+# Claude Haiku 5.5 on the Claude API, a cheap model for smoke tests.
+# Keys are the benchmark's LLMConfig fields (benchmark/models.py); the API key
+# is read from the environment variable named by api_key_env.
+llm_provider: anthropic
+llm_model: claude-haiku-5-5
+api_key_env: ANTHROPIC_API_KEY
+# Haiku 5.5 rejects any temperature other than its default of 1.
+temperature: 1.0
+# Thinking is on by default and its tokens count towards max_tokens. The
+# benchmark's client passes no effort or thinking settings to this provider
+# (benchmark/llm_client.py:74-82), so Haiku 5.5 runs at its default effort.
+max_tokens: 16384
