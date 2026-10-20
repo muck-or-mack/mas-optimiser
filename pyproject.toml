@@ -40,5 +40,10 @@ ignore = ["E501"]
 version_file = "src/mas_optimiser/_version.py"
 fallback_version = "0.0.0"
 
+[tool.uv]
+# uv only rebuilds the editable install when these change; the git keys keep
+# the setuptools-scm version in step with new commits and tags.
+cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true, tags = true } }]
+
 [tool.setuptools.packages.find]
 where = ["src"]
