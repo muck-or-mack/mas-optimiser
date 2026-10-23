@@ -16,10 +16,21 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 echo "Using $(uv --version)."
 
+# The benchmark is a submodule; a plain `git clone` leaves its folder empty.
+git submodule update --init
+
 # --locked stops with an error when uv.lock no longer matches pyproject.toml,
 # instead of quietly resolving newer versions, so every machine installs the
 # same pins. uv also fetches a matching Python if the system one is too old.
 uv sync --locked
+
+# The servers' seed databases ship zipped inside the benchmark repo. They are
+# unpacked where its task configs expect them; its own .gitignore covers them.
+GYM=vendor/enterpriseops-gym
+if [ ! -d "$GYM/Domain Wise DBs and Task-DB Mappings" ]; then
+  echo "Unpacking seed databases..."
+  uv run python -m zipfile -e "$GYM/gym_dbs.zip" "$GYM"
+fi
 
 uv run pytest -q
 echo "Install OK."

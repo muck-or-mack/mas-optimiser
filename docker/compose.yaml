@@ -1,0 +1,23 @@
+# EnterpriseOps-Gym domain servers, one container per domain, listening on the
+# host ports the benchmark's task configs expect (README, "Gym Servers").
+# Upstream publishes only a `latest` tag, so each image is pinned by the digest
+# `latest` pointed to on 20/10/2026; a new upstream push cannot change a run.
+#
+#   docker compose -f docker/compose.yaml up -d
+#   docker compose -f docker/compose.yaml down
+
+name: enterpriseops-gym
+
+services:
+  itsm:
+    image: shivakrishnareddyma225/enterpriseops-gym-mcp-itsm@sha256:a234ae3fb7cee196ba25e6b9957969dea829919b6e8271dddae128f065aaf39f
+    ports:
+      - "127.0.0.1:8006:8005"
+  csm:
+    image: shivakrishnareddyma225/enterpriseops-gym-mcp-csm@sha256:eaa456ac9aa85728426e7d3813a0bbca0949d6a8695be30e26f03894e6e6b189
+    ports:
+      - "127.0.0.1:8001:8005"
+  hr:
+    image: shivakrishnareddyma225/enterpriseops-gym-mcp-hr@sha256:1ea1c1d64d4be35e8062e56f00b8318e9e6c09289cfa56bcfd0595bfa59ac64d
+    ports:
+      - "127.0.0.1:8008:8005"

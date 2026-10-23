@@ -8,7 +8,8 @@ on tasks it has not seen supports it. The system is evaluated on
 benchmark of enterprise IT-operations workflows graded by SQL checks on the
 final database state.
 
-Status: early development. Nothing here produces results yet.
+Status: early development. The benchmark's own agent can be run on its
+tasks; the planner and the optimiser are not written yet.
 
 ## Install
 
@@ -20,10 +21,43 @@ root:
 ./setup.sh
 ```
 
-This installs exactly the versions in `uv.lock` and runs the unit tests.
+This fetches the benchmark submodule, installs exactly the versions in
+`uv.lock`, unpacks the benchmark's seed databases and runs the unit tests.
 Afterwards, run commands inside the environment with `uv run`, for example
 `uv run pytest`.
 
+## Benchmark servers
+
+Each [EnterpriseOps-Gym](https://github.com/ServiceNow/EnterpriseOps-Gym)
+domain runs as its own server in Docker. Start the ITSM, CSM and HR servers,
+then check that they answer:
+
+```bash
+docker compose -f docker/compose.yaml up -d
+uv run pytest -m integration
+```
+
+Stop them with `docker compose -f docker/compose.yaml down`.
+
+## Running benchmark tasks
+
+Copy `.env.example` to `.env` and add the API key. With the servers up, run
+the benchmark's own ReAct agent on the first five ITSM tasks:
+
+```bash
+uv run python -m mas_optimiser.benchmarks.enterpriseops.runner \
+    --model configs/models/haiku-5-5.yaml --domain itsm --limit 5
+```
+
+`./scripts/demo.sh` does the same, starting the servers first if needed.
+
+Each run writes a folder under `runs/` (gitignored) with `results.csv` (one
+row per task), `run.json` (settings and totals), `run.log` (the benchmark's
+log) and `tasks/` (the executor's result for each task, or the error if it
+never started). A task whose run raises an error counts as failed and the
+error count is reported separately; the benchmark keeps no token counts for
+such a run.
+
 ## Licence
 
-MIT; see `LICENSE`.
+MIT; see `LICENSE`. Third-party material is listed in `NOTICE.md`.
