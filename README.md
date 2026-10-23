@@ -73,6 +73,35 @@ uv run python -m mas_optimiser.benchmarks.enterpriseops.replay \
 `--full-policy` prints the whole policy rather than its first lines, and
 `--max-chars N` changes where long tool results and model text are clipped.
 
+## Watching a run in Langfuse
+
+[Langfuse](https://langfuse.com) shows each task as a tree: the task, every
+model call with the messages sent and the reply, its tool calls, token usage
+and cost, and the verifier verdict as two scores (`task_success` and
+`verifier_fraction`). Tasks from one run share a session named after the run
+folder, and traces are tagged with the domain, mode, arm and model.
+
+Self-host it with Docker outside this repository (the stack needs about
+16 GiB of memory):
+
+```bash
+git clone https://github.com/langfuse/langfuse.git ~/dev/tools/langfuse
+cd ~/dev/tools/langfuse
+# Put the secrets, and the LANGFUSE_INIT_* values that create the first
+# organisation, project, API keys and user, in a .env file, then:
+docker compose up -d
+```
+
+The UI is at http://localhost:3000 once the web container logs "Ready".
+Copy the project's public and secret keys into this repository's `.env`
+(names in `.env.example`); the runner traces whenever they are set and runs
+untraced otherwise. `--no-trace` turns tracing off for one run.
+
+`--thinking-summary` asks the model for a summary of its reasoning on each
+call so the trace shows it. This changes the agent's behaviour and cost, so
+use it for demonstrations only, never for a run whose numbers are reported;
+`run.json` records whether it was on.
+
 ## Licence
 
 MIT; see `LICENSE`. Third-party material is listed in `NOTICE.md`.
