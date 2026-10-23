@@ -21,6 +21,7 @@ dependencies = [
     "httpx",
     "langchain-anthropic",
     "langchain-core",
+    "langfuse>=5.0.4",
     "python-dotenv",
     "pyyaml",
 ]

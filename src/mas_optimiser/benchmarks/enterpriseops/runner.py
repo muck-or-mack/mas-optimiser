@@ -38,6 +38,7 @@ import csv
 import json
 import logging
 import os
+from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
 
@@ -46,6 +47,7 @@ from datasets import load_dataset
 from dotenv import load_dotenv
 
 import mas_optimiser
+from mas_optimiser import tracing
 from mas_optimiser.benchmarks.enterpriseops import GYM_ROOT
 
 from benchmark.executor import BenchmarkExecutor
@@ -62,6 +64,40 @@ JSON_COLUMNS = {"gym_servers_config", "verifiers"}
 ID_COLUMNS = {"task_id", "domain"}
 
 REPO_ROOT = GYM_ROOT.parents[1]
+
+# Asks the model for a readable summary of its reasoning on every call, which
+# the trace then shows. Thinking happens either way; only its visibility
+# changes, at some cost in output tokens.
+THINKING_SUMMARY = {"type": "adaptive", "display": "summarized"}
+
+
+class TracedExecutor(BenchmarkExecutor):
+    """The benchmark's executor with tracing attached to the model it builds.
+
+    The executor constructs its model client inside ``initialize()``, which
+    ``execute_benchmark()`` calls itself, so this is the first point at which
+    the model object exists and the callback can be set on it.
+
+    Args:
+        trace: Attach the Langfuse callback to the model.
+        thinking: A ``thinking`` setting to put on the model, or ``None`` to
+            leave the benchmark's default. Changes the agent's behaviour and
+            cost, so it stays ``None`` for any run that produces a reported
+            number.
+    """
+
+    def __init__(self, *args, trace: bool, thinking: dict | None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.trace = trace
+        self.thinking = thinking
+
+    async def initialize(self):
+        await super().initialize()
+        model = self.llm_client.llm
+        if self.trace:
+            tracing.attach(model)
+        if self.thinking:
+            model.thinking = self.thinking
 
 
 def load_tasks(domain: str, mode: str) -> dict[str, dict]:
@@ -164,13 +200,24 @@ def score(task_id: str, config: dict, result: dict) -> list[dict]:
     return records
 
 
-async def run_tasks(tasks: dict[str, dict], model: LLMConfig, out: Path) -> list[dict]:
+async def run_tasks(
+    tasks: dict[str, dict],
+    model: LLMConfig,
+    out: Path,
+    *,
+    trace: bool,
+    thinking: dict | None,
+    tags: list[str],
+) -> list[dict]:
     """Run each task with the benchmark's ReAct agent and score it.
 
     Args:
         tasks: Task configs keyed by task ID, as from ``load_tasks``.
         model: The agent's model config.
         out: Run folder; each task's executor result is saved to ``out/tasks``.
+        trace: Send each task to Langfuse as one trace, scored with its verdict.
+        thinking: Model ``thinking`` setting, or ``None`` for the default.
+        tags: Labels put on every trace, such as the domain and model.
 
     Returns:
         The records from ``score`` for every task, in order.
@@ -178,18 +225,60 @@ async def run_tasks(tasks: dict[str, dict], model: LLMConfig, out: Path) -> list
     # TODO: run tasks in parallel with Ray before the full-split runs.
     records = []
     for i, (task_id, config) in enumerate(tasks.items(), start=1):
-        executor = BenchmarkExecutor(
-            BenchmarkConfig(**config), model, orchestrator_class=ReactOrchestrator
+        executor = TracedExecutor(
+            BenchmarkConfig(**config),
+            model,
+            orchestrator_class=ReactOrchestrator,
+            trace=trace,
+            thinking=thinking,
         )
-        try:
-            result = await executor.execute_benchmark()
-        except Exception as exc:
-            # Raised before any run starts, e.g. a server that is not up.
-            result = {"runs": [{"run_number": 1, "error": repr(exc)}]}
+        # The run folder's name groups the traces as one session.
+        span_context = (
+            tracing.task_trace(
+                task_id,
+                session_id=out.name,
+                tags=tags,
+                metadata={"task_id": task_id, "dataset_revision": HF_REVISION},
+            )
+            if trace
+            else nullcontext()
+        )
+        with span_context as span:
+            try:
+                result = await executor.execute_benchmark()
+            except Exception as exc:
+                # Raised before any run starts, e.g. a server that is not up.
+                result = {"runs": [{"run_number": 1, "error": repr(exc)}]}
+            task_records = score(task_id, config, result)
+            if span is not None:
+                # One run per task for now, so the first record is the run.
+                r = task_records[0]
+                fraction = (
+                    r["verifiers_passed"] / r["verifiers_total"]
+                    if r["verifiers_total"]
+                    else 0.0
+                )
+                span.score_trace(
+                    name="task_success", value=float(r["success"]), data_type="BOOLEAN"
+                )
+                span.score_trace(
+                    name="verifier_fraction", value=fraction, data_type="NUMERIC"
+                )
+                span.update(
+                    output={
+                        k: r[k]
+                        for k in (
+                            "success",
+                            "verifiers_passed",
+                            "verifiers_total",
+                            "error",
+                        )
+                    }
+                )
         (out / "tasks" / f"{task_id}.json").write_text(
             json.dumps(result, indent=2, default=str)
         )
-        for r in score(task_id, config, result):
+        for r in task_records:
             records.append(r)
             outcome = "error" if r["error"] else "pass" if r["success"] else "fail"
             print(
@@ -213,12 +302,27 @@ def main() -> None:
     )
     parser.add_argument("--limit", type=int, help="run only the first N tasks")
     parser.add_argument("--out", type=Path, help="output folder (default: in runs/)")
+    parser.add_argument(
+        "--no-trace", action="store_true", help="do not send traces to Langfuse"
+    )
+    parser.add_argument(
+        "--thinking-summary",
+        action="store_true",
+        help="ask the model for reasoning summaries (demonstrations only)",
+    )
     args = parser.parse_args()
     if args.limit is not None and args.limit < 1:
         parser.error("--limit must be at least 1")
 
     load_dotenv(REPO_ROOT / ".env")
     model = load_model(args.model)
+    trace = tracing.configured() and not args.no_trace
+    thinking = THINKING_SUMMARY if args.thinking_summary else None
+    if trace:
+        # The Anthropic SDK also writes a metadata-only span per call into any
+        # registered tracer; the LangChain callback already records each call
+        # with its content, so those duplicates are switched off.
+        os.environ.setdefault("ANTHROPIC_OPEN_TELEMETRY", "false")
     started = datetime.now()
     out = args.out or REPO_ROOT / "runs" / (
         f"{started:%Y%m%d-%H%M%S}-{args.domain}-{args.mode}-{args.model.stem}"
@@ -234,7 +338,12 @@ def main() -> None:
 
     tasks = load_tasks(args.domain, args.mode)
     tasks = dict(list(tasks.items())[: args.limit])
-    records = asyncio.run(run_tasks(tasks, model, out))
+    tags = [args.domain, args.mode, "arm:default", model.llm_model]
+    records = asyncio.run(
+        run_tasks(tasks, model, out, trace=trace, thinking=thinking, tags=tags)
+    )
+    if trace:
+        tracing.shutdown()
 
     with (out / "results.csv").open("w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=list(records[0]))
@@ -256,6 +365,8 @@ def main() -> None:
         "tasks": list(tasks),
         "dataset": HF_DATASET,
         "dataset_revision": HF_REVISION,
+        "thinking": thinking,
+        "traced": trace,
         "mas_optimiser_version": mas_optimiser.__version__,
         "started": started.isoformat(timespec="seconds"),
         "finished": datetime.now().isoformat(timespec="seconds"),
@@ -268,6 +379,7 @@ def main() -> None:
         f"{totals['verifiers_passed']}/{totals['verifiers_total']}; "
         f"{totals['input_tokens']:,} input and {totals['output_tokens']:,} output "
         f"tokens. Results in {out}"
+        + (f"; traces in Langfuse session {out.name}" if trace else "")
     )
 
 
