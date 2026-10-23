@@ -81,21 +81,21 @@ and cost, and the verifier verdict as two scores (`task_success` and
 `verifier_fraction`). Tasks from one run share a session named after the run
 folder, and traces are tagged with the domain, mode, arm and model.
 
-Self-host it with Docker outside this repository (the stack needs about
-16 GiB of memory):
+One command installs and starts a self-hosted copy with Docker, outside this
+repository (the stack wants about 16 GiB of memory):
 
 ```bash
-git clone https://github.com/langfuse/langfuse.git ~/dev/tools/langfuse
-cd ~/dev/tools/langfuse
-# Put the secrets, and the LANGFUSE_INIT_* values that create the first
-# organisation, project, API keys and user, in a .env file, then:
-docker compose up -d
+scripts/langfuse.sh up
 ```
 
-The UI is at http://localhost:3000 once the web container logs "Ready".
-Copy the project's public and secret keys into this repository's `.env`
-(names in `.env.example`); the runner traces whenever they are set and runs
-untraced otherwise. `--no-trace` turns tracing off for one run.
+The first run clones Langfuse into `~/dev/tools/langfuse`, creates an
+account for you (your git name and email, a generated password) and the
+project, starts the containers, waits for them, and writes the project's
+keys into this repository's `.env`. It ends by printing the sign-in details;
+`scripts/langfuse.sh login` prints them again and `scripts/langfuse.sh down`
+stops the stack. The UI is at http://localhost:3000. The runner traces
+whenever the keys are set and runs untraced otherwise; `--no-trace` turns
+tracing off for one run.
 
 `--thinking-summary` asks the model for a summary of its reasoning on each
 call so the trace shows it. This changes the agent's behaviour and cost, so
