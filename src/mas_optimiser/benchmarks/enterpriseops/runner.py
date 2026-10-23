@@ -1,20 +1,29 @@
-"""Run EnterpriseOps-Gym tasks with the benchmark's own executor and agent.
+"""Run EnterpriseOps-Gym tasks through the benchmark's executor and score them.
 
-A thin layer over ``benchmark.executor.BenchmarkExecutor`` that differs from
-the benchmark's ``evaluate.py`` in three ways:
+The runner loads one domain's tasks, runs each with the benchmark's ReAct
+agent against the Docker domain servers, and writes one result folder:
+``results.csv`` with a row per run, ``run.json`` with the settings,
+``run.log``, and ``tasks/<task_id>.json`` with the executor's full record of
+every model message, tool call, tool result and verifier verdict.
 
-* tasks come from the Hugging Face dataset at a pinned revision, and in oracle
-  mode the corrected copies in the submodule's ``data/revised`` replace the
-  dataset's versions of the same tasks;
-* the model's API key is read from the environment (``.env``), never from a
-  config file;
-* a task whose run raises is scored as a failure and kept, where
-  ``evaluate.py`` retries it and ``compute_score.py`` then leaves it out of
-  the averages. Errors are counted separately.
+Tasks come from the Hugging Face dataset at a pinned revision; in oracle mode
+the submodule's corrected copies in ``data/revised`` replace the dataset's
+versions of the same tasks. Each task gets a fresh ``BenchmarkExecutor``,
+which seeds a database, runs the agent once, runs every verifier against the
+final database state and deletes the database. ``score`` flattens the
+executor's record into the CSV row.
+
+The benchmark's own ``evaluate.py`` is not used because the runner has to own
+the loop: later agents plug in here as orchestrator classes. Two other
+differences are deliberate. The model's API key is read from the environment
+(``.env``), never written to a config file. A run that raises is recorded and
+scored as a failure, where ``evaluate.py`` retries the task up to five times
+and ``compute_score.py`` averages whatever is left, counting a still-failing
+run as zero and silently dropping a task that raised before any run started.
 
 Scoring is otherwise the executor's own, including one quirk kept for now: it
-keys verifier results by name (``benchmark/executor.py:420-474``), so where a
-task gives the same name to different verifiers, only the last of them decides
+keys verifier results by name (``benchmark/executor.py:420`` and ``:474``), so
+where a task gives the same name to different verifiers only the last decides
 whether the task passes.
 
 Usage::
