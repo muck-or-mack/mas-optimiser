@@ -58,6 +58,21 @@ never started). A task whose run raises an error counts as failed and the
 error count is reported separately; the benchmark keeps no token counts for
 such a run.
 
+## Reading a run
+
+Each `tasks/<task_id>.json` file is the executor's complete record of one
+task, but as a single JSON document it is hard to read. Print it as a
+transcript instead: the policy and request the agent was given, each model
+turn with its tool calls, each tool result, and the verifier table at the end:
+
+```bash
+uv run python -m mas_optimiser.benchmarks.enterpriseops.replay \
+    runs/<stamp>/tasks/<task_id>.json
+```
+
+`--full-policy` prints the whole policy rather than its first lines, and
+`--max-chars N` changes where long tool results and model text are clipped.
+
 ## Licence
 
 MIT; see `LICENSE`. Third-party material is listed in `NOTICE.md`.
