@@ -50,8 +50,9 @@ Stop them with `docker compose -f docker/compose.yaml down`.
 Copy `.env.example` to `.env` and add the API key. An experiment is a short
 YAML file in `configs/experiments/` that sets the model, the domain or
 domains, mode, task limit and tracing options, with a comment on each;
-`smoke.yaml` is the annotated example and `demo.yaml` the two-task
-demonstration. Run one by name:
+`smoke.yaml` is the annotated example, `demo.yaml` the two-task
+demonstration and `baseline-haiku.yaml` the full baseline (every task of the
+three domains, three runs each). Run one by name:
 
 ```bash
 mas-optimiser run smoke
@@ -98,10 +99,13 @@ A task passes when every one of its verifiers passes. Two things differ from
 the benchmark's own count, and the `upstream_` columns of `tasks.csv` and
 `verifiers.csv` give that count alongside. The benchmark keys verdicts by
 verifier name, so where a task gives two verifiers the same name only the
-last one counts (27 of the 308 oracle tasks); here every verifier counts. And
-33 count checks in seven tasks give their expected value as the string `'1'`,
-which the benchmark compares with `==` against the integer the database
-returns, so they can never pass; here count checks are compared as numbers.
+last one counts; in 59 of the 308 oracle tasks names clash, and in 27 of
+those the shared name hides different checks. Here an exact copy of a check
+(32 tasks simply repeat their verifier list) counts once, and every distinct
+check counts. And 33 count checks in seven tasks give their expected value as
+the string `'1'`, which the benchmark compares with `==` against the integer
+the database returns, so they can never pass; here count checks are compared
+as numbers.
 
 A failed verifier says only that its whole SQL condition did not hold. Before
 the run's database is deleted, each failed count check is taken apart
