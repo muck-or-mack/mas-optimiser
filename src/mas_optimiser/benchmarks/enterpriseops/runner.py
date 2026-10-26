@@ -28,8 +28,9 @@ whether the task passes.
 
 Usage::
 
-    uv run python -m mas_optimiser.benchmarks.enterpriseops.runner \\
-        --model configs/models/haiku-5-5.yaml --domain itsm --limit 5
+    uv run mas-optimiser run --model configs/models/haiku-5-5.yaml --domain itsm --limit 5
+
+``python -m mas_optimiser.benchmarks.enterpriseops.runner`` takes the same options.
 """
 
 import argparse
@@ -64,6 +65,7 @@ JSON_COLUMNS = {"gym_servers_config", "verifiers"}
 ID_COLUMNS = {"task_id", "domain"}
 
 REPO_ROOT = GYM_ROOT.parents[1]
+DESCRIPTION = __doc__.split("\n\n")[0]
 
 # Asks the model for a readable summary of its reasoning on every call, which
 # the trace then shows. Thinking happens either way; only its visibility
@@ -290,15 +292,25 @@ async def run_tasks(
     return records
 
 
-def main() -> None:
-    """Command-line entry point; see the module docstring for usage."""
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--model", type=Path, required=True, help="model YAML file")
-    parser.add_argument("--domain", required=True, choices=["itsm", "csm", "hr"])
+def add_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the runner's options to ``parser``; shared with the ``mas-optimiser`` command."""
+    parser.add_argument(
+        "--model",
+        type=Path,
+        required=True,
+        help="model YAML file, see configs/models/",
+    )
+    parser.add_argument(
+        "--domain",
+        required=True,
+        choices=["itsm", "csm", "hr"],
+        help="benchmark domain: IT service management, customer service or HR",
+    )
     parser.add_argument(
         "--mode",
         default="oracle",
         choices=["oracle", "plus_5_tools", "plus_10_tools", "plus_15_tools"],
+        help="oracle gives the agent only the task's own tools; plus_N_tools adds N distractors",
     )
     parser.add_argument("--limit", type=int, help="run only the first N tasks")
     parser.add_argument("--out", type=Path, help="output folder (default: in runs/)")
@@ -310,9 +322,12 @@ def main() -> None:
         action="store_true",
         help="ask the model for reasoning summaries (demonstrations only)",
     )
-    args = parser.parse_args()
+
+
+def run(args: argparse.Namespace) -> None:
+    """Run and score the tasks selected by the parsed arguments."""
     if args.limit is not None and args.limit < 1:
-        parser.error("--limit must be at least 1")
+        raise SystemExit("error: --limit must be at least 1")
 
     load_dotenv(REPO_ROOT / ".env")
     model = load_model(args.model)
@@ -381,6 +396,13 @@ def main() -> None:
         f"tokens. Results in {out}"
         + (f"; traces in Langfuse session {out.name}" if trace else "")
     )
+
+
+def main() -> None:
+    """Command-line entry point; see the module docstring for usage."""
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    add_arguments(parser)
+    run(parser.parse_args())
 
 
 if __name__ == "__main__":

@@ -45,11 +45,13 @@ Copy `.env.example` to `.env` and add the API key. With the servers up, run
 the benchmark's own ReAct agent on the first five ITSM tasks:
 
 ```bash
-uv run python -m mas_optimiser.benchmarks.enterpriseops.runner \
-    --model configs/models/haiku-5-5.yaml --domain itsm --limit 5
+uv run mas-optimiser run --model configs/models/haiku-5-5.yaml --domain itsm --limit 5
 ```
 
 `./scripts/demo.sh` does the same, starting the servers first if needed.
+`uv run mas-optimiser --help` lists the commands, `uv run mas-optimiser run
+--help` the options of one, and every script in `scripts/` and `setup.sh`
+answers `-h`.
 
 Each run writes a folder under `runs/` (gitignored) with `results.csv` (one
 row per task), `run.json` (settings and totals), `run.log` (the benchmark's
@@ -66,8 +68,7 @@ transcript instead: the policy and request the agent was given, each model
 turn with its tool calls, each tool result, and the verifier table at the end:
 
 ```bash
-uv run python -m mas_optimiser.benchmarks.enterpriseops.replay \
-    runs/<stamp>/tasks/<task_id>.json
+uv run mas-optimiser replay runs/<stamp>/tasks/<task_id>.json
 ```
 
 `--full-policy` prints the whole policy rather than its first lines, and

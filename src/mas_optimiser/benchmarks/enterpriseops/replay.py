@@ -9,8 +9,9 @@ end, so a run can be read without a tracing server.
 
 Usage::
 
-    uv run python -m mas_optimiser.benchmarks.enterpriseops.replay \\
-        runs/<stamp>/tasks/<task_id>.json [--full-policy] [--max-chars N]
+    uv run mas-optimiser replay runs/<stamp>/tasks/<task_id>.json [--full-policy] [--max-chars N]
+
+``python -m mas_optimiser.benchmarks.enterpriseops.replay`` takes the same arguments.
 """
 
 import argparse
@@ -18,6 +19,7 @@ import json
 from pathlib import Path
 
 POLICY_PREVIEW_LINES = 12
+DESCRIPTION = __doc__.split("\n\n")[0]
 
 
 def format_record(
@@ -114,9 +116,8 @@ def _clip(text: str, max_chars: int) -> str:
     return text if len(text) <= max_chars else text[:max_chars] + " ..."
 
 
-def main() -> None:
-    """Command-line entry point; see the module docstring for usage."""
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+def add_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the replay options to ``parser``; shared with the ``mas-optimiser`` command."""
     parser.add_argument("record", type=Path, help="a tasks/<task_id>.json file")
     parser.add_argument(
         "--full-policy", action="store_true", help="print the whole policy"
@@ -124,12 +125,22 @@ def main() -> None:
     parser.add_argument(
         "--max-chars", type=int, default=400, help="clip tool results and model text"
     )
-    args = parser.parse_args()
+
+
+def run(args: argparse.Namespace) -> None:
+    """Print the record named by the parsed arguments as a transcript."""
     record = json.loads(args.record.read_text())
     # The executor's record does not carry the task id; the runner names the
     # file after it.
     record.setdefault("benchmark_config", {}).setdefault("task_id", args.record.stem)
     print(format_record(record, full_policy=args.full_policy, max_chars=args.max_chars))
+
+
+def main() -> None:
+    """Command-line entry point; see the module docstring for usage."""
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    add_arguments(parser)
+    run(parser.parse_args())
 
 
 if __name__ == "__main__":

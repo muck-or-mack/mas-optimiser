@@ -26,6 +26,9 @@ dependencies = [
     "pyyaml",
 ]
 
+[project.scripts]
+mas-optimiser = "mas_optimiser.cli:main"
+
 [dependency-groups]
 dev = ["pytest", "ruff"]
 
