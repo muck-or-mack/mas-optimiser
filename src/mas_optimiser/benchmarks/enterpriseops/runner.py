@@ -127,8 +127,8 @@ class TaskExecutor(BenchmarkExecutor):
     the model object exists and the callback can be set on it. The task's
     verifiers are renamed before the run so that none overwrites another, and
     each verdict is rechecked after they run, with the executor's own verdict
-    kept beside it (see ``verifiers``); ``original_names`` maps the unique
-    names back to the task's.
+    kept beside it (see ``verifiers``); ``names`` maps the unique names back
+    to the task's.
 
     Args:
         config: The task's ``BenchmarkConfig``.
@@ -147,7 +147,7 @@ class TaskExecutor(BenchmarkExecutor):
         thinking: dict | None,
         **kwargs,
     ):
-        config.verifiers, self.original_names = verifiers.unique_names(config.verifiers)
+        config.verifiers, self.names = verifiers.unique_names(config.verifiers)
         self.verifier_gyms = {v["name"]: v.get("gym_name") for v in config.verifiers}
         super().__init__(config, *args, **kwargs)
         self.trace = trace
@@ -413,7 +413,7 @@ def task_record(
     task_id: str,
     repeat: int,
     run: dict,
-    original_names: dict[str, str],
+    names: verifiers.Names,
     pricing: dict,
 ) -> dict:
     """Flatten the executor's record of one task run into a ``tasks.csv`` row.
@@ -428,8 +428,7 @@ def task_record(
         run: One entry of the ``runs`` list that
             ``BenchmarkExecutor.execute_benchmark`` returns, or a stand-in
             holding the error if it raised before the run started.
-        original_names: The executor's map from unique verifier names back to
-            the task's; its length is the number of verifiers.
+        names: The executor's verifier name maps; one entry per kept verifier.
         pricing: The model's price table, for ``cost``.
 
     Returns:
@@ -444,14 +443,14 @@ def task_record(
     details = [u.get("input_token_details") or {} for u in usage]
     results = run.get("verification_results", {})
     upstream_passed, upstream_total, upstream_success = verifiers.upstream_verdict(
-        results, original_names
+        results, names
     )
     return {
         "task_id": task_id,
         "repeat": repeat,
         "success": bool(run.get("overall_success")),
         "verifiers_passed": sum(r["passed"] for r in results.values()),
-        "verifiers_total": len(original_names),
+        "verifiers_total": len(names.original),
         "upstream_success": upstream_success,
         "upstream_verifiers_passed": upstream_passed,
         "upstream_verifiers_total": upstream_total,
@@ -525,12 +524,12 @@ async def run_task(
             # Raised before the run started, e.g. a server that is not up.
             result = {"runs": [{"run_number": 1, "error": repr(exc)}]}
         run = result["runs"][0]
-        record = task_record(task_id, repeat, run, executor.original_names, pricing)
+        record = task_record(task_id, repeat, run, executor.names, pricing)
         rows = verifiers.verifier_records(
             task_id,
             repeat,
             run.get("verification_results", {}),
-            executor.original_names,
+            executor.names,
         )
         if span is not None:
             fraction = (

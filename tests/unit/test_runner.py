@@ -91,7 +91,10 @@ def test_cost_prices_cached_and_long_prompts_at_their_own_rates():
 
 def test_task_record_counts_an_errored_run_as_a_failed_task():
     # Two verifiers share a name: three count here, two in the benchmark's count.
-    _, names = verifiers.unique_names([{"name": "a"}, {"name": "a"}, {"name": "b"}])
+    _, names = verifiers.unique_names(
+        [{"name": "a", "validation_config": {"query": q}} for q in ("q1", "q2")]
+        + [{"name": "b", "validation_config": {"query": "q3"}}]
+    )
     record = runner.task_record(
         "t", 2, {"run_number": 1, "error": "down"}, names, PRICING
     )
@@ -110,7 +113,10 @@ def test_task_record_counts_an_errored_run_as_a_failed_task():
 
 
 def test_task_record_counts_every_verifier_and_sums_the_agents_token_use():
-    _, names = verifiers.unique_names([{"name": "a"}, {"name": "a"}, {"name": "b"}])
+    _, names = verifiers.unique_names(
+        [{"name": "a", "validation_config": {"query": q}} for q in ("q1", "q2")]
+        + [{"name": "b", "validation_config": {"query": "q3"}}]
+    )
     usage = {"input_tokens": 1000, "output_tokens": 50}
     run = {
         "run_number": 1,

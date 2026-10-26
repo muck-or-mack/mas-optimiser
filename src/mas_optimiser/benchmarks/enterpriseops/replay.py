@@ -111,7 +111,7 @@ def format_record(
                 f"actual {v.get('actual')!r} ({v.get('comparison_type')})"
             )
             if v.get("query"):
-                lines.append(f"         {v['query']}")
+                lines.append(f"         {v['query'].strip()}")
             why = describe(v.get("diagnosis"))
             if why:
                 lines.append(f"         why: {why}")
