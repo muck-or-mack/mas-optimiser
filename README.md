@@ -80,6 +80,7 @@ runs/<experiment>/
   <evaluation>/
     run.json                     every setting, the task list and the totals
     tasks.csv                    one row per task run
+    verifiers.csv                one row per verifier per run
     run.log                      the benchmark's log of every request
     tasks/<task_id>/repeat-<n>.json  the executor's complete record of one run
 ```
@@ -89,6 +90,15 @@ times, each run from a freshly seeded database, so that a task the agent
 always fails can be told from one it fails half the time; `tasks.csv` has a
 row per run and `run.json` counts the tasks that passed every repeat.
 `concurrency` (default 4) is how many runs are in flight at once.
+
+A task passes when every one of its verifiers passes. Two things differ from
+the benchmark's own count, and the `upstream_` columns of `tasks.csv` and
+`verifiers.csv` give that count alongside. The benchmark keys verdicts by
+verifier name, so where a task gives two verifiers the same name only the
+last one counts (27 of the 308 oracle tasks); here every verifier counts. And
+33 count checks in seven tasks give their expected value as the string `'1'`,
+which the benchmark compares with `==` against the integer the database
+returns, so they can never pass; here count checks are compared as numbers.
 
 An evaluation folder is named by its start time and domain, then anything
 that makes it differ from the experiment file: a `--label` word, an

@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from mas_optimiser.benchmarks.enterpriseops import GYM_ROOT, runner
+from mas_optimiser.benchmarks.enterpriseops import GYM_ROOT, runner, verifiers
 
 # A task the submodule's data/revised folder corrects (its dataset copy repeats
 # the same verifiers four times).
@@ -55,20 +55,33 @@ def test_load_model_takes_the_key_from_the_environment(tmp_path, monkeypatch):
 
 
 def test_task_record_counts_an_errored_run_as_a_failed_task():
-    # Two verifiers share a name, so the executor would report two, not three.
-    config = {"verifiers": [{"name": "a"}, {"name": "a"}, {"name": "b"}]}
-    record = runner.task_record("t", 2, config, {"run_number": 1, "error": "down"})
+    # Two verifiers share a name: three count here, two in the benchmark's count.
+    _, names = verifiers.unique_names([{"name": "a"}, {"name": "a"}, {"name": "b"}])
+    record = runner.task_record("t", 2, {"run_number": 1, "error": "down"}, names)
     assert not record["success"] and record["repeat"] == 2
-    assert (record["verifiers_passed"], record["verifiers_total"]) == (0, 2)
+    assert (record["verifiers_passed"], record["verifiers_total"]) == (0, 3)
+    assert not record["upstream_success"]
+    assert (
+        record["upstream_verifiers_passed"],
+        record["upstream_verifiers_total"],
+    ) == (
+        0,
+        2,
+    )
     assert record["error"] == "down"
 
 
-def test_task_record_sums_the_agents_token_use():
+def test_task_record_counts_every_verifier_and_sums_the_agents_token_use():
+    _, names = verifiers.unique_names([{"name": "a"}, {"name": "a"}, {"name": "b"}])
     usage = {"input_tokens": 1000, "output_tokens": 50}
     run = {
         "run_number": 1,
-        "overall_success": True,
-        "verification_summary": {"passed": 2, "total": 2},
+        "overall_success": False,
+        "verification_results": {
+            "a": {"passed": False, "upstream_passed": False},
+            "a (2)": {"passed": True, "upstream_passed": True},
+            "b": {"passed": True, "upstream_passed": True},
+        },
         "execution_time_ms": 1500,
         "conversation_flow": [
             {"type": "system_message"},
@@ -77,10 +90,17 @@ def test_task_record_sums_the_agents_token_use():
             {"type": "ai_message", "usage_metadata": usage},
         ],
     }
-    record = runner.task_record(
-        "t", 1, {"verifiers": [{"name": "a"}, {"name": "b"}]}, run
+    record = runner.task_record("t", 1, run, names)
+    # The benchmark keeps only the last "a", which passed, so it calls this a pass.
+    assert not record["success"] and record["upstream_success"]
+    assert (record["verifiers_passed"], record["verifiers_total"]) == (2, 3)
+    assert (
+        record["upstream_verifiers_passed"],
+        record["upstream_verifiers_total"],
+    ) == (
+        2,
+        2,
     )
-    assert record["success"]
     assert record["model_calls"] == 2
     assert (record["input_tokens"], record["output_tokens"]) == (2000, 100)
     assert record["seconds"] == 1.5

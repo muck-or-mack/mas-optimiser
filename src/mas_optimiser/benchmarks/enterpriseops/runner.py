@@ -31,10 +31,10 @@ scored as a failure, where ``evaluate.py`` retries the task up to five times
 and ``compute_score.py`` averages whatever is left, counting a still-failing
 run as zero and silently dropping a task that raised before any run started.
 
-Scoring is otherwise the executor's own, including one quirk kept for now: it
-keys verifier results by name (``benchmark/executor.py:420`` and ``:474``), so
-where a task gives the same name to different verifiers only the last decides
-whether the task passes.
+Scoring counts every verifier of a task and compares count checks numerically,
+where the executor loses verifiers that share a name and fails checks whose
+expected value is a number written as a string; the executor's own verdict is
+kept beside the corrected one (see ``verifiers``).
 
 An experiment file in ``configs/experiments/`` names the model, the domain or
 domains, mode, task limit, label and tracing options, and is referred to by
@@ -64,7 +64,7 @@ from dotenv import load_dotenv
 
 import mas_optimiser
 from mas_optimiser import tracing
-from mas_optimiser.benchmarks.enterpriseops import GYM_ROOT
+from mas_optimiser.benchmarks.enterpriseops import GYM_ROOT, verifiers
 
 from benchmark.executor import BenchmarkExecutor
 from benchmark.models import BenchmarkConfig, LLMConfig
@@ -110,14 +110,19 @@ NAMED_OVERRIDES = ("model", "mode")
 THINKING_SUMMARY = {"type": "adaptive", "display": "summarized"}
 
 
-class TracedExecutor(BenchmarkExecutor):
-    """The benchmark's executor with tracing attached to the model it builds.
+class TaskExecutor(BenchmarkExecutor):
+    """The benchmark's executor with tracing attached and every verifier counted.
 
     The executor constructs its model client inside ``initialize()``, which
-    ``execute_benchmark()`` calls itself, so this is the first point at which
-    the model object exists and the callback can be set on it.
+    ``execute_benchmark()`` calls itself, so that is the first point at which
+    the model object exists and the callback can be set on it. The task's
+    verifiers are renamed before the run so that none overwrites another, and
+    each verdict is rechecked after they run, with the executor's own verdict
+    kept beside it (see ``verifiers``); ``original_names`` maps the unique
+    names back to the task's.
 
     Args:
+        config: The task's ``BenchmarkConfig``.
         trace: Attach the Langfuse callback to the model.
         thinking: A ``thinking`` setting to put on the model, or ``None`` to
             leave the benchmark's default. Changes the agent's behaviour and
@@ -125,8 +130,16 @@ class TracedExecutor(BenchmarkExecutor):
             number.
     """
 
-    def __init__(self, *args, trace: bool, thinking: dict | None, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self,
+        config: BenchmarkConfig,
+        *args,
+        trace: bool,
+        thinking: dict | None,
+        **kwargs,
+    ):
+        config.verifiers, self.original_names = verifiers.unique_names(config.verifiers)
+        super().__init__(config, *args, **kwargs)
         self.trace = trace
         self.thinking = thinking
 
@@ -137,6 +150,12 @@ class TracedExecutor(BenchmarkExecutor):
             tracing.attach(model)
         if self.thinking:
             model.thinking = self.thinking
+
+    async def _run_verifiers(self, task_result):
+        results = await super()._run_verifiers(task_result)
+        for result in results.values():
+            verifiers.recheck(result)
+        return results
 
 
 def load_tasks(domain: str, mode: str) -> dict[str, dict]:
@@ -320,39 +339,46 @@ def load_model(path: Path) -> LLMConfig:
     return LLMConfig(llm_api_key=key, **fields)
 
 
-def task_record(task_id: str, repeat: int, config: dict, run: dict) -> dict:
+def task_record(
+    task_id: str, repeat: int, run: dict, original_names: dict[str, str]
+) -> dict:
     """Flatten the executor's record of one task run into a ``tasks.csv`` row.
 
     A run that raised has no verifier results, so it counts as a failed task
-    with none of its verifiers passed, rather than being dropped.
+    with none of its verifiers passed, rather than being dropped. The
+    ``upstream_`` columns give the benchmark's own count for the run.
 
     Args:
         task_id: The task's dataset ID.
         repeat: Which repeat of the task this run was, from 1.
-        config: The task config the run used.
         run: One entry of the ``runs`` list that
             ``BenchmarkExecutor.execute_benchmark`` returns, or a stand-in
             holding the error if it raised before the run started.
+        original_names: The executor's map from unique verifier names back to
+            the task's; its length is the number of verifiers.
 
     Returns:
         The flat row. Token counts cover the agent's model calls; the executor
         keeps none for a run that raised, so those read zero.
     """
-    # Verifiers that share a name count once, as in the executor's summary;
-    # a run that raised is counted the same way.
-    distinct = len({v["name"] for v in config["verifiers"]})
     usage = [
         step["usage_metadata"]
         for step in run.get("conversation_flow", [])
         if step["type"] == "ai_message" and step.get("usage_metadata")
     ]
-    summary = run.get("verification_summary", {})
+    results = run.get("verification_results", {})
+    upstream_passed, upstream_total, upstream_success = verifiers.upstream_verdict(
+        results, original_names
+    )
     return {
         "task_id": task_id,
         "repeat": repeat,
         "success": bool(run.get("overall_success")),
-        "verifiers_passed": summary.get("passed", 0),
-        "verifiers_total": summary.get("total", distinct),
+        "verifiers_passed": sum(r["passed"] for r in results.values()),
+        "verifiers_total": len(original_names),
+        "upstream_success": upstream_success,
+        "upstream_verifiers_passed": upstream_passed,
+        "upstream_verifiers_total": upstream_total,
         "error": run.get("error", ""),
         "model_calls": len(usage),
         "input_tokens": sum(u["input_tokens"] for u in usage),
@@ -371,7 +397,7 @@ async def run_task(
     trace: bool,
     thinking: dict | None,
     tags: list[str],
-) -> dict:
+) -> tuple[dict, list[dict]]:
     """Run one task once with the benchmark's ReAct agent, save the record and score it.
 
     Args:
@@ -385,11 +411,11 @@ async def run_task(
         tags: Labels put on the trace, such as the domain and model.
 
     Returns:
-        The row from ``task_record``.
+        The row from ``task_record`` and the rows from ``verifier_records``.
     """
     # One executor call per repeat, so that each run is its own trace and its
     # own unit of concurrency; the executor's own repeat loop stays at one.
-    executor = TracedExecutor(
+    executor = TaskExecutor(
         BenchmarkConfig(**(config | {"number_of_runs": 1})),
         model,
         orchestrator_class=ReactOrchestrator,
@@ -417,7 +443,14 @@ async def run_task(
         except Exception as exc:
             # Raised before the run started, e.g. a server that is not up.
             result = {"runs": [{"run_number": 1, "error": repr(exc)}]}
-        record = task_record(task_id, repeat, config, result["runs"][0])
+        run = result["runs"][0]
+        record = task_record(task_id, repeat, run, executor.original_names)
+        rows = verifiers.verifier_records(
+            task_id,
+            repeat,
+            run.get("verification_results", {}),
+            executor.original_names,
+        )
         if span is not None:
             fraction = (
                 record["verifiers_passed"] / record["verifiers_total"]
@@ -433,7 +466,13 @@ async def run_task(
             span.update(
                 output={
                     k: record[k]
-                    for k in ("success", "verifiers_passed", "verifiers_total", "error")
+                    for k in (
+                        "success",
+                        "verifiers_passed",
+                        "verifiers_total",
+                        "upstream_success",
+                        "error",
+                    )
                 }
             )
     folder = out / "tasks" / task_id
@@ -441,7 +480,7 @@ async def run_task(
     (folder / f"repeat-{repeat}.json").write_text(
         json.dumps(result, indent=2, default=str)
     )
-    return record
+    return record, rows
 
 
 async def run_tasks(
@@ -472,16 +511,17 @@ async def run_tasks(
         tags: Labels put on every trace, such as the domain and model.
 
     Returns:
-        One row per run, in task order and then repeat order.
+        One ``tasks.csv`` row per run, in task order and then repeat order,
+        and the ``verifiers.csv`` rows of every run in the same order.
     """
     semaphore = asyncio.Semaphore(concurrency)
     total = len(tasks) * repeats
     done = 0
 
-    async def run_one(task_id: str, config: dict, repeat: int) -> dict:
+    async def run_one(task_id: str, config: dict, repeat: int) -> tuple[dict, list]:
         nonlocal done
         async with semaphore:
-            record = await run_task(
+            record, rows = await run_task(
                 task_id,
                 config,
                 repeat,
@@ -501,16 +541,18 @@ async def run_tasks(
             f"{record['model_calls']} calls, {record['input_tokens']:,} in / "
             f"{record['output_tokens']:,} out tokens, {record['seconds']:.0f} s"
         )
-        return record
+        return record, rows
 
-    return list(
-        await asyncio.gather(
-            *(
-                run_one(task_id, config, repeat)
-                for task_id, config in tasks.items()
-                for repeat in range(1, repeats + 1)
-            )
+    results = await asyncio.gather(
+        *(
+            run_one(task_id, config, repeat)
+            for task_id, config in tasks.items()
+            for repeat in range(1, repeats + 1)
         )
+    )
+    return (
+        [record for record, _ in results],
+        [row for _, rows in results for row in rows],
     )
 
 
@@ -624,7 +666,7 @@ def evaluate(
 
     tags = [domain, experiment["mode"], "arm:default", model.llm_model]
     try:
-        records = asyncio.run(
+        records, verifier_rows = asyncio.run(
             run_tasks(
                 tasks,
                 model,
@@ -644,6 +686,10 @@ def evaluate(
         writer = csv.DictWriter(f, fieldnames=list(records[0]))
         writer.writeheader()
         writer.writerows(records)
+    with (out / "verifiers.csv").open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=verifiers.COLUMNS)
+        writer.writeheader()
+        writer.writerows(verifier_rows)
     by_task: dict[str, list[bool]] = {}
     for r in records:
         by_task.setdefault(r["task_id"], []).append(r["success"])
@@ -656,6 +702,11 @@ def evaluate(
         "errors": sum(bool(r["error"]) for r in records),
         "verifiers_passed": sum(r["verifiers_passed"] for r in records),
         "verifiers_total": sum(r["verifiers_total"] for r in records),
+        "upstream_successes": sum(r["upstream_success"] for r in records),
+        "upstream_verifiers_passed": sum(
+            r["upstream_verifiers_passed"] for r in records
+        ),
+        "upstream_verifiers_total": sum(r["upstream_verifiers_total"] for r in records),
         "input_tokens": sum(r["input_tokens"] for r in records),
         "output_tokens": sum(r["output_tokens"] for r in records),
     }
