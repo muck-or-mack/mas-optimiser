@@ -144,7 +144,7 @@ async def diagnose(result: dict, run_sql: RunSQL) -> dict:
         )
         return {
             "kind": "too_many_rows",
-            "rows": values(rows) if not isinstance(rows, list) else rows,
+            "rows": rows if isinstance(rows, list) else [rows],
         }
     if comparison == "equals":
         enough = lambda n: n >= expected  # noqa: E731
