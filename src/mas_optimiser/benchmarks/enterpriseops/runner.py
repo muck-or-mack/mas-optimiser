@@ -26,11 +26,14 @@ keys verifier results by name (``benchmark/executor.py:420`` and ``:474``), so
 where a task gives the same name to different verifiers only the last decides
 whether the task passes.
 
-Usage::
+An experiment is a YAML file in ``configs/experiments/`` that names the model,
+domain, mode, task limit and tracing options, referred to by its bare name; any
+option given on the command line overrides the file. Usage::
 
-    uv run mas-optimiser run --model configs/models/haiku-5-5.yaml --domain itsm --limit 5
+    mas-optimiser run smoke
+    mas-optimiser run demo --limit 1
 
-``python -m mas_optimiser.benchmarks.enterpriseops.runner`` takes the same options.
+``python -m mas_optimiser.benchmarks.enterpriseops.runner`` takes the same arguments.
 """
 
 import argparse
@@ -43,6 +46,7 @@ from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
 
+import httpx
 import yaml
 from datasets import load_dataset
 from dotenv import load_dotenv
@@ -65,7 +69,21 @@ JSON_COLUMNS = {"gym_servers_config", "verifiers"}
 ID_COLUMNS = {"task_id", "domain"}
 
 REPO_ROOT = GYM_ROOT.parents[1]
+CONFIGS = REPO_ROOT / "configs"
 DESCRIPTION = __doc__.split("\n\n")[0]
+DOMAINS = ["itsm", "csm", "hr"]
+MODES = ["oracle", "plus_5_tools", "plus_10_tools", "plus_15_tools"]
+# Every key an experiment file may set, with its default. ``model`` and
+# ``domain`` have none: the file or the command line must supply them.
+EXPERIMENT_DEFAULTS = {
+    "model": None,
+    "domain": None,
+    "mode": "oracle",
+    "limit": None,
+    "out": None,
+    "trace": True,
+    "thinking_summary": False,
+}
 
 # Asks the model for a readable summary of its reasoning on every call, which
 # the trace then shows. Thinking happens either way; only its visibility
@@ -135,6 +153,85 @@ def load_tasks(domain: str, mode: str) -> dict[str, dict]:
             server["seed_database_file"] = str(GYM_ROOT / server["seed_database_file"])
         tasks[row["task_id"]] = config
     return tasks
+
+
+def config_path(kind: str, spec: str) -> Path:
+    """Resolve a config given by name or by path.
+
+    Args:
+        kind: The folder under ``configs/``: ``experiments`` or ``models``.
+        spec: A bare name such as ``smoke``, meaning ``configs/<kind>/smoke.yaml``,
+            or a path (anything with a slash or a ``.yaml`` suffix), used as given.
+
+    Returns:
+        The file's path.
+
+    Raises:
+        SystemExit: For a bare name with no such file, listing the names that exist.
+    """
+    if "/" in spec or spec.endswith((".yaml", ".yml")):
+        return Path(spec)
+    path = CONFIGS / kind / f"{spec}.yaml"
+    if not path.exists():
+        names = ", ".join(sorted(p.stem for p in path.parent.glob("*.yaml")))
+        raise SystemExit(f"error: no {kind} config named {spec!r}; available: {names}")
+    return path
+
+
+def load_experiment(spec: str, overrides: dict) -> dict:
+    """Read an experiment file and apply the command-line overrides.
+
+    Args:
+        spec: The experiment's name or path, as ``config_path`` takes it.
+        overrides: One entry per key of ``EXPERIMENT_DEFAULTS``; ``None`` means
+            the command line did not set that option.
+
+    Returns:
+        The settings: the defaults, then the file, then the overrides, plus
+        ``experiment`` (the spec) and ``experiment_file`` (its path).
+
+    Raises:
+        SystemExit: For an unknown key in the file, a missing model or domain,
+            a domain or mode the benchmark does not have, or a limit below 1.
+    """
+    path = config_path("experiments", spec)
+    from_file = yaml.safe_load(path.read_text()) or {}
+    unknown = sorted(set(from_file) - set(EXPERIMENT_DEFAULTS))
+    if unknown:
+        raise SystemExit(
+            f"error: {path} has unknown keys {unknown}; "
+            f"allowed: {sorted(EXPERIMENT_DEFAULTS)}"
+        )
+    settings = EXPERIMENT_DEFAULTS | from_file
+    settings |= {key: value for key, value in overrides.items() if value is not None}
+    for key in ("model", "domain"):
+        if settings[key] is None:
+            raise SystemExit(
+                f"error: {key} is set neither in {path} nor on the command line"
+            )
+    if settings["domain"] not in DOMAINS:
+        raise SystemExit(
+            f"error: domain must be one of {DOMAINS}, not {settings['domain']!r}"
+        )
+    if settings["mode"] not in MODES:
+        raise SystemExit(
+            f"error: mode must be one of {MODES}, not {settings['mode']!r}"
+        )
+    if settings["limit"] is not None and settings["limit"] < 1:
+        raise SystemExit("error: limit must be at least 1")
+    return settings | {"experiment": spec, "experiment_file": str(path)}
+
+
+def check_servers(urls: set[str]) -> None:
+    """Stop with the command that starts the domain servers if one is not answering."""
+    for url in sorted(urls):
+        try:
+            httpx.get(f"{url}/health", timeout=3).raise_for_status()
+        except httpx.HTTPError as exc:
+            raise SystemExit(
+                f"error: domain server {url} is not answering ({type(exc).__name__}); "
+                "start the servers with: docker compose -f docker/compose.yaml up -d"
+            ) from exc
 
 
 def load_model(path: Path) -> LLMConfig:
@@ -293,55 +390,75 @@ async def run_tasks(
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
-    """Add the runner's options to ``parser``; shared with the ``mas-optimiser`` command."""
+    """Add the runner's arguments to ``parser``; shared with the ``mas-optimiser`` command.
+
+    Every option defaults to ``None``, so only options given on the command
+    line override the experiment file.
+    """
     parser.add_argument(
-        "--model",
-        type=Path,
-        required=True,
-        help="model YAML file, see configs/models/",
+        "experiment",
+        help="experiment name in configs/experiments/ (or a path to a YAML file)",
     )
+    parser.add_argument("--model", help="model name in configs/models/, or a YAML path")
     parser.add_argument(
         "--domain",
-        required=True,
-        choices=["itsm", "csm", "hr"],
+        choices=DOMAINS,
         help="benchmark domain: IT service management, customer service or HR",
     )
     parser.add_argument(
         "--mode",
-        default="oracle",
-        choices=["oracle", "plus_5_tools", "plus_10_tools", "plus_15_tools"],
+        choices=MODES,
         help="oracle gives the agent only the task's own tools; plus_N_tools adds N distractors",
     )
     parser.add_argument("--limit", type=int, help="run only the first N tasks")
     parser.add_argument("--out", type=Path, help="output folder (default: in runs/)")
     parser.add_argument(
-        "--no-trace", action="store_true", help="do not send traces to Langfuse"
+        "--trace",
+        action=argparse.BooleanOptionalAction,
+        help="send traces to Langfuse (needs the keys in .env)",
     )
     parser.add_argument(
         "--thinking-summary",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
         help="ask the model for reasoning summaries (demonstrations only)",
     )
 
 
 def run(args: argparse.Namespace) -> None:
-    """Run and score the tasks selected by the parsed arguments."""
-    if args.limit is not None and args.limit < 1:
-        raise SystemExit("error: --limit must be at least 1")
+    """Run and score the tasks of the experiment named by the parsed arguments."""
+    overrides = {key: getattr(args, key) for key in EXPERIMENT_DEFAULTS}
+    experiment = load_experiment(args.experiment, overrides)
 
     load_dotenv(REPO_ROOT / ".env")
-    model = load_model(args.model)
-    trace = tracing.configured() and not args.no_trace
-    thinking = THINKING_SUMMARY if args.thinking_summary else None
+    model = load_model(config_path("models", experiment["model"]))
+    tasks = load_tasks(experiment["domain"], experiment["mode"])
+    tasks = dict(list(tasks.items())[: experiment["limit"]])
+    check_servers(
+        {
+            s["mcp_server_url"]
+            for config in tasks.values()
+            for s in config["gym_servers_config"]
+        }
+    )
+    trace = tracing.configured() and experiment["trace"]
+    thinking = THINKING_SUMMARY if experiment["thinking_summary"] else None
     if trace:
         # The Anthropic SDK also writes a metadata-only span per call into any
         # registered tracer; the LangChain callback already records each call
         # with its content, so those duplicates are switched off.
         os.environ.setdefault("ANTHROPIC_OPEN_TELEMETRY", "false")
     started = datetime.now()
-    out = args.out or REPO_ROOT / "runs" / (
-        f"{started:%Y%m%d-%H%M%S}-{args.domain}-{args.mode}-{args.model.stem}"
+    out = (
+        Path(experiment["out"])
+        if experiment["out"]
+        else REPO_ROOT
+        / "runs"
+        / (
+            f"{started:%Y%m%d-%H%M%S}-{Path(experiment['experiment']).stem}"
+            f"-{experiment['domain']}-{experiment['mode']}-{Path(experiment['model']).stem}"
+        )
     )
+    experiment["out"] = str(out)
     (out / "tasks").mkdir(parents=True)
     # The benchmark logs every request and tool call at INFO; keep that in the
     # run folder rather than on the terminal.
@@ -351,9 +468,7 @@ def run(args: argparse.Namespace) -> None:
         format="%(asctime)s %(name)s %(levelname)s %(message)s",
     )
 
-    tasks = load_tasks(args.domain, args.mode)
-    tasks = dict(list(tasks.items())[: args.limit])
-    tags = [args.domain, args.mode, "arm:default", model.llm_model]
+    tags = [experiment["domain"], experiment["mode"], "arm:default", model.llm_model]
     records = asyncio.run(
         run_tasks(tasks, model, out, trace=trace, thinking=thinking, tags=tags)
     )
@@ -375,8 +490,9 @@ def run(args: argparse.Namespace) -> None:
     }
     settings = {
         "model": {k: v for k, v in vars(model).items() if k != "llm_api_key"},
-        "domain": args.domain,
-        "mode": args.mode,
+        "experiment": experiment,
+        "domain": experiment["domain"],
+        "mode": experiment["mode"],
         "tasks": list(tasks),
         "dataset": HF_DATASET,
         "dataset_revision": HF_REVISION,

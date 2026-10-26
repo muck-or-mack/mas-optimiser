@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# Demo: the benchmark's own ReAct agent on the first ITSM tasks with Claude
-# Haiku 5.5. Starts the domain servers if needed, then runs the tasks.
+# Demo: start the domain servers if needed, then run the `demo` experiment
+# (configs/experiments/demo.yaml: two ITSM tasks with reasoning summaries).
 #
-#   ./scripts/demo.sh                      # first five tasks
-#   ./scripts/demo.sh 2                    # first two
-#   ./scripts/demo.sh 2 --thinking-summary # any further flags go to the runner
+#   ./scripts/demo.sh             # the demo experiment as configured
+#   ./scripts/demo.sh --limit 1   # any option overrides the experiment file
 #
 # Needs Docker running and ANTHROPIC_API_KEY in .env. With Langfuse set up
 # (scripts/langfuse.sh up) the run is traced as well.
@@ -13,7 +12,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
-  sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'
   exit 0
 fi
 
@@ -26,5 +25,4 @@ fi
 # cold start.
 docker compose -f docker/compose.yaml up -d --wait
 
-uv run mas-optimiser run \
-  --model configs/models/haiku-5-5.yaml --domain itsm --limit "${1:-5}" "${@:2}"
+uv run mas-optimiser run demo "$@"

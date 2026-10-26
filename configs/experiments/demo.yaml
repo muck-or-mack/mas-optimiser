@@ -1,0 +1,9 @@
+# Demonstration: two ITSM tasks with the model's reasoning summaries shown in
+# the Langfuse trace. Not for reported numbers (see thinking_summary).
+# Keys are explained in smoke.yaml.
+model: haiku-5-5
+domain: itsm
+mode: oracle
+limit: 2
+trace: true
+thinking_summary: true

@@ -22,9 +22,15 @@ root:
 ```
 
 This fetches the benchmark submodule, installs exactly the versions in
-`uv.lock`, unpacks the benchmark's seed databases and runs the unit tests.
-Afterwards, run commands inside the environment with `uv run`, for example
-`uv run pytest`.
+`uv.lock` into `.venv/`, unpacks the benchmark's seed databases and runs the
+unit tests. Then activate the environment in each new terminal:
+
+```bash
+source .venv/bin/activate
+```
+
+The commands below assume it is active. Without activating, `uv run <command>`
+runs any of them; the scripts in `scripts/` work either way.
 
 ## Benchmark servers
 
@@ -34,24 +40,34 @@ then check that they answer:
 
 ```bash
 docker compose -f docker/compose.yaml up -d
-uv run pytest -m integration
+pytest -m integration
 ```
 
 Stop them with `docker compose -f docker/compose.yaml down`.
 
-## Running benchmark tasks
+## Running an experiment
 
-Copy `.env.example` to `.env` and add the API key. With the servers up, run
-the benchmark's own ReAct agent on the first five ITSM tasks:
+Copy `.env.example` to `.env` and add the API key. An experiment is a short
+YAML file in `configs/experiments/` that sets the model, domain, mode, task
+limit and tracing options, with a comment on each; `smoke.yaml` is the
+annotated example and `demo.yaml` the two-task demonstration. Run one by
+name:
 
 ```bash
-uv run mas-optimiser run --model configs/models/haiku-5-5.yaml --domain itsm --limit 5
+mas-optimiser run smoke
 ```
 
-`./scripts/demo.sh` does the same, starting the servers first if needed.
-`uv run mas-optimiser --help` lists the commands, `uv run mas-optimiser run
---help` the options of one, and every script in `scripts/` and `setup.sh`
-answers `-h`.
+Any option on the command line overrides the file, so `mas-optimiser run
+smoke --limit 1 --domain csm` is a quick variant without editing anything.
+To define a new experiment, copy `smoke.yaml` under a new name. Models are
+named the same way: `model: haiku-5-5` means `configs/models/haiku-5-5.yaml`,
+and a path works in place of any name. The run checks that the domain's
+server answers before it starts, and names the servers' start command if not.
+
+`./scripts/demo.sh` starts the servers if needed and runs the `demo`
+experiment. `mas-optimiser --help` lists the commands, `mas-optimiser run
+--help` the options, and every script in `scripts/` and `setup.sh` answers
+`-h`.
 
 Each run writes a folder under `runs/` (gitignored) with `results.csv` (one
 row per task), `run.json` (settings and totals), `run.log` (the benchmark's
@@ -68,7 +84,7 @@ transcript instead: the policy and request the agent was given, each model
 turn with its tool calls, each tool result, and the verifier table at the end:
 
 ```bash
-uv run mas-optimiser replay runs/<stamp>/tasks/<task_id>.json
+mas-optimiser replay runs/<stamp>/tasks/<task_id>.json
 ```
 
 `--full-policy` prints the whole policy rather than its first lines, and
@@ -95,13 +111,14 @@ project, starts the containers, waits for them, and writes the project's
 keys into this repository's `.env`. It ends by printing the sign-in details;
 `scripts/langfuse.sh login` prints them again and `scripts/langfuse.sh down`
 stops the stack. The UI is at http://localhost:3000. The runner traces
-whenever the keys are set and runs untraced otherwise; `--no-trace` turns
-tracing off for one run.
+whenever the keys are set and the experiment's `trace` is true (the default);
+`--no-trace` turns tracing off for one run.
 
-`--thinking-summary` asks the model for a summary of its reasoning on each
-call so the trace shows it. This changes the agent's behaviour and cost, so
-use it for demonstrations only, never for a run whose numbers are reported;
-`run.json` records whether it was on.
+`thinking_summary: true` in an experiment, or `--thinking-summary` on the
+command line, asks the model for a summary of its reasoning on each call so
+the trace shows it. This changes the agent's behaviour and cost, so use it for
+demonstrations only, never for a run whose numbers are reported; `run.json`
+records whether it was on.
 
 ## Licence
 
