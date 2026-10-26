@@ -48,10 +48,10 @@ Stop them with `docker compose -f docker/compose.yaml down`.
 ## Running an experiment
 
 Copy `.env.example` to `.env` and add the API key. An experiment is a short
-YAML file in `configs/experiments/` that sets the model, domain, mode, task
-limit and tracing options, with a comment on each; `smoke.yaml` is the
-annotated example and `demo.yaml` the two-task demonstration. Run one by
-name:
+YAML file in `configs/experiments/` that sets the model, the domain or
+domains, mode, task limit and tracing options, with a comment on each;
+`smoke.yaml` is the annotated example and `demo.yaml` the two-task
+demonstration. Run one by name:
 
 ```bash
 mas-optimiser run smoke
@@ -69,22 +69,39 @@ experiment. `mas-optimiser --help` lists the commands, `mas-optimiser run
 --help` the options, and every script in `scripts/` and `setup.sh` answers
 `-h`.
 
-Each run writes a folder under `runs/` (gitignored) with `results.csv` (one
-row per task), `run.json` (settings and totals), `run.log` (the benchmark's
-log) and `tasks/` (the executor's result for each task, or the error if it
-never started). A task whose run raises an error counts as failed and the
-error count is reported separately; the benchmark keeps no token counts for
-such a run.
+## Reading the results
 
-## Reading a run
+Results live under `runs/` (gitignored), grouped by experiment and then by
+evaluation, where an evaluation is one model on one domain's tasks:
 
-Each `tasks/<task_id>.json` file is the executor's complete record of one
-task, but as a single JSON document it is hard to read. Print it as a
+```
+runs/<experiment>/
+  index.csv                      one row per evaluation: settings and totals
+  <evaluation>/
+    run.json                     every setting, the task list and the totals
+    tasks.csv                    one row per task run
+    run.log                      the benchmark's log of every request
+    tasks/<task_id>/repeat-1.json  the executor's complete record of that run
+```
+
+An evaluation folder is named by its start time and domain, then anything
+that makes it differ from the experiment file: a `--label` word, an
+overridden model or mode as `model=...`, and `limitN` when only the first N
+tasks ran. So `runs/smoke/20261027-093012-itsm-limit5/` is the smoke
+experiment's first five ITSM tasks run on 27 October. The experiment, not
+the model, domain or date, is the folder level, because it is the question
+being asked; the others are columns of `index.csv`, where any cut of the
+results is one table away. A task whose run raises an error counts as failed
+and the error count is reported separately; the benchmark keeps no token
+counts for such a run.
+
+Each `repeat-<n>.json` file is the executor's complete record of one task
+run, but as a single JSON document it is hard to read. Print it as a
 transcript instead: the policy and request the agent was given, each model
 turn with its tool calls, each tool result, and the verifier table at the end:
 
 ```bash
-mas-optimiser replay runs/<stamp>/tasks/<task_id>.json
+mas-optimiser replay runs/<experiment>/<evaluation>/tasks/<task_id>/repeat-1.json
 ```
 
 `--full-policy` prints the whole policy rather than its first lines, and

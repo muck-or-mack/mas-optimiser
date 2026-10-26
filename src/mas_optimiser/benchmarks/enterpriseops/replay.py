@@ -1,15 +1,15 @@
 """Print a saved task record as a readable transcript.
 
-The runner saves the executor's full record of each task under
-``runs/<stamp>/tasks/<task_id>.json``: the policy and request the agent was
-given, every model message with its tool calls, every tool result and every
-verifier's verdict. As one JSON document it is hard to read. This command
-prints the record in order, as a transcript, with the verifier table at the
-end, so a run can be read without a tracing server.
+The runner saves the executor's full record of each task run under
+``runs/<experiment>/<evaluation>/tasks/<task_id>/repeat-<n>.json``: the policy
+and request the agent was given, every model message with its tool calls,
+every tool result and every verifier's verdict. As one JSON document it is
+hard to read. This command prints the record in order, as a transcript, with
+the verifier table at the end, so a run can be read without a tracing server.
 
 Usage::
 
-    uv run mas-optimiser replay runs/<stamp>/tasks/<task_id>.json [--full-policy] [--max-chars N]
+    mas-optimiser replay runs/<experiment>/<evaluation>/tasks/<task_id>/repeat-1.json [--full-policy] [--max-chars N]
 
 ``python -m mas_optimiser.benchmarks.enterpriseops.replay`` takes the same arguments.
 """
@@ -35,19 +35,22 @@ def format_record(
     Returns:
         The transcript, one run after another.
     """
-    task_id = record.get("benchmark_config", {}).get("task_id", "?")
+    config = record.get("benchmark_config", {})
+    task_id = config.get("task_id", "?")
     lines = []
     for run in record["runs"]:
+        # The runner saves one repeat per file, so the file name says which;
+        # the executor's own run number is always 1.
+        which = config.get("repeat") or f"run {run.get('run_number', '?')}"
         if run.get("error") and not run.get("conversation_flow"):
             lines.append(
-                f"== task {task_id}, run {run.get('run_number', '?')}: "
-                f"raised before it started: {run['error']}"
+                f"== task {task_id}, {which}: raised before it started: {run['error']}"
             )
             continue
         summary = run.get("verification_summary", {})
         verdict = "PASS" if run.get("overall_success") else "FAIL"
         lines.append(
-            f"== task {task_id}, run {run['run_number']}, "
+            f"== task {task_id}, {which}, "
             f"{run.get('execution_time_ms', 0) / 1000:.1f} s, {verdict} "
             f"({summary.get('passed', 0)}/{summary.get('total', 0)} verifiers)"
         )
@@ -118,7 +121,9 @@ def _clip(text: str, max_chars: int) -> str:
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     """Add the replay options to ``parser``; shared with the ``mas-optimiser`` command."""
-    parser.add_argument("record", type=Path, help="a tasks/<task_id>.json file")
+    parser.add_argument(
+        "record", type=Path, help="a tasks/<task_id>/repeat-<n>.json file"
+    )
     parser.add_argument(
         "--full-policy", action="store_true", help="print the whole policy"
     )
@@ -130,9 +135,11 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
 def run(args: argparse.Namespace) -> None:
     """Print the record named by the parsed arguments as a transcript."""
     record = json.loads(args.record.read_text())
-    # The executor's record does not carry the task id; the runner names the
-    # file after it.
-    record.setdefault("benchmark_config", {}).setdefault("task_id", args.record.stem)
+    # The executor's record carries neither the task id nor the repeat; the
+    # runner names the folder and file after them.
+    config = record.setdefault("benchmark_config", {})
+    config.setdefault("task_id", args.record.parent.name)
+    config.setdefault("repeat", args.record.stem)
     print(format_record(record, full_policy=args.full_policy, max_chars=args.max_chars))
 
 

@@ -1,10 +1,20 @@
 """Run EnterpriseOps-Gym tasks through the benchmark's executor and score them.
 
 The runner loads one domain's tasks, runs each with the benchmark's ReAct
-agent against the Docker domain servers, and writes one result folder:
-``results.csv`` with a row per run, ``run.json`` with the settings,
-``run.log``, and ``tasks/<task_id>.json`` with the executor's full record of
-every model message, tool call, tool result and verifier verdict.
+agent against the Docker domain servers, and writes one evaluation folder
+under ``runs/<experiment>/``: ``tasks.csv`` with a row per task run,
+``run.json`` with the settings and totals, ``run.log``, and
+``tasks/<task_id>/repeat-<n>.json`` with the executor's full record of every
+model message, tool call, tool result and verifier verdict. Each experiment
+folder keeps an ``index.csv`` with one row per evaluation, so the evaluations
+of one experiment can be compared without opening them.
+
+An experiment is a named question (``baseline-haiku``); an evaluation is one
+model on one domain's tasks, named by its start time and domain plus anything
+that makes it differ from the experiment file: a label, an overridden model or
+mode, or a task limit. Model, domain and date are therefore columns of the
+index, not levels of the folder tree, which keeps every cut of the results one
+table away.
 
 Tasks come from the Hugging Face dataset at a pinned revision; in oracle mode
 the submodule's corrected copies in ``data/revised`` replace the dataset's
@@ -26,12 +36,12 @@ keys verifier results by name (``benchmark/executor.py:420`` and ``:474``), so
 where a task gives the same name to different verifiers only the last decides
 whether the task passes.
 
-An experiment is a YAML file in ``configs/experiments/`` that names the model,
-domain, mode, task limit and tracing options, referred to by its bare name; any
-option given on the command line overrides the file. Usage::
+An experiment file in ``configs/experiments/`` names the model, the domain or
+domains, mode, task limit, label and tracing options, and is referred to by
+its bare name; any option given on the command line overrides the file. Usage::
 
     mas-optimiser run smoke
-    mas-optimiser run demo --limit 1
+    mas-optimiser run demo --limit 1 --label first-try
 
 ``python -m mas_optimiser.benchmarks.enterpriseops.runner`` takes the same arguments.
 """
@@ -42,6 +52,7 @@ import csv
 import json
 import logging
 import os
+import re
 from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
@@ -70,20 +81,26 @@ ID_COLUMNS = {"task_id", "domain"}
 
 REPO_ROOT = GYM_ROOT.parents[1]
 CONFIGS = REPO_ROOT / "configs"
+RUNS = REPO_ROOT / "runs"
 DESCRIPTION = __doc__.split("\n\n")[0]
 DOMAINS = ["itsm", "csm", "hr"]
 MODES = ["oracle", "plus_5_tools", "plus_10_tools", "plus_15_tools"]
 # Every key an experiment file may set, with its default. ``model`` and
 # ``domain`` have none: the file or the command line must supply them.
+# ``domain`` may be a list, giving one evaluation per domain.
 EXPERIMENT_DEFAULTS = {
     "model": None,
     "domain": None,
     "mode": "oracle",
     "limit": None,
+    "label": None,
     "out": None,
     "trace": True,
     "thinking_summary": False,
 }
+# Command-line overrides of these keys change what an evaluation measures, so
+# they go into its folder name; the rest (tracing, output folder) do not.
+NAMED_OVERRIDES = ("model", "mode")
 
 # Asks the model for a readable summary of its reasoning on every call, which
 # the trace then shows. Thinking happens either way; only its visibility
@@ -187,12 +204,15 @@ def load_experiment(spec: str, overrides: dict) -> dict:
             the command line did not set that option.
 
     Returns:
-        The settings: the defaults, then the file, then the overrides, plus
-        ``experiment`` (the spec) and ``experiment_file`` (its path).
+        The settings: the defaults, then the file, then the overrides, with
+        ``domain`` always a list, plus ``experiment`` (the file's stem),
+        ``experiment_file`` (its path) and ``overrides`` (the command-line
+        values that were applied).
 
     Raises:
         SystemExit: For an unknown key in the file, a missing model or domain,
-            a domain or mode the benchmark does not have, or a limit below 1.
+            a domain or mode the benchmark does not have, a limit below 1, or
+            a label that cannot be part of a folder name.
     """
     path = config_path("experiments", spec)
     from_file = yaml.safe_load(path.read_text()) or {}
@@ -202,24 +222,64 @@ def load_experiment(spec: str, overrides: dict) -> dict:
             f"error: {path} has unknown keys {unknown}; "
             f"allowed: {sorted(EXPERIMENT_DEFAULTS)}"
         )
-    settings = EXPERIMENT_DEFAULTS | from_file
-    settings |= {key: value for key, value in overrides.items() if value is not None}
+    applied = {key: value for key, value in overrides.items() if value is not None}
+    settings = EXPERIMENT_DEFAULTS | from_file | applied
     for key in ("model", "domain"):
         if settings[key] is None:
             raise SystemExit(
                 f"error: {key} is set neither in {path} nor on the command line"
             )
-    if settings["domain"] not in DOMAINS:
-        raise SystemExit(
-            f"error: domain must be one of {DOMAINS}, not {settings['domain']!r}"
-        )
+    domains = settings["domain"]
+    settings["domain"] = [domains] if isinstance(domains, str) else list(domains)
+    for domain in settings["domain"]:
+        if domain not in DOMAINS:
+            raise SystemExit(f"error: domain must be one of {DOMAINS}, not {domain!r}")
     if settings["mode"] not in MODES:
         raise SystemExit(
             f"error: mode must be one of {MODES}, not {settings['mode']!r}"
         )
     if settings["limit"] is not None and settings["limit"] < 1:
         raise SystemExit("error: limit must be at least 1")
-    return settings | {"experiment": spec, "experiment_file": str(path)}
+    label = settings["label"]
+    if label is not None and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", str(label)):
+        raise SystemExit(
+            f"error: label {label!r} must be letters, digits, '-' or '_' (it names a folder)"
+        )
+    return settings | {
+        "experiment": path.stem,
+        "experiment_file": str(path),
+        "overrides": applied,
+    }
+
+
+def evaluation_name(settings: dict, domain: str, started: datetime) -> str:
+    """Name an evaluation folder so that it reads as what was run.
+
+    The start time orders the evaluations of an experiment, then the domain,
+    the label if any, every overridden key in ``NAMED_OVERRIDES`` as
+    ``key=value`` so that an experiment folder never silently holds a
+    different model or mode, and ``limitN`` when only the first N tasks ran.
+    """
+    parts = [f"{started:%Y%m%d-%H%M%S}", domain]
+    if settings["label"]:
+        parts.append(str(settings["label"]))
+    for key in NAMED_OVERRIDES:
+        if key in settings["overrides"]:
+            parts.append(f"{key}={Path(str(settings[key])).stem}")
+    if settings["limit"] is not None:
+        parts.append(f"limit{settings['limit']}")
+    return "-".join(parts)
+
+
+def append_index(experiment_dir: Path, row: dict) -> None:
+    """Add one evaluation's row to the experiment's ``index.csv``."""
+    path = experiment_dir / "index.csv"
+    new = not path.exists()
+    with path.open("a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=list(row))
+        if new:
+            writer.writeheader()
+        writer.writerow(row)
 
 
 def check_servers(urls: set[str]) -> None:
@@ -331,11 +391,11 @@ async def run_tasks(
             trace=trace,
             thinking=thinking,
         )
-        # The run folder's name groups the traces as one session.
+        # The evaluation's experiment and folder name group the traces as one session.
         span_context = (
             tracing.task_trace(
                 task_id,
-                session_id=out.name,
+                session_id=f"{out.parent.name}/{out.name}",
                 tags=tags,
                 metadata={"task_id": task_id, "dataset_revision": HF_REVISION},
             )
@@ -374,9 +434,9 @@ async def run_tasks(
                         )
                     }
                 )
-        (out / "tasks" / f"{task_id}.json").write_text(
-            json.dumps(result, indent=2, default=str)
-        )
+        folder = out / "tasks" / task_id
+        folder.mkdir(exist_ok=True)
+        (folder / "repeat-1.json").write_text(json.dumps(result, indent=2, default=str))
         for r in task_records:
             records.append(r)
             outcome = "error" if r["error"] else "pass" if r["success"] else "fail"
@@ -411,7 +471,12 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         help="oracle gives the agent only the task's own tools; plus_N_tools adds N distractors",
     )
     parser.add_argument("--limit", type=int, help="run only the first N tasks")
-    parser.add_argument("--out", type=Path, help="output folder (default: in runs/)")
+    parser.add_argument(
+        "--label", help="a word added to the evaluation's folder name, e.g. after-fix"
+    )
+    parser.add_argument(
+        "--out", type=Path, help="evaluation folder (default: runs/<experiment>/<name>)"
+    )
     parser.add_argument(
         "--trace",
         action=argparse.BooleanOptionalAction,
@@ -425,13 +490,43 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def run(args: argparse.Namespace) -> None:
-    """Run and score the tasks of the experiment named by the parsed arguments."""
+    """Run the experiment named by the parsed arguments, one evaluation per domain."""
     overrides = {key: getattr(args, key) for key in EXPERIMENT_DEFAULTS}
     experiment = load_experiment(args.experiment, overrides)
 
     load_dotenv(REPO_ROOT / ".env")
     model = load_model(config_path("models", experiment["model"]))
-    tasks = load_tasks(experiment["domain"], experiment["mode"])
+    trace = tracing.configured() and experiment["trace"]
+    thinking = THINKING_SUMMARY if experiment["thinking_summary"] else None
+    if trace:
+        # The Anthropic SDK also writes a metadata-only span per call into any
+        # registered tracer; the LangChain callback already records each call
+        # with its content, so those duplicates are switched off.
+        os.environ.setdefault("ANTHROPIC_OPEN_TELEMETRY", "false")
+    for domain in experiment["domain"]:
+        evaluate(experiment, domain, model, trace=trace, thinking=thinking)
+    if trace:
+        tracing.shutdown()
+
+
+def evaluate(
+    experiment: dict,
+    domain: str,
+    model: LLMConfig,
+    *,
+    trace: bool,
+    thinking: dict | None,
+) -> None:
+    """Run one domain's tasks as one evaluation and write its folder and index row.
+
+    Args:
+        experiment: Settings from ``load_experiment``.
+        domain: The domain to run; one of ``experiment["domain"]``.
+        model: The agent's model config.
+        trace: Send each task to Langfuse.
+        thinking: Model ``thinking`` setting, or ``None`` for the default.
+    """
+    tasks = load_tasks(domain, experiment["mode"])
     tasks = dict(list(tasks.items())[: experiment["limit"]])
     check_servers(
         {
@@ -440,42 +535,36 @@ def run(args: argparse.Namespace) -> None:
             for s in config["gym_servers_config"]
         }
     )
-    trace = tracing.configured() and experiment["trace"]
-    thinking = THINKING_SUMMARY if experiment["thinking_summary"] else None
-    if trace:
-        # The Anthropic SDK also writes a metadata-only span per call into any
-        # registered tracer; the LangChain callback already records each call
-        # with its content, so those duplicates are switched off.
-        os.environ.setdefault("ANTHROPIC_OPEN_TELEMETRY", "false")
     started = datetime.now()
     out = (
         Path(experiment["out"])
         if experiment["out"]
-        else REPO_ROOT
-        / "runs"
-        / (
-            f"{started:%Y%m%d-%H%M%S}-{Path(experiment['experiment']).stem}"
-            f"-{experiment['domain']}-{experiment['mode']}-{Path(experiment['model']).stem}"
-        )
+        else RUNS
+        / experiment["experiment"]
+        / evaluation_name(experiment, domain, started)
     )
-    experiment["out"] = str(out)
     (out / "tasks").mkdir(parents=True)
     # The benchmark logs every request and tool call at INFO; keep that in the
-    # run folder rather than on the terminal.
-    logging.basicConfig(
-        filename=out / "run.log",
-        level=logging.INFO,
-        format="%(asctime)s %(name)s %(levelname)s %(message)s",
+    # evaluation folder rather than on the terminal. One handler per
+    # evaluation, since one process may run several domains.
+    handler = logging.FileHandler(out / "run.log")
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s")
     )
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    root.addHandler(handler)
 
-    tags = [experiment["domain"], experiment["mode"], "arm:default", model.llm_model]
-    records = asyncio.run(
-        run_tasks(tasks, model, out, trace=trace, thinking=thinking, tags=tags)
-    )
-    if trace:
-        tracing.shutdown()
+    tags = [domain, experiment["mode"], "arm:default", model.llm_model]
+    try:
+        records = asyncio.run(
+            run_tasks(tasks, model, out, trace=trace, thinking=thinking, tags=tags)
+        )
+    finally:
+        root.removeHandler(handler)
+        handler.close()
 
-    with (out / "results.csv").open("w", newline="") as f:
+    with (out / "tasks.csv").open("w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=list(records[0]))
         writer.writeheader()
         writer.writerows(records)
@@ -489,10 +578,16 @@ def run(args: argparse.Namespace) -> None:
         "output_tokens": sum(r["output_tokens"] for r in records),
     }
     settings = {
+        "experiment": experiment["experiment"],
+        "experiment_file": experiment["experiment_file"],
+        "evaluation": out.name,
+        "label": experiment["label"],
+        "overrides": experiment["overrides"],
+        "harness": "default",
         "model": {k: v for k, v in vars(model).items() if k != "llm_api_key"},
-        "experiment": experiment,
-        "domain": experiment["domain"],
+        "domain": domain,
         "mode": experiment["mode"],
+        "limit": experiment["limit"],
         "tasks": list(tasks),
         "dataset": HF_DATASET,
         "dataset_revision": HF_REVISION,
@@ -503,6 +598,25 @@ def run(args: argparse.Namespace) -> None:
         "finished": datetime.now().isoformat(timespec="seconds"),
     }
     (out / "run.json").write_text(json.dumps(settings | {"totals": totals}, indent=2))
+    append_index(
+        out.parent,
+        {
+            "evaluation": out.name,
+            "started": settings["started"],
+            "domain": domain,
+            "mode": experiment["mode"],
+            "model": model.llm_model,
+            "harness": "default",
+            "label": experiment["label"] or "",
+            "overrides": " ".join(
+                f"{k}={v}" for k, v in experiment["overrides"].items()
+            ),
+            "limit": experiment["limit"] or "",
+            "tasks": len(tasks),
+            "code_version": mas_optimiser.__version__,
+        }
+        | totals,
+    )
 
     print(
         f"\n{totals['successes']}/{totals['runs']} tasks passed "
@@ -510,7 +624,11 @@ def run(args: argparse.Namespace) -> None:
         f"{totals['verifiers_passed']}/{totals['verifiers_total']}; "
         f"{totals['input_tokens']:,} input and {totals['output_tokens']:,} output "
         f"tokens. Results in {out}"
-        + (f"; traces in Langfuse session {out.name}" if trace else "")
+        + (
+            f"; traces in Langfuse session {out.parent.name}/{out.name}"
+            if trace
+            else ""
+        )
     )
 
 
