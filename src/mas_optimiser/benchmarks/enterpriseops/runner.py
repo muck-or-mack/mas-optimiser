@@ -103,6 +103,15 @@ EXPERIMENT_DEFAULTS = {
 # Command-line overrides of these keys change what an evaluation measures, so
 # they go into its folder name; the rest (tracing, output folder) do not.
 NAMED_OVERRIDES = ("model", "mode")
+# What a model file's price table must give; see ``cost``.
+PRICING_KEYS = {
+    "input",
+    "output",
+    "cache_read",
+    "cache_write",
+    "long_prompt_tokens",
+    "long_prompt_multiplier",
+}
 
 # Asks the model for a readable summary of its reasoning on every call, which
 # the trace then shows. Thinking happens either way; only its visibility
@@ -342,29 +351,70 @@ def check_servers(urls: set[str]) -> None:
             ) from exc
 
 
-def load_model(path: Path) -> LLMConfig:
-    """Build the benchmark's model config from a YAML file and the environment.
+def load_model(path: Path) -> tuple[LLMConfig, dict]:
+    """Build the benchmark's model config and price table from a YAML file.
 
     Args:
         path: YAML file of ``LLMConfig`` fields plus ``api_key_env``, the name
-            of the environment variable that holds the API key.
+            of the environment variable that holds the API key, and
+            ``pricing``, a table with the keys in ``PRICING_KEYS`` in US
+            dollars per million tokens.
 
     Returns:
-        The config, with the key filled in from the environment.
+        The config, with the key filled in from the environment, and the
+        price table.
 
     Raises:
         RuntimeError: If that environment variable is unset or empty.
+        SystemExit: If the price table is missing a key, before any money is
+            spent on runs whose cost could not be reported.
     """
     fields = yaml.safe_load(path.read_text())
+    pricing = fields.pop("pricing", None) or {}
+    missing = sorted(PRICING_KEYS - set(pricing))
+    if missing:
+        raise SystemExit(
+            f"error: {path} needs pricing keys {missing} "
+            "(US dollars per million tokens, from the provider's price list)"
+        )
     key_name = fields.pop("api_key_env")
     key = os.environ.get(key_name)
     if not key:
         raise RuntimeError(f"{key_name} is not set; add it to .env (see .env.example)")
-    return LLMConfig(llm_api_key=key, **fields)
+    return LLMConfig(llm_api_key=key, **fields), pricing
+
+
+def cost(usage: list[dict], pricing: dict) -> float:
+    """US dollars for a run's model calls under a model's price table.
+
+    Args:
+        usage: One LangChain ``usage_metadata`` per call. Its ``input_tokens``
+            include the cached tokens that ``input_token_details`` breaks out.
+        pricing: The table from ``load_model``. A call whose prompt is over
+            ``long_prompt_tokens`` is charged ``long_prompt_multiplier`` times
+            the rates, as the Claude API does.
+    """
+    total = 0.0
+    for call in usage:
+        details = call.get("input_token_details") or {}
+        cache_read = details.get("cache_read") or 0
+        cache_write = details.get("cache_creation") or 0
+        long_prompt = call["input_tokens"] > pricing["long_prompt_tokens"]
+        total += (pricing["long_prompt_multiplier"] if long_prompt else 1) * (
+            (call["input_tokens"] - cache_read - cache_write) * pricing["input"]
+            + cache_read * pricing["cache_read"]
+            + cache_write * pricing["cache_write"]
+            + call["output_tokens"] * pricing["output"]
+        )
+    return total / 1_000_000
 
 
 def task_record(
-    task_id: str, repeat: int, run: dict, original_names: dict[str, str]
+    task_id: str,
+    repeat: int,
+    run: dict,
+    original_names: dict[str, str],
+    pricing: dict,
 ) -> dict:
     """Flatten the executor's record of one task run into a ``tasks.csv`` row.
 
@@ -380,16 +430,18 @@ def task_record(
             holding the error if it raised before the run started.
         original_names: The executor's map from unique verifier names back to
             the task's; its length is the number of verifiers.
+        pricing: The model's price table, for ``cost``.
 
     Returns:
-        The flat row. Token counts cover the agent's model calls; the executor
-        keeps none for a run that raised, so those read zero.
+        The flat row. Token counts and cost cover the agent's model calls; the
+        executor keeps none for a run that raised, so those read zero.
     """
     usage = [
         step["usage_metadata"]
         for step in run.get("conversation_flow", [])
         if step["type"] == "ai_message" and step.get("usage_metadata")
     ]
+    details = [u.get("input_token_details") or {} for u in usage]
     results = run.get("verification_results", {})
     upstream_passed, upstream_total, upstream_success = verifiers.upstream_verdict(
         results, original_names
@@ -407,6 +459,9 @@ def task_record(
         "model_calls": len(usage),
         "input_tokens": sum(u["input_tokens"] for u in usage),
         "output_tokens": sum(u["output_tokens"] for u in usage),
+        "cache_read_tokens": sum(d.get("cache_read") or 0 for d in details),
+        "cache_write_tokens": sum(d.get("cache_creation") or 0 for d in details),
+        "cost_usd": round(cost(usage, pricing), 6),
         "seconds": run.get("execution_time_ms", 0) / 1000,
     }
 
@@ -416,6 +471,7 @@ async def run_task(
     config: dict,
     repeat: int,
     model: LLMConfig,
+    pricing: dict,
     out: Path,
     *,
     trace: bool,
@@ -429,6 +485,7 @@ async def run_task(
         config: Its task config, as from ``load_tasks``.
         repeat: Which repeat this is, from 1; names the saved record.
         model: The agent's model config.
+        pricing: The model's price table.
         out: Evaluation folder; the record goes to ``out/tasks/<task_id>``.
         trace: Send the run to Langfuse as one trace, scored with its verdict.
         thinking: Model ``thinking`` setting, or ``None`` for the default.
@@ -468,7 +525,7 @@ async def run_task(
             # Raised before the run started, e.g. a server that is not up.
             result = {"runs": [{"run_number": 1, "error": repr(exc)}]}
         run = result["runs"][0]
-        record = task_record(task_id, repeat, run, executor.original_names)
+        record = task_record(task_id, repeat, run, executor.original_names, pricing)
         rows = verifiers.verifier_records(
             task_id,
             repeat,
@@ -517,6 +574,7 @@ async def run_task(
 async def run_tasks(
     tasks: dict[str, dict],
     model: LLMConfig,
+    pricing: dict,
     out: Path,
     *,
     repeats: int,
@@ -524,7 +582,7 @@ async def run_tasks(
     trace: bool,
     thinking: dict | None,
     tags: list[str],
-) -> list[dict]:
+) -> tuple[list[dict], list[dict]]:
     """Run every task ``repeats`` times, at most ``concurrency`` runs at once.
 
     Each run seeds its own database on the domain server, so runs share
@@ -534,6 +592,7 @@ async def run_tasks(
     Args:
         tasks: Task configs keyed by task ID, as from ``load_tasks``.
         model: The agent's model config.
+        pricing: The model's price table.
         out: Evaluation folder.
         repeats: Runs per task.
         concurrency: Runs in flight at once.
@@ -557,6 +616,7 @@ async def run_tasks(
                 config,
                 repeat,
                 model,
+                pricing,
                 out,
                 trace=trace,
                 thinking=thinking,
@@ -570,7 +630,8 @@ async def run_tasks(
             f"[{done}/{total}] {task_id} repeat {repeat} {outcome}: verifiers "
             f"{record['verifiers_passed']}/{record['verifiers_total']}, "
             f"{record['model_calls']} calls, {record['input_tokens']:,} in / "
-            f"{record['output_tokens']:,} out tokens, {record['seconds']:.0f} s"
+            f"{record['output_tokens']:,} out tokens, ${record['cost_usd']:.4f}, "
+            f"{record['seconds']:.0f} s"
         )
         return record, rows
 
@@ -635,7 +696,7 @@ def run(args: argparse.Namespace) -> None:
     experiment = load_experiment(args.experiment, overrides)
 
     load_dotenv(REPO_ROOT / ".env")
-    model = load_model(config_path("models", experiment["model"]))
+    model, pricing = load_model(config_path("models", experiment["model"]))
     trace = tracing.configured() and experiment["trace"]
     thinking = THINKING_SUMMARY if experiment["thinking_summary"] else None
     if trace:
@@ -644,7 +705,7 @@ def run(args: argparse.Namespace) -> None:
         # with its content, so those duplicates are switched off.
         os.environ.setdefault("ANTHROPIC_OPEN_TELEMETRY", "false")
     for domain in experiment["domain"]:
-        evaluate(experiment, domain, model, trace=trace, thinking=thinking)
+        evaluate(experiment, domain, model, pricing, trace=trace, thinking=thinking)
     if trace:
         tracing.shutdown()
 
@@ -653,6 +714,7 @@ def evaluate(
     experiment: dict,
     domain: str,
     model: LLMConfig,
+    pricing: dict,
     *,
     trace: bool,
     thinking: dict | None,
@@ -663,6 +725,7 @@ def evaluate(
         experiment: Settings from ``load_experiment``.
         domain: The domain to run; one of ``experiment["domain"]``.
         model: The agent's model config.
+        pricing: The model's price table.
         trace: Send each task to Langfuse.
         thinking: Model ``thinking`` setting, or ``None`` for the default.
     """
@@ -701,6 +764,7 @@ def evaluate(
             run_tasks(
                 tasks,
                 model,
+                pricing,
                 out,
                 repeats=experiment["repeats"],
                 concurrency=experiment["concurrency"],
@@ -740,6 +804,10 @@ def evaluate(
         "upstream_verifiers_total": sum(r["upstream_verifiers_total"] for r in records),
         "input_tokens": sum(r["input_tokens"] for r in records),
         "output_tokens": sum(r["output_tokens"] for r in records),
+        "cache_read_tokens": sum(r["cache_read_tokens"] for r in records),
+        "cache_write_tokens": sum(r["cache_write_tokens"] for r in records),
+        "cost_usd": round(sum(r["cost_usd"] for r in records), 4),
+        "seconds": round(sum(r["seconds"] for r in records), 1),
     }
     settings = {
         "experiment": experiment["experiment"],
@@ -749,6 +817,7 @@ def evaluate(
         "overrides": experiment["overrides"],
         "harness": "default",
         "model": {k: v for k, v in vars(model).items() if k != "llm_api_key"},
+        "pricing": pricing,
         "domain": domain,
         "mode": experiment["mode"],
         "limit": experiment["limit"],

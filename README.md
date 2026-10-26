@@ -89,7 +89,10 @@ runs/<experiment>/
 times, each run from a freshly seeded database, so that a task the agent
 always fails can be told from one it fails half the time; `tasks.csv` has a
 row per run and `run.json` counts the tasks that passed every repeat.
-`concurrency` (default 4) is how many runs are in flight at once.
+`concurrency` (default 4) is how many runs are in flight at once. Each row
+also carries the run's cost in US dollars, priced with the table in the model
+file (`configs/models/<model>.yaml`, which records when the prices were
+checked), and `run.json` and `index.csv` carry the evaluation's total.
 
 A task passes when every one of its verifiers passes. Two things differ from
 the benchmark's own count, and the `upstream_` columns of `tasks.csv` and
