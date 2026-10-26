@@ -4,6 +4,11 @@
 
 set -euo pipefail
 
+if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
+  sed -n '2,3p' "$0" | sed 's/^# \{0,1\}//'
+  exit 0
+fi
+
 if [ ! -f pyproject.toml ] || ! grep -q '^name = "mas-optimiser"' pyproject.toml; then
   echo "ERROR: run this script from the mas-optimiser repository root." >&2
   exit 1

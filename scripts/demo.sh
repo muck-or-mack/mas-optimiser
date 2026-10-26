@@ -12,6 +12,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
+  sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'
+  exit 0
+fi
+
 if ! docker info >/dev/null 2>&1; then
   echo "ERROR: Docker is not running; start Docker Desktop and try again." >&2
   exit 1
@@ -21,5 +26,5 @@ fi
 # cold start.
 docker compose -f docker/compose.yaml up -d --wait
 
-uv run python -m mas_optimiser.benchmarks.enterpriseops.runner \
+uv run mas-optimiser run \
   --model configs/models/haiku-5-5.yaml --domain itsm --limit "${1:-5}" "${@:2}"
