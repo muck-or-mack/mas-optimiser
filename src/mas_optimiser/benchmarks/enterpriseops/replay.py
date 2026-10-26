@@ -18,6 +18,8 @@ import argparse
 import json
 from pathlib import Path
 
+from mas_optimiser.benchmarks.enterpriseops.diagnosis import describe
+
 POLICY_PREVIEW_LINES = 12
 DESCRIPTION = __doc__.split("\n\n")[0]
 
@@ -110,6 +112,9 @@ def format_record(
             )
             if v.get("query"):
                 lines.append(f"         {v['query']}")
+            why = describe(v.get("diagnosis"))
+            if why:
+                lines.append(f"         why: {why}")
         lines.append("")
     return "\n".join(lines)
 

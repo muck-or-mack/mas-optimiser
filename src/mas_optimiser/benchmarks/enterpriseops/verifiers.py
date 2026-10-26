@@ -20,6 +20,8 @@ side, and ``verifier_records`` flattens one run's verdicts into the rows of
 
 import contextlib
 
+from mas_optimiser.benchmarks.enterpriseops import diagnosis
+
 NUMBER_TYPES = (int, float)
 COLUMNS = (
     "task_id",
@@ -31,6 +33,7 @@ COLUMNS = (
     "comparison",
     "expected",
     "actual",
+    "diagnosis",
 )
 
 
@@ -121,6 +124,7 @@ def verifier_records(
                     result.get("comparison_type", ""),
                     result.get("expected"),
                     result.get("actual"),
+                    diagnosis.describe(result.get("diagnosis")),
                 ),
                 strict=True,
             )

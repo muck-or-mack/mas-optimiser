@@ -71,6 +71,7 @@ def test_verifier_records_use_the_original_names_in_order():
             "actual": 0,
         },
     }
+    results["a (2)"]["diagnosis"] = {"kind": "no_match", "condition": "id = 5"}
     rows = verifiers.verifier_records("t", 2, results, original)
     assert [(r["position"], r["name"], r["passed"]) for r in rows] == [
         (1, "a", True),
@@ -86,4 +87,6 @@ def test_verifier_records_use_the_original_names_in_order():
         "comparison": "equals",
         "expected": 1,
         "actual": 0,
+        "diagnosis": "nothing matches id = 5",
     }
+    assert rows[0]["diagnosis"] == ""

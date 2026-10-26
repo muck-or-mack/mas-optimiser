@@ -44,6 +44,10 @@ RECORD = {
                     "actual": 0,
                     "comparison_type": "equals",
                     "query": "SELECT COUNT(*) FROM configuration_item;",
+                    "diagnosis": {
+                        "kind": "no_match",
+                        "condition": "configuration_item_id = 'CI_005'",
+                    },
                 },
                 "Report incident": {"passed": True, "expected": 1, "actual": 1},
             },
@@ -61,6 +65,7 @@ def test_transcript_names_calls_results_and_verdicts():
     assert "FAIL  Add CI: expected 1, actual 0 (equals)" in text
     assert "PASS  Report incident" in text
     assert "SELECT COUNT(*) FROM configuration_item;" in text
+    assert "why: nothing matches configuration_item_id = 'CI_005'" in text
 
 
 def test_policy_preview_and_clipping():

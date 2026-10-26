@@ -64,7 +64,7 @@ from dotenv import load_dotenv
 
 import mas_optimiser
 from mas_optimiser import tracing
-from mas_optimiser.benchmarks.enterpriseops import GYM_ROOT, verifiers
+from mas_optimiser.benchmarks.enterpriseops import GYM_ROOT, diagnosis, verifiers
 
 from benchmark.executor import BenchmarkExecutor
 from benchmark.models import BenchmarkConfig, LLMConfig
@@ -139,6 +139,7 @@ class TaskExecutor(BenchmarkExecutor):
         **kwargs,
     ):
         config.verifiers, self.original_names = verifiers.unique_names(config.verifiers)
+        self.verifier_gyms = {v["name"]: v.get("gym_name") for v in config.verifiers}
         super().__init__(config, *args, **kwargs)
         self.trace = trace
         self.thinking = thinking
@@ -152,10 +153,33 @@ class TaskExecutor(BenchmarkExecutor):
             model.thinking = self.thinking
 
     async def _run_verifiers(self, task_result):
+        # The executor deletes the run's database once execute_benchmark
+        # returns, so a failed verdict is diagnosed here, while it still exists.
         results = await super()._run_verifiers(task_result)
-        for result in results.values():
+        for name, result in results.items():
             verifiers.recheck(result)
+            if not result["passed"] and result.get("query"):
+                result["diagnosis"] = await diagnosis.diagnose(
+                    result, self.sql_runner(name)
+                )
         return results
+
+    def sql_runner(self, name: str) -> diagnosis.RunSQL:
+        """A query function on the database of the gym the named verifier checks.
+
+        Goes through the verifier engine's own SQL runner, so queries reach
+        the same server, database and headers as the verifier did.
+        """
+        gym_name = self.verifier_gyms[name]
+        engine = self.verifier_engine
+
+        async def run_sql(query: str):
+            raw = await engine._execute_sql_query(query, None, None, gym_name)
+            return (
+                engine._extract_value_from_sql_result(raw) if raw["success"] else None
+            )
+
+        return run_sql
 
 
 def load_tasks(domain: str, mode: str) -> dict[str, dict]:
@@ -473,6 +497,13 @@ async def run_task(
                         "upstream_success",
                         "error",
                     )
+                }
+                | {
+                    "failed": {
+                        f"{row['position']} {row['name']}": row["diagnosis"]
+                        for row in rows
+                        if not row["passed"]
+                    }
                 }
             )
     folder = out / "tasks" / task_id

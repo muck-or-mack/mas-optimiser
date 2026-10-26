@@ -100,6 +100,18 @@ last one counts (27 of the 308 oracle tasks); here every verifier counts. And
 which the benchmark compares with `==` against the integer the database
 returns, so they can never pass; here count checks are compared as numbers.
 
+A failed verifier says only that its whole SQL condition did not hold. Before
+the run's database is deleted, each failed count check is taken apart
+condition by condition: the query is re-run with its first one, two, three
+conditions until the count falls short, every remaining condition is then
+tested on top of the ones that hold, and for a failing `column = value` the
+value actually found is fetched. The result is the `diagnosis` column of
+`verifiers.csv` and the `why:` line of a replay, such as
+`channel = 'phone' (actual: chat); priority = 'moderate' (actual: None)` or
+`nothing matches incident_id = 'INC_024'`. A check expecting no rows gets the
+surplus rows instead. About 95% of the verifiers are count checks this
+applies to; the rest keep expected and actual only.
+
 An evaluation folder is named by its start time and domain, then anything
 that makes it differ from the experiment file: a `--label` word, an
 overridden model or mode as `model=...`, and `limitN` when only the first N
