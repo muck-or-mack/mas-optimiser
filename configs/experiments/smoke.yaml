@@ -1,0 +1,23 @@
+# Smoke test: the benchmark's own agent on the first five ITSM tasks.
+#
+# Run it with `mas-optimiser run smoke`; any option on the command line
+# overrides a value here (`mas-optimiser run smoke --limit 1`). To define a new
+# experiment, copy this file under a new name in this folder and refer to it by
+# that name. Every key is optional except model and domain; the defaults are
+# the values shown here.
+
+# Model file in configs/models/, by name (or a path to a YAML file).
+model: haiku-5-5
+# Benchmark domain: itsm (IT service management), csm (customer service), hr.
+domain: itsm
+# oracle gives the agent only the task's own tools; plus_5_tools, plus_10_tools
+# and plus_15_tools add that many distractor tools.
+mode: oracle
+# Run only the first N tasks of the domain; remove the line for all of them.
+limit: 5
+# Send each task to Langfuse as one trace, when the keys in .env are set.
+trace: true
+# Ask the model for a summary of its reasoning on every call, shown in the
+# trace. Changes the agent's behaviour and cost: demonstrations only, never a
+# run whose numbers are reported.
+thinking_summary: false

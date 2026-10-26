@@ -21,9 +21,13 @@ dependencies = [
     "httpx",
     "langchain-anthropic",
     "langchain-core",
+    "langfuse>=5.0.4",
     "python-dotenv",
     "pyyaml",
 ]
+
+[project.scripts]
+mas-optimiser = "mas_optimiser.cli:main"
 
 [dependency-groups]
 dev = ["pytest", "ruff"]
