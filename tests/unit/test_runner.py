@@ -54,17 +54,16 @@ def test_load_model_takes_the_key_from_the_environment(tmp_path, monkeypatch):
         runner.load_model(path)
 
 
-def test_score_counts_an_errored_run_as_a_failed_task():
+def test_task_record_counts_an_errored_run_as_a_failed_task():
     # Two verifiers share a name, so the executor would report two, not three.
     config = {"verifiers": [{"name": "a"}, {"name": "a"}, {"name": "b"}]}
-    result = {"runs": [{"run_number": 1, "error": "server down"}]}
-    [record] = runner.score("t", config, result)
-    assert not record["success"]
+    record = runner.task_record("t", 2, config, {"run_number": 1, "error": "down"})
+    assert not record["success"] and record["repeat"] == 2
     assert (record["verifiers_passed"], record["verifiers_total"]) == (0, 2)
-    assert record["error"] == "server down"
+    assert record["error"] == "down"
 
 
-def test_score_sums_the_agents_token_use():
+def test_task_record_sums_the_agents_token_use():
     usage = {"input_tokens": 1000, "output_tokens": 50}
     run = {
         "run_number": 1,
@@ -78,8 +77,8 @@ def test_score_sums_the_agents_token_use():
             {"type": "ai_message", "usage_metadata": usage},
         ],
     }
-    [record] = runner.score(
-        "t", {"verifiers": [{"name": "a"}, {"name": "b"}]}, {"runs": [run]}
+    record = runner.task_record(
+        "t", 1, {"verifiers": [{"name": "a"}, {"name": "b"}]}, run
     )
     assert record["success"]
     assert record["model_calls"] == 2

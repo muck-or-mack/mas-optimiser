@@ -81,8 +81,14 @@ runs/<experiment>/
     run.json                     every setting, the task list and the totals
     tasks.csv                    one row per task run
     run.log                      the benchmark's log of every request
-    tasks/<task_id>/repeat-1.json  the executor's complete record of that run
+    tasks/<task_id>/repeat-<n>.json  the executor's complete record of one run
 ```
+
+`repeats` in the experiment file (or `--repeats`) runs every task that many
+times, each run from a freshly seeded database, so that a task the agent
+always fails can be told from one it fails half the time; `tasks.csv` has a
+row per run and `run.json` counts the tasks that passed every repeat.
+`concurrency` (default 4) is how many runs are in flight at once.
 
 An evaluation folder is named by its start time and domain, then anything
 that makes it differ from the experiment file: a `--label` word, an

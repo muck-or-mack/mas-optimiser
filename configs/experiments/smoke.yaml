@@ -9,12 +9,20 @@
 # Model file in configs/models/, by name (or a path to a YAML file).
 model: haiku-5-5
 # Benchmark domain: itsm (IT service management), csm (customer service), hr.
+# A list, such as [itsm, csm, hr], runs one evaluation per domain in turn.
 domain: itsm
 # oracle gives the agent only the task's own tools; plus_5_tools, plus_10_tools
 # and plus_15_tools add that many distractor tools.
 mode: oracle
 # Run only the first N tasks of the domain; remove the line for all of them.
 limit: 5
+# Runs per task. One run cannot tell a task the agent always fails from one it
+# fails half the time; three runs can, and are the pilot for the final number.
+repeats: 1
+# Runs in flight at once. Each run has its own database, so runs never touch
+# each other; the limit keeps the domain server and the model's rate limits
+# comfortable.
+concurrency: 4
 # Send each task to Langfuse as one trace, when the keys in .env are set.
 trace: true
 # Ask the model for a summary of its reasoning on every call, shown in the
