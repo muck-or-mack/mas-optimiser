@@ -1,0 +1,10 @@
+# Baseline: the benchmark's own ReAct agent with Claude Haiku 5.5 on every
+# task of the three domains, three runs each, one evaluation per domain.
+# Keys are explained in smoke.yaml.
+model: haiku-5-5
+domain: [itsm, csm, hr]
+mode: oracle
+repeats: 3
+concurrency: 4
+trace: true
+thinking_summary: false

@@ -10,3 +10,15 @@ temperature: 1.0
 # benchmark's client passes no effort or thinking settings to this provider
 # (benchmark/llm_client.py:74-82), so Haiku 5.5 runs at its default effort.
 max_tokens: 16384
+# US dollars per million tokens on the Claude API, from
+# platform.claude.com/docs/en/about-claude/pricing (checked 26/10/2026). A call
+# whose prompt is over long_prompt_tokens costs long_prompt_multiplier times
+# these rates. cache_write is the five-minute cache rate; the agent does not
+# use the one-hour cache.
+pricing:
+  input: 0.10
+  output: 0.50
+  cache_read: 0.01
+  cache_write: 0.125
+  long_prompt_tokens: 100000
+  long_prompt_multiplier: 5

@@ -48,10 +48,11 @@ Stop them with `docker compose -f docker/compose.yaml down`.
 ## Running an experiment
 
 Copy `.env.example` to `.env` and add the API key. An experiment is a short
-YAML file in `configs/experiments/` that sets the model, domain, mode, task
-limit and tracing options, with a comment on each; `smoke.yaml` is the
-annotated example and `demo.yaml` the two-task demonstration. Run one by
-name:
+YAML file in `configs/experiments/` that sets the model, the domain or
+domains, mode, task limit and tracing options, with a comment on each;
+`smoke.yaml` is the annotated example, `demo.yaml` the two-task
+demonstration and `baseline-haiku.yaml` the full baseline (every task of the
+three domains, three runs each). Run one by name:
 
 ```bash
 mas-optimiser run smoke
@@ -69,22 +70,73 @@ experiment. `mas-optimiser --help` lists the commands, `mas-optimiser run
 --help` the options, and every script in `scripts/` and `setup.sh` answers
 `-h`.
 
-Each run writes a folder under `runs/` (gitignored) with `results.csv` (one
-row per task), `run.json` (settings and totals), `run.log` (the benchmark's
-log) and `tasks/` (the executor's result for each task, or the error if it
-never started). A task whose run raises an error counts as failed and the
-error count is reported separately; the benchmark keeps no token counts for
-such a run.
+## Reading the results
 
-## Reading a run
+Results live under `runs/` (gitignored), grouped by experiment and then by
+evaluation, where an evaluation is one model on one domain's tasks:
 
-Each `tasks/<task_id>.json` file is the executor's complete record of one
-task, but as a single JSON document it is hard to read. Print it as a
+```
+runs/<experiment>/
+  index.csv                      one row per evaluation: settings and totals
+  <evaluation>/
+    run.json                     every setting, the task list and the totals
+    tasks.csv                    one row per task run
+    verifiers.csv                one row per verifier per run
+    run.log                      the benchmark's log of every request
+    tasks/<task_id>/repeat-<n>.json  the executor's complete record of one run
+```
+
+`repeats` in the experiment file (or `--repeats`) runs every task that many
+times, each run from a freshly seeded database, so that a task the agent
+always fails can be told from one it fails half the time; `tasks.csv` has a
+row per run and `run.json` counts the tasks that passed every repeat.
+`concurrency` (default 4) is how many runs are in flight at once. Each row
+also carries the run's cost in US dollars, priced with the table in the model
+file (`configs/models/<model>.yaml`, which records when the prices were
+checked), and `run.json` and `index.csv` carry the evaluation's total.
+
+A task passes when every one of its verifiers passes. Two things differ from
+the benchmark's own count, and the `upstream_` columns of `tasks.csv` and
+`verifiers.csv` give that count alongside. The benchmark keys verdicts by
+verifier name, so where a task gives two verifiers the same name only the
+last one counts; in 59 of the 308 oracle tasks names clash, and in 27 of
+those the shared name hides different checks. Here an exact copy of a check
+(32 tasks simply repeat their verifier list) counts once, and every distinct
+check counts. And 33 count checks in seven tasks give their expected value as
+the string `'1'`, which the benchmark compares with `==` against the integer
+the database returns, so they can never pass; here count checks are compared
+as numbers.
+
+A failed verifier says only that its whole SQL condition did not hold. Before
+the run's database is deleted, each failed count check is taken apart
+condition by condition: the query is re-run with its first one, two, three
+conditions until the count falls short, every remaining condition is then
+tested on top of the ones that hold, and for a failing `column = value` the
+value actually found is fetched. The result is the `diagnosis` column of
+`verifiers.csv` and the `why:` line of a replay, such as
+`channel = 'phone' (actual: chat); priority = 'moderate' (actual: None)` or
+`nothing matches incident_id = 'INC_024'`. A check expecting no rows gets the
+surplus rows instead. About 95% of the verifiers are count checks this
+applies to; the rest keep expected and actual only.
+
+An evaluation folder is named by its start time and domain, then anything
+that makes it differ from the experiment file: a `--label` word, an
+overridden model or mode as `model=...`, and `limitN` when only the first N
+tasks ran. So `runs/smoke/20261027-093012-itsm-limit5/` is the smoke
+experiment's first five ITSM tasks run on 27 October. The experiment, not
+the model, domain or date, is the folder level, because it is the question
+being asked; the others are columns of `index.csv`, where any cut of the
+results is one table away. A task whose run raises an error counts as failed
+and the error count is reported separately; the benchmark keeps no token
+counts for such a run.
+
+Each `repeat-<n>.json` file is the executor's complete record of one task
+run, but as a single JSON document it is hard to read. Print it as a
 transcript instead: the policy and request the agent was given, each model
 turn with its tool calls, each tool result, and the verifier table at the end:
 
 ```bash
-mas-optimiser replay runs/<stamp>/tasks/<task_id>.json
+mas-optimiser replay runs/<experiment>/<evaluation>/tasks/<task_id>/repeat-1.json
 ```
 
 `--full-policy` prints the whole policy rather than its first lines, and

@@ -1,10 +1,20 @@
 """Run EnterpriseOps-Gym tasks through the benchmark's executor and score them.
 
 The runner loads one domain's tasks, runs each with the benchmark's ReAct
-agent against the Docker domain servers, and writes one result folder:
-``results.csv`` with a row per run, ``run.json`` with the settings,
-``run.log``, and ``tasks/<task_id>.json`` with the executor's full record of
-every model message, tool call, tool result and verifier verdict.
+agent against the Docker domain servers, and writes one evaluation folder
+under ``runs/<experiment>/``: ``tasks.csv`` with a row per task run,
+``run.json`` with the settings and totals, ``run.log``, and
+``tasks/<task_id>/repeat-<n>.json`` with the executor's full record of every
+model message, tool call, tool result and verifier verdict. Each experiment
+folder keeps an ``index.csv`` with one row per evaluation, so the evaluations
+of one experiment can be compared without opening them.
+
+An experiment is a named question (``baseline-haiku``); an evaluation is one
+model on one domain's tasks, named by its start time and domain plus anything
+that makes it differ from the experiment file: a label, an overridden model or
+mode, or a task limit. Model, domain and date are therefore columns of the
+index, not levels of the folder tree, which keeps every cut of the results one
+table away.
 
 Tasks come from the Hugging Face dataset at a pinned revision; in oracle mode
 the submodule's corrected copies in ``data/revised`` replace the dataset's
@@ -21,17 +31,17 @@ scored as a failure, where ``evaluate.py`` retries the task up to five times
 and ``compute_score.py`` averages whatever is left, counting a still-failing
 run as zero and silently dropping a task that raised before any run started.
 
-Scoring is otherwise the executor's own, including one quirk kept for now: it
-keys verifier results by name (``benchmark/executor.py:420`` and ``:474``), so
-where a task gives the same name to different verifiers only the last decides
-whether the task passes.
+Scoring counts every verifier of a task and compares count checks numerically,
+where the executor loses verifiers that share a name and fails checks whose
+expected value is a number written as a string; the executor's own verdict is
+kept beside the corrected one (see ``verifiers``).
 
-An experiment is a YAML file in ``configs/experiments/`` that names the model,
-domain, mode, task limit and tracing options, referred to by its bare name; any
-option given on the command line overrides the file. Usage::
+An experiment file in ``configs/experiments/`` names the model, the domain or
+domains, mode, task limit, label and tracing options, and is referred to by
+its bare name; any option given on the command line overrides the file. Usage::
 
     mas-optimiser run smoke
-    mas-optimiser run demo --limit 1
+    mas-optimiser run demo --limit 1 --label first-try
 
 ``python -m mas_optimiser.benchmarks.enterpriseops.runner`` takes the same arguments.
 """
@@ -42,6 +52,7 @@ import csv
 import json
 import logging
 import os
+import re
 from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
@@ -53,7 +64,7 @@ from dotenv import load_dotenv
 
 import mas_optimiser
 from mas_optimiser import tracing
-from mas_optimiser.benchmarks.enterpriseops import GYM_ROOT
+from mas_optimiser.benchmarks.enterpriseops import GYM_ROOT, diagnosis, verifiers
 
 from benchmark.executor import BenchmarkExecutor
 from benchmark.models import BenchmarkConfig, LLMConfig
@@ -70,19 +81,36 @@ ID_COLUMNS = {"task_id", "domain"}
 
 REPO_ROOT = GYM_ROOT.parents[1]
 CONFIGS = REPO_ROOT / "configs"
+RUNS = REPO_ROOT / "runs"
 DESCRIPTION = __doc__.split("\n\n")[0]
 DOMAINS = ["itsm", "csm", "hr"]
 MODES = ["oracle", "plus_5_tools", "plus_10_tools", "plus_15_tools"]
 # Every key an experiment file may set, with its default. ``model`` and
 # ``domain`` have none: the file or the command line must supply them.
+# ``domain`` may be a list, giving one evaluation per domain.
 EXPERIMENT_DEFAULTS = {
     "model": None,
     "domain": None,
     "mode": "oracle",
     "limit": None,
+    "repeats": 1,
+    "concurrency": 4,
+    "label": None,
     "out": None,
     "trace": True,
     "thinking_summary": False,
+}
+# Command-line overrides of these keys change what an evaluation measures, so
+# they go into its folder name; the rest (tracing, output folder) do not.
+NAMED_OVERRIDES = ("model", "mode")
+# What a model file's price table must give; see ``cost``.
+PRICING_KEYS = {
+    "input",
+    "output",
+    "cache_read",
+    "cache_write",
+    "long_prompt_tokens",
+    "long_prompt_multiplier",
 }
 
 # Asks the model for a readable summary of its reasoning on every call, which
@@ -91,14 +119,19 @@ EXPERIMENT_DEFAULTS = {
 THINKING_SUMMARY = {"type": "adaptive", "display": "summarized"}
 
 
-class TracedExecutor(BenchmarkExecutor):
-    """The benchmark's executor with tracing attached to the model it builds.
+class TaskExecutor(BenchmarkExecutor):
+    """The benchmark's executor with tracing attached and every verifier counted.
 
     The executor constructs its model client inside ``initialize()``, which
-    ``execute_benchmark()`` calls itself, so this is the first point at which
-    the model object exists and the callback can be set on it.
+    ``execute_benchmark()`` calls itself, so that is the first point at which
+    the model object exists and the callback can be set on it. The task's
+    verifiers are renamed before the run so that none overwrites another, and
+    each verdict is rechecked after they run, with the executor's own verdict
+    kept beside it (see ``verifiers``); ``names`` maps the unique names back
+    to the task's.
 
     Args:
+        config: The task's ``BenchmarkConfig``.
         trace: Attach the Langfuse callback to the model.
         thinking: A ``thinking`` setting to put on the model, or ``None`` to
             leave the benchmark's default. Changes the agent's behaviour and
@@ -106,8 +139,17 @@ class TracedExecutor(BenchmarkExecutor):
             number.
     """
 
-    def __init__(self, *args, trace: bool, thinking: dict | None, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self,
+        config: BenchmarkConfig,
+        *args,
+        trace: bool,
+        thinking: dict | None,
+        **kwargs,
+    ):
+        config.verifiers, self.names = verifiers.unique_names(config.verifiers)
+        self.verifier_gyms = {v["name"]: v.get("gym_name") for v in config.verifiers}
+        super().__init__(config, *args, **kwargs)
         self.trace = trace
         self.thinking = thinking
 
@@ -118,6 +160,35 @@ class TracedExecutor(BenchmarkExecutor):
             tracing.attach(model)
         if self.thinking:
             model.thinking = self.thinking
+
+    async def _run_verifiers(self, task_result):
+        # The executor deletes the run's database once execute_benchmark
+        # returns, so a failed verdict is diagnosed here, while it still exists.
+        results = await super()._run_verifiers(task_result)
+        for name, result in results.items():
+            verifiers.recheck(result)
+            if not result["passed"] and result.get("query"):
+                result["diagnosis"] = await diagnosis.diagnose(
+                    result, self.sql_runner(name)
+                )
+        return results
+
+    def sql_runner(self, name: str) -> diagnosis.RunSQL:
+        """A query function on the database of the gym the named verifier checks.
+
+        Goes through the verifier engine's own SQL runner, so queries reach
+        the same server, database and headers as the verifier did.
+        """
+        gym_name = self.verifier_gyms[name]
+        engine = self.verifier_engine
+
+        async def run_sql(query: str):
+            raw = await engine._execute_sql_query(query, None, None, gym_name)
+            return (
+                engine._extract_value_from_sql_result(raw) if raw["success"] else None
+            )
+
+        return run_sql
 
 
 def load_tasks(domain: str, mode: str) -> dict[str, dict]:
@@ -187,12 +258,15 @@ def load_experiment(spec: str, overrides: dict) -> dict:
             the command line did not set that option.
 
     Returns:
-        The settings: the defaults, then the file, then the overrides, plus
-        ``experiment`` (the spec) and ``experiment_file`` (its path).
+        The settings: the defaults, then the file, then the overrides, with
+        ``domain`` always a list, plus ``experiment`` (the file's stem),
+        ``experiment_file`` (its path) and ``overrides`` (the command-line
+        values that were applied).
 
     Raises:
         SystemExit: For an unknown key in the file, a missing model or domain,
-            a domain or mode the benchmark does not have, or a limit below 1.
+            a domain or mode the benchmark does not have, a limit below 1, or
+            a label that cannot be part of a folder name.
     """
     path = config_path("experiments", spec)
     from_file = yaml.safe_load(path.read_text()) or {}
@@ -202,24 +276,67 @@ def load_experiment(spec: str, overrides: dict) -> dict:
             f"error: {path} has unknown keys {unknown}; "
             f"allowed: {sorted(EXPERIMENT_DEFAULTS)}"
         )
-    settings = EXPERIMENT_DEFAULTS | from_file
-    settings |= {key: value for key, value in overrides.items() if value is not None}
+    applied = {key: value for key, value in overrides.items() if value is not None}
+    settings = EXPERIMENT_DEFAULTS | from_file | applied
     for key in ("model", "domain"):
         if settings[key] is None:
             raise SystemExit(
                 f"error: {key} is set neither in {path} nor on the command line"
             )
-    if settings["domain"] not in DOMAINS:
-        raise SystemExit(
-            f"error: domain must be one of {DOMAINS}, not {settings['domain']!r}"
-        )
+    domains = settings["domain"]
+    settings["domain"] = [domains] if isinstance(domains, str) else list(domains)
+    for domain in settings["domain"]:
+        if domain not in DOMAINS:
+            raise SystemExit(f"error: domain must be one of {DOMAINS}, not {domain!r}")
     if settings["mode"] not in MODES:
         raise SystemExit(
             f"error: mode must be one of {MODES}, not {settings['mode']!r}"
         )
     if settings["limit"] is not None and settings["limit"] < 1:
         raise SystemExit("error: limit must be at least 1")
-    return settings | {"experiment": spec, "experiment_file": str(path)}
+    for key in ("repeats", "concurrency"):
+        if not isinstance(settings[key], int) or settings[key] < 1:
+            raise SystemExit(f"error: {key} must be a whole number of at least 1")
+    label = settings["label"]
+    if label is not None and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", str(label)):
+        raise SystemExit(
+            f"error: label {label!r} must be letters, digits, '-' or '_' (it names a folder)"
+        )
+    return settings | {
+        "experiment": path.stem,
+        "experiment_file": str(path),
+        "overrides": applied,
+    }
+
+
+def evaluation_name(settings: dict, domain: str, started: datetime) -> str:
+    """Name an evaluation folder so that it reads as what was run.
+
+    The start time orders the evaluations of an experiment, then the domain,
+    the label if any, every overridden key in ``NAMED_OVERRIDES`` as
+    ``key=value`` so that an experiment folder never silently holds a
+    different model or mode, and ``limitN`` when only the first N tasks ran.
+    """
+    parts = [f"{started:%Y%m%d-%H%M%S}", domain]
+    if settings["label"]:
+        parts.append(str(settings["label"]))
+    for key in NAMED_OVERRIDES:
+        if key in settings["overrides"]:
+            parts.append(f"{key}={Path(str(settings[key])).stem}")
+    if settings["limit"] is not None:
+        parts.append(f"limit{settings['limit']}")
+    return "-".join(parts)
+
+
+def append_index(experiment_dir: Path, row: dict) -> None:
+    """Add one evaluation's row to the experiment's ``index.csv``."""
+    path = experiment_dir / "index.csv"
+    new = not path.exists()
+    with path.open("a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=list(row))
+        if new:
+            writer.writeheader()
+        writer.writerow(row)
 
 
 def check_servers(urls: set[str]) -> None:
@@ -234,159 +351,300 @@ def check_servers(urls: set[str]) -> None:
             ) from exc
 
 
-def load_model(path: Path) -> LLMConfig:
-    """Build the benchmark's model config from a YAML file and the environment.
+def load_model(path: Path) -> tuple[LLMConfig, dict]:
+    """Build the benchmark's model config and price table from a YAML file.
 
     Args:
         path: YAML file of ``LLMConfig`` fields plus ``api_key_env``, the name
-            of the environment variable that holds the API key.
+            of the environment variable that holds the API key, and
+            ``pricing``, a table with the keys in ``PRICING_KEYS`` in US
+            dollars per million tokens.
 
     Returns:
-        The config, with the key filled in from the environment.
+        The config, with the key filled in from the environment, and the
+        price table.
 
     Raises:
         RuntimeError: If that environment variable is unset or empty.
+        SystemExit: If the price table is missing a key, before any money is
+            spent on runs whose cost could not be reported.
     """
     fields = yaml.safe_load(path.read_text())
+    pricing = fields.pop("pricing", None) or {}
+    missing = sorted(PRICING_KEYS - set(pricing))
+    if missing:
+        raise SystemExit(
+            f"error: {path} needs pricing keys {missing} "
+            "(US dollars per million tokens, from the provider's price list)"
+        )
     key_name = fields.pop("api_key_env")
     key = os.environ.get(key_name)
     if not key:
         raise RuntimeError(f"{key_name} is not set; add it to .env (see .env.example)")
-    return LLMConfig(llm_api_key=key, **fields)
+    return LLMConfig(llm_api_key=key, **fields), pricing
 
 
-def score(task_id: str, config: dict, result: dict) -> list[dict]:
-    """Turn the executor's result for one task into one record per run.
+def cost(usage: list[dict], pricing: dict) -> float:
+    """US dollars for a run's model calls under a model's price table.
+
+    Args:
+        usage: One LangChain ``usage_metadata`` per call. Its ``input_tokens``
+            include the cached tokens that ``input_token_details`` breaks out.
+        pricing: The table from ``load_model``. A call whose prompt is over
+            ``long_prompt_tokens`` is charged ``long_prompt_multiplier`` times
+            the rates, as the Claude API does.
+    """
+    total = 0.0
+    for call in usage:
+        details = call.get("input_token_details") or {}
+        cache_read = details.get("cache_read") or 0
+        cache_write = details.get("cache_creation") or 0
+        long_prompt = call["input_tokens"] > pricing["long_prompt_tokens"]
+        total += (pricing["long_prompt_multiplier"] if long_prompt else 1) * (
+            (call["input_tokens"] - cache_read - cache_write) * pricing["input"]
+            + cache_read * pricing["cache_read"]
+            + cache_write * pricing["cache_write"]
+            + call["output_tokens"] * pricing["output"]
+        )
+    return total / 1_000_000
+
+
+def task_record(
+    task_id: str,
+    repeat: int,
+    run: dict,
+    names: verifiers.Names,
+    pricing: dict,
+) -> dict:
+    """Flatten the executor's record of one task run into a ``tasks.csv`` row.
 
     A run that raised has no verifier results, so it counts as a failed task
-    with none of its verifiers passed, rather than being dropped.
+    with none of its verifiers passed, rather than being dropped. The
+    ``upstream_`` columns give the benchmark's own count for the run.
 
     Args:
         task_id: The task's dataset ID.
-        config: The task config the run used.
-        result: What ``BenchmarkExecutor.execute_benchmark`` returned, or a
-            stand-in holding the error if it raised before any run.
+        repeat: Which repeat of the task this run was, from 1.
+        run: One entry of the ``runs`` list that
+            ``BenchmarkExecutor.execute_benchmark`` returns, or a stand-in
+            holding the error if it raised before the run started.
+        names: The executor's verifier name maps; one entry per kept verifier.
+        pricing: The model's price table, for ``cost``.
 
     Returns:
-        One flat record per run. Token counts cover the agent's model calls;
-        the executor keeps none for a run that raised, so those read zero.
+        The flat row. Token counts and cost cover the agent's model calls; the
+        executor keeps none for a run that raised, so those read zero.
     """
-    # Verifiers that share a name count once, as in the executor's summary;
-    # a run that raised is counted the same way.
-    distinct = len({v["name"] for v in config["verifiers"]})
-    records = []
-    for run in result["runs"]:
-        usage = [
-            step["usage_metadata"]
-            for step in run.get("conversation_flow", [])
-            if step["type"] == "ai_message" and step.get("usage_metadata")
-        ]
-        summary = run.get("verification_summary", {})
-        records.append(
-            {
-                "task_id": task_id,
-                "run": run["run_number"],
-                "success": bool(run.get("overall_success")),
-                "verifiers_passed": summary.get("passed", 0),
-                "verifiers_total": summary.get("total", distinct),
-                "error": run.get("error", ""),
-                "model_calls": len(usage),
-                "input_tokens": sum(u["input_tokens"] for u in usage),
-                "output_tokens": sum(u["output_tokens"] for u in usage),
-                "seconds": run.get("execution_time_ms", 0) / 1000,
-            }
-        )
-    return records
+    usage = [
+        step["usage_metadata"]
+        for step in run.get("conversation_flow", [])
+        if step["type"] == "ai_message" and step.get("usage_metadata")
+    ]
+    details = [u.get("input_token_details") or {} for u in usage]
+    results = run.get("verification_results", {})
+    upstream_passed, upstream_total, upstream_success = verifiers.upstream_verdict(
+        results, names
+    )
+    return {
+        "task_id": task_id,
+        "repeat": repeat,
+        "success": bool(run.get("overall_success")),
+        "verifiers_passed": sum(r["passed"] for r in results.values()),
+        "verifiers_total": len(names.original),
+        "upstream_success": upstream_success,
+        "upstream_verifiers_passed": upstream_passed,
+        "upstream_verifiers_total": upstream_total,
+        "error": run.get("error", ""),
+        "model_calls": len(usage),
+        "input_tokens": sum(u["input_tokens"] for u in usage),
+        "output_tokens": sum(u["output_tokens"] for u in usage),
+        "cache_read_tokens": sum(d.get("cache_read") or 0 for d in details),
+        "cache_write_tokens": sum(d.get("cache_creation") or 0 for d in details),
+        "cost_usd": round(cost(usage, pricing), 6),
+        "seconds": run.get("execution_time_ms", 0) / 1000,
+    }
 
 
-async def run_tasks(
-    tasks: dict[str, dict],
+async def run_task(
+    task_id: str,
+    config: dict,
+    repeat: int,
     model: LLMConfig,
+    pricing: dict,
     out: Path,
     *,
     trace: bool,
     thinking: dict | None,
     tags: list[str],
-) -> list[dict]:
-    """Run each task with the benchmark's ReAct agent and score it.
+) -> tuple[dict, list[dict]]:
+    """Run one task once with the benchmark's ReAct agent, save the record and score it.
+
+    Args:
+        task_id: The task's dataset ID.
+        config: Its task config, as from ``load_tasks``.
+        repeat: Which repeat this is, from 1; names the saved record.
+        model: The agent's model config.
+        pricing: The model's price table.
+        out: Evaluation folder; the record goes to ``out/tasks/<task_id>``.
+        trace: Send the run to Langfuse as one trace, scored with its verdict.
+        thinking: Model ``thinking`` setting, or ``None`` for the default.
+        tags: Labels put on the trace, such as the domain and model.
+
+    Returns:
+        The row from ``task_record`` and the rows from ``verifier_records``.
+    """
+    # One executor call per repeat, so that each run is its own trace and its
+    # own unit of concurrency; the executor's own repeat loop stays at one.
+    executor = TaskExecutor(
+        BenchmarkConfig(**(config | {"number_of_runs": 1})),
+        model,
+        orchestrator_class=ReactOrchestrator,
+        trace=trace,
+        thinking=thinking,
+    )
+    # The evaluation's experiment and folder name group the traces as one session.
+    span_context = (
+        tracing.task_trace(
+            task_id,
+            session_id=f"{out.parent.name}/{out.name}",
+            tags=tags + [f"repeat:{repeat}"],
+            metadata={
+                "task_id": task_id,
+                "repeat": repeat,
+                "dataset_revision": HF_REVISION,
+            },
+        )
+        if trace
+        else nullcontext()
+    )
+    with span_context as span:
+        try:
+            result = await executor.execute_benchmark()
+        except Exception as exc:
+            # Raised before the run started, e.g. a server that is not up.
+            result = {"runs": [{"run_number": 1, "error": repr(exc)}]}
+        run = result["runs"][0]
+        record = task_record(task_id, repeat, run, executor.names, pricing)
+        rows = verifiers.verifier_records(
+            task_id,
+            repeat,
+            run.get("verification_results", {}),
+            executor.names,
+        )
+        if span is not None:
+            fraction = (
+                record["verifiers_passed"] / record["verifiers_total"]
+                if record["verifiers_total"]
+                else 0.0
+            )
+            span.score_trace(
+                name="task_success", value=float(record["success"]), data_type="BOOLEAN"
+            )
+            span.score_trace(
+                name="verifier_fraction", value=fraction, data_type="NUMERIC"
+            )
+            span.update(
+                output={
+                    k: record[k]
+                    for k in (
+                        "success",
+                        "verifiers_passed",
+                        "verifiers_total",
+                        "upstream_success",
+                        "error",
+                    )
+                }
+                | {
+                    "failed": {
+                        f"{row['position']} {row['name']}": row["diagnosis"]
+                        for row in rows
+                        if not row["passed"]
+                    }
+                }
+            )
+    folder = out / "tasks" / task_id
+    folder.mkdir(exist_ok=True)
+    (folder / f"repeat-{repeat}.json").write_text(
+        json.dumps(result, indent=2, default=str)
+    )
+    return record, rows
+
+
+async def run_tasks(
+    tasks: dict[str, dict],
+    model: LLMConfig,
+    pricing: dict,
+    out: Path,
+    *,
+    repeats: int,
+    concurrency: int,
+    trace: bool,
+    thinking: dict | None,
+    tags: list[str],
+) -> tuple[list[dict], list[dict]]:
+    """Run every task ``repeats`` times, at most ``concurrency`` runs at once.
+
+    Each run seeds its own database on the domain server, so runs share
+    nothing and can overlap; the limit keeps the server and the model API's
+    rate limits in range.
 
     Args:
         tasks: Task configs keyed by task ID, as from ``load_tasks``.
         model: The agent's model config.
-        out: Run folder; each task's executor result is saved to ``out/tasks``.
-        trace: Send each task to Langfuse as one trace, scored with its verdict.
+        pricing: The model's price table.
+        out: Evaluation folder.
+        repeats: Runs per task.
+        concurrency: Runs in flight at once.
+        trace: Send each run to Langfuse as one trace.
         thinking: Model ``thinking`` setting, or ``None`` for the default.
         tags: Labels put on every trace, such as the domain and model.
 
     Returns:
-        The records from ``score`` for every task, in order.
+        One ``tasks.csv`` row per run, in task order and then repeat order,
+        and the ``verifiers.csv`` rows of every run in the same order.
     """
-    # TODO: run tasks in parallel with Ray before the full-split runs.
-    records = []
-    for i, (task_id, config) in enumerate(tasks.items(), start=1):
-        executor = TracedExecutor(
-            BenchmarkConfig(**config),
-            model,
-            orchestrator_class=ReactOrchestrator,
-            trace=trace,
-            thinking=thinking,
-        )
-        # The run folder's name groups the traces as one session.
-        span_context = (
-            tracing.task_trace(
+    semaphore = asyncio.Semaphore(concurrency)
+    total = len(tasks) * repeats
+    done = 0
+
+    async def run_one(task_id: str, config: dict, repeat: int) -> tuple[dict, list]:
+        nonlocal done
+        async with semaphore:
+            record, rows = await run_task(
                 task_id,
-                session_id=out.name,
+                config,
+                repeat,
+                model,
+                pricing,
+                out,
+                trace=trace,
+                thinking=thinking,
                 tags=tags,
-                metadata={"task_id": task_id, "dataset_revision": HF_REVISION},
             )
-            if trace
-            else nullcontext()
+        done += 1
+        outcome = (
+            "error" if record["error"] else "pass" if record["success"] else "fail"
         )
-        with span_context as span:
-            try:
-                result = await executor.execute_benchmark()
-            except Exception as exc:
-                # Raised before any run starts, e.g. a server that is not up.
-                result = {"runs": [{"run_number": 1, "error": repr(exc)}]}
-            task_records = score(task_id, config, result)
-            if span is not None:
-                # One run per task for now, so the first record is the run.
-                r = task_records[0]
-                fraction = (
-                    r["verifiers_passed"] / r["verifiers_total"]
-                    if r["verifiers_total"]
-                    else 0.0
-                )
-                span.score_trace(
-                    name="task_success", value=float(r["success"]), data_type="BOOLEAN"
-                )
-                span.score_trace(
-                    name="verifier_fraction", value=fraction, data_type="NUMERIC"
-                )
-                span.update(
-                    output={
-                        k: r[k]
-                        for k in (
-                            "success",
-                            "verifiers_passed",
-                            "verifiers_total",
-                            "error",
-                        )
-                    }
-                )
-        (out / "tasks" / f"{task_id}.json").write_text(
-            json.dumps(result, indent=2, default=str)
+        print(
+            f"[{done}/{total}] {task_id} repeat {repeat} {outcome}: verifiers "
+            f"{record['verifiers_passed']}/{record['verifiers_total']}, "
+            f"{record['model_calls']} calls, {record['input_tokens']:,} in / "
+            f"{record['output_tokens']:,} out tokens, ${record['cost_usd']:.4f}, "
+            f"{record['seconds']:.0f} s"
         )
-        for r in task_records:
-            records.append(r)
-            outcome = "error" if r["error"] else "pass" if r["success"] else "fail"
-            print(
-                f"[{i}/{len(tasks)}] {task_id} {outcome}: verifiers "
-                f"{r['verifiers_passed']}/{r['verifiers_total']}, "
-                f"{r['model_calls']} calls, {r['input_tokens']:,} in / "
-                f"{r['output_tokens']:,} out tokens, {r['seconds']:.0f} s"
-            )
-    return records
+        return record, rows
+
+    results = await asyncio.gather(
+        *(
+            run_one(task_id, config, repeat)
+            for task_id, config in tasks.items()
+            for repeat in range(1, repeats + 1)
+        )
+    )
+    return (
+        [record for record, _ in results],
+        [row for _, rows in results for row in rows],
+    )
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
@@ -411,7 +669,14 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         help="oracle gives the agent only the task's own tools; plus_N_tools adds N distractors",
     )
     parser.add_argument("--limit", type=int, help="run only the first N tasks")
-    parser.add_argument("--out", type=Path, help="output folder (default: in runs/)")
+    parser.add_argument("--repeats", type=int, help="runs per task")
+    parser.add_argument("--concurrency", type=int, help="runs in flight at once")
+    parser.add_argument(
+        "--label", help="a word added to the evaluation's folder name, e.g. after-fix"
+    )
+    parser.add_argument(
+        "--out", type=Path, help="evaluation folder (default: runs/<experiment>/<name>)"
+    )
     parser.add_argument(
         "--trace",
         action=argparse.BooleanOptionalAction,
@@ -425,13 +690,45 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def run(args: argparse.Namespace) -> None:
-    """Run and score the tasks of the experiment named by the parsed arguments."""
+    """Run the experiment named by the parsed arguments, one evaluation per domain."""
     overrides = {key: getattr(args, key) for key in EXPERIMENT_DEFAULTS}
     experiment = load_experiment(args.experiment, overrides)
 
     load_dotenv(REPO_ROOT / ".env")
-    model = load_model(config_path("models", experiment["model"]))
-    tasks = load_tasks(experiment["domain"], experiment["mode"])
+    model, pricing = load_model(config_path("models", experiment["model"]))
+    trace = tracing.configured() and experiment["trace"]
+    thinking = THINKING_SUMMARY if experiment["thinking_summary"] else None
+    if trace:
+        # The Anthropic SDK also writes a metadata-only span per call into any
+        # registered tracer; the LangChain callback already records each call
+        # with its content, so those duplicates are switched off.
+        os.environ.setdefault("ANTHROPIC_OPEN_TELEMETRY", "false")
+    for domain in experiment["domain"]:
+        evaluate(experiment, domain, model, pricing, trace=trace, thinking=thinking)
+    if trace:
+        tracing.shutdown()
+
+
+def evaluate(
+    experiment: dict,
+    domain: str,
+    model: LLMConfig,
+    pricing: dict,
+    *,
+    trace: bool,
+    thinking: dict | None,
+) -> None:
+    """Run one domain's tasks as one evaluation and write its folder and index row.
+
+    Args:
+        experiment: Settings from ``load_experiment``.
+        domain: The domain to run; one of ``experiment["domain"]``.
+        model: The agent's model config.
+        pricing: The model's price table.
+        trace: Send each task to Langfuse.
+        thinking: Model ``thinking`` setting, or ``None`` for the default.
+    """
+    tasks = load_tasks(domain, experiment["mode"])
     tasks = dict(list(tasks.items())[: experiment["limit"]])
     check_servers(
         {
@@ -440,59 +737,91 @@ def run(args: argparse.Namespace) -> None:
             for s in config["gym_servers_config"]
         }
     )
-    trace = tracing.configured() and experiment["trace"]
-    thinking = THINKING_SUMMARY if experiment["thinking_summary"] else None
-    if trace:
-        # The Anthropic SDK also writes a metadata-only span per call into any
-        # registered tracer; the LangChain callback already records each call
-        # with its content, so those duplicates are switched off.
-        os.environ.setdefault("ANTHROPIC_OPEN_TELEMETRY", "false")
     started = datetime.now()
     out = (
         Path(experiment["out"])
         if experiment["out"]
-        else REPO_ROOT
-        / "runs"
-        / (
-            f"{started:%Y%m%d-%H%M%S}-{Path(experiment['experiment']).stem}"
-            f"-{experiment['domain']}-{experiment['mode']}-{Path(experiment['model']).stem}"
-        )
+        else RUNS
+        / experiment["experiment"]
+        / evaluation_name(experiment, domain, started)
     )
-    experiment["out"] = str(out)
     (out / "tasks").mkdir(parents=True)
     # The benchmark logs every request and tool call at INFO; keep that in the
-    # run folder rather than on the terminal.
-    logging.basicConfig(
-        filename=out / "run.log",
-        level=logging.INFO,
-        format="%(asctime)s %(name)s %(levelname)s %(message)s",
+    # evaluation folder rather than on the terminal. One handler per
+    # evaluation, since one process may run several domains.
+    handler = logging.FileHandler(out / "run.log")
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s")
     )
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    root.addHandler(handler)
 
-    tags = [experiment["domain"], experiment["mode"], "arm:default", model.llm_model]
-    records = asyncio.run(
-        run_tasks(tasks, model, out, trace=trace, thinking=thinking, tags=tags)
-    )
-    if trace:
-        tracing.shutdown()
+    tags = [domain, experiment["mode"], "arm:default", model.llm_model]
+    try:
+        records, verifier_rows = asyncio.run(
+            run_tasks(
+                tasks,
+                model,
+                pricing,
+                out,
+                repeats=experiment["repeats"],
+                concurrency=experiment["concurrency"],
+                trace=trace,
+                thinking=thinking,
+                tags=tags,
+            )
+        )
+    finally:
+        root.removeHandler(handler)
+        handler.close()
 
-    with (out / "results.csv").open("w", newline="") as f:
+    with (out / "tasks.csv").open("w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=list(records[0]))
         writer.writeheader()
         writer.writerows(records)
+    with (out / "verifiers.csv").open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=verifiers.COLUMNS)
+        writer.writeheader()
+        writer.writerows(verifier_rows)
+    by_task: dict[str, list[bool]] = {}
+    for r in records:
+        by_task.setdefault(r["task_id"], []).append(r["success"])
     totals = {
+        "tasks": len(tasks),
+        "repeats": experiment["repeats"],
         "runs": len(records),
         "successes": sum(r["success"] for r in records),
+        "tasks_passed_every_repeat": sum(all(v) for v in by_task.values()),
         "errors": sum(bool(r["error"]) for r in records),
         "verifiers_passed": sum(r["verifiers_passed"] for r in records),
         "verifiers_total": sum(r["verifiers_total"] for r in records),
+        "upstream_successes": sum(r["upstream_success"] for r in records),
+        "upstream_verifiers_passed": sum(
+            r["upstream_verifiers_passed"] for r in records
+        ),
+        "upstream_verifiers_total": sum(r["upstream_verifiers_total"] for r in records),
         "input_tokens": sum(r["input_tokens"] for r in records),
         "output_tokens": sum(r["output_tokens"] for r in records),
+        "cache_read_tokens": sum(r["cache_read_tokens"] for r in records),
+        "cache_write_tokens": sum(r["cache_write_tokens"] for r in records),
+        "cost_usd": round(sum(r["cost_usd"] for r in records), 4),
+        "seconds": round(sum(r["seconds"] for r in records), 1),
     }
     settings = {
+        "experiment": experiment["experiment"],
+        "experiment_file": experiment["experiment_file"],
+        "evaluation": out.name,
+        "label": experiment["label"],
+        "overrides": experiment["overrides"],
+        "harness": "default",
         "model": {k: v for k, v in vars(model).items() if k != "llm_api_key"},
-        "experiment": experiment,
-        "domain": experiment["domain"],
+        "pricing": pricing,
+        "domain": domain,
         "mode": experiment["mode"],
+        "limit": experiment["limit"],
+        "repeats": experiment["repeats"],
+        "concurrency": experiment["concurrency"],
         "tasks": list(tasks),
         "dataset": HF_DATASET,
         "dataset_revision": HF_REVISION,
@@ -503,14 +832,37 @@ def run(args: argparse.Namespace) -> None:
         "finished": datetime.now().isoformat(timespec="seconds"),
     }
     (out / "run.json").write_text(json.dumps(settings | {"totals": totals}, indent=2))
+    append_index(
+        out.parent,
+        {
+            "evaluation": out.name,
+            "started": settings["started"],
+            "domain": domain,
+            "mode": experiment["mode"],
+            "model": model.llm_model,
+            "harness": "default",
+            "label": experiment["label"] or "",
+            "overrides": " ".join(
+                f"{k}={v}" for k, v in experiment["overrides"].items()
+            ),
+            "limit": experiment["limit"] or "",
+            "code_version": mas_optimiser.__version__,
+        }
+        | totals,
+    )
 
     print(
-        f"\n{totals['successes']}/{totals['runs']} tasks passed "
-        f"({totals['errors']} errors, counted as failures); verifiers "
+        f"\n{totals['successes']}/{totals['runs']} runs passed, "
+        f"{totals['tasks_passed_every_repeat']}/{totals['tasks']} tasks passed every "
+        f"repeat ({totals['errors']} errors, counted as failures); verifiers "
         f"{totals['verifiers_passed']}/{totals['verifiers_total']}; "
         f"{totals['input_tokens']:,} input and {totals['output_tokens']:,} output "
         f"tokens. Results in {out}"
-        + (f"; traces in Langfuse session {out.name}" if trace else "")
+        + (
+            f"; traces in Langfuse session {out.parent.name}/{out.name}"
+            if trace
+            else ""
+        )
     )
 
 
