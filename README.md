@@ -142,6 +142,40 @@ mas-optimiser replay runs/<experiment>/<evaluation>/tasks/<task_id>/attempt-1.js
 `--full-policy` prints the whole policy rather than its first lines, and
 `--max-chars N` changes where long tool results and model text are clipped.
 
+## Splitting the tasks
+
+```
+mas-optimiser split --experiment baseline-haiku --name haiku-20-40-40 --seed 0
+```
+
+Draws the training, validation and test sets from an experiment's latest
+full evaluation of each domain and writes `configs/splits/<name>.json`. The
+strata are domain crossed with baseline outcome (all, some or none of the
+task's attempts passed), so each set has the same mix of domains and
+difficulty. Tasks listed in `configs/splits/forced-training.yaml` (read or
+inspected by hand, dataset defects, crashes) go into training before the
+draw. `--proportions` sets the shares (default `0.2 0.4 0.4`). The file
+records the seed, proportions, evaluations read and code version, so the
+same command regenerates it. The proposer reads training traces only, the
+acceptance gate decides on validation and returns its verdict alone, and the
+test set is opened once for the reported number.
+
+## Local copies of the seed databases
+
+```
+mas-optimiser schema
+```
+
+Seeds a database on each domain's server from every seed file its tasks
+use, reads the tables' CREATE statements back, checks that all of a
+domain's seed files share one schema, and writes it to
+`data/schemas/<domain>.sql`. With that file, `seeds.build_seed_database`
+builds a local SQLite copy of any task's starting database, so new checks
+can be tested without the servers. The
+project's own check files, one per task under `data/checks/`, are
+described in `data/checks/README.md`; the runner scores the benchmark's
+checks until they are complete.
+
 ## Watching a run in Langfuse
 
 [Langfuse](https://langfuse.com) shows each task as a tree: the task, every

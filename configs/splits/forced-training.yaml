@@ -1,0 +1,24 @@
+# Tasks forced into the training set of every split: each has been read or
+# inspected by hand, carries a dataset defect, or crashed the benchmark's
+# orchestrator, so none can sit in a sealed set. One line per task with the
+# reason; `mas-optimiser split` reads this file by default.
+task_20251210_205620_593_391f1eff_ad65c160: one of the first five ITSM tasks (smoke test, 20/10); the worked example; contradicting "Report incident" verifiers (channel)
+task_20251212_172511_458_e6427839_47076c15: one of the first five ITSM tasks (smoke test, 20/10)
+task_20251212_184405_886_e6427839_6413728a: one of the first five ITSM tasks (smoke test, 20/10); contradicting verifiers (priority, notification type)
+task_20251212_191411_655_391f1eff_2fef896f: one of the first five ITSM tasks (smoke test, 20/10)
+task_20251212_191815_314_391f1eff_c23d76df: one of the first five ITSM tasks (smoke test, 20/10)
+task_20251223_224508_138_97d7df7d_b4505336: attempt 1 crashed on the benchmark's bare raise (unknown tool name), record inspected 27/10
+task_20260114_171738_367_a8eea1c0_3f57db74: attempt 3 crashed on the benchmark's bare raise (unknown tool name), record inspected 27/10
+task_20251201_164641_724_109c89c0_1b29acb9: contradicting "Transition Case Created" verifiers (state)
+task_20251205_154853_044_d4a463c3_fce76046: contradicting "Verify Notification Sent" verifiers (email)
+task_20251208_153512_199_46ca2862_3f951375: contradicting "remove_group_member" verifiers (group id); passed once, so the pair may not contradict
+task_20251209_122452_734_d4a463c3_e5f1961c: contradicting "Verify link new case SLA" verifiers (SLA definition id)
+task_20260101_202840_239_a8eea1c0_0f425b23: contradicting "link_new_case_sla" verifiers (SLA definition id)
+task_20260106_151754_319_d4a463c3_41f0af13: contradicting "Update Installed Product ID of Case" verifiers (case id)
+task_20251219_155215_361_00364ece_c1c6ffc8: contradicting verifiers (assignment group, assignee, notification email)
+task_20251226_104747_127_30600918_559da326: contradicting "Verify Knowledge" verifiers (used_as)
+task_20251206_091748_833_a8eea1c0_7775ff15: same-name verifiers overwrite each other upstream (2 of 10 kept); verdicts differ between conventions, inspected 27/10
+task_20251231_162628_797_a8eea1c0_0a53db6c: same-name verifiers overwrite each other upstream (7 of 12 kept); verdicts differ between conventions, inspected 27/10
+task_20260121_143201_590_1afb323a_5a03bf03: count verifiers expecting the string '1'; verdicts differ between conventions, inspected 27/10
+task_20260121_150447_596_1afb323a_0a1e4085: count verifiers expecting the string '1'; verdicts differ between conventions, inspected 27/10
+task_20260121_163208_054_1afb323a_7f40ee66: count verifiers expecting the string '1'; verdicts differ between conventions, inspected 27/10
