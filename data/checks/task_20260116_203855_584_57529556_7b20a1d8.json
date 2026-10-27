@@ -1,0 +1,132 @@
+{
+  "task_id": "task_20260116_203855_584_57529556_7b20a1d8",
+  "policy_sha1": "b1e737f6",
+  "requirements": [
+    {
+      "text": "The Vital Records Update service is then validated within the Profile Update topic and established immediately if it is not already available",
+      "kind": "create",
+      "table": "hr_service",
+      "anchor": {
+        "hr_service_id": 55
+      },
+      "cells": {
+        "service_name": "Vital Records Update",
+        "topic_detail": 28,
+        "active": 1
+      },
+      "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 55 AND service_name = 'Vital Records Update' AND topic_detail = 28 AND active = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Service Creation",
+      "seed_count": 0,
+      "assumptions": [
+        "no service named Vital Records Update exists on the seed, so it must be created; id assumed next in sequence (highest hr_service_id is 54); the only service the task creates",
+        "topic_detail 28 is the only topic_detail named Profile Update (active, topic_category 6 HR Operations, org 1); the benchmark check joins on the topic's name, the requirement uses its id",
+        "active = 1 added from policy 3.1 and 6.1 (a case's hr_service must reference an active service); not in the benchmark check",
+        "disagreement: active cell form: A '= true' (predicate), B true (boolean); chose the plain value 1 because the column is BOOLEAN stored as 1/0 and the repository's check files write it so; same meaning in both passes",
+        "fulfillment_type is NOT NULL in the schema but neither the request nor the policy fixes it (every seed service is manual); not tested"
+      ]
+    },
+    {
+      "text": "a high-priority case with account ACC-33-02 is registered using the exact required description: Service: Vital Records Update, Subject: [Insert employee name last name here], Detail: Legal Marital Status Amendment. Make sure the case is closed properly, moving through the right steps",
+      "kind": "create",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 61
+      },
+      "cells": {
+        "short_description": "Service: Vital Records Update, Subject: Simpson, Detail: Legal Marital Status Amendment",
+        "priority": "high",
+        "status": "closed_complete",
+        "hr_service": 55,
+        "account_number": "ACC-33-02",
+        "opened_for": 4
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND short_description = 'Service: Vital Records Update, Subject: Simpson, Detail: Legal Marital Status Amendment' AND priority = 'high' AND status = 'closed_complete' AND hr_service = 55 AND account_number = 'ACC-33-02' AND opened_for = 4",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Case Compliance",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest hr_case_id is 60); the only case the task creates; no case on ACC-33-02 exists on the seed",
+        "hr_service 55 is the new service's id, assumed next in sequence; the benchmark check joins by service name",
+        "the Subject placeholder '[Insert employee name last name here]' is filled with the employee's last name, Simpson, as the benchmark check reads it",
+        "status closed_complete kept from the benchmark check: the policy's lifecycle names resolved then closed, but this seed's status vocabulary has closed_complete and neither resolved nor closed; the intermediate steps leave no trace in the final state",
+        "opened_for 4 is Joanne Simpson's profile, the case's subject (policy 3.1 subject_person); not in the benchmark check",
+        "account_number carries the request's 'account ACC-33-02'; not in the benchmark check",
+        "account_type, opened_by, coe_type and source not fixed by the request or policy; not tested"
+      ]
+    },
+    {
+      "text": "the detail is updated to reflect her revised marital status as divorced",
+      "kind": "change",
+      "table": "hr_profile",
+      "anchor": {
+        "hr_profile_id": 4
+      },
+      "cells": {
+        "marital_status": "Divorced"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_profile WHERE hr_profile_id = 4 AND marital_status = 'Divorced'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Profile Correction",
+      "seed_count": 0,
+      "assumptions": [
+        "profile 4 (HRP00004, user 4 Joanne Simpson, org 1) is the only row with national_tax_id TAX-1-0004; its seed marital_status is Married; the benchmark check selects by tax id, the requirement anchors by id",
+        "Divorced capitalised as the seed's marital_status values are (Divorced, Married, Single) and as the benchmark check writes it; the request writes divorced",
+        "policy 5.1: a profile update beyond address or phone needs an HR case, which the registered case supplies"
+      ]
+    },
+    {
+      "text": "National Tax identifier TAX-1-0004 for Joanne Simpson",
+      "kind": "stay",
+      "table": "hr_profile",
+      "anchor": {
+        "hr_profile_id": 40
+      },
+      "cells": {
+        "marital_status": "Married"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_profile WHERE hr_profile_id = 40 AND marital_status = 'Married'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "boundary of the tax-id lookup: TAX-1-0040 (profile 40, HRP00040, Married on the seed) is the nearest match to TAX-1-0004 (digits transposed) and must keep its seed value",
+        "disagreement: B has this stay, A does not; kept because it is the boundary of the identifier lookup (the second kind of stay), the near-miss a partial search on the tax id returns"
+      ]
+    },
+    {
+      "text": "a notification queued to be issued to her, formally confirming that the amendment has been completed, but that will be done later",
+      "kind": "stay",
+      "table": "notification",
+      "selector": "hr_case_id = 61",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM notification WHERE hr_case_id = 61",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "the request defers the notification ('that will be done later'), so none is created in this task; under the other reading (queue it now) this would be a create requirement",
+        "no tool writes this table",
+        "the new case's id 61 assumed next in sequence"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify Profile Correction": {
+      "disposition": "kept"
+    },
+    "Verify Service Creation": {
+      "disposition": "kept"
+    },
+    "Verify Case Compliance": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on the three benchmark checks (all kept), the new service (55, topic 28), the new case (61, same six cells), the marital-status change on profile 4 and the deferred-notification stay. disagreement: stay that profile 40 (TAX-1-0040, the nearest tax id to TAX-1-0004) keeps marital_status Married: B has it, A does not; kept as the boundary of the identifier lookup (logged in the requirement). disagreement: the form of the boolean cell on hr_service.active: A writes the predicate '= true', B the JSON boolean true; chose the plain value 1 (the seed stores the BOOLEAN column as 1/0 and the repository's other check files write it so); the meaning is identical, so no value changed (logged in the requirement). The request's last sentence is truncated ('but that will be done later but the.'); both passes read it as deferring the notification, which no listed tool could write anyway, and the stay keeps that decision on record. The policy's case lifecycle (new, in_progress, resolved, closed) does not match this seed's status column (draft, ready, work_in_progress, closed_complete, ...), so the final status follows the benchmark check (closed_complete); 'closed properly, moving through the right steps' is untestable on the final state. The acting user Tommy Jacobs (user 80, admin, profile 80) may create HR services under policy 2; opened_by is not fixed by the request and is left untested. The benchmark's checks join by name; the requirements use ids (service 55, topic 28, case 61) that assume next-in-sequence creation.",
+  "minutes": 9
+}

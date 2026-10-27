@@ -29,6 +29,7 @@ def document(**overrides):
 
 def test_a_well_formed_file_has_no_problems():
     assert checks.validate(document()) == []
+    assert checks.validate(document(kind="remove", expected=0)) == []
     assert (
         checks.validate(document(anchor=None, selector="priority = 'moderate'")) == []
     )

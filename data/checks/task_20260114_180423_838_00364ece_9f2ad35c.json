@@ -1,0 +1,158 @@
+{
+  "task_id": "task_20260114_180423_838_00364ece_9f2ad35c",
+  "policy_sha1": "b2da3f42",
+  "requirements": [
+    {
+      "text": "update Tabitha Bullock's manager to Joanne Simpson",
+      "kind": "change",
+      "table": "hr_profile",
+      "anchor": {
+        "hr_profile_id": 3
+      },
+      "cells": {
+        "manager": 4
+      },
+      "sql": "SELECT COUNT(*) FROM hr_profile WHERE hr_profile_id = 3 AND manager = 4",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify HR Profile Update (Manager Change)",
+      "seed_count": 0,
+      "assumptions": [
+        "Tabitha Bullock is user 3 with hr_profile_id 3 (manager 49 on the seed); hr_profile.manager references hr_profile_id, and Joanne Simpson (user 4) has hr_profile_id 4, so manager = 4 whichever id the column holds",
+        "policy 5.1: the manager must reference an active record; profile 4 belongs to an active user"
+      ]
+    },
+    {
+      "text": "there should be a case for this ... Randy should be working on both of these requests under HR Leadership Approval team",
+      "kind": "create",
+      "table": "hr_case",
+      "selector": "opened_for = 3 AND short_description <> 'Service: Employee Profile Update, Subject: Tabitha Bullock, Detail: update her email with tabitha.bull@gmail.com'",
+      "cells": {
+        "status": "work_in_progress",
+        "coe_type": "Workforce Administration",
+        "hr_service": 35,
+        "priority": "moderate",
+        "assignment_group": 10,
+        "assigned_to": 37
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE opened_for = 3 AND short_description <> 'Service: Employee Profile Update, Subject: Tabitha Bullock, Detail: update her email with tabitha.bull@gmail.com' AND status = 'work_in_progress' AND coe_type = 'Workforce Administration' AND hr_service = 35 AND priority = 'moderate' AND assignment_group = 10 AND assigned_to = 37",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify HR Case for Manager Update",
+      "seed_count": 0,
+      "assumptions": [
+        "the task creates two cases, so this one is selected by its natural key (Tabitha's new case that is not the email case; the seed has no case with opened_for 3) rather than the benchmark's hr_case_id 61",
+        "status = work_in_progress from 'Randy should be working on both', as the benchmark reads it; policy 3.3 allows draft/ready to work_in_progress",
+        "hr_service = 35 (Employee Profile Update) and coe_type = Workforce Administration kept from the benchmark check; the request names them for the email case and implies them for this one",
+        "priority not stated; policy 3.1 defaults it to moderate",
+        "Randy is Randy Martinez (user 37), the only Randy in HR Leadership Approval (group 10), which policy 3.2 requires of the assignee; Randy Summers (user 30, org 15) is not a member",
+        "opened_for = 3 is Tabitha's profile; opened_by is not fixed by request or policy and not tested by the benchmark",
+        "short_description not fixed by the request; the policy's 'Service: , Subject: , Detail: ' template is a format rule the benchmark does not test, so it is not a cell (see notes)",
+        "disagreement: cells: A adds short_description LIKE 'Service: %, Subject: %, Detail: %' from the policy template, B does not; dropped because a cell derived from a policy format rule the benchmark does not test is recorded in notes, not tested"
+      ]
+    },
+    {
+      "text": "create another case for her email change request using Employee Profile Update HR service with instructions: '...' under the Workforce Administration functional area ... wait for approval to update email",
+      "kind": "create",
+      "table": "hr_case",
+      "selector": "short_description = 'Service: Employee Profile Update, Subject: Tabitha Bullock, Detail: update her email with tabitha.bull@gmail.com'",
+      "cells": {
+        "status": "awaiting_approval",
+        "coe_type": "Workforce Administration",
+        "hr_service": 35,
+        "priority": "moderate",
+        "opened_for": 3,
+        "approver": 4,
+        "request_status": "requested",
+        "assignment_group": 10,
+        "assigned_to": 37
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE short_description = 'Service: Employee Profile Update, Subject: Tabitha Bullock, Detail: update her email with tabitha.bull@gmail.com' AND status = 'awaiting_approval' AND coe_type = 'Workforce Administration' AND hr_service = 35 AND priority = 'moderate' AND opened_for = 3 AND approver = 4 AND request_status = 'requested' AND assignment_group = 10 AND assigned_to = 37",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify HR Case for Email Update",
+      "seed_count": 0,
+      "assumptions": [
+        "selected by the request's instructions text, verbatim (112 characters, within the policy's 30-120 limit), as the benchmark check does",
+        "wait for approval: status = awaiting_approval (policy 3.3 allows it from draft, ready or work_in_progress) with request_status = requested (policy 3.4 and the seed's convention); the approver is the new manager, Joanne Simpson (user 4), to whom the approval update is sent",
+        "Employee Profile Update is hr_service_id 35 (active); HR Leadership Approval is group 10; Randy is Randy Martinez (user 37), a member of group 10 as policy 3.2 requires",
+        "priority not stated; policy 3.1 defaults it to moderate"
+      ]
+    },
+    {
+      "text": "send approval update to the new manager",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": 61
+      },
+      "cells": {
+        "email": "joanne.simpson@servicenow.com",
+        "type": "update",
+        "hr_case_id": "IN (SELECT hr_case_id FROM hr_case WHERE short_description = 'Service: Employee Profile Update, Subject: Tabitha Bullock, Detail: update her email with tabitha.bull@gmail.com')"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 61 AND email = 'joanne.simpson@servicenow.com' AND type = 'update' AND hr_case_id IN (SELECT hr_case_id FROM hr_case WHERE short_description = 'Service: Employee Profile Update, Subject: Tabitha Bullock, Detail: update her email with tabitha.bull@gmail.com')",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Notification",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest notification_id on the seed is 60); the only notification the task creates",
+        "the new manager is Joanne Simpson, joanne.simpson@servicenow.com on the user table",
+        "the notification belongs to the email case (the one awaiting approval), which the benchmark names as hr_case_id 62; it is selected by the case's instructions text instead, since the task creates two cases",
+        "type = update kept from the benchmark check and the request's word 'update'; not fixed by policy"
+      ]
+    },
+    {
+      "text": "wait for approval to update email",
+      "kind": "stay",
+      "table": "hr_profile",
+      "anchor": {
+        "hr_profile_id": 3
+      },
+      "cells": {
+        "personal_email": "tabitha.bullock.3@personal.example.com"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_profile WHERE hr_profile_id = 3 AND personal_email = 'tabitha.bullock.3@personal.example.com'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "the request forbids the email change until approval, so the profile's personal_email keeps its seed value (user.email has no writing tool and is not tested)"
+      ]
+    },
+    {
+      "text": "Randy should be working on both of these requests",
+      "kind": "stay",
+      "table": "hr_case",
+      "selector": "assigned_to = 30",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE assigned_to = 30",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of the assignee selector: two users are named Randy (Martinez 37, Summers 30); Randy Summers, an employee in org 15 outside group 10, must receive no case",
+        "disagreement: selector: A opened_for = 3 AND assigned_to <> 37 (no case for Tabitha goes to anyone else), B assigned_to = 30 (the other Randy receives nothing); chose B's because it is the near-miss row the selector boundary names, and the two create requirements already test assigned_to = 37 on both of Tabitha's cases"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify HR Case for Email Update": {
+      "disposition": "kept"
+    },
+    "Verify HR Profile Update (Manager Change)": {
+      "disposition": "kept"
+    },
+    "Verify Notification": {
+      "disposition": "kept"
+    },
+    "Verify HR Case for Manager Update": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on the four benchmark checks (all kept), the manager change on profile 3, the two created cases selected by natural key, the notification (61) and the stay on Tabitha's personal email. disagreement: the manager case's cells: A tests short_description against the policy's 'Service: , Subject: , Detail: ' template, B does not; dropped, since the template is a policy format rule the benchmark does not test and the request fixes no wording for that case; an agent following the policy writes the template, and that is recorded here rather than tested (logged in the requirement). disagreement: the Randy stay's selector: A no case for Tabitha assigned to anyone but 37, B no case assigned to Randy Summers (30); chose B's as the near-miss the selector boundary names, the creates already fixing the assignee on both cases (logged in the requirement). The benchmark anchors the manager case as hr_case_id 61 and the notification's case as 62, which assumes the manager case is created first; the request's 'once this update is done, also create another case' supports that order, but both rows are selected by natural key here so the order does not matter. 'Randy should be working on both' and 'wait for approval' pull the email case's status two ways; the benchmark resolves it as awaiting_approval and the request's last sentence supports that, so the file does the same. The acting user (Robin Monroe, user 31) is a manager, which the policy allows for case creation, reassignment and non-sensitive profile updates.",
+  "minutes": 10
+}

@@ -1,0 +1,180 @@
+{
+  "task_id": "task_20251211_192109_853_99ba2325_b21298a0",
+  "policy_sha1": "10503d62",
+  "requirements": [
+    {
+      "text": "If a relevant article is found, link it to the case",
+      "kind": "create",
+      "table": "case_knowledge",
+      "anchor": {
+        "case_kb_id": 528
+      },
+      "cells": {
+        "case_id": 513,
+        "knowledge_id": 300,
+        "used_as": "suggested"
+      },
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_kb_id = 528 AND case_id = 513 AND knowledge_id = 300 AND used_as = 'suggested'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify linked knowledge.",
+      "seed_count": 0,
+      "assumptions": [
+        "CS-0000513 is case_id 513 (account 23 Clark and Sons; product 198 Managed Endpoint Services Variant 6; new; moderate)",
+        "article 300 is the one relevant article: the only published article on product 198 (301 is a draft; 282, 283, 316, 333 and 348 are other Managed Endpoint Services products)",
+        "policy: knowledge found through automated search is linked as suggested",
+        "id assumed next in sequence (528 after 527); the only row this task creates in the table, so the id is added to the benchmark's natural-key cells"
+      ]
+    },
+    {
+      "text": "update the case to reflect that work has begun",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 513
+      },
+      "cells": {
+        "state": "in_progress"
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 513 AND state = 'in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify case updated.",
+      "seed_count": 0,
+      "assumptions": [
+        "'work has begun' read as state in_progress (policy: new -> in_progress)",
+        "the condition 'if a relevant article is found' holds on the seed (article 300), so the update is due",
+        "this policy has no rule setting a case to pending when an article is linked, so in_progress stands"
+      ]
+    },
+    {
+      "text": "update the case to reflect that work has begun",
+      "kind": "create",
+      "table": "case_sla",
+      "selector": "case_id = 513 AND sla_def_id = 3",
+      "cells": {
+        "stage": "in_progress"
+      },
+      "sql": "SELECT COUNT(*) FROM case_sla WHERE case_id = 513 AND sla_def_id = 3 AND stage = 'in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify a proper SLA is linked for in progress case 1",
+      "seed_count": 0,
+      "assumptions": [
+        "policy: when a new case moves to work in progress the appropriate SLA is aligned to it; sla_def 3 (SLA Response - Moderate, active) is the response definition for the case's moderate priority",
+        "two case_sla rows are created, so each is selected by its natural key (case and definition), not by id (the ids would be 2465 and 2466)",
+        "the seed already holds a paused row (1025) for this definition; the count is 1 whether the agent links a new in_progress row (tool link_new_case_sla) or resumes the paused one, and 2 if it does both"
+      ]
+    },
+    {
+      "text": "update the case to reflect that work has begun",
+      "kind": "create",
+      "table": "case_sla",
+      "selector": "case_id = 513 AND sla_def_id = 12",
+      "cells": {
+        "stage": "in_progress"
+      },
+      "sql": "SELECT COUNT(*) FROM case_sla WHERE case_id = 513 AND sla_def_id = 12 AND stage = 'in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify a proper SLA is linked for in progress case 2",
+      "seed_count": 0,
+      "assumptions": [
+        "sla_def 12 (SLA Resolution - Moderate (No Pause)) is the only active moderate resolution definition on this seed; sla_def 8 (SLA Resolution - Moderate) is inactive",
+        "selected by natural key, not by id, as above; the seed's paused row for this definition is 1026"
+      ]
+    },
+    {
+      "text": "send an alert notification to the case contact with the knowledge article attached (only send the notification if the article has external visibility)",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": 734
+      },
+      "cells": {
+        "case_id": 513,
+        "knowledge_id": 300,
+        "email": "christopher.lee94@clarkandsons.com",
+        "type": "alert"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 734 AND case_id = 513 AND knowledge_id = 300 AND email = 'christopher.lee94@clarkandsons.com' AND type = 'alert'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify that internal article is not sent to customer.",
+      "seed_count": 0,
+      "assumptions": [
+        "article 300 is published with visibility external on the seed, so the request's condition holds and the notification is due (the benchmark check's name reads as if the article were internal, but its expected count is 1)",
+        "the case contact is contact 44, whose portal user is 626 Christopher Lee, christopher.lee94@clarkandsons.com (not the account's primary contact 42)",
+        "id assumed next in sequence (734 after 733); the only row this task creates in the table",
+        "status (success/failed) is what the send tool records, not something the request fixes, so it is not a cell"
+      ]
+    },
+    {
+      "text": "only send the notification if the article has external visibility so the customer can view it",
+      "kind": "stay",
+      "table": "notification",
+      "selector": "case_id = 513 AND knowledge_id IN (SELECT knowledge_id FROM knowledge WHERE visibility = 'internal')",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM notification WHERE case_id = 513 AND knowledge_id IN (SELECT knowledge_id FROM knowledge WHERE visibility = 'internal')",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "what the request forbids: no notification on this case may carry an internal article; 301 (draft, internal) is the only internal article for the case's product",
+        "disagreement: selector: A any internal article (subquery on visibility), B knowledge_id = 301 only; chose A's because it is the tighter predicate and covers B's (both are 0 on the seed)"
+      ]
+    },
+    {
+      "text": "Search for knowledge articles relevant to case CS-0000513. If a relevant article is found, link it",
+      "kind": "stay",
+      "table": "case_knowledge",
+      "selector": "case_id = 513 AND knowledge_id <> 300",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_id = 513 AND knowledge_id <> 300",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of the search: the draft 301 (policy: only published articles may be linked) and the articles for the other Managed Endpoint Services products (282, 283, 316, 333, 348) must not be linked",
+        "disagreement: selector: A knowledge_id <> 300, B knowledge_id = 301 only; chose A's because it is the tighter predicate and covers B's (both are 0 on the seed)"
+      ]
+    },
+    {
+      "text": "update the case to reflect that work has begun",
+      "kind": "stay",
+      "table": "case_sla",
+      "selector": "case_id = 513 AND sla_def_id NOT IN (3, 12)",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM case_sla WHERE case_id = 513 AND sla_def_id NOT IN (3, 12)",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of 'appropriate SLA': the inactive moderate resolution definition 8, the inactive globals (5, 10) and the definitions for other priorities must not be linked",
+        "disagreement: this stay is A only (B had no such requirement); kept because it is the boundary of the SLA-definition selector, as earlier merges kept the same stay"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify case updated.": {
+      "disposition": "kept"
+    },
+    "Verify linked knowledge.": {
+      "disposition": "kept"
+    },
+    "Verify that internal article is not sent to customer.": {
+      "disposition": "kept"
+    },
+    "Verify a proper SLA is linked for in progress case 1": {
+      "disposition": "kept"
+    },
+    "Verify a proper SLA is linked for in progress case 2": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on the five shared requirements (anchors 528 and 734, natural-key SLA selectors, values) and on all five dispositions (kept). disagreement: the forbidden-notification stay's selector: A any internal article, B article 301 only; kept A's as the tighter predicate (logged in the requirement). disagreement: the case_knowledge boundary stay's selector: A knowledge_id <> 300, B knowledge_id = 301 only; kept A's as the tighter predicate (logged in the requirement). disagreement: A's stay that no SLA definition outside 3 and 12 is linked to case 513 (B had no such requirement); kept as the boundary of the SLA-definition selector (logged in the requirement). The request's conditions all hold on the seed: article 300 is the single published article for product 198 and it is external, so the link, the state change and the notification are all due. The benchmark's notification check is named 'Verify that internal article is not sent to customer' but expects one row, consistent with the article being external; its predicate is right, so it is kept as written, and the withheld-article guard is the new notification stay. The two single-row creates (case_knowledge, notification) carry the next-in-sequence id in addition to the benchmark's natural-key cells. Case 513 already holds paused case_sla rows for definitions 3 and 12 (1025, 1026); the in_progress count is satisfied by resuming them or linking new rows with link_new_case_sla. Account 23 has active enterprise account-wide entitlements (213, 216), so the policy's entitlement check passes and causes no write. The acting user Jason Morrison (user 84) is an active admin, so every write is permitted.",
+  "minutes": 8
+}

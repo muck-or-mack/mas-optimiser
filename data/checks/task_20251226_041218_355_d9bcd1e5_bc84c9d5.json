@@ -1,0 +1,250 @@
+{
+  "task_id": "task_20251226_041218_355_d9bcd1e5_bc84c9d5",
+  "policy_sha1": "b2da3f42",
+  "requirements": [
+    {
+      "text": "Tabitha Bullock (tabitha.bullock@servicenow.com) should have the manager system role ... with both users still active",
+      "kind": "change",
+      "table": "user",
+      "anchor": {
+        "user_id": 3
+      },
+      "cells": {
+        "role": "manager",
+        "active": 1
+      },
+      "sql": "SELECT COUNT(*) FROM user WHERE user_id = 3 AND role = 'manager' AND active = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Tabitha is manager (system role) and active",
+      "seed_count": 0,
+      "assumptions": [
+        "Tabitha Bullock resolved by email to user 3 (seed role agent, active, org 1)",
+        "'system role' is user.role, the column the policy's enumeration names and the benchmark tests; the user_role mirror table is not tested (see notes)",
+        "the acting user Karen Watkins is an admin, the only role the policy allows to write user records",
+        "disagreement: sql: B adds email = 'tabitha.bullock@servicenow.com' beside the anchor, A does not; dropped because the anchor fixes the row and the cells then match the sql"
+      ]
+    },
+    {
+      "text": "Cheryl Osborne (cheryl.osborne@servicenow.com) should no longer have the manager system role and should instead appear as a standard employee, with both users still active",
+      "kind": "change",
+      "table": "user",
+      "anchor": {
+        "user_id": 49
+      },
+      "cells": {
+        "role": "employee",
+        "active": 1
+      },
+      "sql": "SELECT COUNT(*) FROM user WHERE user_id = 49 AND role = 'employee' AND active = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Cheryl is employee (system role) and active",
+      "seed_count": 0,
+      "assumptions": [
+        "Cheryl Osborne resolved by email to user 49 (seed role manager, active, org 1)",
+        "'standard employee' is the policy's user.role value 'employee' (policy 7 enumeration)",
+        "disagreement: sql: B adds email = 'cheryl.osborne@servicenow.com' beside the anchor, A does not; dropped for the same reason as the Tabitha requirement"
+      ]
+    },
+    {
+      "text": "their reporting-manager relationships untouched (Tabitha)",
+      "kind": "stay",
+      "table": "hr_profile",
+      "anchor": {
+        "hr_profile_id": 3
+      },
+      "cells": {
+        "manager": 49,
+        "type": "full-time",
+        "location_type": "Hotdesk"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_profile WHERE hr_profile_id = 3 AND user_id = 3 AND manager = 49 AND type = 'full-time' AND location_type = 'Hotdesk'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Tabitha HR profile reporting-manager relationship unchanged",
+      "seed_count": 1,
+      "assumptions": [
+        "Tabitha's profile is hr_profile 3 (user_id 3); its manager on the seed is profile 49, Cheryl Osborne; the request forbids changing it ('reporting-manager relationships untouched'), so this is the first kind of stay",
+        "type and location_type kept from the benchmark check; not fixed by request or policy",
+        "no tool writes this table"
+      ]
+    },
+    {
+      "text": "their reporting-manager relationships untouched (Cheryl)",
+      "kind": "stay",
+      "table": "hr_profile",
+      "anchor": {
+        "hr_profile_id": 49
+      },
+      "cells": {
+        "manager": 4,
+        "type": "full-time",
+        "location_type": "Office Based"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_profile WHERE hr_profile_id = 49 AND user_id = 49 AND manager = 4 AND type = 'full-time' AND location_type = 'Office Based'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Cheryl HR profile reporting-manager relationship unchanged",
+      "seed_count": 1,
+      "assumptions": [
+        "Cheryl's profile is hr_profile 49 (user_id 49); its manager on the seed is profile 4, Joanne Simpson; forbidden to change by the request's 'untouched'",
+        "type and location_type kept from the benchmark check; not fixed by request or policy",
+        "no tool writes this table"
+      ]
+    },
+    {
+      "text": "for the common issue GDPR role-boundary remediation, a ready Workforce Administration case, opened for the former user, under the HR Account Access Request service (account number SN-GDPR-RBAC-2025-12) assigned to the HR Leadership Approval group and Joanne Simpson, and its short description's Detail should be the issue",
+      "kind": "create",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 61
+      },
+      "cells": {
+        "hr_service": 3,
+        "account_number": "SN-GDPR-RBAC-2025-12",
+        "coe_type": "Workforce Administration",
+        "status": "ready",
+        "priority": "moderate",
+        "opened_for": 3,
+        "opened_by": 39,
+        "assignment_group": 10,
+        "assigned_to": 4,
+        "short_description": "Service: HR Account Access Request, Subject: Tabitha Bullock, Detail: GDPR role-boundary remediation.",
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND hr_service = 3 AND account_number = 'SN-GDPR-RBAC-2025-12' AND coe_type = 'Workforce Administration' AND status = 'ready' AND priority = 'moderate' AND opened_for = 3 AND opened_by = 39 AND assignment_group = 10 AND assigned_to = 4 AND short_description = 'Service: HR Account Access Request, Subject: Tabitha Bullock, Detail: GDPR role-boundary remediation.' AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify the remediation HR case exists with exact required fields",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (61 after 60); the task creates one case",
+        "'the former user' read as the first of the two named, Tabitha Bullock; opened_for references hr_profile and her hr_profile_id is 3 (equal to her user_id, which the benchmark's subquery uses)",
+        "'HR Account Access Request' is hr_service 3, active; 'HR Leadership Approval' is user_group 10, active; Joanne Simpson is user 4, an active member of group 10 (policy 3.2)",
+        "priority not stated; policy 3.1 defaults it to moderate (the benchmark check tests the same)",
+        "short_description follows the policy 8 format with Detail = the issue; the Subject 'Tabitha Bullock' is kept from the benchmark check, not fixed by request or policy (101 characters, within 30-120)",
+        "disagreement: org_id = 1: A tests it, B does not; kept because the benchmark check tests c.org_id = 1 and it is the tenant of the acting user and of every referenced record",
+        "disagreement: opened_by = 39: B tests it (policy 3.1: opened_by is the requester, here the acting user Karen Watkins, hr_profile 39), A leaves it untested because every seed case has opened_by = opened_for; kept because policy 3.1 fixes it, the request is in Karen's own words ('I need the HR system to show'), and the batch 14 HR file tests opened_by the same way; the seed's convention is the generator's, not a contradiction",
+        "source not fixed by request or policy; left out"
+      ]
+    },
+    {
+      "text": "a published internal knowledge article should exist and make Karen Watkins the owner",
+      "kind": "create",
+      "table": "knowledge",
+      "anchor": {
+        "knowledge_id": 7
+      },
+      "cells": {
+        "title": "IN ('Resolution Guide: HR Account Access Request fulfillment steps for GDPR role-boundary remediation', 'Resolution Guide: HR Account Access Request fulfillment steps for GDPR role-boundary remediation.')",
+        "visibility": "internal",
+        "state": "published",
+        "owner_id": 39,
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM knowledge WHERE knowledge_id = 7 AND title IN ('Resolution Guide: HR Account Access Request fulfillment steps for GDPR role-boundary remediation', 'Resolution Guide: HR Account Access Request fulfillment steps for GDPR role-boundary remediation.') AND visibility = 'internal' AND state = 'published' AND owner_id = 39 AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify knowledge article exists (internal + published + exact expected title)",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (7 after 6); the task creates one article",
+        "Karen Watkins is user 39, the acting user (Karen Graham, user 76, is the only other Karen and the request gives the full name)",
+        "title follows the policy 8 format 'Resolution Guide: <service> fulfillment steps for <issue>.' with the service and the issue from the request; the benchmark check's title omits the trailing full stop, so both spellings are accepted (see original_checks)",
+        "disagreement: org_id = 1: A tests it, B does not; kept because the benchmark check tests org_id = 1",
+        "body and kb_number are not fixed by request or policy and are left untested"
+      ]
+    },
+    {
+      "text": "both Tabitha and Cheryl should each receive one ready update notification linked to that remediation case (Tabitha)",
+      "kind": "create",
+      "table": "notification",
+      "selector": "hr_case_id = 61 AND email = 'tabitha.bullock@servicenow.com'",
+      "cells": {
+        "type": "update",
+        "status": "ready"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE hr_case_id = 61 AND email = 'tabitha.bullock@servicenow.com' AND type = 'update' AND status = 'ready'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Tabitha received exactly one ready update notification for the remediation case",
+      "seed_count": 0,
+      "assumptions": [
+        "two notifications are created and the request fixes no order, so each is selected by case and recipient, never by id",
+        "recipient address is the user's email, as the benchmark check tests; 'one' is expected = 1",
+        "disagreement: selector: A finds the case by its anchored id (hr_case_id = 61), B joins hr_case on account_number as the benchmark check does; kept A's because it is a plain WHERE clause, it is tighter (one row even if a second case carried the account number), and the file already anchors the case at 61"
+      ]
+    },
+    {
+      "text": "both Tabitha and Cheryl should each receive one ready update notification linked to that remediation case (Cheryl)",
+      "kind": "create",
+      "table": "notification",
+      "selector": "hr_case_id = 61 AND email = 'cheryl.osborne@servicenow.com'",
+      "cells": {
+        "type": "update",
+        "status": "ready"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE hr_case_id = 61 AND email = 'cheryl.osborne@servicenow.com' AND type = 'update' AND status = 'ready'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Cheryl received exactly one ready update notification for the remediation case",
+      "seed_count": 0,
+      "assumptions": [
+        "selected by case and recipient, not by id (see the Tabitha notification)",
+        "disagreement: selector: A by hr_case_id = 61, B by the account-number join; kept A's for the same reason as the Tabitha notification"
+      ]
+    },
+    {
+      "text": "each receive one ready update notification linked to that remediation case; nothing else in this tenant should change as a side effect",
+      "kind": "create",
+      "table": "notification",
+      "selector": "hr_case_id = 61",
+      "cells": {
+        "type": "update",
+        "status": "ready"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE hr_case_id = 61 AND type = 'update' AND status = 'ready'",
+      "expected": 2,
+      "comparison": "equals",
+      "source": "Verify exactly two notifications exist for the remediation case (no extras)",
+      "seed_count": 0,
+      "assumptions": [
+        "the pair bound: exactly two ready update notifications on the case, one per named user, and no third; carried as the benchmark wrote it (it does not count notifications of other types or statuses)",
+        "disagreement: form: B repeats type and status in both the selector and the cells, A keeps the row key in the selector and the tested columns in cells; kept A's shape, the README's; the sql tests the same rows"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify Tabitha is manager (system role) and active": {
+      "disposition": "kept"
+    },
+    "Verify Cheryl is employee (system role) and active": {
+      "disposition": "kept"
+    },
+    "Verify Tabitha HR profile reporting-manager relationship unchanged": {
+      "disposition": "kept"
+    },
+    "Verify Cheryl HR profile reporting-manager relationship unchanged": {
+      "disposition": "kept"
+    },
+    "Verify the remediation HR case exists with exact required fields": {
+      "disposition": "kept"
+    },
+    "Verify knowledge article exists (internal + published + exact expected title)": {
+      "disposition": "repaired",
+      "evidence": "policy 8 writes both free-text formats with a closing full stop ('Resolution Guide: `` fulfillment steps for ``.'), exactly as it writes the short-description format whose check keeps its full stop; the check's title omits it, so it would fail an agent that follows the format literally; the title cell accepts the exact wording with or without the trailing full stop and everything else is unchanged"
+    },
+    "Verify Tabitha received exactly one ready update notification for the remediation case": {
+      "disposition": "kept"
+    },
+    "Verify Cheryl received exactly one ready update notification for the remediation case": {
+      "disposition": "kept"
+    },
+    "Verify exactly two notifications exist for the remediation case (no extras)": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on the nine requirements' tables, anchors or selectors and values (users 3 and 49, profiles 3 and 49, case 61, article 7, two notifications plus the pair bound) and on all nine dispositions (eight kept, the article title repaired the same way by both). disagreement: sql of the two user requirements: B adds the email beside the anchor; dropped (logged in each). disagreement: org_id = 1 on the case and on the article: A tests it, B does not; kept, as the benchmark checks test it (logged in each). disagreement: opened_by = 39 on the case: B tests it from policy 3.1, A leaves it untested because every one of the 60 seed cases has opened_by = opened_for; kept per policy and the batch 14 precedent (logged in the requirement); drop it if the create tool proves to set opened_by on its own. disagreement: notification selectors: A by the anchored case id, B by the account-number join; kept A's (logged in each). disagreement: form of the pair bound: B repeats type and status in selector and cells; kept A's shape (logged). Policy conflict a reviewer should know of: this policy version restricts the admin role ('Must not perform routine HR case work') and the acting user Karen Watkins is an admin; the benchmark's checks assume she creates the case, article and notifications, and this file follows that prior (a GDPR remediation after an access review is read as not routine). The user_role table mirrors user.role for both users (Tabitha role_id 3 agent, Cheryl role_id 2 manager); the request's 'system role' is taken to be user.role, which the policy enumerates and the benchmark tests; no listed tool writes user_role, so it is left untested rather than invented. Both hr_profile stays are what the request forbids changing, so they are requirements, not invented invariants. 'Nothing else in this tenant should change' is a generic invariant measured as collateral change, not written as stays. No boundary stays: every name, email, service and group resolves to one row and no case has a near-match account number.",
+  "minutes": 12
+}

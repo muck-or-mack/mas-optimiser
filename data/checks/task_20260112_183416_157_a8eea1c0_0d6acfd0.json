@@ -1,0 +1,130 @@
+{
+  "task_id": "task_20260112_183416_157_a8eea1c0_0d6acfd0",
+  "policy_sha1": "044e7a06",
+  "requirements": [
+    {
+      "text": "Generate a VPN Supplement: London Gateway knowledge article by her",
+      "kind": "create",
+      "table": "knowledge",
+      "anchor": {
+        "knowledge_id": "KB_026"
+      },
+      "cells": {
+        "title": "VPN Supplement: London Gateway",
+        "owner_id": "USER_004",
+        "state": "draft",
+        "visibility": "internal",
+        "body": "LIKE '%London Gateway%'"
+      },
+      "sql": "SELECT COUNT(*) FROM knowledge WHERE knowledge_id = 'KB_026' AND title = 'VPN Supplement: London Gateway' AND owner_id = 'USER_004' AND state = 'draft' AND visibility = 'internal' AND body LIKE '%London Gateway%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "knowledge_article_creation_verifier, combined_state_changes_verifier",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (KB_026 after KB_025); kb_number is server-kept and not a cell",
+        "'by her' fixes owner_id = USER_004 (Joanne Simpson, the only Simpson in users)",
+        "state = draft and visibility = internal kept from the benchmark check; not fixed by request or policy (a new, unreviewed article is not published, and the article it supplements, KB_003, is internal)",
+        "body must name the London Gateway; the original's plural 'London Gateway configurations' is dropped because the request says 'configuration' and does not dictate the body wording",
+        "disagreement: cells: A keeps state = draft and visibility = internal, B drops them as not fixed by request or policy; chose A's because the benchmark's check is the prior and nothing in the request, policy or seed contradicts them"
+      ]
+    },
+    {
+      "text": "open a new incident for her",
+      "kind": "create",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_101"
+      },
+      "cells": {
+        "caller_id": "USER_004",
+        "status": "new",
+        "category": "network",
+        "short_description": [
+          "LIKE '%VPN%'",
+          "LIKE '%London Gateway%'"
+        ],
+        "description": "LIKE '%London Gateway%'",
+        "impact": "low",
+        "urgency": "low",
+        "priority": "planning",
+        "assigned_to": "IS NULL",
+        "assignment_group": "IS NULL"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_101' AND caller_id = 'USER_004' AND status = 'new' AND category = 'network' AND short_description LIKE '%VPN%' AND short_description LIKE '%London Gateway%' AND description LIKE '%London Gateway%' AND impact = 'low' AND urgency = 'low' AND priority = 'planning' AND assigned_to IS NULL AND assignment_group IS NULL",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "incident_creation_verifier, combined_state_changes_verifier",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (INC_101 after INC_100); number is server-kept and not a cell",
+        "status = new is the policy 3.1 default",
+        "category = network from the request's 'network connection' and the VPN (network is a seed category)",
+        "impact = low, urgency = low and priority = planning kept from the benchmark check; not fixed by request or policy (the request gives neither, and planning is the policy matrix's value for low x low)",
+        "the VPN and London Gateway wording in short_description and description, and the null assigned_to and assignment_group, kept from the benchmark check; not fixed by request or policy",
+        "disagreement: cells: A keeps the original's impact, urgency, priority, London Gateway wording, description and null assignment, B tests only caller, status, category and VPN in the summary; chose A's because the benchmark's check is the prior and nothing in the request, policy or seed contradicts those cells"
+      ]
+    },
+    {
+      "text": "ensuring the existing article is applied to document the failed attempt",
+      "kind": "create",
+      "table": "incident_knowledge",
+      "anchor": {
+        "incident_kb_id": "IKB_046"
+      },
+      "cells": {
+        "incident_id": "INC_101",
+        "knowledge_id": "KB_003",
+        "used_as": "applied"
+      },
+      "sql": "SELECT COUNT(*) FROM incident_knowledge WHERE incident_kb_id = 'IKB_046' AND incident_id = 'INC_101' AND knowledge_id = 'KB_003' AND used_as = 'applied'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "knowledge_incident_link_verifier, combined_state_changes_verifier",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (IKB_046 after IKB_045); the only link the request asks for, so the row is anchored by id as the original check has it",
+        "'the existing article' is KB_003 'VPN Error 412 Fix', the only VPN article in the seed",
+        "'applied to document the failed attempt' fixes used_as = applied (policy 7 use tracking), not resolution"
+      ]
+    },
+    {
+      "text": "ensuring the existing article is applied",
+      "kind": "stay",
+      "table": "incident_knowledge",
+      "selector": "incident_id = 'INC_101' AND knowledge_id <> 'KB_003' AND used_as = 'applied'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM incident_knowledge WHERE incident_id = 'INC_101' AND knowledge_id <> 'KB_003' AND used_as = 'applied'",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of the selector: the new supplement (KB_026) is not the article that was applied, so it must not be linked as applied; a policy 7 suggested link is not caught by this count"
+      ]
+    }
+  ],
+  "original_checks": {
+    "knowledge_article_creation_verifier": {
+      "disposition": "repaired",
+      "evidence": "body LIKE '%London Gateway configurations%' is the author's own phrasing: the request says 'London Gateway configuration' (singular) and does not fix the body text, so the predicate is body LIKE '%London Gateway%'; kb_number is server-kept and dropped; state = draft and visibility = internal are kept as the benchmark's prior"
+    },
+    "incident_creation_verifier": {
+      "disposition": "kept",
+      "evidence": "number is server-kept and dropped from the cells; every other predicate is carried"
+    },
+    "knowledge_incident_link_verifier": {
+      "disposition": "kept"
+    },
+    "combined_state_changes_verifier": {
+      "disposition": "kept",
+      "evidence": "a CASE conjunction of the three checks above with a subset of their cells; carried jointly by the three create requirements (sources knowledge_article_creation_verifier, incident_creation_verifier, knowledge_incident_link_verifier), whose cells include every cell it tests"
+    },
+    "referenced_data_integrity_verifier": {
+      "disposition": "weak",
+      "evidence": "tests seed facts only (USER_004 is an active manager, KB_003 is published 'VPN Error 412 Fix'); the query returns 2 on the seed before the agent acts, and no tool in the task writes users or updates knowledge"
+    }
+  },
+  "notes": "Merged from two passes that agree on the three created rows (KB_026, INC_101, IKB_046), their anchors, the owner, title, caller, category, status, the link's article and used_as, the body repair and three of five dispositions. disagreement: knowledge cells state and visibility (A keeps, B drops); kept (logged in the requirement). disagreement: incident cells impact, urgency, priority, the London Gateway wording, description and null assignment (A keeps, B drops); kept (logged in the requirement). disagreement: stay on INC_101 having no other article linked as applied (A only); kept because it is the boundary of 'the existing article' (the new supplement KB_026 must not be marked applied). disagreement: incident_creation_verifier: A kept, B repaired; chose kept because the cells B dropped are kept under the prior rule and number is server-kept, never a cell. disagreement: combined_state_changes_verifier: A kept, B excluded; chose kept because its cells are a subset of the three checks it conjoins, all carried, and B's ground (draft and planning not fixed by the request) no longer applies once those cells are kept; no single requirement names it as source. A's compound short_description string rewritten as a list of two predicates per the current format rule. Policy 7 (search on incident creation, matching articles linked as suggested) is not a requirement: which articles match is undecidable, and KB_003 can be linked to INC_101 only once (unique on org, incident, knowledge); if the agent adds suggested links, the applied link may not be IKB_046, a risk both passes accepted by keeping the benchmark's anchor. Policy 1 says a missing mandatory field (impact, urgency) should be stated rather than assumed; the benchmark expects the incident created with low/low, read here as the create tool's defaults. The acting user USER_039 Karen Watkins is an admin with full access.\ncombined_state_changes_verifier is carried jointly by the three create requirements, named in their source.",
+  "minutes": 11
+}

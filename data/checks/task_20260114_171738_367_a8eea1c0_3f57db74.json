@@ -1,0 +1,217 @@
+{
+  "task_id": "task_20260114_171738_367_a8eea1c0_3f57db74",
+  "policy_sha1": "b2da3f42",
+  "requirements": [
+    {
+      "text": "For HRC0000711 the outdated knowledge policy linked to the case needs to be formally purged from the record",
+      "kind": "remove",
+      "table": "hr_case_knowledge",
+      "selector": "hr_case_id = 1",
+      "cells": {
+        "knowledge_id": 3
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case_knowledge WHERE hr_case_id = 1 AND knowledge_id = 3",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "hr_case_knowledge_link_update, comprehensive_multi_table_state_validation",
+      "seed_count": 1,
+      "assumptions": [
+        "HRC0000711 is hr_case_id 1; its only link on the seed is hr_case_kb_id 7 to knowledge 3 (Leave of Absence Policy, used_as suggested), so that is the outdated policy",
+        "'purged from the record' read as removing the link (tool remove_knowledge_link_to_hr_case), not deleting the article; the count must fall from 1 to 0",
+        "disagreement: row selection: A anchors hr_case_kb_id 7, B selects by natural key (case 1, knowledge 3); chose B's because both are right and it is tighter: a link to knowledge 3 re-added under a new id also fails",
+        "also carries the composite check's NOT EXISTS on hr_case_kb_id 7"
+      ]
+    },
+    {
+      "text": "create Advanced Critical SOP Implementation Knowledge Resource ... and officially tag it as the resolution source",
+      "kind": "create",
+      "table": "hr_case_knowledge",
+      "anchor": {
+        "hr_case_kb_id": 13
+      },
+      "cells": {
+        "hr_case_id": 1,
+        "knowledge_id": 7,
+        "used_as": "resolution"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case_knowledge WHERE hr_case_kb_id = 13 AND hr_case_id = 1 AND knowledge_id = 7 AND used_as = 'resolution'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "hr_case_knowledge_link_update, comprehensive_multi_table_state_validation",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest hr_case_kb_id on the seed is 12); the only link the task creates; the new article is knowledge_id 7 (highest on the seed is 6)",
+        "resolution source maps to used_as = resolution (policy section 4, linking types)"
+      ]
+    },
+    {
+      "text": "the outdated knowledge policy linked to the case needs to be formally purged ... officially tag it as the resolution source",
+      "kind": "stay",
+      "table": "hr_case_knowledge",
+      "selector": "hr_case_id = 1",
+      "cells": {
+        "knowledge_id": "NOT IN (3, 7)"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case_knowledge WHERE hr_case_id = 1 AND knowledge_id NOT IN (3, 7)",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "hr_case_knowledge_link_update, comprehensive_multi_table_state_validation",
+      "seed_count": 0,
+      "assumptions": [
+        "carries the benchmark's 'exactly one link on the case' condition: the request names one removal and one new link, so no other article may be linked to hr_case 1"
+      ]
+    },
+    {
+      "text": "Summarize the resolution in the short description to read: \"Service: General Inquiry, Subject: Christina Oliver, Detail: Resolved via SOP implementation.\"",
+      "kind": "change",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 1
+      },
+      "cells": {
+        "short_description": "Service: General Inquiry, Subject: Christina Oliver, Detail: Resolved via SOP implementation.",
+        "status": "draft",
+        "priority": "critical"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 1 AND short_description = 'Service: General Inquiry, Subject: Christina Oliver, Detail: Resolved via SOP implementation.' AND status = 'draft' AND priority = 'critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "hr_case_status_and_description_update, comprehensive_multi_table_state_validation",
+      "seed_count": 0,
+      "assumptions": [
+        "the text is the request's, verbatim (93 characters, within the policy's 30-120 limit and in the policy's Service/Subject/Detail template, which the benchmark tests through this value)",
+        "status = draft kept from the benchmark check: the request asks for no status change (seed status is draft) and policy section 3.3 allows no closing transition from draft",
+        "priority = critical is the seed value, confirmed by the request ('flagged as Critical') and left unchanged",
+        "number and updated_at are server-kept and not cells; the row is anchored by hr_case_id 1"
+      ]
+    },
+    {
+      "text": "create Advanced Critical SOP Implementation Knowledge Resource detailing the required resolution steps which include verify employee credentials, map legacy SOP to current HR COE, and execute departmental rerouting",
+      "kind": "create",
+      "table": "knowledge",
+      "anchor": {
+        "knowledge_id": 7
+      },
+      "cells": {
+        "title": "Advanced Critical SOP Implementation Knowledge Resource",
+        "body": "LIKE '%Verify employee credentials, map legacy SOP to current HR COE, and execute departmental rerouting%'",
+        "state": "published",
+        "visibility": "internal",
+        "owner_id": 11,
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM knowledge WHERE knowledge_id = 7 AND title = 'Advanced Critical SOP Implementation Knowledge Resource' AND body LIKE '%Verify employee credentials, map legacy SOP to current HR COE, and execute departmental rerouting%' AND state = 'published' AND visibility = 'internal' AND owner_id = 11 AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "knowledge_article_creation_and_properties, comprehensive_multi_table_state_validation",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest knowledge_id on the seed is 6); the only article the task creates",
+        "title is the request's phrase as the benchmark reads it; it does not follow the policy's 'Resolution Guide: ...' template, and the request's explicit title wins",
+        "body predicate is the benchmark's: the request's three steps as one phrase, which is the request's own wording (LIKE ignores ASCII case)",
+        "disagreement: body: A the benchmark's single phrase, B one LIKE per step; chose A's because the benchmark's check is the prior, the request's words are that phrase verbatim, and nothing in the request contradicts it; it is also the tighter of the two",
+        "state = published fixed by policy section 4: only published articles are linkable, and the article is linked as the resolution",
+        "visibility = internal kept from the benchmark check; not fixed by request or policy",
+        "owner_id = 11 kept from the benchmark check (Travis Wood, the case's assigned agent); not fixed by request or policy; the acting user is 4",
+        "org_id = 1 kept from the benchmark check (the case's org)",
+        "kb_number dropped: a server-assigned number, and the seed's format KB00400NN contradicts the benchmark's 'KB-001'"
+      ]
+    },
+    {
+      "text": "create Advanced Case Resolution Skill",
+      "kind": "create",
+      "table": "skill",
+      "anchor": {
+        "skill_id": 20
+      },
+      "cells": {
+        "name": "Advanced Case Resolution",
+        "active": 1,
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM skill WHERE skill_id = 20 AND name = 'Advanced Case Resolution' AND active = 1 AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "advanced_case_resolution_skill_creation, comprehensive_multi_table_state_validation",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest skill_id on the seed is 19); the only skill the task creates",
+        "name reads 'Skill' as the noun, as the benchmark check does; a name ending in ' Skill' would fail",
+        "active = 1 and org_id = 1 kept from the benchmark check; not fixed by request or policy (every seed skill is active in org 1)"
+      ]
+    },
+    {
+      "text": "establish Critical Advanced Case Routing Assignment rule that mandates all future critical cases requiring that new skill must be routed directly to the HR Leadership Approval Group",
+      "kind": "create",
+      "table": "assignment_rules",
+      "anchor": {
+        "assignment_rule_id": 9
+      },
+      "cells": {
+        "name": "Critical Advanced Case Routing",
+        "based_on_priority": "critical",
+        "based_on_skills": "LIKE '%Advanced Case Resolution%'",
+        "user_group": 10,
+        "active": 1,
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM assignment_rules WHERE assignment_rule_id = 9 AND name = 'Critical Advanced Case Routing' AND based_on_priority = 'critical' AND based_on_skills LIKE '%Advanced Case Resolution%' AND user_group = 10 AND active = 1 AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "critical_advanced_case_routing_rule_creation, comprehensive_multi_table_state_validation",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest assignment_rule_id on the seed is 8); the only rule the task creates",
+        "HR Leadership Approval Group resolves to group_id 10 on the seed; 'critical cases' fixes based_on_priority = critical",
+        "name reads 'Assignment rule' as the noun, as the benchmark check does",
+        "based_on_skills added from the request ('requiring that new skill'); the seed stores a JSON list of skill names, so the new skill's name must appear; a tool that stores skill ids instead would fail this cell",
+        "disagreement: based_on_skills: A a cell of this requirement, B a separate 'new' requirement on the same row; folded in here because the rule is one thing asked and the cell is fixed by the request, not by the benchmark",
+        "active = 1 and org_id = 1 kept from the benchmark check; not fixed by request or policy"
+      ]
+    },
+    {
+      "text": "the outdated knowledge policy linked to the case needs to be formally purged from the record",
+      "kind": "stay",
+      "table": "hr_case_knowledge",
+      "anchor": {
+        "hr_case_kb_id": 6
+      },
+      "cells": {
+        "hr_case_id": 6,
+        "knowledge_id": 3
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case_knowledge WHERE hr_case_kb_id = 6 AND hr_case_id = 6 AND knowledge_id = 3",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "boundary of the purge: knowledge 3 is also linked to hr_case 6 (hr_case_kb_id 6); only the link on HRC0000711 is removed"
+      ]
+    }
+  ],
+  "original_checks": {
+    "hr_case_knowledge_link_update": {
+      "disposition": "kept"
+    },
+    "advanced_case_resolution_skill_creation": {
+      "disposition": "kept"
+    },
+    "knowledge_article_creation_and_properties": {
+      "disposition": "repaired",
+      "evidence": "kb_number = 'KB-001' is dropped: the column is a server-assigned number and the seed's articles run KB0040001 to KB0040006, so the value is undecidable; every other cell is carried, the body phrase as the benchmark wrote it"
+    },
+    "critical_advanced_case_routing_rule_creation": {
+      "disposition": "kept"
+    },
+    "hr_case_status_and_description_update": {
+      "disposition": "kept"
+    },
+    "comprehensive_multi_table_state_validation": {
+      "disposition": "repaired",
+      "evidence": "a composite of the five checks above, carried jointly by the seven requirements that name it in source (the removal, the new link, no other link on the case, the case update, the article, the skill and the rule); its kb_number = 'KB-001' cell is dropped for the reason given on the knowledge check"
+    }
+  },
+  "notes": "Merged from two passes that agree on the created rows (knowledge 7, link 13, skill 20, rule 9), the case update, the removal of the link to knowledge 3, the no-other-link stay and the stay on hr_case 6's link. disagreement: the removal's row selection: A anchors hr_case_kb_id 7, B selects by natural key; chose B's as the tighter of two right predicates (logged in the requirement). disagreement: the article's body predicate: A the benchmark's single phrase, B one LIKE per step; chose A's because the benchmark's cell is the prior and the request's words are that phrase (logged in the requirement). disagreement: based_on_skills: A a cell of the rule requirement, B a separate new requirement; folded into the rule requirement (logged there). disagreement: stay that knowledge 3 keeps state published: B has it, A does not; dropped because no listed tool retires or deletes an article (only create_knowledge_article writes the table), so the count cannot change, and the ambiguity is in the verb 'purged', not in a selector's boundary. disagreement: composite check: A repaired (carried jointly, kb_number dropped), B excluded as a duplicate; repaired, since a composite whose cells are all carried is kept jointly and named in each carrying requirement's source, and only its kb_number cell is contradicted by the seed. The removal and the no-other-link requirements put the case in the selector and the tested knowledge_id in cells; both passes wrote the same SQL. The hr_case_knowledge_link_update check is split across three requirements (the removal, the new link, no other links on the case). The acting user (Joanne Simpson, user 4) has role manager: policy section 2 says a manager cannot modify system configuration, and skills and assignment rules are configuration tables; the request asks for both and the benchmark expects them, so the file requires them and the tension is recorded here. The request's article title ignores the policy's 'Resolution Guide: ...' template; the request's title is tested because both the request and the benchmark use it. The case status stays draft because the request never asks to close the case; an agent that moves it to closed_complete fails the benchmark's own check too. owner_id = 11 on the new article is the benchmark's value (the case's assignee), not fixed by the request; an agent writing the acting user (4) as owner would fail that cell.",
+  "minutes": 11
+}

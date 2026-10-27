@@ -1,0 +1,158 @@
+{
+  "task_id": "task_20251205_154853_044_d4a463c3_fce76046",
+  "policy_sha1": "10503d62",
+  "requirements": [
+    {
+      "text": "relocating this device to the London site with the newer plot and street configuration, specifically the one on the Pratt Curve side, and ensure its status remains operational",
+      "kind": "change",
+      "table": "installed_product",
+      "anchor": {
+        "installed_product_id": 40
+      },
+      "cells": {
+        "location_id": 692,
+        "status": "in_use"
+      },
+      "sql": "SELECT COUNT(*) FROM installed_product WHERE installed_product_id = 40 AND location_id = 692 AND status = 'in_use'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Updated Installed Product",
+      "seed_count": 0,
+      "assumptions": [
+        "'the older plot and curve address pattern in the 90s area' is location 817 (Stark Industries Hq - London, Plot 93, Webb Curve), the only London site with a 90s plot number and a Curve street",
+        "'One of the P25-serial type devices at that location' is installed product 40 (serial P25-458046-6504, account 8), the only P25 device at 817; the warranty hint (warranty_end 2027-06-18) was not needed to pick it",
+        "'the newer plot and street configuration ... on the Pratt Curve side' is location 692 (Plot 394, Pratt Curve, london), the only Pratt Curve location in the seed",
+        "'status remains operational' is in_use, the policy's active status for installed products",
+        "acting_user is empty; the policy says to assume the admin role, which may update installed products"
+      ]
+    },
+    {
+      "text": "After completing the update, please send a notification to the associated account contacts for this product",
+      "kind": "create",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 1233
+      },
+      "cells": {
+        "account_id": 8,
+        "contact_id": 10,
+        "channel": "alert",
+        "priority": "moderate",
+        "state": "new"
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1233 AND account_id = 8 AND contact_id = 10 AND channel = 'alert' AND priority = 'moderate' AND state = 'new'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Create New Case",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by the request, not stated: notification.case_id is NOT NULL, so the notifications need a case to hang on, and create_new_case is a listed tool",
+        "id assumed next in sequence (1233 after 1232); anchored by id because it is the only case the task creates",
+        "account 8 is the device's account; contact 10 (Marc Henry, is_primary = 1) is kept from the benchmark check; not fixed by request or policy",
+        "channel alert kept from the benchmark check; not fixed by request or policy (the policy sets no channel default)",
+        "priority not stated; the policy's default is moderate, which contradicts the benchmark's low",
+        "state not stated and no closure asked for; the policy's default state is new and a case cannot be closed directly, which contradicts the benchmark's closed",
+        "disagreement: whole requirement: A excluded the case as not asked for, B kept it repaired with the policy's defaults; kept because the request implies the case and a listed tool can create it",
+        "disagreement: channel: A none (the check was excluded), B dropped alert as undecidable; chose alert because the benchmark's check is the prior for a cell nothing fixes"
+      ]
+    },
+    {
+      "text": "After completing the update, please send a notification to the associated account contacts for this product so they're aware of the change",
+      "kind": "create",
+      "table": "notification",
+      "selector": "case_id = 1233 AND email = 'marc.henry@stark-industries.com'",
+      "cells": {
+        "type": "update"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE case_id = 1233 AND email = 'marc.henry@stark-industries.com' AND type = 'update'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Notification Sent ",
+      "seed_count": 0,
+      "assumptions": [
+        "'associated account contacts for this product' are the two active contacts of account 8, the device's account; this one is contact 10 (portal user 20, Marc Henry, the primary contact), and the email is the portal user's",
+        "two notifications are created in one table, so each is selected by its natural key (the case and the recipient), never by sequence position",
+        "type update: the notification is about a change, and the original check tests it; status is server-kept and not a cell",
+        "disagreement: selector: A any case of account 8 (case_id IN the account's cases) with the count above its seed value, B case 1233 with count 1; chose B's because the case the notifications hang on is kept (see the customer_case requirement)"
+      ]
+    },
+    {
+      "text": "After completing the update, please send a notification to the associated account contacts for this product so they're aware of the change",
+      "kind": "create",
+      "table": "notification",
+      "selector": "case_id = 1233 AND email = 'tonya.stevens@stark-industries.com'",
+      "cells": {
+        "type": "update"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE case_id = 1233 AND email = 'tonya.stevens@stark-industries.com' AND type = 'update'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Notification Sent  (2)",
+      "seed_count": 0,
+      "assumptions": [
+        "'associated account contacts for this product' are the two active contacts of account 8, the device's account; this one is contact 11 (portal user 287, Tonya Stevens); account 8 has no other contacts, and the email is the portal user's",
+        "two notifications are created in one table, so each is selected by its natural key (the case and the recipient), never by sequence position",
+        "type update: the notification is about a change, and the original check tests it; status is server-kept and not a cell",
+        "disagreement: selector: A any case of account 8 (case_id IN the account's cases) with the count above its seed value, B case 1233 with count 1; chose B's because the case the notifications hang on is kept (see the customer_case requirement)"
+      ]
+    },
+    {
+      "text": "One of the P25-serial type devices at that location needs its records updated (boundary: the other three devices at the old site stay there)",
+      "kind": "stay",
+      "table": "installed_product",
+      "selector": "location_id = 817 AND installed_product_id <> 40",
+      "cells": {
+        "location_id": 817
+      },
+      "sql": "SELECT COUNT(*) FROM installed_product WHERE location_id = 817 AND installed_product_id <> 40",
+      "expected": 3,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 3,
+      "assumptions": [
+        "a loose reading of 'the facility ... is being reorganized' could relocate devices 42, 43 and 44 (serials P140, P196, P206) too; only the one P25 device moves",
+        "disagreement: selector: A installed_product_id <> 40, B serial_number NOT LIKE 'P25%'; the same three rows on the seed; chose A's because it is the exact complement of the moved row"
+      ]
+    },
+    {
+      "text": "One of the P25-serial type devices at that location (boundary: the only other P25 device, on another account and site, is not touched)",
+      "kind": "stay",
+      "table": "installed_product",
+      "anchor": {
+        "installed_product_id": 15
+      },
+      "cells": {
+        "location_id": 808,
+        "status": "in_use"
+      },
+      "sql": "SELECT COUNT(*) FROM installed_product WHERE installed_product_id = 15 AND location_id = 808 AND status = 'in_use'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "a serial search for P25 without the location filter also finds device 15 (account 3, location 808, Miller Plain); it keeps its location and status",
+        "disagreement: cells: A {location_id, status}, B {location_id}; chose A's because it is tighter and both are seed values; written as an anchor since it is one existing row found by its key"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify Updated Installed Product": {
+      "disposition": "kept"
+    },
+    "Verify Create New Case": {
+      "disposition": "repaired",
+      "evidence": "the request names no case, but notification.case_id is NOT NULL and create_new_case is listed, so the case is implied by the request; account 8 and contact 10 match the seed, and channel alert is kept as the benchmark's prior since nothing fixes it; priority low and state closed contradict the policy's defaults (moderate, new; a case cannot be closed directly) and the request asks for no closure, so those two cells are changed. Disagreement: A excluded, B repaired; repaired, because a check the request implies is kept with the policy's defaults"
+    },
+    "Verify Notification Sent ": {
+      "disposition": "kept",
+      "evidence": "disagreement: A repaired it to any case of account 8 with the count above its seed value, B kept it on case 1233; kept, because the case the check presupposes is kept"
+    },
+    "Verify Notification Sent  (2)": {
+      "disposition": "kept",
+      "evidence": "as above for tonya.stevens@stark-industries.com"
+    }
+  },
+  "notes": "Merged from two passes that agree on the relocation (device 40 to location 692, status in_use) and on the two notification recipients (marc.henry@ and tonya.stevens@stark-industries.com, the portal users of account 8's two active contacts). disagreement: missing requirement: the customer_case the notifications hang on; A excluded it as not asked, B created it with the policy's defaults; kept because the request implies it (notification.case_id is NOT NULL) and create_new_case is listed. disagreement: channel on that case: A none, B dropped alert as undecidable; chose alert, the benchmark's prior for a cell nothing fixes. disagreement: notification selectors: A any account-8 case with greater_than against the seed count, B case 1233 with equals 1; chose B's. disagreement: old-site stay selector: A installed_product_id <> 40, B serial_number NOT LIKE 'P25%'; same rows; chose A's. disagreement: device 15 stay cells: A {location_id, status}, B {location_id}; chose A's as tighter. disagreement: dispositions: Verify Create New Case A excluded, B repaired, chose repaired; Verify Notification Sent and (2) A repaired, B kept, chose kept. Every description in the request resolves to one seed row: old site 817, device 40, new site 692. acting_user is empty; the policy's default admin role applies. Server-kept sys_updated_on and notification.status are not cells.",
+  "minutes": 12
+}

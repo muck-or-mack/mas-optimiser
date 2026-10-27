@@ -1,0 +1,131 @@
+{
+  "task_id": "task_20260106_070321_497_accab84d_6f4a8da8",
+  "policy_sha1": "b3841dd3",
+  "requirements": [
+    {
+      "text": "find all open cases belonging to that specific New York contact ... bump their priority to Critical and reassign them to Joanne Simpson",
+      "kind": "change",
+      "table": "customer_case",
+      "selector": "case_id IN (397, 398, 399, 415, 416, 400, 401, 402, 403, 404, 405)",
+      "cells": {
+        "priority": "critical",
+        "assigned_to": 4
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id IN (397, 398, 399, 415, 416, 400, 401, 402, 403, 404, 405) AND priority = 'critical' AND assigned_to = 4",
+      "expected": 11,
+      "comparison": "equals",
+      "source": "Verify Successfully Updated Cases",
+      "seed_count": 0,
+      "assumptions": [
+        "Spencer Inc is account 18; its only contact is contact 30 (is_primary = 1), whose portal user 16 sits at location 16, city new_york, so the request's 'he' is disregarded and the selection is unambiguous",
+        "open means state IN ('new', 'in_progress', 'pending'), as the benchmark's second check reads it; on the seed those are exactly the 11 case ids listed, so the benchmark's id list is kept as the selector",
+        "Joanne Simpson is user 4 (role manager, active); the acting user is an admin, so the reassignment and priority override are within policy",
+        "priority and assignee are asked in one sentence and the benchmark tests them together, so one requirement carries both cells"
+      ]
+    },
+    {
+      "text": "reassign them to Joanne Simpson (no open case of the contact left assigned elsewhere or unassigned)",
+      "kind": "change",
+      "table": "customer_case",
+      "selector": "account_id = 18 AND contact_id = 30 AND state IN ('new', 'in_progress', 'pending')",
+      "cells": {
+        "assigned_to": "IS NOT 4"
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE account_id = 18 AND contact_id = 30 AND state IN ('new', 'in_progress', 'pending') AND assigned_to IS NOT 4",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "No open Spencer Inc / New York primary-contact case left unassigned to Joanne",
+      "seed_count": 11,
+      "assumptions": [
+        "the complement of the first requirement: every open case of the contact must end assigned to Joanne",
+        "the benchmark's 'assigned_to <> 4' is not NULL-safe: 7 of the 11 open cases are unassigned on the seed and never count under it (it gives 4 on the seed, not 11); 'IS NOT 4' counts them",
+        "the account-name join is replaced by account_id = 18, the same account",
+        "disagreement: predicate: A assigned_to <> 4 with the benchmark's account-name join (seed 4), B assigned_to IS NOT 4 with account_id = 18 (seed 11); chose B's because both are right and B's is tighter (an agent that leaves the 7 unassigned cases alone passes A's form)"
+      ]
+    },
+    {
+      "text": "reassign them to Joanne Simpson (policy: assigned_to must be a member of assignment_group_id if used)",
+      "kind": "change",
+      "table": "customer_case",
+      "selector": "case_id IN (397, 398, 399, 415, 416, 400, 401, 402, 403, 404, 405)",
+      "cells": {
+        "assignment_group_id": "NOT IN (1)"
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id IN (397, 398, 399, 415, 416, 400, 401, 402, 403, 404, 405) AND assignment_group_id NOT IN (1)",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 5,
+      "assumptions": [
+        "derived from the policy's assignment constraint, not stated in the request: Joanne's only active group is 1 (CSM Tier 1 Support; her other membership, group 66, is an inactive group), so cases 400, 401, 402, 415, 416 (groups 31, 24, 63, 32, 42) must have their group cleared or set to 1",
+        "NULL groups pass the predicate because 'NOT IN' is false on NULL; the policy allows assignment to a user without a group",
+        "group 66 is left out of the allowed set because it is inactive on the seed (user_group.active = 0); a case moved into an inactive group would not be a valid assignment",
+        "disagreement: A noted the group conflict in its notes but wrote no requirement, B wrote this one; kept because the policy's constraint fixes the group once the assignee is fixed, and update_case is a listed tool"
+      ]
+    },
+    {
+      "text": "all open cases belonging to that specific New York contact (boundary: the contact's resolved, closed and canceled cases are not reassigned)",
+      "kind": "stay",
+      "table": "customer_case",
+      "selector": "contact_id = 30 AND state IN ('resolved', 'closed', 'canceled')",
+      "cells": {
+        "assigned_to": 4
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE contact_id = 30 AND state IN ('resolved', 'closed', 'canceled') AND assigned_to = 4",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "cases 406 to 414 are the contact's nine non-open cases; a loose reading of 'all cases belonging to that contact' would sweep them in"
+      ]
+    },
+    {
+      "text": "all open cases belonging to that specific New York contact (boundary: the contact's resolved, closed and canceled cases keep their priority)",
+      "kind": "stay",
+      "table": "customer_case",
+      "selector": "contact_id = 30 AND state IN ('resolved', 'closed', 'canceled')",
+      "cells": {
+        "priority": "critical"
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE contact_id = 30 AND state IN ('resolved', 'closed', 'canceled') AND priority = 'critical'",
+      "expected": 3,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 3,
+      "assumptions": [
+        "cases 406, 413 and 414 are already critical on the seed; the other six non-open cases must not be bumped, so the count stays at 3"
+      ]
+    },
+    {
+      "text": "that specific New York contact (boundary: no other contact's cases are reassigned to Joanne)",
+      "kind": "stay",
+      "table": "customer_case",
+      "selector": "contact_id <> 30",
+      "cells": {
+        "assigned_to": 4
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE contact_id <> 30 AND assigned_to = 4",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "24 other contacts have a portal user located in new_york (7 of them primary: 16, 36, 65, 97, 101, 109, 110), with 47 open cases among the primary ones alone; a loose reading of 'New York contact' would sweep their cases in",
+        "Joanne holds one other case on the seed (880, contact 84, closed), so the count stays at 1",
+        "disagreement: selector: A contact_id IN (16, 36, 65, 97, 101, 109, 110) AND assigned_to = 4 (expected 0), B contact_id <> 30 AND assigned_to = 4 (expected 1); chose B's because both are right and B's is tighter: it also catches the 17 non-primary New York contacts a loose reading could pick"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify Successfully Updated Cases": {
+      "disposition": "kept"
+    },
+    "No open Spencer Inc / New York primary-contact case left unassigned to Joanne": {
+      "disposition": "repaired",
+      "evidence": "the check's 'assigned_to <> 4' is NULL on unassigned rows, and 7 of the contact's 11 open cases are unassigned on the seed (the check counts 4 there, not 11), so an agent that leaves cases unassigned would pass it; the requirement uses the NULL-safe 'assigned_to IS NOT 4' and account_id = 18 for the name join"
+    }
+  },
+  "notes": "Merged from two passes that agree on the main change (the contact's 11 open cases to priority critical and assigned_to 4) and on the two stays over the contact's non-open cases. disagreement: missing requirement: B's change on assignment_group_id NOT IN (1) over the 11 cases (A noted the group conflict but wrote nothing); kept because the policy's assignment constraint (assigned_to must be a member of assignment_group_id if used) fixes the group once Joanne is the assignee, and update_case can write it; A's note listed groups 1 and 66 as hers, but group 66 is inactive on the seed, so only 1 is allowed. disagreement: value: the complement check's predicate, A assigned_to <> 4 with the account-name join, B assigned_to IS NOT 4 with account_id = 18; chose B's as the tighter right form. disagreement: disposition: 'No open Spencer Inc / New York primary-contact case left unassigned to Joanne', A kept, B repaired; chose repaired because the carried predicate differs from the benchmark's and the seed (7 NULL assignees) shows the original misses what its name says. disagreement: value: the other-contacts stay, A the seven New York primary contacts (expected 0), B contact_id <> 30 (expected 1); chose B's as tighter. The 'New York office' is the contact's portal user's location (location 16), since the contact table has no location of its own.",
+  "minutes": 17
+}

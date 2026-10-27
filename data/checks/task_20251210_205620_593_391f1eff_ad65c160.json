@@ -1,0 +1,80 @@
+{
+  "task_id": "task_20251210_205620_593_391f1eff_ad65c160",
+  "policy_sha1": "c56705c3",
+  "requirements": [
+    {
+      "text": "Benjamin's Wi-Fi (serial number: WIFI-UK-005) hardware priced at Rupees 1370 ... He's in London office",
+      "kind": "create",
+      "table": "configuration_item",
+      "anchor": {
+        "configuration_item_id": "CI_005"
+      },
+      "cells": {
+        "serial_number": "WIFI-UK-005",
+        "owner_id": "USER_005",
+        "location_id": "LOC_002",
+        "status": "in_use",
+        "cost": 1370
+      },
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE configuration_item_id = 'CI_005' AND serial_number = 'WIFI-UK-005' AND owner_id = 'USER_005' AND location_id = 'LOC_002' AND status = 'in_use' AND cost = 1370",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Add CI",
+      "seed_count": 0,
+      "assumptions": [
+        "no CI with serial WIFI-UK-005 exists on the seed, so the asset must be registered; id assumed next in sequence (CI_005 after CI_004)",
+        "Benjamin resolves to USER_005 (benjamin.chen@techcorp.com, the only Benjamin); London office resolves to LOC_002 (London Development Center, the only London location)",
+        "status in_use: the device is in daily use and policy 5.1 allows only in_use or maintenance CIs to be linked to an active incident",
+        "org_id (ORG_001, following the owner) and name are not tested: the request fixes neither",
+        "the acting user is a manager, whose role row lists CRUD on operational tables only, not the CMDB; the benchmark's own check and the register_configuration_item tool show the registration is intended, so the check is kept"
+      ]
+    },
+    {
+      "text": "keeps dropping, like every 5 mins ... With urgency set high, fix this asap.",
+      "kind": "create",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_024"
+      },
+      "cells": {
+        "configuration_item": "CI_005",
+        "caller_id": "USER_005",
+        "channel": "chat",
+        "status": "new",
+        "category": "hardware",
+        "impact": "low",
+        "urgency": "high",
+        "priority": "moderate"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_024' AND configuration_item = 'CI_005' AND caller_id = 'USER_005' AND channel = 'chat' AND status = 'new' AND category = 'hardware' AND impact = 'low' AND urgency = 'high' AND priority = 'moderate'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Report incident",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (INC_024 after INC_023)",
+        "caller is Benjamin (USER_005), the affected user, not the acting manager",
+        "channel not stated; policy 3.1 defaults it to chat",
+        "impact not stated; policy 3.1 defaults it to low; urgency high from the request; priority moderate from the policy matrix (low impact x high urgency)",
+        "status new: policy 3.1 default state for new incidents",
+        "category hardware: the request calls the Wi-Fi device 'hardware' and hardware is an existing category value on the seed",
+        "the incident is linked to the newly registered CI_005, which is in_use as policy 5.1 requires",
+        "short_description is mandatory but free text, so it is not tested"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Add CI": {
+      "disposition": "kept"
+    },
+    "Report incident": {
+      "disposition": "kept"
+    },
+    "Report incident (2)": {
+      "disposition": "excluded",
+      "evidence": "a copy of 'Report incident' differing only in channel = phone; the request names no channel and policy 3.1 defaults it to chat, so the two cannot both hold and the chat copy is the one the policy supports"
+    }
+  },
+  "notes": "Merged from two independent passes that agree on every requirement (same tables, anchors, cells and SQL) and every disposition; no disagreements to log. Neither pass wrote a stay requirement, and nothing in the request or policy forbids a change to existing rows. The acting user (USER_002, Priya Sharma) is a manager; policy section 2 lists CMDB write under the agent role and gives managers CRUD only on incident, problem, change and knowledge, so a strict reading would halt the CI registration; the benchmark's own 'Add CI' check and the register_configuration_item tool both expect the CI to be created, so the requirement is kept. Policy 7 asks for a knowledge search on incident creation, but no listed tool searches or links knowledge and none of the five seed articles concerns Wi-Fi or networking, so no incident_knowledge requirement is written. SLA alignment (policy 6) is system-driven and has no tool, so it is not a requirement.",
+  "minutes": 7
+}

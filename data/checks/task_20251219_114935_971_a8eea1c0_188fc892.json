@@ -1,0 +1,141 @@
+{
+  "task_id": "task_20251219_114935_971_a8eea1c0_188fc892",
+  "policy_sha1": "b2da3f42",
+  "requirements": [
+    {
+      "text": "open a new medical benefits inquiry service case for her [Samantha Stone, primary account ACC-12-0] and make sure the HR Service Desk Group is on it",
+      "kind": "create",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 61
+      },
+      "cells": {
+        "hr_service": 9,
+        "opened_for": 12,
+        "opened_by": 4,
+        "assignment_group": 4,
+        "account_number": "ACC-12-0",
+        "coe_type": "Total Rewards",
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND hr_service = 9 AND opened_for = 12 AND opened_by = 4 AND assignment_group = 4 AND account_number = 'ACC-12-0' AND coe_type = 'Total Rewards' AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "hr_case_creation_and_final_state_validation, complete_hr_case_workflow_integrity_check",
+      "assumptions": [
+        "id assumed next in sequence (hr_case_id 61 after 60); the server number HRC0000771 the check tests follows HRC0000770 and is not a cell",
+        "'medical benefits inquiry service' is hr_service 9 'Medical Benefits Inquiry' (active, org 1); 'Medical Benefits Enrollment Inquiry' (7) is the near match, not the request's words",
+        "opened_for is Samantha Stone's hr_profile 12 (user 12); opened_by is the acting user Joanne Simpson's hr_profile 4 (policy 3.1: opened_by is the requester)",
+        "'HR Service Desk Group' is user_group 4 'HR Service Desk' (active, org 1), not 3 'Global Service Desk'",
+        "'primary account ACC-12-0' fixes account_number; 'primary' is not an account_type value on the seed, so account_type is not tested",
+        "coe_type 'Total Rewards' kept from the benchmark check; not fixed by request or policy; every seed case on a benefits service has it (13 of 13)",
+        "org_id 1 kept from the benchmark check; Samantha's profile, the service, the group and the article are all org 1",
+        "source and assigned_to not stated and not defaulted by the policy; not tested"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "I initially thought moderate priority was fine, but since she's traveling next month, let's bump it to high",
+      "kind": "change",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 61
+      },
+      "cells": {
+        "priority": "high"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND priority = 'high'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "hr_case_creation_and_final_state_validation, hr_case_state_transition_validation, complete_hr_case_workflow_integrity_check",
+      "assumptions": [
+        "the row is created in this task (id 61); only the final value high is testable, whether the agent creates at moderate then updates or creates at high directly",
+        "the acting user Joanne Simpson is a manager, who may override standard priority settings (policy 2)"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "get the case ready",
+      "kind": "change",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 61
+      },
+      "cells": {
+        "status": "ready"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND status = 'ready'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "hr_case_creation_and_final_state_validation, hr_case_state_transition_validation, complete_hr_case_workflow_integrity_check",
+      "assumptions": [
+        "'get the case ready' is status ready, one of the two new-case statuses in policy 3.1",
+        "the row is created in this task (id 61); only the final value is testable"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "set the summary to 'Service: Medical Benefits Inquiry, Subject: Samantha Stone, Detail: Travel-related benefits review.'",
+      "kind": "change",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 61
+      },
+      "cells": {
+        "short_description": "Service: Medical Benefits Inquiry, Subject: Samantha Stone, Detail: Travel-related benefits review."
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND short_description = 'Service: Medical Benefits Inquiry, Subject: Samantha Stone, Detail: Travel-related benefits review.'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "hr_case_creation_and_final_state_validation, hr_case_state_transition_validation, complete_hr_case_workflow_integrity_check",
+      "assumptions": [
+        "'summary' is short_description, the field whose policy 8 format the quoted text matches (96 characters, inside the 30-120 limit)",
+        "the checks' updated_at > created_at is a server-kept timestamp, not a cell"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "look for the Benefits Overview Knowledge article and attach it to the case",
+      "kind": "create",
+      "table": "hr_case_knowledge",
+      "anchor": {
+        "hr_case_kb_id": 13
+      },
+      "cells": {
+        "hr_case_id": 61,
+        "knowledge_id": 1,
+        "used_as": "suggested",
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case_knowledge WHERE hr_case_kb_id = 13 AND hr_case_id = 61 AND knowledge_id = 1 AND used_as = 'suggested' AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "hr_case_knowledge_article_link_creation, complete_hr_case_workflow_integrity_check",
+      "assumptions": [
+        "id assumed next in sequence (hr_case_kb_id 13 after 12); the only link the task creates",
+        "'Benefits Overview' is knowledge 1 (KB0040002), state published, so linkable under policy 4",
+        "used_as 'suggested' kept from the benchmark check; not fixed by request or policy (the request says only 'attach it ... so she has the docs'; the policy lists suggested, applied, resolution without a default)",
+        "org_id 1 kept from the benchmark check; the case and the article are org 1"
+      ],
+      "seed_count": 0
+    }
+  ],
+  "original_checks": {
+    "hr_case_creation_and_final_state_validation": {
+      "disposition": "kept"
+    },
+    "hr_case_knowledge_article_link_creation": {
+      "disposition": "kept"
+    },
+    "hr_case_state_transition_validation": {
+      "disposition": "repaired",
+      "evidence": "its cells (status ready, priority high, the short description) are carried by requirements 2 to 4; the predicate updated_at > created_at tests server-kept timestamps and is dropped, since the request fixes only what the case must end as, not that it be edited after creation. disagreement: A repaired, B kept; chose repaired because a check that tests a server-kept timestamp is repaired (predicate dropped) when its other cells are carried"
+    },
+    "complete_hr_case_workflow_integrity_check": {
+      "disposition": "repaired",
+      "evidence": "a composite of the three checks above, carried jointly by requirements 1 to 5 (named in their source); its extra joined cells (Samantha's email, fulfillment_type manual, group type Service Desk, org 1 on every row) are seed facts consistent with the anchored ids; updated_at > created_at is dropped as in hr_case_state_transition_validation. disagreement: A repaired, B excluded as a composite duplicate; chose repaired because a composite whose cells are all carried is kept jointly, not excluded, and the timestamp predicate must still be dropped"
+    }
+  },
+  "notes": "Merged from two passes that agree on every id and value (case 61 on service 9 for profile 12 by profile 4 in group 4, account ACC-12-0, coe Total Rewards; priority high; status ready; the quoted summary; link 13 of article 1 as suggested). disagreement: granularity: A tests status ready and the summary in one change requirement, B in two; kept B's split because 'get the case ready' and 'set the summary' are two things asked (one requirement per thing). disagreement: source of the status and summary requirements: A hr_case_creation_and_final_state_validation, B hr_case_state_transition_validation; both checks test those cells (and priority), so each of the three change requirements names both, alongside the composite. disagreement: hr_case_state_transition_validation: A repaired, B kept; chose repaired (logged in its evidence). disagreement: complete_hr_case_workflow_integrity_check: A repaired, B excluded; chose repaired, carried jointly (logged in its evidence). No stay requirements: every requirement is anchored by id, so a wrong service (7) or article fails the create directly, and the request and policy forbid nothing here. Server-kept columns the checks test (number HRC0000771, updated_at > created_at) are not cells.",
+  "minutes": 11
+}

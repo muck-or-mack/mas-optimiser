@@ -1,0 +1,141 @@
+{
+  "task_id": "task_20251126_182216_326_66392a82_d3ff64ca",
+  "policy_sha1": "10503d62",
+  "requirements": [
+    {
+      "text": "Carrillo Inc is shutting down their current site",
+      "kind": "change",
+      "table": "location",
+      "anchor": {
+        "location_id": 840
+      },
+      "cells": {
+        "active": 0
+      },
+      "sql": "SELECT COUNT(*) FROM location WHERE location_id = 840 AND active = 0",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Old Site Deactivation Verification",
+      "seed_count": 0,
+      "assumptions": [
+        "Carrillo Inc is account 19; location has no account column, so its two sites are found by name: 840 (Carrillo Inc Site A - Tokyo, active = 1) and 839 (Carrillo Inc Hq - Japan, active = 0), so the current site is 840",
+        "shutting down a site means location.active = 0 (the admin's deactivate right in the policy)"
+      ]
+    },
+    {
+      "text": "re-enabling their alternate site",
+      "kind": "change",
+      "table": "location",
+      "anchor": {
+        "location_id": 839
+      },
+      "cells": {
+        "active": 1
+      },
+      "sql": "SELECT COUNT(*) FROM location WHERE location_id = 839 AND active = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Alternate Site Reactivation Verification",
+      "seed_count": 0,
+      "assumptions": [
+        "the alternate site is 839, the only other Carrillo location, inactive on the seed"
+      ]
+    },
+    {
+      "text": "a device with serial number something like 8224 installed at the site being closed, but move that unit to the other site",
+      "kind": "change",
+      "table": "installed_product",
+      "anchor": {
+        "installed_product_id": 98
+      },
+      "cells": {
+        "location_id": 839,
+        "status": "in_use"
+      },
+      "sql": "SELECT COUNT(*) FROM installed_product WHERE installed_product_id = 98 AND location_id = 839 AND status = 'in_use'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Installed Product Relocation Verification",
+      "seed_count": 0,
+      "assumptions": [
+        "P97-245230-8224 (installed product 98, account 19, at 840) is the only serial containing 8224 in the seed, so the partial serial is unambiguous",
+        "status in_use is the seed value, carried from the original check: the move must not change it"
+      ]
+    },
+    {
+      "text": "review the installed products at the newly activated location and update any items listed as in_stock so that they reflect in_use status",
+      "kind": "change",
+      "table": "installed_product",
+      "anchor": {
+        "installed_product_id": 102
+      },
+      "cells": {
+        "location_id": 839,
+        "status": "in_use"
+      },
+      "sql": "SELECT COUNT(*) FROM installed_product WHERE installed_product_id = 102 AND location_id = 839 AND status = 'in_use'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Product status changed to 'in_use'",
+      "seed_count": 0,
+      "assumptions": [
+        "the selector location_id = 839 AND status = 'in_stock' picks one row on the seed (102), so it is anchored by id",
+        "the moved unit 98 is already in_use, so it needs no status change after arriving at 839",
+        "disagreement: cells: A {location_id, status}, B {status} with location_id = 839 still in the sql; chose A's because both passes test location_id = 839 in the sql and cells must list what the sql tests"
+      ]
+    },
+    {
+      "text": "move that unit to the other site",
+      "kind": "stay",
+      "table": "installed_product",
+      "selector": "account_id = 19 AND installed_product_id IN (97, 99, 101) AND location_id = 840",
+      "cells": {
+        "location_id": 840
+      },
+      "sql": "SELECT COUNT(*) FROM installed_product WHERE account_id = 19 AND installed_product_id IN (97, 99, 101) AND location_id = 840",
+      "expected": 3,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 3,
+      "assumptions": [
+        "boundary of the serial selector: only the 8224 unit moves; a loose reading of the site shutdown would move the closed site's other three units too",
+        "disagreement: selector: A adds account_id = 19, B does not; same three rows on the seed; chose A's because it names the account the request is about"
+      ]
+    },
+    {
+      "text": "update any items listed as in_stock [at the newly activated location]",
+      "kind": "stay",
+      "table": "installed_product",
+      "anchor": {
+        "installed_product_id": 99
+      },
+      "cells": {
+        "status": "in_stock"
+      },
+      "sql": "SELECT COUNT(*) FROM installed_product WHERE installed_product_id = 99 AND status = 'in_stock'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "boundary of the in_stock selector: unit 99 is in_stock at the closing site 840, not at the newly activated one, so it stays in_stock"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Old Site Deactivation Verification": {
+      "disposition": "kept"
+    },
+    "Alternate Site Reactivation Verification": {
+      "disposition": "kept"
+    },
+    "Installed Product Relocation Verification": {
+      "disposition": "kept"
+    },
+    "Product status changed to 'in_use'": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on all six requirements (tables, anchors, ids, values) and on all four dispositions (kept). disagreement: in_stock-to-in_use requirement cells: A {location_id, status}, B {status} with location_id still in the sql; kept A's because both passes' sql tests location_id = 839 (logged in the requirement). disagreement: stay selector for the closed site's other units: A adds account_id = 19, B does not; same rows; kept A's (logged in the requirement). The original checks' name, city, country, account_id, product_id and serial_number cells are identity columns the request does not change and are implied by the anchors; the kept checks are carried without them. The acting user (32, Jose Roberson) is an admin, active = 0 on the seed; the policy's default admin role is applied, as the benchmark's checks assume. No tool writes a work note or notification and the request asks for none.",
+  "minutes": 8
+}

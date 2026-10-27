@@ -1,0 +1,140 @@
+{
+  "task_id": "task_20251208_153512_199_46ca2862_3f951375",
+  "policy_sha1": "53601b01",
+  "requirements": [
+    {
+      "text": "Stephanie Todd has left the company ... get things updated",
+      "kind": "change",
+      "table": "user",
+      "anchor": {
+        "user_id": 6
+      },
+      "cells": {
+        "active": 0
+      },
+      "sql": "SELECT COUNT(*) FROM user WHERE user_id = 6 AND active = 0",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "update_user_details",
+      "seed_count": 0,
+      "assumptions": [
+        "policy: when an employee leaves, deactivate their account",
+        "Stephanie Todd resolved to user_id 6 (stephanie.todd@servicenow.com, the only user with that full name; agent, active on the seed)"
+      ]
+    },
+    {
+      "text": "Stephanie Todd has left the company ... get things updated",
+      "kind": "remove",
+      "table": "user_group_member",
+      "selector": "user_id = 6 AND group_id = 50",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE user_id = 6 AND group_id = 50",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "remove_group_member",
+      "seed_count": 1,
+      "assumptions": [
+        "policy: remove a leaver from their assigned group; she holds two memberships (groups 50 and 35) and the policy names no one of them, so both go",
+        "group 50 (Installed Base Support_3) is itself inactive on the seed; the membership row still exists and must go",
+        "a removal is tested as the membership row's count falling to 0; no column is tested, so cells is empty"
+      ]
+    },
+    {
+      "text": "Stephanie Todd has left the company ... get things updated",
+      "kind": "remove",
+      "table": "user_group_member",
+      "selector": "user_id = 6 AND group_id = 35",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE user_id = 6 AND group_id = 35",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "remove_group_member (2)",
+      "seed_count": 1,
+      "assumptions": [
+        "policy: remove a leaver from their assigned group; group 35 (Returns Authorization Desk_2) is her second membership",
+        "a removal is tested as the membership row's count falling to 0; no column is tested, so cells is empty"
+      ]
+    },
+    {
+      "text": "transfer all of her open cases to Robin Monroe",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 525
+      },
+      "cells": {
+        "assigned_to": 31
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 525 AND assigned_to = 31",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "assign_case_to_user",
+      "seed_count": 0,
+      "assumptions": [
+        "open read as state not in (resolved, closed, canceled); her cases are 525 (in_progress, group 50) and 472 (canceled, not open), so the one open case is anchored by id",
+        "Robin Monroe resolved to user_id 31 (manager, active), who satisfies the agent-or-manager rule",
+        "assignment_group_id is expected to stay 50 because the policy's remedy for a non-member assignee is to add him to the group (next requirement), so it is not tested here"
+      ]
+    },
+    {
+      "text": "transfer all of her open cases to Robin Monroe",
+      "kind": "create",
+      "table": "user_group_member",
+      "anchor": {
+        "member_id": 960
+      },
+      "cells": {
+        "user_id": 31,
+        "group_id": 50
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 960 AND user_id = 31 AND group_id = 50",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "add_group_member",
+      "seed_count": 0,
+      "assumptions": [
+        "policy: assigned_to must be a member of assignment_group_id, if not add him to the group; Robin is in groups 2, 5 and 67 but not 50 on the seed",
+        "id assumed next in sequence (960 after 959); the only row this task creates in the table",
+        "group 50 is inactive on the seed (active = 0); the policy sets no rule on inactive groups, so the membership is still required"
+      ]
+    },
+    {
+      "text": "transfer all of her open cases",
+      "kind": "stay",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 472
+      },
+      "cells": {
+        "assigned_to": 6
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 472 AND assigned_to = 6",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "boundary of 'open cases': case 472 is canceled, so a loose reading of 'all of her cases' would sweep it in; it is not transferred"
+      ]
+    }
+  ],
+  "original_checks": {
+    "remove_group_member": {
+      "disposition": "kept"
+    },
+    "add_group_member": {
+      "disposition": "kept"
+    },
+    "update_user_details": {
+      "disposition": "kept"
+    },
+    "assign_case_to_user": {
+      "disposition": "kept"
+    },
+    "remove_group_member (2)": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on all six shared requirements (tables, anchors, ids, values) and on all five dispositions (kept). disagreement: A's stay that the seven other users sharing a name part with Stephanie Todd (Douglas Todd 304 the nearest, plus six other Stephanies) stay active (B had no such requirement); dropped by the stay rule: the request gives the full name, exactly one user carries it on the seed, and find_user is a listed tool, so no loose reading of the lookup reaches them and the stay is a generic invariant (collateral deactivation is measured separately). Only one of Stephanie's two cases is open (525, in_progress, group 50); 472 is canceled and is the selector boundary. Robin Monroe (user 31, manager) is not a member of group 50, so the policy's 'if not add him to the group' produces the add_group_member row rather than a change of assignment group; group 50 is inactive on the seed, which the policy does not address. Removal of a membership row is written as kind 'change' with expected 0 since the format has no 'delete' kind. The policy says 'their assigned group' in the singular; both of her memberships are removed, as the benchmark's two checks test. The acting user Thomas Green (user 1) is an agent, inactive on the seed (active = 0), and the policy denies agents any change to user, group or membership data; the policy's default admin role is applied, as the benchmark's checks assume.",
+  "minutes": 8
+}

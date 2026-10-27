@@ -1,0 +1,146 @@
+{
+  "task_id": "task_20260109_192935_678_e6427839_4c081ddc",
+  "policy_sha1": "b2da3f42",
+  "requirements": [
+    {
+      "text": "review all accounts inquiry cases assigned to global service desk are properly closed out as completed ... add clear work notes ... using the word clean-up",
+      "kind": "change",
+      "table": "hr_case",
+      "selector": "hr_service = 4 AND assignment_group = 3",
+      "cells": {
+        "status": "closed_complete",
+        "worknotes": "LIKE '%clean-up%'"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_service = 4 AND assignment_group = 3 AND status = 'closed_complete' AND worknotes LIKE '%clean-up%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "HR Case Update Check #1",
+      "seed_count": 0,
+      "assumptions": [
+        "service 4 'HR Accounts Inquiry' is the only accounts-inquiry service on the seed; group 3 is 'Global Service Desk'; the selector picks out one row, hr_case 58 (HRC0000768, work_in_progress), the benchmark check's anchor; case 4 is on the same service but in group 7",
+        "'closed out as completed' is closed_complete; work_in_progress to closed_complete is a valid transition (policy 3.3)",
+        "the work note must contain the request's word 'clean-up'; its wording is otherwise free, and policy 8's 30-120 character bound on worknotes is not tested",
+        "disagreement: form: A a selector by service and group, B an anchor on hr_case_id 58; kept the selector because the request describes the set and it is the tighter form (it also fails if the case leaves the group or another case is moved in)"
+      ]
+    },
+    {
+      "text": "Do the same for tuition reimbursement cases which are in work in progress still",
+      "kind": "change",
+      "table": "hr_case",
+      "selector": "hr_service = 49",
+      "cells": {
+        "status": "closed_complete",
+        "worknotes": "LIKE '%clean-up%'"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_service = 49 AND status = 'closed_complete' AND worknotes LIKE '%clean-up%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "HR Case Update Check #2",
+      "seed_count": 0,
+      "assumptions": [
+        "service 49 'Tuition Reimbursement Inquiry' is the only tuition service; its only case on the seed is hr_case 49 (HRC0000759, work_in_progress, group 4 HR Service Desk), the benchmark check's anchor",
+        "'do the same' carries the closure and the clean-up note but not the Global Service Desk filter: case 49 sits in HR Service Desk and the benchmark closes it",
+        "the selector omits the pre-state status because the cells change it; there are no tuition cases in other statuses on the seed, so no boundary stay is needed",
+        "disagreement: form: A a selector on the service, B an anchor on hr_case_id 49; kept the selector, as for the accounts-inquiry case"
+      ]
+    },
+    {
+      "text": "properly closed out as completed (policy 3.2: a case cannot move to a closed status until all mandatory tasks are inactive or closed) ... using the word clean-up",
+      "kind": "change",
+      "table": "hr_case_task",
+      "anchor": {
+        "hr_case_task_id": 122
+      },
+      "cells": {
+        "status": "closed_complete",
+        "worknotes": "LIKE '%clean-up%'"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case_task WHERE hr_case_task_id = 122 AND status = 'closed_complete' AND worknotes LIKE '%clean-up%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "HR Case Task Update Check #1",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by policy 3.2's closure constraint, not stated in the request; task 122 (survey, work_in_progress, active) is the only open task of case 49, task 121 is already closed_complete; the tools list update_hr_case_task and list_hr_case_tasks",
+        "closed_complete kept from the benchmark check: policy 3.2 says inactive or closed and fixes neither the closed status nor active = 0",
+        "the clean-up work note on the task is kept from the benchmark check: the request's work-notes instruction is read as covering everything closed in the clean-up, not fixed by request or policy"
+      ]
+    },
+    {
+      "text": "properly closed out as completed (policy 3.2: a case cannot move to a closed status until all mandatory tasks are inactive or closed) ... using the word clean-up",
+      "kind": "change",
+      "table": "hr_case_task",
+      "anchor": {
+        "hr_case_task_id": 145
+      },
+      "cells": {
+        "status": "closed_complete",
+        "worknotes": "LIKE '%clean-up%'"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case_task WHERE hr_case_task_id = 145 AND status = 'closed_complete' AND worknotes LIKE '%clean-up%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "HR Case Task Update Check #2",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by policy 3.2's closure constraint, not stated in the request; task 145 (survey, work_in_progress, active) is the only open task of case 58, task 144 is already closed_complete",
+        "closed_complete and the clean-up note kept from the benchmark check, as for task 122"
+      ]
+    },
+    {
+      "text": "some HR cases sitting in Work in Progress for a long time ... all accounts inquiry cases assigned to global service desk ... tuition reimbursement cases",
+      "kind": "stay",
+      "table": "hr_case",
+      "selector": "NOT (hr_service = 4 AND assignment_group = 3) AND hr_service <> 49",
+      "cells": {
+        "status": "work_in_progress"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE NOT (hr_service = 4 AND assignment_group = 3) AND hr_service <> 49 AND status = 'work_in_progress'",
+      "expected": 5,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 5,
+      "assumptions": [
+        "boundary of the two selectors and of the request's opening description ('cases sitting in Work in Progress'): the other work_in_progress cases (4, 13, 22, 31, 40) that a loose reading would close must stay open",
+        "the nearest misses are case 4 (HR Accounts Inquiry but in Network Infrastructure, group 7) and case 13 (Global Service Desk but Password Reset)",
+        "disagreement: A this set of five, B an anchored stay on case 4 alone; kept A's set, which contains B's row, because case 13 and the three other open cases are the same boundary"
+      ]
+    },
+    {
+      "text": "accounts inquiry cases assigned to global service desk (boundary: the near-matching 'HR Account Access Request' case in that group stays as it is)",
+      "kind": "stay",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 3
+      },
+      "cells": {
+        "status": "awaiting_approval"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 3 AND status = 'awaiting_approval'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "case 3 (HRC0000713) is on service 3 'HR Account Access Request', in Global Service Desk, status awaiting_approval: a name search for 'account' sweeps it in, but it is neither an Accounts Inquiry case nor in work in progress",
+        "disagreement: B only; kept as the boundary of the accounts-inquiry selector (a near-name match in the same group)"
+      ]
+    }
+  ],
+  "original_checks": {
+    "HR Case Update Check #1": {
+      "disposition": "kept"
+    },
+    "HR Case Update Check #2": {
+      "disposition": "kept"
+    },
+    "HR Case Task Update Check #1": {
+      "disposition": "kept"
+    },
+    "HR Case Task Update Check #2": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on the four benchmark checks (all kept), on the cells of every requirement (closed_complete and a work note containing 'clean-up' on cases 58 and 49 and on their open tasks 145 and 122) and on the policy 3.2 reading behind the task requirements. disagreement: form of the two case requirements: A selectors by service (and group), B anchors on hr_case_id 58 and 49; kept the selectors because the request describes the sets, each picks out exactly the benchmark's anchor on the seed, and a selector is the tighter form. disagreement: boundary stay on the other work_in_progress cases: A a set of five (4, 13, 22, 31, 40), B case 4 alone; kept A's set, which contains B's row. disagreement: stay on case 3 (HR Account Access Request, Global Service Desk, awaiting_approval): B only; kept as the near-name boundary of the accounts-inquiry selector. Tasks 121 and 144 are closed_complete but still active = 1 on the seed; policy 3.2 accepts 'inactive or closed', so nothing is required of them. Case 23 ('Account Notification', Global Service Desk) is already closed_complete, so no stay is written for it. The acting user Joanne Simpson (4) is a manager, who holds every agent privilege including case status and work notes (policy 2). Least sure: whether the clean-up note belongs on the tasks as well as the cases; the benchmark tests it, so it is kept.",
+  "minutes": 10
+}

@@ -1,0 +1,187 @@
+{
+  "task_id": "task_20251226_133552_038_99ba2325_71415006",
+  "policy_sha1": "4ab1193b",
+  "requirements": [
+    {
+      "text": "David Hopps (david.hopps@servicenow.com, +447681029344), who is working in an agent role, will be taking over her workload",
+      "kind": "create",
+      "table": "user",
+      "anchor": {
+        "user_id": 101
+      },
+      "cells": {
+        "first_name": "David",
+        "last_name": "Hopps",
+        "email": "david.hopps@servicenow.com",
+        "phone": "+447681029344",
+        "role": "agent",
+        "active": 1
+      },
+      "sql": "SELECT COUNT(*) FROM user WHERE user_id = 101 AND first_name = 'David' AND last_name = 'Hopps' AND email = 'david.hopps@servicenow.com' AND phone = '+447681029344' AND role = 'agent' AND active = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify New User ",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (101 after 100); no user named Hopps or with this email exists on the seed, and this is the only user the task creates",
+        "role 'agent' as the request says and as the seed's role table spells it (admin, manager, agent, employee); the policy's user.role list (hr_specialist) does not match the seed, so the benchmark check's 'agent' is kept",
+        "active = 1 added from policy 3.2 (the assigned_to user must be active); not tested by the benchmark check",
+        "org_id not fixed by the request; not tested",
+        "disagreement: active cell: A the JSON boolean true, B the predicate '= true'; written as the plain value 1 the seed stores, as the other check files spell it"
+      ]
+    },
+    {
+      "text": "make sure David is part of the appropriate assignment groups",
+      "kind": "create",
+      "table": "user_group_member",
+      "selector": "group_id = 7 AND user_id = 101",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE group_id = 7 AND user_id = 101",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Group Member",
+      "seed_count": 0,
+      "assumptions": [
+        "the appropriate group is group 7 (Network Infrastructure), the assignment_group of Stephanie's only open case (hr_case 4); policy 3.2 requires assigned_to to be a member of the case's assignment_group",
+        "selected by the natural key (group, user) as the benchmark check does, not by member_id (45 would be next): the request's plural 'groups' leaves open whether David also joins Stephanie's other group (2, IT Support L2), which nothing fixes, so the table's created-row count is not fixed"
+      ]
+    },
+    {
+      "text": "For those cases that are open, transfer ownership to David",
+      "kind": "change",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 4
+      },
+      "cells": {
+        "assigned_to": 101
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 4 AND assigned_to = 101",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Case",
+      "seed_count": 0,
+      "assumptions": [
+        "hr_case 4 (HRC0000714, work_in_progress, group 7) is the only case assigned to Stephanie Todd (user 6) on the seed, so the open set (not closed or cancelled, policy 5.1) is exactly this row",
+        "assignment_group stays 7 (policy 3.2: the assignee must be a member of the group); not tested as a cell because the request fixes only the owner"
+      ]
+    },
+    {
+      "text": "Stephanie Todd has left the organization",
+      "kind": "change",
+      "table": "user",
+      "anchor": {
+        "user_id": 6
+      },
+      "cells": {
+        "active": 0
+      },
+      "sql": "SELECT COUNT(*) FROM user WHERE user_id = 6 AND active = 0",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify User Deactivation",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by the request ('has left the organization'), not stated: policy 5.1 lists unassignment, group removal and skill deletion for a leaver, not deactivation; the tool update_user_details is listed; kept from the benchmark check",
+        "disagreement: active cell: A the JSON boolean false, B the predicate '= false'; written as the plain value 0"
+      ]
+    },
+    {
+      "text": "Stephanie Todd has left the organization (policy 5.1: their all skills should be deleted)",
+      "kind": "remove",
+      "table": "user_skill",
+      "anchor": {
+        "user_skill_id": 223
+      },
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM user_skill WHERE user_skill_id = 223",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "Verify Removed Skills 1",
+      "seed_count": 1,
+      "assumptions": [
+        "policy 5.1: a leaver's skills are all deleted; user 6 holds user_skill 223 (skill 12) and 224 (skill 13) on the seed and no others",
+        "the row must be gone, so the count is 0; an existing id from the seed, not a sequence guess"
+      ]
+    },
+    {
+      "text": "Stephanie Todd has left the organization (policy 5.1: their all skills should be deleted)",
+      "kind": "remove",
+      "table": "user_skill",
+      "anchor": {
+        "user_skill_id": 224
+      },
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM user_skill WHERE user_skill_id = 224",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "Verify Removed Skills 2",
+      "seed_count": 1,
+      "assumptions": [
+        "policy 5.1: a leaver's skills are all deleted; second of user 6's two skill rows"
+      ]
+    },
+    {
+      "text": "Stephanie Todd has left the organization (policy 5.1: they must be removed from the assignment group)",
+      "kind": "remove",
+      "table": "user_group_member",
+      "anchor": {
+        "group_id": 7,
+        "user_id": 6
+      },
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE group_id = 7 AND user_id = 6",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "Verify Group Member removed",
+      "seed_count": 1,
+      "assumptions": [
+        "policy 5.1: a leaver must be removed from the assignment group; group 7 (Network Infrastructure) is the group of her open case, membership row 17 on the seed; kept from the benchmark check"
+      ]
+    },
+    {
+      "text": "Stephanie Todd has left the organization (policy 5.1: they must be removed from the assignment group)",
+      "kind": "remove",
+      "table": "user_group_member",
+      "anchor": {
+        "group_id": 2,
+        "user_id": 6
+      },
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE group_id = 2 AND user_id = 6",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "Stephanie is also in group 2 (IT Support L2, membership row 4), an assignment group in its own right (cases 47 and 57 sit in it); policy 5.1's leaver rule is not tied to the case being handed over, so a leaver keeps no membership; the benchmark tests only group 7",
+        "disagreement: B only; kept because policy 5.1 asks for the removal and remove_group_membership is listed; A read 'the assignment group' (singular) as the handed-over case's group and left this row untested"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify Group Member": {
+      "disposition": "kept"
+    },
+    "Verify Case": {
+      "disposition": "kept"
+    },
+    "Verify User Deactivation": {
+      "disposition": "kept"
+    },
+    "Verify Removed Skills 1": {
+      "disposition": "kept"
+    },
+    "Verify Removed Skills 2": {
+      "disposition": "kept"
+    },
+    "Verify Group Member removed": {
+      "disposition": "kept"
+    },
+    "Verify New User ": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on the seven requirements carrying the seven benchmark checks (user 101 with active added; membership of group 7; case 4 to user 101; user 6 deactivated; skill rows 223 and 224 gone; membership of group 7 gone) and on every disposition (all kept). disagreement: removal of Stephanie's group 2 membership (B only, source new); kept because policy 5.1's leaver rule ('must be removed from the assignment group') is not tied to the case being handed over, group 2 is an assignment group on the seed (cases 47 and 57), and remove_group_membership is listed; A read the singular as the handed-over case's group and left the row untested. disagreement: active cells: A JSON booleans, B predicate strings ('= true', '= false'); written as the plain values 1 and 0 the seed stores and the other check files use, with the sql spelt the same way (the benchmark's 'active = false' tests the same thing on SQLite 3.45). Rewrite: the created membership (group 7, user 101) is a selector on the natural key where both passes wrote an anchor on it, because the request's plural 'groups' leaves David's membership of group 2 open and nothing fixes it, so member_id is not anchored and no requirement or stay is written for group 2 (both passes agree). The acting user Karen Watkins (39) is an admin, so the policy's role restrictions on user records do not bind. The request's 'before making the changes' ordering cannot be read from the final state. The benchmark check name 'Verify New User ' carries a trailing space, kept verbatim as the scorer's key. The policy's user.role enumeration (hr_specialist) does not match the seed's values; the seed and the request's 'agent' win. Least sure: the group 2 removal, since an agent that reads policy 5.1 as A did removes only group 7 and fails it.",
+  "minutes": 11
+}

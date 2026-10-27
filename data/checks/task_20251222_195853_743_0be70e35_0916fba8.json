@@ -1,0 +1,149 @@
+{
+  "task_id": "task_20251222_195853_743_0be70e35_0916fba8",
+  "policy_sha1": "4afd943b",
+  "requirements": [
+    {
+      "text": "update the Email Service to reflect a non-operational status",
+      "kind": "change",
+      "table": "service",
+      "anchor": {
+        "service_id": "SVC_001"
+      },
+      "cells": {
+        "status": "non-operational"
+      },
+      "sql": "SELECT COUNT(*) FROM service WHERE service_id = 'SVC_001' AND status = 'non-operational'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Service Status",
+      "seed_count": 0,
+      "assumptions": [
+        "'the Email Service' is SVC_001, the only service with exactly that name (ORG_001, status operational on the seed); SVC_003 'Acme Email Service' is a near match in the acting user's own organisation ORG_002",
+        "the acting user USER_007 is an admin (full CRUD on all tables) in ORG_002 while SVC_001 is in ORG_001; the policy limits scope by role, not organisation, so the exact-name match stands",
+        "non-operational is the request's own word; the policy lists no service status enumeration and the seed holds only operational",
+        "locating the service and confirming its state are read-only steps with no requirement of their own"
+      ]
+    },
+    {
+      "text": "update the impacted service offering to indicate reduced availability",
+      "kind": "change",
+      "table": "service_offering",
+      "anchor": {
+        "service_offering_id": "SVCOFF_001"
+      },
+      "cells": {
+        "status": "non-operational"
+      },
+      "sql": "SELECT COUNT(*) FROM service_offering WHERE service_offering_id = 'SVCOFF_001' AND status = 'non-operational'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Service Offering Status",
+      "seed_count": 0,
+      "assumptions": [
+        "SVCOFF_001 'Outlook Email Access' is the only offering whose business_service is SVC_001, so it is the impacted offering",
+        "'reduced availability' names no status of its own in the policy or seed (the seed holds only operational); the benchmark's non-operational, the one non-operational word the request itself uses, is kept rather than loosened to any status other than operational"
+      ]
+    },
+    {
+      "text": "find an existing incident associated with the Email Service and update it to note that the issue is service-wide, recurring, and currently under investigation",
+      "kind": "change",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_006"
+      },
+      "cells": {
+        "worknotes": [
+          "LIKE '%service%wide%'",
+          "LIKE '%recurr%'",
+          "LIKE '%investigat%'"
+        ]
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_006' AND worknotes LIKE '%service%wide%' AND worknotes LIKE '%recurr%' AND worknotes LIKE '%investigat%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Incident Worknotes",
+      "seed_count": 0,
+      "assumptions": [
+        "INC_006 ('Critical system outage', description 'Complete email system outage affecting all users', in_progress) is the only open incident on SVC_001 about the email service itself; the other seven are resolved or about printers, network, monitors and keyboards",
+        "the note goes in worknotes, as the benchmark check reads it; the request's three points are tested as stems (SQLite LIKE is case-insensitive), so 'service wide', 'recurrent' and 'investigating' also pass",
+        "the benchmark's extra words (confirmed, multiple, users, root, active, monitoring) are not in the request and are dropped; its missing 'recurring' is added",
+        "disagreement: form: A tests the three words in one compound LOWER(worknotes) string with '%recurring%', B as a list of predicates with '%recurr%'; the list is kept (the cell rule) with the stem, matching the stem both passes use for 'investigat'; LOWER is dropped as redundant"
+      ]
+    },
+    {
+      "text": "locate the Email Service (boundary: the Acme Email Service, a name match, is not the Email Service)",
+      "kind": "stay",
+      "table": "service",
+      "anchor": {
+        "service_id": "SVC_003"
+      },
+      "cells": {
+        "status": "operational"
+      },
+      "sql": "SELECT COUNT(*) FROM service WHERE service_id = 'SVC_003' AND status = 'operational'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "a name search for Email Service may also return SVC_003 'Acme Email Service' (ORG_002, owned by the acting user); it stays operational"
+      ]
+    },
+    {
+      "text": "update the impacted service offering (boundary: Acme Email Access belongs to the Acme Email Service, not the Email Service)",
+      "kind": "stay",
+      "table": "service_offering",
+      "anchor": {
+        "service_offering_id": "SVCOFF_003"
+      },
+      "cells": {
+        "status": "operational"
+      },
+      "sql": "SELECT COUNT(*) FROM service_offering WHERE service_offering_id = 'SVCOFF_003' AND status = 'operational'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "SVCOFF_003 'Acme Email Access' is the offering of SVC_003 and would be swept in by the same loose name match; it stays operational"
+      ]
+    },
+    {
+      "text": "find an existing incident associated with the Email Service and update it (boundary: one incident, not every incident on the service)",
+      "kind": "stay",
+      "table": "incident",
+      "selector": "service = 'SVC_001' AND incident_id <> 'INC_006'",
+      "cells": {
+        "worknotes": "LIKE '%service%wide%'"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE service = 'SVC_001' AND incident_id <> 'INC_006' AND worknotes LIKE '%service%wide%'",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "the request says an existing incident, singular; the seven other incidents on SVC_001 (INC_001, INC_003, INC_004, INC_007, INC_014, INC_016, INC_017) do not receive the service-wide note",
+        "disagreement: form: A counts the seven rows that still lack the note (expected 7, with an IS NULL OR NOT LIKE predicate), B counts the rows that carry it (expected 0); B's form is kept: the cells mirror the SQL and no compound predicate is needed"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify Service Status": {
+      "disposition": "kept"
+    },
+    "Verify Service Offering Status": {
+      "disposition": "kept",
+      "evidence": "carried as written; the request says reduced availability and the offering status vocabulary is not visible in the policy or seed, so non-operational is taken as the benchmark's reading"
+    },
+    "Verify Incident Status": {
+      "disposition": "weak",
+      "evidence": "INC_006 is already in_progress on the seed; the request asks for a note, not a status change"
+    },
+    "Verify Incident Worknotes": {
+      "disposition": "repaired",
+      "evidence": "the request asks the note to say service-wide, recurring and under investigation; the check demands confirmed, multiple, users, root, active and monitoring, none of which the request says, and omits recurring"
+    }
+  },
+  "notes": "Merged from two independent passes that agree on every requirement's rows and every disposition. disagreement: form: the INC_006 work-note cell is one compound LOWER(worknotes) string in A ('%recurring%') and a list of three predicates in B ('%recurr%'); the list is kept (the cell rule), with B's stem over A's full word to match the stem both passes use for 'investigat'. disagreement: form: the boundary stay on the other seven SVC_001 incidents counts the rows still lacking the note in A (expected 7, an OR predicate) and the rows carrying it in B (expected 0); B's form is kept. Scope: the acting user Raj Patel (USER_007) is an admin in ORG_002 (Acme Corp) and owns SVC_003 'Acme Email Service'; the request's 'the Email Service' is the exact name of SVC_001 in ORG_001, and the policy scopes access by role with no organisation rule, so SVC_001, SVCOFF_001 and INC_006 are the targets and SVC_003 and SVCOFF_003 are boundary stays; if the benchmark's tools scope lookups by the acting user's organisation this file is wrong in every target. 'Reduced availability' names no status in the policy or seed (both tables hold only operational), so the benchmark's non-operational is kept; if the tool's enumeration has a degraded value, the offering cell should widen to status <> 'operational'. The locate, confirm and review steps are reads with no requirement. Least sure: the stem '%recurr%' over the request's exact word 'recurring'.",
+  "minutes": 10
+}

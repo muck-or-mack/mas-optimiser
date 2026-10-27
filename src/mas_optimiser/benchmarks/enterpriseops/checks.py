@@ -17,7 +17,7 @@ import json
 from pathlib import Path
 
 CHECKS_DIR = Path("data") / "checks"
-KINDS = ("create", "change", "stay")
+KINDS = ("create", "change", "remove", "stay")
 COMPARISONS = ("equals", "greater_than", "less_than")
 DISPOSITIONS = ("kept", "repaired", "excluded", "weak")
 REQUIRED = {

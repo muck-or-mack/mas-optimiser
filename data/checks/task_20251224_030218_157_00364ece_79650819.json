@@ -1,0 +1,84 @@
+{
+  "task_id": "task_20251224_030218_157_00364ece_79650819",
+  "policy_sha1": "0679ba10",
+  "requirements": [
+    {
+      "text": "the case against account number ACC-51-20 is no longer an urgent so the global service desk team can keep progressing on it with default priority",
+      "kind": "change",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 21
+      },
+      "cells": {
+        "priority": "moderate",
+        "assignment_group": 3
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 21 AND priority = 'moderate' AND assignment_group = 3",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Validating case is de-escalation and reassigned",
+      "seed_count": 0,
+      "assumptions": [
+        "the case is hr_case 21 (HRC0000731), the only case with account_number ACC-51-20 on the seed and no near match (seed: priority critical, status awaiting_approval, group 4 HR Service Desk, assigned_to 93)",
+        "'default priority' is moderate by policy 3.1 ('priority: If not provided, default is moderate')",
+        "'global service desk team' is user_group 3 'Global Service Desk' (group 4 'HR Service Desk' is the near match and the case's current group, not the target)",
+        "status is not fixed by the request ('keep progressing on it' names no transition) and is left untested",
+        "disagreement: form: B carries the benchmark check in one requirement with assigned_to, A splits it into this de-escalation sentence and the assignment sentence; kept A's split because the request asks them in two sentences and the brief wants one requirement per thing; both requirements carry the same source and together test the original's four cells"
+      ]
+    },
+    {
+      "text": "Please assign to Samantha",
+      "kind": "change",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 21
+      },
+      "cells": {
+        "assigned_to": 12
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 21 AND assigned_to = 12",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Validating case is de-escalation and reassigned",
+      "seed_count": 0,
+      "assumptions": [
+        "'Samantha' is user 12 Samantha Stone, the only Samantha on the seed; an active agent",
+        "policy 3.2 requires the assignee to be an active member of the assignment group: user 12 is a member of group 3 (user_group_member 7)"
+      ]
+    },
+    {
+      "text": "report her",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": 61
+      },
+      "cells": {
+        "hr_case_id": 21,
+        "email": "samantha.stone47@servicenow.com",
+        "type": "report"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 61 AND hr_case_id = 21 AND email = 'samantha.stone47@servicenow.com' AND type = 'report'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Notification",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (61 after 60); the task creates one notification",
+        "'report her' read as one notification of type 'report' (one of the seed's five notification types) to Samantha about case 21; type kept from the benchmark check",
+        "recipient address is Samantha's user email, as the benchmark check tests",
+        "notification.status is not fixed by request or policy and not tested by the benchmark check; left out"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Validating case is de-escalation and reassigned": {
+      "disposition": "kept"
+    },
+    "Verify Notification": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on every value (case 21, priority moderate, group 3, assignee 12, notification 61 of type report to Samantha's email) and on both dispositions (kept). disagreement: form: B carries the case check in one requirement, A splits it by sentence into the de-escalation and the assignment; kept A's split (logged in the first requirement). The acting user Scott Mitchell (user 41) is an active admin, who may update and reassign cases under policy section 2. Steven Manning (user 51, the case's opened_for) only sent the email and plays no part in the final state. No stay requirements: the account number, the group name and the name Samantha each match exactly one seed row, and the request forbids nothing. The case sits at awaiting_approval; the request asks for no status change, so none is tested.",
+  "minutes": 7
+}

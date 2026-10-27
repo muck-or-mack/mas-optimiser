@@ -11,7 +11,7 @@ files are complete.
 ```json
 {
   "task_id": "task_20251210_205620_593_391f1eff_ad65c160",
-  "policy_sha1": "4afd943b",
+  "policy_sha1": "c56705c3",
   "requirements": [
     {
       "text": "log an incident for Benjamin's Wi-Fi hardware",
@@ -28,8 +28,8 @@ files are complete.
     }
   ],
   "original_checks": {
-    "Report incident": {"disposition": "repaired", "evidence": "the request names no channel and the policy defaults it to chat; the copy with channel = phone is dropped"},
-    "Report incident (2)": {"disposition": "excluded", "evidence": "the stale copy of the check above"},
+    "Report incident": {"disposition": "kept"},
+    "Report incident (2)": {"disposition": "excluded", "evidence": "a copy of 'Report incident' differing only in channel = phone; the request names no channel and the policy defaults it to chat, so the two cannot both hold"},
     "Add CI": {"disposition": "kept"}
   }
 }
@@ -39,8 +39,9 @@ Fields of a requirement:
 
 - `text`: the sentence of the request it comes from, in the request's words.
 - `kind`: `create` (a row that must exist), `change` (cells of an existing
-  row that must have changed) or `stay` (rows or cells that must not have
-  changed).
+  row that must have changed), `remove` (rows that must be gone: a
+  membership, a skill, a link; the count of the named rows must be zero)
+  or `stay` (rows or cells that must not have changed).
 - `table`: the table the requirement reads.
 - `anchor` or `selector`: how the rows are found. An anchor is the row's key
   (`{"incident_id": "INC_024"}`; a created row's id is the next in sequence).
@@ -48,7 +49,9 @@ Fields of a requirement:
   (`"assignment_group = 'GROUP_001' AND priority = 'moderate'"`).
 - `cells`: column to the value or predicate each cell must satisfy. A plain
   value means equality; a predicate is written as SQL on the column
-  (`"LIKE '%reassignment%'"`, `"NOT IN ('resolved', 'closed')"`).
+  (`"LIKE '%reassignment%'"`, `"NOT IN ('resolved', 'closed')"`); two
+  conditions on one column are a list of predicates
+  (`["LIKE '%call%'", "LIKE '%audio%'"]`), never one compound string.
 - `sql`, `expected`, `comparison`: the count query the cell audit runs, as the
   benchmark's checks are written, so one scorer handles both.
 - `source`: the benchmark check this requirement came from, or `new`.
