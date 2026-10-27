@@ -76,10 +76,10 @@ def test_experiment_file_is_validated(tmp_path):
 
     with pytest.raises(SystemExit, match="label"):
         runner.load_experiment("smoke", no_overrides | {"label": "after fix"})
-    with pytest.raises(SystemExit, match="repeats"):
-        runner.load_experiment("smoke", no_overrides | {"repeats": 0})
+    with pytest.raises(SystemExit, match="attempts"):
+        runner.load_experiment("smoke", no_overrides | {"attempts": 0})
     settings = runner.load_experiment("smoke", no_overrides | {"concurrency": 2})
-    assert (settings["repeats"], settings["concurrency"]) == (1, 2)
+    assert (settings["attempts"], settings["concurrency"]) == (1, 2)
 
 
 def test_evaluation_name_says_what_was_run():

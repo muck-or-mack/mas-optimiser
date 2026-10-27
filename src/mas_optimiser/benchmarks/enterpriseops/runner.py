@@ -4,7 +4,7 @@ The runner loads one domain's tasks, runs each with the benchmark's ReAct
 agent against the Docker domain servers, and writes one evaluation folder
 under ``runs/<experiment>/``: ``tasks.csv`` with a row per task run,
 ``run.json`` with the settings and totals, ``run.log``, and
-``tasks/<task_id>/repeat-<n>.json`` with the executor's full record of every
+``tasks/<task_id>/attempt-<n>.json`` with the executor's full record of every
 model message, tool call, tool result and verifier verdict. Each experiment
 folder keeps an ``index.csv`` with one row per evaluation, so the evaluations
 of one experiment can be compared without opening them.
@@ -93,7 +93,7 @@ EXPERIMENT_DEFAULTS = {
     "domain": None,
     "mode": "oracle",
     "limit": None,
-    "repeats": 1,
+    "attempts": 1,
     "concurrency": 4,
     "label": None,
     "out": None,
@@ -294,7 +294,7 @@ def load_experiment(spec: str, overrides: dict) -> dict:
         )
     if settings["limit"] is not None and settings["limit"] < 1:
         raise SystemExit("error: limit must be at least 1")
-    for key in ("repeats", "concurrency"):
+    for key in ("attempts", "concurrency"):
         if not isinstance(settings[key], int) or settings[key] < 1:
             raise SystemExit(f"error: {key} must be a whole number of at least 1")
     label = settings["label"]
@@ -411,7 +411,7 @@ def cost(usage: list[dict], pricing: dict) -> float:
 
 def task_record(
     task_id: str,
-    repeat: int,
+    attempt: int,
     run: dict,
     names: verifiers.Names,
     pricing: dict,
@@ -424,7 +424,7 @@ def task_record(
 
     Args:
         task_id: The task's dataset ID.
-        repeat: Which repeat of the task this run was, from 1.
+        attempt: Which attempt of the task this run was, from 1.
         run: One entry of the ``runs`` list that
             ``BenchmarkExecutor.execute_benchmark`` returns, or a stand-in
             holding the error if it raised before the run started.
@@ -447,7 +447,7 @@ def task_record(
     )
     return {
         "task_id": task_id,
-        "repeat": repeat,
+        "attempt": attempt,
         "success": bool(run.get("overall_success")),
         "verifiers_passed": sum(r["passed"] for r in results.values()),
         "verifiers_total": len(names.original),
@@ -468,7 +468,7 @@ def task_record(
 async def run_task(
     task_id: str,
     config: dict,
-    repeat: int,
+    attempt: int,
     model: LLMConfig,
     pricing: dict,
     out: Path,
@@ -482,7 +482,7 @@ async def run_task(
     Args:
         task_id: The task's dataset ID.
         config: Its task config, as from ``load_tasks``.
-        repeat: Which repeat this is, from 1; names the saved record.
+        attempt: Which attempt this is, from 1; names the saved record.
         model: The agent's model config.
         pricing: The model's price table.
         out: Evaluation folder; the record goes to ``out/tasks/<task_id>``.
@@ -493,8 +493,8 @@ async def run_task(
     Returns:
         The row from ``task_record`` and the rows from ``verifier_records``.
     """
-    # One executor call per repeat, so that each run is its own trace and its
-    # own unit of concurrency; the executor's own repeat loop stays at one.
+    # One executor call per attempt, so that each run is its own trace and its
+    # own unit of concurrency; the executor's own run loop stays at one.
     executor = TaskExecutor(
         BenchmarkConfig(**(config | {"number_of_runs": 1})),
         model,
@@ -507,10 +507,10 @@ async def run_task(
         tracing.task_trace(
             task_id,
             session_id=f"{out.parent.name}/{out.name}",
-            tags=tags + [f"repeat:{repeat}"],
+            tags=tags + [f"attempt:{attempt}"],
             metadata={
                 "task_id": task_id,
-                "repeat": repeat,
+                "attempt": attempt,
                 "dataset_revision": HF_REVISION,
             },
         )
@@ -524,10 +524,10 @@ async def run_task(
             # Raised before the run started, e.g. a server that is not up.
             result = {"runs": [{"run_number": 1, "error": repr(exc)}]}
         run = result["runs"][0]
-        record = task_record(task_id, repeat, run, executor.names, pricing)
+        record = task_record(task_id, attempt, run, executor.names, pricing)
         rows = verifiers.verifier_records(
             task_id,
-            repeat,
+            attempt,
             run.get("verification_results", {}),
             executor.names,
         )
@@ -555,16 +555,20 @@ async def run_task(
                     )
                 }
                 | {
-                    "failed": {
-                        f"{row['position']} {row['name']}": row["diagnosis"]
+                    "verifiers": {
+                        f"{row['position']} {row['name']}": {
+                            "passed": row["passed"],
+                            "expected": row["expected"],
+                            "actual": row["actual"],
+                            "why": row["diagnosis"],
+                        }
                         for row in rows
-                        if not row["passed"]
                     }
                 }
             )
     folder = out / "tasks" / task_id
     folder.mkdir(exist_ok=True)
-    (folder / f"repeat-{repeat}.json").write_text(
+    (folder / f"attempt-{attempt}.json").write_text(
         json.dumps(result, indent=2, default=str)
     )
     return record, rows
@@ -576,13 +580,13 @@ async def run_tasks(
     pricing: dict,
     out: Path,
     *,
-    repeats: int,
+    attempts: int,
     concurrency: int,
     trace: bool,
     thinking: dict | None,
     tags: list[str],
 ) -> tuple[list[dict], list[dict]]:
-    """Run every task ``repeats`` times, at most ``concurrency`` runs at once.
+    """Run every task ``attempts`` times, at most ``concurrency`` runs at once.
 
     Each run seeds its own database on the domain server, so runs share
     nothing and can overlap; the limit keeps the server and the model API's
@@ -593,27 +597,27 @@ async def run_tasks(
         model: The agent's model config.
         pricing: The model's price table.
         out: Evaluation folder.
-        repeats: Runs per task.
+        attempts: Runs per task.
         concurrency: Runs in flight at once.
         trace: Send each run to Langfuse as one trace.
         thinking: Model ``thinking`` setting, or ``None`` for the default.
         tags: Labels put on every trace, such as the domain and model.
 
     Returns:
-        One ``tasks.csv`` row per run, in task order and then repeat order,
+        One ``tasks.csv`` row per run, in task order and then attempt order,
         and the ``verifiers.csv`` rows of every run in the same order.
     """
     semaphore = asyncio.Semaphore(concurrency)
-    total = len(tasks) * repeats
+    total = len(tasks) * attempts
     done = 0
 
-    async def run_one(task_id: str, config: dict, repeat: int) -> tuple[dict, list]:
+    async def run_one(task_id: str, config: dict, attempt: int) -> tuple[dict, list]:
         nonlocal done
         async with semaphore:
             record, rows = await run_task(
                 task_id,
                 config,
-                repeat,
+                attempt,
                 model,
                 pricing,
                 out,
@@ -626,7 +630,7 @@ async def run_tasks(
             "error" if record["error"] else "pass" if record["success"] else "fail"
         )
         print(
-            f"[{done}/{total}] {task_id} repeat {repeat} {outcome}: verifiers "
+            f"[{done}/{total}] {task_id} attempt {attempt} {outcome}: verifiers "
             f"{record['verifiers_passed']}/{record['verifiers_total']}, "
             f"{record['model_calls']} calls, {record['input_tokens']:,} in / "
             f"{record['output_tokens']:,} out tokens, ${record['cost_usd']:.4f}, "
@@ -636,9 +640,9 @@ async def run_tasks(
 
     results = await asyncio.gather(
         *(
-            run_one(task_id, config, repeat)
+            run_one(task_id, config, attempt)
             for task_id, config in tasks.items()
-            for repeat in range(1, repeats + 1)
+            for attempt in range(1, attempts + 1)
         )
     )
     return (
@@ -669,7 +673,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         help="oracle gives the agent only the task's own tools; plus_N_tools adds N distractors",
     )
     parser.add_argument("--limit", type=int, help="run only the first N tasks")
-    parser.add_argument("--repeats", type=int, help="runs per task")
+    parser.add_argument("--attempts", type=int, help="runs per task")
     parser.add_argument("--concurrency", type=int, help="runs in flight at once")
     parser.add_argument(
         "--label", help="a word added to the evaluation's folder name, e.g. after-fix"
@@ -765,7 +769,7 @@ def evaluate(
                 model,
                 pricing,
                 out,
-                repeats=experiment["repeats"],
+                attempts=experiment["attempts"],
                 concurrency=experiment["concurrency"],
                 trace=trace,
                 thinking=thinking,
@@ -789,10 +793,10 @@ def evaluate(
         by_task.setdefault(r["task_id"], []).append(r["success"])
     totals = {
         "tasks": len(tasks),
-        "repeats": experiment["repeats"],
+        "attempts": experiment["attempts"],
         "runs": len(records),
         "successes": sum(r["success"] for r in records),
-        "tasks_passed_every_repeat": sum(all(v) for v in by_task.values()),
+        "tasks_passed_every_attempt": sum(all(v) for v in by_task.values()),
         "errors": sum(bool(r["error"]) for r in records),
         "verifiers_passed": sum(r["verifiers_passed"] for r in records),
         "verifiers_total": sum(r["verifiers_total"] for r in records),
@@ -820,7 +824,7 @@ def evaluate(
         "domain": domain,
         "mode": experiment["mode"],
         "limit": experiment["limit"],
-        "repeats": experiment["repeats"],
+        "attempts": experiment["attempts"],
         "concurrency": experiment["concurrency"],
         "tasks": list(tasks),
         "dataset": HF_DATASET,
@@ -853,8 +857,8 @@ def evaluate(
 
     print(
         f"\n{totals['successes']}/{totals['runs']} runs passed, "
-        f"{totals['tasks_passed_every_repeat']}/{totals['tasks']} tasks passed every "
-        f"repeat ({totals['errors']} errors, counted as failures); verifiers "
+        f"{totals['tasks_passed_every_attempt']}/{totals['tasks']} tasks passed every "
+        f"attempt ({totals['errors']} errors, counted as failures); verifiers "
         f"{totals['verifiers_passed']}/{totals['verifiers_total']}; "
         f"{totals['input_tokens']:,} input and {totals['output_tokens']:,} output "
         f"tokens. Results in {out}"

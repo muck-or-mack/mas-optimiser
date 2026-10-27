@@ -18,7 +18,7 @@ mode: oracle
 limit: 5
 # Runs per task. One run cannot tell a task the agent always fails from one it
 # fails half the time; three runs can, and are the pilot for the final number.
-repeats: 1
+attempts: 1
 # Runs in flight at once. Each run has its own database, so runs never touch
 # each other; the limit keeps the domain server and the model's rate limits
 # comfortable.

@@ -29,7 +29,7 @@ from mas_optimiser.benchmarks.enterpriseops import diagnosis
 NUMBER_TYPES = (int, float)
 COLUMNS = (
     "task_id",
-    "repeat",
+    "attempt",
     "position",
     "name",
     "passed",
@@ -146,7 +146,7 @@ def upstream_verdict(results: dict[str, dict], names: Names) -> tuple[int, int, 
 
 
 def verifier_records(
-    task_id: str, repeat: int, results: dict[str, dict], names: Names
+    task_id: str, attempt: int, results: dict[str, dict], names: Names
 ) -> list[dict]:
     """Flatten one run's verdicts into ``verifiers.csv`` rows (``COLUMNS``), one per verifier."""
     return [
@@ -155,7 +155,7 @@ def verifier_records(
                 COLUMNS,
                 (
                     task_id,
-                    repeat,
+                    attempt,
                     position,
                     names.original[unique],
                     result["passed"],

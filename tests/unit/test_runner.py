@@ -4,7 +4,7 @@ import pytest
 
 from mas_optimiser.benchmarks.enterpriseops import GYM_ROOT, runner, verifiers
 
-# A task the submodule's data/revised folder corrects (its dataset copy repeats
+# A task the submodule's data/revised folder corrects (its dataset copy attempts
 # the same verifiers four times).
 REVISED_ID = "task_20251212_172511_458_e6427839_47076c15"
 SEED = "Domain Wise DBs and Task-DB Mappings/itsm/dbs/db_1765301900121_3mwjj54xy.sql"
@@ -98,7 +98,7 @@ def test_task_record_counts_an_errored_run_as_a_failed_task():
     record = runner.task_record(
         "t", 2, {"run_number": 1, "error": "down"}, names, PRICING
     )
-    assert not record["success"] and record["repeat"] == 2
+    assert not record["success"] and record["attempt"] == 2
     assert record["cost_usd"] == 0
     assert (record["verifiers_passed"], record["verifiers_total"]) == (0, 3)
     assert not record["upstream_success"]

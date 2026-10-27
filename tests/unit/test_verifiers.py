@@ -117,7 +117,7 @@ def test_verifier_records_use_the_original_names_in_order():
     ]
     assert rows[1] == {
         "task_id": "t",
-        "repeat": 2,
+        "attempt": 2,
         "position": 2,
         "name": "a",
         "passed": False,

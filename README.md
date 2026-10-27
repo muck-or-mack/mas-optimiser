@@ -83,13 +83,13 @@ runs/<experiment>/
     tasks.csv                    one row per task run
     verifiers.csv                one row per verifier per run
     run.log                      the benchmark's log of every request
-    tasks/<task_id>/repeat-<n>.json  the executor's complete record of one run
+    tasks/<task_id>/attempt-<n>.json  the executor's complete record of one run
 ```
 
-`repeats` in the experiment file (or `--repeats`) runs every task that many
+`attempts` in the experiment file (or `--attempts`) runs every task that many
 times, each run from a freshly seeded database, so that a task the agent
 always fails can be told from one it fails half the time; `tasks.csv` has a
-row per run and `run.json` counts the tasks that passed every repeat.
+row per run and `run.json` counts the tasks that passed every attempt.
 `concurrency` (default 4) is how many runs are in flight at once. Each row
 also carries the run's cost in US dollars, priced with the table in the model
 file (`configs/models/<model>.yaml`, which records when the prices were
@@ -130,13 +130,13 @@ results is one table away. A task whose run raises an error counts as failed
 and the error count is reported separately; the benchmark keeps no token
 counts for such a run.
 
-Each `repeat-<n>.json` file is the executor's complete record of one task
+Each `attempt-<n>.json` file is the executor's complete record of one task
 run, but as a single JSON document it is hard to read. Print it as a
 transcript instead: the policy and request the agent was given, each model
 turn with its tool calls, each tool result, and the verifier table at the end:
 
 ```bash
-mas-optimiser replay runs/<experiment>/<evaluation>/tasks/<task_id>/repeat-1.json
+mas-optimiser replay runs/<experiment>/<evaluation>/tasks/<task_id>/attempt-1.json
 ```
 
 `--full-policy` prints the whole policy rather than its first lines, and
