@@ -1,7 +1,7 @@
 """Print a saved task record as a readable transcript.
 
 The runner saves the executor's full record of each task run under
-``runs/<experiment>/<evaluation>/tasks/<task_id>/repeat-<n>.json``: the policy
+``runs/<experiment>/<evaluation>/tasks/<task_id>/attempt-<n>.json``: the policy
 and request the agent was given, every model message with its tool calls,
 every tool result and every verifier's verdict. As one JSON document it is
 hard to read. This command prints the record in order, as a transcript, with
@@ -9,7 +9,7 @@ the verifier table at the end, so a run can be read without a tracing server.
 
 Usage::
 
-    mas-optimiser replay runs/<experiment>/<evaluation>/tasks/<task_id>/repeat-1.json [--full-policy] [--max-chars N]
+    mas-optimiser replay runs/<experiment>/<evaluation>/tasks/<task_id>/attempt-1.json [--full-policy] [--max-chars N]
 
 ``python -m mas_optimiser.benchmarks.enterpriseops.replay`` takes the same arguments.
 """
@@ -41,9 +41,9 @@ def format_record(
     task_id = config.get("task_id", "?")
     lines = []
     for run in record["runs"]:
-        # The runner saves one repeat per file, so the file name says which;
+        # The runner saves one attempt per file, so the file name says which;
         # the executor's own run number is always 1.
-        which = config.get("repeat") or f"run {run.get('run_number', '?')}"
+        which = config.get("attempt") or f"run {run.get('run_number', '?')}"
         if run.get("error") and not run.get("conversation_flow"):
             lines.append(
                 f"== task {task_id}, {which}: raised before it started: {run['error']}"
@@ -127,7 +127,7 @@ def _clip(text: str, max_chars: int) -> str:
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     """Add the replay options to ``parser``; shared with the ``mas-optimiser`` command."""
     parser.add_argument(
-        "record", type=Path, help="a tasks/<task_id>/repeat-<n>.json file"
+        "record", type=Path, help="a tasks/<task_id>/attempt-<n>.json file"
     )
     parser.add_argument(
         "--full-policy", action="store_true", help="print the whole policy"
@@ -140,11 +140,11 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
 def run(args: argparse.Namespace) -> None:
     """Print the record named by the parsed arguments as a transcript."""
     record = json.loads(args.record.read_text())
-    # The executor's record carries neither the task id nor the repeat; the
+    # The executor's record carries neither the task id nor the attempt; the
     # runner names the folder and file after them.
     config = record.setdefault("benchmark_config", {})
     config.setdefault("task_id", args.record.parent.name)
-    config.setdefault("repeat", args.record.stem)
+    config.setdefault("attempt", args.record.stem)
     print(format_record(record, full_policy=args.full_policy, max_chars=args.max_chars))
 
 
