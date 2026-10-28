@@ -444,3 +444,103 @@ CREATE TABLE users (
 	FOREIGN KEY(role) REFERENCES role (name), 
 	FOREIGN KEY(org_id) REFERENCES organization (org_id)
 );
+
+CREATE UNIQUE INDEX ix_chg_org_number ON change (org_id, number);
+
+CREATE UNIQUE INDEX ix_ci_org_name ON configuration_item (org_id, name);
+
+CREATE UNIQUE INDEX ix_ci_org_serial ON configuration_item (org_id, serial_number);
+
+CREATE INDEX ix_cinc_child ON child_incident (child_incident);
+
+CREATE INDEX ix_cinc_parent ON child_incident (parent_incident);
+
+CREATE INDEX ix_crm_change ON change_request_mapping (change_id);
+
+CREATE INDEX ix_crm_incident ON change_request_mapping (incident_id);
+
+CREATE INDEX ix_crm_org ON change_request_mapping (org_id);
+
+CREATE INDEX ix_crm_problem ON change_request_mapping (problem_id);
+
+CREATE UNIQUE INDEX ix_group_email ON user_group (email);
+
+CREATE UNIQUE INDEX ix_group_org_name ON user_group (org_id, name);
+
+CREATE INDEX ix_iac_ci ON incident_affected_cis (configuration_item);
+
+CREATE INDEX ix_iac_incident ON incident_affected_cis (incident_id);
+
+CREATE INDEX ix_iac_org ON incident_affected_cis (org_id);
+
+CREATE INDEX ix_ik_incident ON incident_knowledge (incident_id);
+
+CREATE INDEX ix_ik_knowledge ON incident_knowledge (knowledge_id);
+
+CREATE INDEX ix_inc_assigned ON incident (assigned_to);
+
+CREATE INDEX ix_inc_created ON incident (created_at);
+
+CREATE INDEX ix_inc_group ON incident (assignment_group);
+
+CREATE UNIQUE INDEX ix_inc_org_number ON incident (org_id, number);
+
+CREATE INDEX ix_inc_priority ON incident (priority);
+
+CREATE INDEX ix_inc_status ON incident (status);
+
+CREATE INDEX ix_isla_breach ON incident_sla (has_breached);
+
+CREATE INDEX ix_isla_incident ON incident_sla (incident_id);
+
+CREATE INDEX ix_isla_org ON incident_sla (org_id);
+
+CREATE INDEX ix_isla_stage ON incident_sla (stage);
+
+CREATE UNIQUE INDEX ix_it_org_name ON incident_template (org_id, name);
+
+CREATE UNIQUE INDEX ix_kb_org_num ON knowledge (org_id, kb_number);
+
+CREATE INDEX ix_loc_name ON location (name);
+
+CREATE UNIQUE INDEX ix_loc_org_name ON location (org_id, name);
+
+CREATE INDEX ix_notif_created ON notification (created_on);
+
+CREATE INDEX ix_notif_email ON notification (email);
+
+CREATE INDEX ix_notif_incident ON notification (incident_id);
+
+CREATE INDEX ix_notif_status ON notification (status);
+
+CREATE INDEX ix_notif_type ON notification (type);
+
+CREATE UNIQUE INDEX ix_prb_org_number ON problem (org_id, number);
+
+CREATE INDEX ix_rp_perm ON role_permission (perm_id);
+
+CREATE INDEX ix_rp_role ON role_permission (role_id);
+
+CREATE UNIQUE INDEX ix_service_org_name ON service (org_id, name);
+
+CREATE INDEX ix_sla_definition_metric ON sla_definition (metric);
+
+CREATE INDEX ix_sla_metric ON sla_definition (metric);
+
+CREATE UNIQUE INDEX ix_so_org_name ON service_offering (org_id, name);
+
+CREATE INDEX ix_ugm_group ON user_group_member (group_id);
+
+CREATE INDEX ix_ugm_user ON user_group_member (user_id);
+
+CREATE INDEX ix_ur_org ON user_role (org_id);
+
+CREATE INDEX ix_ur_role ON user_role (role_id);
+
+CREATE INDEX ix_ur_user ON user_role (user_id);
+
+CREATE INDEX ix_user_name ON users (first_name, last_name);
+
+CREATE UNIQUE INDEX ix_user_org_email ON users (org_id, email);
+
+CREATE UNIQUE INDEX ix_users_static_token ON users (static_token);

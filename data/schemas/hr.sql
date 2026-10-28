@@ -410,3 +410,17 @@ CREATE TABLE user_skill (
 	FOREIGN KEY(user) REFERENCES user (user_id), 
 	FOREIGN KEY(org_id) REFERENCES organization (org_id)
 );
+
+CREATE INDEX ix_rp_perm ON role_permission (perm_id);
+
+CREATE INDEX ix_rp_role ON role_permission (role_id);
+
+CREATE UNIQUE INDEX ix_rp_unique ON role_permission (role_id, perm_id);
+
+CREATE INDEX ix_ur_org ON user_role (org_id);
+
+CREATE INDEX ix_ur_role ON user_role (role_id);
+
+CREATE INDEX ix_ur_user ON user_role (user_id);
+
+CREATE UNIQUE INDEX ix_user_static_token ON user (static_token);

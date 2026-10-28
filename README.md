@@ -168,11 +168,15 @@ mas-optimiser schema
 ```
 
 Seeds a database on each domain's server from every seed file its tasks
-use, reads the tables' CREATE statements back, checks that all of a
-domain's seed files share one schema, and writes it to
+use, reads the CREATE statements of its tables and indexes back, checks
+that all of a domain's seed files share one schema, and writes it to
 `data/schemas/<domain>.sql`. With that file, `seeds.build_seed_database`
 builds a local SQLite copy of any task's starting database, so new checks
-can be tested without the servers. The
+can be tested without the servers. The copies match the servers' databases
+row for row (`uv run pytest -m integration tests/integration/test_seeds.py`),
+with one exception: the HR server sets `created_at` and `updated_at` to the
+time it loads a seed. The CSM server returns at most 100 rows to a query
+that sets no `LIMIT` of its own. The
 project's own check files, one per task under `data/checks/`, are
 described in `data/checks/README.md`; the runner scores the benchmark's
 checks until they are complete. Both folders are found from the repository,
