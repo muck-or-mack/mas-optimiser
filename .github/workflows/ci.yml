@@ -9,6 +9,9 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: true
+          # The full history with its tags, so that the recorded code version
+          # names a release and not a bare commit.
+          fetch-depth: 0
       # setup-uv publishes no major-version tag; it asks to be pinned by commit.
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:

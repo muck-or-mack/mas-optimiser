@@ -12,6 +12,8 @@ import re
 import subprocess
 from pathlib import Path
 
+import pytest
+
 import mas_optimiser
 
 
@@ -29,20 +31,31 @@ def test_version_is_set():
     assert mas_optimiser.__version__
 
 
-def test_code_version_names_the_checked_out_commit():
+def test_code_version_names_the_checked_out_commit_from_any_directory(
+    tmp_path, monkeypatch
+):
     described = subprocess.run(
         ["git", "describe", "--tags", "--long", "--dirty", "--always"],
         cwd=Path(mas_optimiser.__file__).parent,
         capture_output=True,
         text=True,
     ).stdout.strip()
+    monkeypatch.chdir(tmp_path)
     assert mas_optimiser.code_version() == described
-    assert re.fullmatch(r"v\d+\.\d+\.\d+-\d+-g[0-9a-f]+(-dirty)?", described)
+    # A tag where the history has one, else a bare commit (a shallow clone).
+    assert re.fullmatch(r"(v\d+\.\d+\.\d+-\d+-g)?[0-9a-f]{7,}(-dirty)?", described)
 
 
-def test_code_version_falls_back_to_the_installed_version_outside_git(monkeypatch):
+@pytest.mark.parametrize(
+    "failure",
+    [OSError("git not found"), subprocess.CalledProcessError(128, "git")],
+)
+def test_code_version_falls_back_to_the_installed_version_outside_git(
+    monkeypatch, failure
+):
     def no_git(*args, **kwargs):
-        raise OSError("git not found")
+        assert kwargs.get("check"), "a failed describe must raise"
+        raise failure
 
     monkeypatch.setattr(mas_optimiser.subprocess, "run", no_git)
     assert mas_optimiser.code_version() == mas_optimiser.__version__

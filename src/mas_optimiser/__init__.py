@@ -8,11 +8,12 @@ except ImportError:
 
 
 def code_version() -> str:
-    """The running code's version as git describes it, e.g. ``v0.5.0-3-gabc1234-dirty``.
+    """The checkout's version as git describes it now, e.g. ``v0.5.0-3-gabc1234-dirty``.
 
     ``__version__`` is fixed when the package is installed, so in an editable
-    install it can name older code than the code that runs. Outside a git
-    checkout, ``__version__`` is all there is.
+    install it can name older code than the code that runs. Git describes the
+    checkout at the moment of the call, so a run takes it once, when it
+    starts. Outside a git checkout, ``__version__`` is all there is.
     """
     try:
         described = subprocess.run(
