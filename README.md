@@ -150,8 +150,11 @@ mas-optimiser split --experiment baseline-haiku --name haiku-20-40-40 --seed 0
 
 Draws the training, validation and test sets and writes
 `configs/splits/<name>.json`. For each domain it reads the experiment's
-latest full evaluation that has no label and no command-line overrides, and
-stops if those evaluations differ in model, mode, harness or attempts. The
+latest full evaluation that has no label and no command-line option that
+changes what is measured (`--domain`, `--concurrency`, `--out` and the
+tracing switch change nothing), and stops if a domain with a full
+evaluation has none that qualifies, or if the evaluations chosen differ in
+model, mode, harness or attempts. The
 strata are domain crossed with baseline outcome (all, some or none of the
 task's attempts passed), so each set has the same mix of domains and
 difficulty. Tasks listed in `configs/splits/forced-training.yaml` (read or

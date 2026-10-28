@@ -147,23 +147,122 @@ def test_read_baseline_refuses_when_no_evaluation_qualifies(tmp_path):
         splits.read_baseline(root)
 
 
-def test_read_baseline_refuses_domains_run_with_different_settings(tmp_path):
+@pytest.mark.parametrize(
+    "setting", [{"model": "model-b"}, {"mode": "plus_5_tools"}, {"harness": "other"}]
+)
+def test_read_baseline_refuses_domains_run_with_different_settings(tmp_path, setting):
     root = tmp_path / "exp"
     write_index(
         root,
         [
             evaluation(root, "e1", "itsm", {"a": 3}, started="2026-10-27T05:00:00"),
             evaluation(
-                root,
-                "e2",
-                "csm",
-                {"b": 3},
-                started="2026-10-27T06:00:00",
-                model="model-b",
+                root, "e2", "csm", {"b": 3}, started="2026-10-27T06:00:00", **setting
             ),
         ],
     )
-    with pytest.raises(ValueError, match="differ in model"):
+    with pytest.raises(ValueError, match="differ in model, mode, harness or attempts"):
+        splits.read_baseline(root)
+
+
+def test_read_baseline_refuses_domains_run_with_different_attempts(tmp_path):
+    root = tmp_path / "exp"
+    write_index(
+        root,
+        [
+            evaluation(root, "e1", "itsm", {"a": 3}, started="2026-10-27T05:00:00"),
+            evaluation(
+                root, "e2", "csm", {"b": 1}, attempts=1, started="2026-10-27T06:00:00"
+            ),
+        ],
+    )
+    with pytest.raises(ValueError, match="differ in model, mode, harness or attempts"):
+        splits.read_baseline(root)
+
+
+def test_read_baseline_orders_evaluations_by_start_time_not_by_index_order(tmp_path):
+    root = tmp_path / "exp"
+    write_index(
+        root,
+        [
+            evaluation(root, "new", "itsm", {"a": 3}, started="2026-10-27T06:00:00"),
+            evaluation(root, "old", "itsm", {"a": 0}, started="2026-10-27T05:00:00"),
+        ],
+    )
+    assert splits.read_baseline(root).evaluations == {"itsm": "new"}
+
+
+def test_read_baseline_reads_start_times_with_their_offsets(tmp_path):
+    # When the clocks go back, 01:10 GMT comes half an hour after 01:40 BST.
+    root = tmp_path / "exp"
+    write_index(
+        root,
+        [
+            evaluation(
+                root, "bst", "itsm", {"a": 0}, started="2026-10-25T01:40:00+01:00"
+            ),
+            evaluation(
+                root, "gmt", "itsm", {"a": 3}, started="2026-10-25T01:10:00+00:00"
+            ),
+        ],
+    )
+    assert splits.read_baseline(root).evaluations == {"itsm": "gmt"}
+
+
+def test_read_baseline_keeps_reruns_whose_overrides_change_nothing_measured(tmp_path):
+    root = tmp_path / "exp"
+    write_index(
+        root,
+        [
+            evaluation(root, "first", "itsm", {"a": 0}, started="2026-10-27T05:00:00"),
+            evaluation(
+                root,
+                "rerun",
+                "itsm",
+                {"a": 3},
+                started="2026-10-27T06:00:00",
+                overrides="domain=itsm concurrency=8 trace=False",
+            ),
+            evaluation(
+                root,
+                "other-model",
+                "itsm",
+                {"a": 1},
+                started="2026-10-27T07:00:00",
+                overrides="model=model-b",
+            ),
+        ],
+    )
+    assert splits.read_baseline(root).evaluations == {"itsm": "rerun"}
+
+
+def test_read_baseline_refuses_a_domain_left_without_a_baseline(tmp_path):
+    root = tmp_path / "exp"
+    write_index(
+        root,
+        [
+            evaluation(root, "e1", "csm", {"a": 3}, started="2026-10-27T05:00:00"),
+            evaluation(
+                root,
+                "e2",
+                "itsm",
+                {"b": 3},
+                started="2026-10-27T06:00:00",
+                overrides="model=model-b",
+            ),
+        ],
+    )
+    with pytest.raises(ValueError, match="for itsm"):
+        splits.read_baseline(root)
+
+
+def test_read_baseline_names_the_columns_an_older_index_lacks(tmp_path):
+    root = tmp_path / "exp"
+    root.mkdir()
+    (root / "index.csv").write_text("evaluation,started,domain,limit,repeats\n")
+    with pytest.raises(
+        ValueError, match="has no mode, model, harness, label, overrides, attempts"
+    ):
         splits.read_baseline(root)
 
 
@@ -177,6 +276,16 @@ def test_draw_is_deterministic_whatever_the_order_tasks_arrive_in():
     assert sorted(first) == sorted(tasks)
     counts = {s: list(first.values()).count(s) for s in splits.SETS}
     assert counts == {"training": 6, "validation": 12, "test": 12}
+
+
+def test_overflow_shares_what_is_left_in_the_validation_to_test_ratio():
+    # Seven of ten tasks forced leaves three for validation and test, shared
+    # 0.7 to 0.1: exactly 2.625 and 0.375, so all three go to validation.
+    tasks = {f"t{i}": ("hr", "all") for i in range(10)}
+    forced = {f"t{i}" for i in range(7)}
+    assignment = splits.draw(tasks, (0.2, 0.7, 0.1), 0, forced)
+    rest = sorted(assignment[t] for t in tasks if t not in forced)
+    assert rest == ["validation", "validation", "validation"]
 
 
 def test_forced_tasks_go_to_training_and_overflow_shrinks_the_other_sets():
@@ -309,6 +418,17 @@ def test_split_command_takes_an_empty_forced_file_as_no_forced_tasks(command):
             ["--proportions", "0.5", "0.5", "0.5"],
             "error: proportions",
         ),
+        (
+            lambda tmp: splits.FORCED_FILE.write_text("itsm_none_05:\n"),
+            [],
+            "must map each task id",
+        ),
+        (
+            lambda tmp: splits.FORCED_FILE.write_text('itsm_none_05: "unclosed\n'),
+            [],
+            "is not valid YAML",
+        ),
+        (lambda tmp: None, ["--experiment", "nowhere"], "error: .*index.csv"),
     ],
 )
 def test_split_command_stops_on_bad_input_without_writing(

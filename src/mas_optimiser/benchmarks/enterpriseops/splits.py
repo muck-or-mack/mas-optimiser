@@ -10,8 +10,9 @@ The strata are domain crossed with the task's baseline outcome: whether all,
 some or none of its attempts passed in the experiment the split is drawn
 from (``runs/<experiment>/``). For each domain the draw reads the latest full
 evaluation in the experiment's ``index.csv`` that has no label and no
-command-line overrides, and refuses if those evaluations differ in model,
-mode, harness or attempts. Within each stratum the tasks named in the forced
+command-line override that changes what is measured, and refuses if a domain
+with a full evaluation has none that qualifies, or if the evaluations chosen
+differ in model, mode, harness or attempts. Within each stratum the tasks named in the forced
 list go into training first: tasks already inspected by hand, with dataset
 defects, or otherwise unfit for a sealed set. The rest are shuffled by the
 seed and filled into training, then validation, then test, in the proportions
@@ -41,6 +42,7 @@ import math
 import random
 import re
 from collections import defaultdict
+from datetime import datetime
 from fractions import Fraction
 from pathlib import Path
 from typing import NamedTuple
@@ -56,6 +58,22 @@ SPLITS_DIR = REPO_ROOT / "configs" / "splits"
 FORCED_FILE = SPLITS_DIR / "forced-training.yaml"
 RUNS = REPO_ROOT / "runs"
 NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
+# Command-line overrides that leave what an evaluation measures unchanged;
+# any other override (model, mode, attempts, thinking) disqualifies it as a
+# baseline, as does any override added later until it is listed here.
+HARMLESS_OVERRIDES = frozenset({"domain", "concurrency", "trace", "out"})
+INDEX_COLUMNS = (
+    "evaluation",
+    "started",
+    "domain",
+    "mode",
+    "model",
+    "harness",
+    "label",
+    "overrides",
+    "limit",
+    "attempts",
+)
 STRATA_RULE = "domain x outcome (all, some or none of the baseline attempts passed)"
 DESCRIPTION = __doc__.split("\n\n")[0]
 
@@ -73,12 +91,19 @@ class Baseline(NamedTuple):
     evaluations: dict[str, str]
 
 
+def started_at(text: str) -> datetime:
+    """An evaluation's start time; one written without an offset is read as local time."""
+    return datetime.fromisoformat(text).astimezone()
+
+
 def read_baseline(experiment_dir: Path) -> Baseline:
     """Read each domain's baseline evaluation and classify every task's outcome.
 
     The baseline of a domain is its latest full evaluation (one run without a
-    task limit) with no label and no command-line overrides, so a rerun with
-    another model or a labelled trial never defines the strata by accident.
+    task limit) with no label and no command-line override that changes what
+    is measured (``HARMLESS_OVERRIDES``), so a rerun with another model or a
+    labelled trial never defines the strata by accident, while a domain rerun
+    alone with ``--domain`` still counts.
 
     Args:
         experiment_dir: The ``runs/<experiment>`` folder holding ``index.csv``.
@@ -88,21 +113,32 @@ def read_baseline(experiment_dir: Path) -> Baseline:
 
     Raises:
         FileNotFoundError: If the experiment has no index.
-        ValueError: If no evaluation qualifies, or the chosen evaluations
-            differ in model, mode, harness or attempts.
+        ValueError: If the index lacks a column the choice needs, a domain
+            with a full evaluation has none that qualifies, or the chosen
+            evaluations differ in model, mode, harness or attempts.
     """
     index = experiment_dir / "index.csv"
     with index.open(newline="") as f:
-        rows = [
-            row
-            for row in csv.DictReader(f)
-            if not row["limit"] and not row["label"] and not row["overrides"]
-        ]
-    if not rows:
-        raise ValueError(f"no full evaluation without a label or overrides in {index}")
+        reader = csv.DictReader(f)
+        missing = [c for c in INDEX_COLUMNS if c not in (reader.fieldnames or [])]
+        if missing:
+            raise ValueError(f"{index} has no {', '.join(missing)} column")
+        full = [row for row in reader if not row["limit"]]
+    rows = [
+        row
+        for row in full
+        if not row["label"]
+        and set(re.findall(r"(?:^|\s)(\w+)=", row["overrides"])) <= HARMLESS_OVERRIDES
+    ]
     latest = {}
-    for row in sorted(rows, key=lambda row: row["started"]):
+    for row in sorted(rows, key=lambda row: started_at(row["started"])):
         latest[row["domain"]] = row
+    unserved = sorted({row["domain"] for row in full} - set(latest))
+    if unserved or not latest:
+        raise ValueError(
+            f"no full evaluation without a label or a measured override for "
+            f"{', '.join(unserved) or 'any domain'} in {index}"
+        )
     settings = {
         (row["model"], row["mode"], row["harness"], row["attempts"])
         for row in latest.values()
@@ -322,7 +358,10 @@ def run(args: argparse.Namespace) -> None:
     forced_file = args.forced or FORCED_FILE
     if not forced_file.is_file():
         raise SystemExit(f"error: no forced-training file at {forced_file}")
-    forced = yaml.safe_load(forced_file.read_text()) or {}
+    try:
+        forced = yaml.safe_load(forced_file.read_text()) or {}
+    except yaml.YAMLError as error:
+        raise SystemExit(f"error: {forced_file} is not valid YAML ({error})") from error
     if not isinstance(forced, dict) or not all(
         isinstance(task_id, str) and isinstance(reason, str)
         for task_id, reason in forced.items()
