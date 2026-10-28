@@ -107,7 +107,9 @@ Fields of a requirement:
 - `sql`, `expected`, `comparison`: a single `SELECT COUNT(...)` query, the
   count it must give and how the two compare (`equals`, `greater_than` or
   `less_than`), in the form of the benchmark's count checks, so one scorer
-  handles both.
+  handles both. The query has no comments and no semicolon except at the
+  end, since the CSM server refuses one anywhere else, even inside a quoted
+  value.
 - `source`: the benchmark check this requirement came from, by its exact
   name in `original_checks` (whitespace included); a list of exact names
   when the requirement carries several checks; or `new` when no benchmark

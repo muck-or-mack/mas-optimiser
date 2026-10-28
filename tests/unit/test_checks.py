@@ -17,6 +17,7 @@ def document(**overrides):
         "expected": 1,
         "comparison": "equals",
         "source": "Report incident",
+        "seed_count": 0,
         "assumptions": [],
     }
     requirement.update(overrides)
@@ -31,6 +32,7 @@ def document(**overrides):
 def test_a_well_formed_file_has_no_problems():
     assert checks.validate(document()) == []
     assert checks.validate(document(kind="remove", expected=0)) == []
+    assert checks.validate(document(kind="stay", expected=3, seed_count=3)) == []
     assert (
         checks.validate(document(anchor=None, selector="priority = 'moderate'")) == []
     )
@@ -46,6 +48,20 @@ def test_a_well_formed_file_has_no_problems():
             {"sql": "SELECT COUNT(*) FROM incident; DELETE FROM incident"},
             "sql: must be a single",
         ),
+        (
+            {"sql": "SELECT COUNT(*) FROM incident WHERE note LIKE '%a; b%'"},
+            "inner semicolons",
+        ),
+        (
+            {"sql": "SELECT COUNT(*) FROM incident -- the user's row\n; DELETE FROM t"},
+            "without comments",
+        ),
+        ({"sql": 'SELECT COUNT(*) FROM t WHERE a = "it\'s"; DELETE FROM t'}, "sql:"),
+        ({"sql": "SELECT COUNT(*) FROM incident -- a note"}, "without comments"),
+        ({"sql": "SELECT COUNT(*) FROM incident /* a note */"}, "without comments"),
+        ({"seed_count": None}, "seed_count: missing or wrong type"),
+        ({"kind": "stay", "expected": 2, "seed_count": 5}, "a stay must expect"),
+        ({"kind": "stay", "comparison": "greater_than"}, "a stay must expect"),
         ({"expected": "1"}, "expected: missing or wrong type"),
         ({"expected": True}, "expected: missing or wrong type"),
         ({"comparison": "at_least"}, "comparison: not one of"),
@@ -61,7 +77,7 @@ def test_a_bad_requirement_is_named(overrides, problem):
     "sql",
     [
         "select count(*) from incident",
-        "SELECT\n  COUNT(*) FROM incident WHERE note LIKE '%a; b%'",
+        "SELECT\n  COUNT(*) FROM incident WHERE note LIKE '%a b%'",
         "SELECT COUNT(*) FROM incident;",
     ],
 )
@@ -77,9 +93,15 @@ def test_a_count_query_in_any_case_or_layout_is_accepted(sql):
         ({}, "absent"),
         (None, "  "),
         ({"incident_id": "INC_024"}, "priority = 'moderate'"),
+        ("INC_024", "priority = 'moderate'"),
+        (["INC_024"], "priority = 'moderate'"),
+        ({"incident_id": "INC_024"}, 5),
+        ({"incident_id": "INC_024"}, ""),
     ],
 )
-def test_a_requirement_needs_exactly_one_of_an_anchor_or_a_selector(anchor, selector):
+def test_a_requirement_needs_exactly_one_well_formed_anchor_or_selector(
+    anchor, selector
+):
     doc = document()
     requirement = doc["requirements"][0]
     del requirement["anchor"]
@@ -87,7 +109,11 @@ def test_a_requirement_needs_exactly_one_of_an_anchor_or_a_selector(anchor, sele
         requirement["anchor"] = anchor
     if selector != "absent":
         requirement["selector"] = selector
-    assert any("needs exactly one" in p for p in checks.validate(doc))
+    problems = checks.validate(doc)
+    assert any(
+        "needs exactly one" in p or ".anchor:" in p or ".selector:" in p
+        for p in problems
+    )
 
 
 def test_original_checks_need_a_disposition_and_evidence_when_repaired():
@@ -190,6 +216,22 @@ def test_a_repeated_source_name_gives_one_problem():
     assert len(problems) == 1 and "distinct check names" in problems[0]
 
 
+def test_a_partly_readable_source_still_carries_the_names_it_gives():
+    doc = document(source=["Report incident", "Report incident"])
+    doc["original_checks"]["Assign group"] = {"disposition": "kept"}
+    assert checks.validate(doc) == [
+        "requirements[0].source: must be 'new', one check name, or a list of "
+        "distinct check names without 'new'",
+        "original_checks['Assign group']: kept but no requirement names it",
+    ]
+
+
+@pytest.mark.parametrize("source", ["", 3, [], ["new"]])
+def test_an_unreadable_source_reports_no_check_as_uncarried(source):
+    problems = checks.validate(document(source=source))
+    assert len(problems) == 1 and "source: must be" in problems[0]
+
+
 def test_load_checks_reads_valid_files_and_rejects_a_mismatched_name(tmp_path):
     (tmp_path / "task_x.json").write_text(json.dumps(document()))
     assert list(checks.load_checks(tmp_path)) == ["task_x"]
@@ -213,11 +255,16 @@ def test_load_checks_reads_valid_files_and_rejects_a_mismatched_name(tmp_path):
             "kind: not one of",
         ),
         ("{not json", "not valid JSON"),
+        (b'{"task_id": "\xe9"}', "not valid JSON"),
         ("[]", "document: not a mapping"),
     ],
 )
 def test_load_checks_names_the_file_and_the_problem(tmp_path, content, problem):
-    (tmp_path / "task_x.json").write_text(content)
+    path = tmp_path / "task_x.json"
+    if isinstance(content, bytes):
+        path.write_bytes(content)
+    else:
+        path.write_text(content)
     with pytest.raises(ValueError, match=re.escape(problem)) as raised:
         checks.load_checks(tmp_path)
     assert "task_x.json" in str(raised.value)

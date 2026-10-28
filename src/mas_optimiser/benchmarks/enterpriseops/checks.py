@@ -32,9 +32,9 @@ REQUIRED = {
     "sql": str,
     "expected": (int, float),
     "comparison": str,
+    "seed_count": (int, float),
 }
 COUNT_QUERY = re.compile(r"\s*SELECT\s+COUNT\s*\(", re.IGNORECASE)
-STRING_LITERAL = re.compile(r"'(?:[^']|'')*'")
 
 
 def source_names(source: object) -> list[str] | None:
@@ -66,9 +66,10 @@ def validate(document: object) -> list[str]:
     finds its rows by exactly one of an anchor or a selector, every check a
     requirement names as its source exists in ``original_checks`` and is not
     excluded, every check kept or repaired is carried by at least one
-    requirement, and a ``remove`` requirement counts zero rows. Malformed
-    parts are reported, never raised, so one bad file is named rather than
-    stopping the load.
+    requirement, a ``remove`` requirement counts zero rows, and a ``stay``
+    expects the count it has on the seed. Malformed parts are reported, never
+    raised, so ``load_checks`` can name the file and the problem rather than
+    fail with a traceback.
 
     Args:
         document: One task's check file, parsed.
@@ -137,21 +138,39 @@ def validate(document: object) -> list[str]:
             or requirement.get("comparison", "equals") != "equals"
         ):
             problems.append(f"{where}: a remove requirement must count zero rows")
+        if requirement.get("kind") == "stay" and (
+            requirement.get("expected") != requirement.get("seed_count")
+            or requirement.get("comparison", "equals") != "equals"
+        ):
+            problems.append(f"{where}: a stay must expect the count it has on the seed")
         if not isinstance(requirement.get("cells"), dict):
             problems.append(f"{where}.cells: missing or not a mapping")
+        # A field given must be well formed, and exactly one must be given.
         anchor, selector = requirement.get("anchor"), requirement.get("selector")
-        has_anchor = isinstance(anchor, dict) and bool(anchor)
-        has_selector = isinstance(selector, str) and bool(selector.strip())
-        if has_anchor == has_selector:
+        if anchor is not None and not (isinstance(anchor, dict) and anchor):
+            problems.append(
+                f"{where}.anchor: must be a non-empty mapping of key to value"
+            )
+        if selector is not None and not (
+            isinstance(selector, str) and selector.strip()
+        ):
+            problems.append(f"{where}.selector: must be a non-empty WHERE clause")
+        if (anchor is None) == (selector is None):
             problems.append(
                 f"{where}: needs exactly one of an anchor (the row's key) or a selector"
             )
-        # One statement only: anything after a semicolon outside a string
-        # literal would be a second statement.
+        # The CSM server refuses a semicolon anywhere but at the end, even
+        # inside a quoted value, and a comment could hide one; both are
+        # refused here so that every query runs on every server.
         sql = str(requirement.get("sql", ""))
-        body = STRING_LITERAL.sub("''", sql).rstrip().removesuffix(";")
-        if not COUNT_QUERY.match(sql) or ";" in body:
-            problems.append(f"{where}.sql: must be a single SELECT COUNT(...) query")
+        body = sql.rstrip().removesuffix(";")
+        if not COUNT_QUERY.match(sql) or any(
+            mark in body for mark in (";", "--", "/*")
+        ):
+            problems.append(
+                f"{where}.sql: must be a single SELECT COUNT(...) query without "
+                "comments or inner semicolons"
+            )
         assumptions = requirement.get("assumptions", [])
         if not isinstance(assumptions, list) or not all(
             isinstance(a, str) for a in assumptions
@@ -192,7 +211,7 @@ def load_checks(directory: Path = CHECKS_DIR) -> dict[str, dict]:
     for path in sorted(directory.glob("task_*.json")):
         try:
             document = json.loads(path.read_text())
-        except json.JSONDecodeError as error:
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
             raise ValueError(f"{path}: not valid JSON ({error})") from error
         problems = validate(document)
         if isinstance(document, dict) and document.get("task_id") != path.stem:
