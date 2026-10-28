@@ -45,8 +45,9 @@ SCHEMA_QUERY = (
     "'view') AND sql IS NOT NULL AND name NOT LIKE 'sqlite_%' "
     "ORDER BY type != 'table', name"
 )
-# The server can take minutes to load the largest seed files.
-SEED_TIMEOUT = 1200
+# The seed files load in under a second; two minutes allows for a far larger
+# one without waiting long on a server that has hung.
+SEED_TIMEOUT = 120
 DESCRIPTION = __doc__.split("\n\n")[0]
 
 

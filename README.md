@@ -185,9 +185,10 @@ that all of a domain's seed files share one schema, and writes it to
 builds a local SQLite copy of any task's starting database, so new checks
 can be tested without the servers. The copies match the servers' databases
 row for row (`uv run pytest -m integration tests/integration/test_seeds.py`),
-with one exception: the HR server sets `created_at` and `updated_at` to the
-time it loads a seed. The CSM server returns at most 100 rows to a query
-that sets no `LIMIT` of its own. The
+with one exception: in many rows the HR server replaces `created_at` and
+`updated_at` with the time it loads the seed (which rows depends on the seed
+file), so those two HR columns are left out of the comparison. The CSM
+server returns at most 100 rows to a query that sets no `LIMIT` of its own. The
 project's own check files, one per task under `data/checks/`, are
 described in `data/checks/README.md`; the runner scores the benchmark's
 checks until they are complete. Both folders are found from the repository,
