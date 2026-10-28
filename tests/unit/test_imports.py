@@ -8,6 +8,9 @@ that class of breakage into a test failure.
 
 import importlib
 import pkgutil
+import re
+import subprocess
+from pathlib import Path
 
 import mas_optimiser
 
@@ -24,3 +27,22 @@ def test_all_modules_import():
 def test_version_is_set():
     assert isinstance(mas_optimiser.__version__, str)
     assert mas_optimiser.__version__
+
+
+def test_code_version_names_the_checked_out_commit():
+    described = subprocess.run(
+        ["git", "describe", "--tags", "--long", "--dirty", "--always"],
+        cwd=Path(mas_optimiser.__file__).parent,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    assert mas_optimiser.code_version() == described
+    assert re.fullmatch(r"v\d+\.\d+\.\d+-\d+-g[0-9a-f]+(-dirty)?", described)
+
+
+def test_code_version_falls_back_to_the_installed_version_outside_git(monkeypatch):
+    def no_git(*args, **kwargs):
+        raise OSError("git not found")
+
+    monkeypatch.setattr(mas_optimiser.subprocess, "run", no_git)
+    assert mas_optimiser.code_version() == mas_optimiser.__version__

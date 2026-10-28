@@ -835,7 +835,7 @@ def evaluate(
         "dataset_revision": HF_REVISION,
         "thinking": thinking,
         "traced": trace,
-        "mas_optimiser_version": mas_optimiser.__version__,
+        "mas_optimiser_version": mas_optimiser.code_version(),
         "started": started.isoformat(timespec="seconds"),
         "finished": datetime.now().isoformat(timespec="seconds"),
     }
@@ -854,7 +854,7 @@ def evaluate(
                 f"{k}={v}" for k, v in experiment["overrides"].items()
             ),
             "limit": experiment["limit"] or "",
-            "code_version": mas_optimiser.__version__,
+            "code_version": mas_optimiser.code_version(),
         }
         | totals,
     )

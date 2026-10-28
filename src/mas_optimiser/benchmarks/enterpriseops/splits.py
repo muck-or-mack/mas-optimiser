@@ -210,7 +210,7 @@ def build_split(
         "source": {
             "experiment": experiment_dir.name,
             "evaluations": baseline.evaluations,
-            "code_version": mas_optimiser.__version__,
+            "code_version": mas_optimiser.code_version(),
         },
         "forced_training": dict(sorted(forced.items())),
         "counts": {
