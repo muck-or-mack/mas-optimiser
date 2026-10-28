@@ -59,7 +59,7 @@
         "type": "full-time",
         "location_type": "Hotdesk"
       },
-      "sql": "SELECT COUNT(*) FROM hr_profile WHERE hr_profile_id = 3 AND user_id = 3 AND manager = 49 AND type = 'full-time' AND location_type = 'Hotdesk'",
+      "sql": "SELECT COUNT(*) FROM hr_profile WHERE hr_profile_id = 3 AND manager = 49 AND type = 'full-time' AND location_type = 'Hotdesk'",
       "expected": 1,
       "comparison": "equals",
       "source": "Verify Tabitha HR profile reporting-manager relationship unchanged",
@@ -82,7 +82,7 @@
         "type": "full-time",
         "location_type": "Office Based"
       },
-      "sql": "SELECT COUNT(*) FROM hr_profile WHERE hr_profile_id = 49 AND user_id = 49 AND manager = 4 AND type = 'full-time' AND location_type = 'Office Based'",
+      "sql": "SELECT COUNT(*) FROM hr_profile WHERE hr_profile_id = 49 AND manager = 4 AND type = 'full-time' AND location_type = 'Office Based'",
       "expected": 1,
       "comparison": "equals",
       "source": "Verify Cheryl HR profile reporting-manager relationship unchanged",
@@ -125,7 +125,7 @@
         "priority not stated; policy 3.1 defaults it to moderate (the benchmark check tests the same)",
         "short_description follows the policy 8 format with Detail = the issue; the Subject 'Tabitha Bullock' is kept from the benchmark check, not fixed by request or policy (101 characters, within 30-120)",
         "disagreement: org_id = 1: A tests it, B does not; kept because the benchmark check tests c.org_id = 1 and it is the tenant of the acting user and of every referenced record",
-        "disagreement: opened_by = 39: B tests it (policy 3.1: opened_by is the requester, here the acting user Karen Watkins, hr_profile 39), A leaves it untested because every seed case has opened_by = opened_for; kept because policy 3.1 fixes it, the request is in Karen's own words ('I need the HR system to show'), and the batch 14 HR file tests opened_by the same way; the seed's convention is the generator's, not a contradiction",
+        "disagreement: opened_by = 39: B tests it (policy 3.1: opened_by is the requester, here the acting user Karen Watkins, hr_profile 39), A leaves it untested because every seed case has opened_by = opened_for; kept because policy 3.1 fixes it, the request is in Karen's own words ('I need the HR system to show'); the seed's convention is the generator's, not a contradiction",
         "source not fixed by request or policy; left out"
       ]
     },
@@ -211,7 +211,7 @@
       "seed_count": 0,
       "assumptions": [
         "the pair bound: exactly two ready update notifications on the case, one per named user, and no third; carried as the benchmark wrote it (it does not count notifications of other types or statuses)",
-        "disagreement: form: B repeats type and status in both the selector and the cells, A keeps the row key in the selector and the tested columns in cells; kept A's shape, the README's; the sql tests the same rows"
+        "disagreement: form: B repeats type and status in both the selector and the cells, A keeps the row key in the selector and the tested columns in cells; kept A's shape, since the selector names the rows and cells carry the tested columns without repeating them; the sql tests the same rows"
       ]
     }
   ],
@@ -245,6 +245,6 @@
       "disposition": "kept"
     }
   },
-  "notes": "Merged from two passes that agree on the nine requirements' tables, anchors or selectors and values (users 3 and 49, profiles 3 and 49, case 61, article 7, two notifications plus the pair bound) and on all nine dispositions (eight kept, the article title repaired the same way by both). disagreement: sql of the two user requirements: B adds the email beside the anchor; dropped (logged in each). disagreement: org_id = 1 on the case and on the article: A tests it, B does not; kept, as the benchmark checks test it (logged in each). disagreement: opened_by = 39 on the case: B tests it from policy 3.1, A leaves it untested because every one of the 60 seed cases has opened_by = opened_for; kept per policy and the batch 14 precedent (logged in the requirement); drop it if the create tool proves to set opened_by on its own. disagreement: notification selectors: A by the anchored case id, B by the account-number join; kept A's (logged in each). disagreement: form of the pair bound: B repeats type and status in selector and cells; kept A's shape (logged). Policy conflict a reviewer should know of: this policy version restricts the admin role ('Must not perform routine HR case work') and the acting user Karen Watkins is an admin; the benchmark's checks assume she creates the case, article and notifications, and this file follows that prior (a GDPR remediation after an access review is read as not routine). The user_role table mirrors user.role for both users (Tabitha role_id 3 agent, Cheryl role_id 2 manager); the request's 'system role' is taken to be user.role, which the policy enumerates and the benchmark tests; no listed tool writes user_role, so it is left untested rather than invented. Both hr_profile stays are what the request forbids changing, so they are requirements, not invented invariants. 'Nothing else in this tenant should change' is a generic invariant measured as collateral change, not written as stays. No boundary stays: every name, email, service and group resolves to one row and no case has a near-match account number.",
+  "notes": "Merged from two passes that agree on the nine requirements' tables, anchors or selectors and values (users 3 and 49, profiles 3 and 49, case 61, article 7, two notifications plus the pair bound) and on all nine dispositions (eight kept, the article title repaired the same way by both). disagreement: sql of the two user requirements: B adds the email beside the anchor; dropped (logged in each). disagreement: org_id = 1 on the case and on the article: A tests it, B does not; kept, as the benchmark checks test it (logged in each). disagreement: opened_by = 39 on the case: B tests it from policy 3.1, A leaves it untested because every one of the 60 seed cases has opened_by = opened_for; kept because policy 3.1 names opened_by as the requester (logged in the requirement); drop it if the create tool proves to set opened_by on its own. disagreement: notification selectors: A by the anchored case id, B by the account-number join; kept A's (logged in each). disagreement: form of the pair bound: B repeats type and status in selector and cells; kept A's shape (logged). Policy conflict a reviewer should know of: this policy version restricts the admin role ('Must not perform routine HR case work') and the acting user Karen Watkins is an admin; the benchmark's checks assume she creates the case, article and notifications, and this file follows that prior (a GDPR remediation after an access review is read as not routine). The user_role table mirrors user.role for both users (Tabitha role_id 3 agent, Cheryl role_id 2 manager); the request's 'system role' is taken to be user.role, which the policy enumerates and the benchmark tests; no listed tool writes user_role, so it is left untested rather than invented. Both hr_profile stays are what the request forbids changing, so they are requirements, not invented invariants. 'Nothing else in this tenant should change' is a generic invariant measured as collateral change, not written as stays. No boundary stays: every name, email, service and group resolves to one row and no case has a near-match account number.\nrevised: the two hr_profile stays' sql no longer tests user_id, which is neither the anchor nor a cell; the anchor hr_profile_id already fixes the row.\nrevised: the opened_by reasoning and the pair-bound form line now state their reasons directly instead of citing another file or the format description.",
   "minutes": 12
 }

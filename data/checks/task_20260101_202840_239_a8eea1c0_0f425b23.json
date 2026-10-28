@@ -92,10 +92,10 @@
         "last name tested with the straight apostrophe the request uses",
         "role agent kept from the benchmark check; not fixed by request or policy (the policy allows agent or manager for assigned_to)",
         "email kept from the benchmark check; not fixed by request or policy; it follows the seed's staff convention firstname.lastname@servicenow.com with the apostrophe dropped (no seed email carries one)",
-        "location_id 96 is the acting user's (Kurt Fritz, user 96): the benchmark gives Liam the current user's location as his default and takes that user to be Tabitha Bullock (3, location 3); input.json's acting user wins, so the same default gives 96",
+        "location_id 96 is the acting user's (Kurt Fritz, user 96): the benchmark gives Liam the current user's location as his default and takes that user to be Tabitha Bullock (3, location 3); the task's acting user is Kurt Fritz, so the same default gives 96",
         "disagreement: role: A agent, B IN ('agent', 'manager'); chose agent as the benchmark's prior where nothing contradicts it",
         "disagreement: email: A LIKE 'liam.%connell%@servicenow.com', B none; chose the benchmark's exact value as the prior where nothing contradicts it",
-        "disagreement: location_id: both passes dropped it as resting on the wrong current user; chose 96 because the acting-user rule substitutes input.json's user into the benchmark's premise rather than discarding the cell",
+        "disagreement: location_id: both passes dropped it as resting on the wrong current user; chose 96 because the task's acting user takes the place of the benchmark's current user in the same premise, which keeps the cell rather than discarding it",
         "every staff user on the seed has a personal location row (location_id = user_id; 96 is 'User 96 - New York'), so the default is the benchmark's premise, not a seed convention; a reviewer who rejects the substitution should drop the cell, not restore 3"
       ]
     },
@@ -171,7 +171,7 @@
       "source": "delete_case_knowledge_linkages",
       "seed_count": 1,
       "assumptions": [
-        "the only link on case 504 with used_as = resolution is 216 (article 346); the row must be gone, so no cells are tested and the format's change kind stands in for a delete",
+        "the only link on case 504 with used_as = resolution is 216 (article 346); the row must be gone, so no cells are tested",
         "read as removing the link (what delete_case_knowledge_linkages does); article 346 itself is not touched: no tool writes existing knowledge rows and the request speaks of the link",
         "disagreement: form: A's sql adds AND case_id = 504, B's tests the id alone; chose B's because it also fails if the row is re-pointed rather than deleted"
       ]
@@ -201,9 +201,9 @@
       "assumptions": [
         "id assumed next in sequence (370 after 369); the only article the task creates; no article with this title exists",
         "state published fixed by policy: only published articles may be linked to a case, and the request links it (carries create_knowledge (2))",
-        "owner_id 96: the policy tracks ownership via owner_id and the creator is the acting user, Kurt Fritz (input.json); the benchmark's owner 3 (Tabitha Bullock) rests on a different current user",
+        "owner_id 96: the policy tracks ownership via owner_id and the creator is the task's acting user, Kurt Fritz (96); the benchmark's owner 3 (Tabitha Bullock) rests on a different current user",
         "the body must exist ('detailing the failure'); its wording is free text and not tested",
-        "disagreement: owner_id: A 96, B none; chose 96 because the acting-user rule substitutes input.json's user for the benchmark's",
+        "disagreement: owner_id: A 96, B none; chose 96 because the task's acting user, not the benchmark's current user, creates the article",
         "disagreement: product_id = 233 (B only); dropped because neither the request, the policy nor the benchmark fixes the article's product and the column is nullable (12 seed articles have none)",
         "disagreement: form: A carries state = published as a separate requirement for create_knowledge (2), B folds it into this one; folded, with both originals named in source"
       ]
@@ -247,7 +247,7 @@
       "seed_count": 1,
       "assumptions": [
         "link 217 (article 347, applied) is the case's other link; a loose reading of 'the article linked' would delete it too, and the request removes only the resolution link",
-        "disagreement: form: A leaves cells empty with the whole predicate in the selector, B repeats the three columns as cells; chose the row key as selector and the tested columns as cells, the shape earlier merges used"
+        "disagreement: form: A leaves cells empty with the whole predicate in the selector, B repeats the three columns as cells; chose the row key as selector and the tested columns as cells, so the selector names the row and the cells carry what must hold on it"
       ]
     }
   ],
@@ -258,7 +258,7 @@
     },
     "add_new_user": {
       "disposition": "repaired",
-      "evidence": "location_id = 3 is Tabitha Bullock's (user 3), whom the benchmark's find_user check takes as the current user and whose location it gives the new user as the default; input.json names Kurt Fritz (96) as the acting user, so the same default gives location 96; the email, role agent and active = 1 are kept as the benchmark's prior, fixed by nothing in the request or policy"
+      "evidence": "location_id = 3 is Tabitha Bullock's (user 3), whom the benchmark's find_user check takes as the current user and whose location it gives the new user as the default; the task names Kurt Fritz (96) as the acting user, so the same default gives location 96; the email, role agent and active = 1 are kept as the benchmark's prior, fixed by nothing in the request or policy"
     },
     "add_new_group_member": {
       "disposition": "kept"
@@ -276,7 +276,7 @@
     },
     "create_knowledge": {
       "disposition": "repaired",
-      "evidence": "owner_id = 3 assumes Tabitha Bullock (user 3) creates the article, the benchmark's current user; input.json's acting user is Kurt Fritz (96), so the owner is 96; the title and internal visibility stand"
+      "evidence": "owner_id = 3 assumes Tabitha Bullock (user 3) creates the article, the benchmark's current user; the task's acting user is Kurt Fritz (96), so the owner is 96; the title and internal visibility stand"
     },
     "link_case_knowledge": {
       "disposition": "kept"
@@ -293,7 +293,7 @@
     },
     "find_user": {
       "disposition": "weak",
-      "evidence": "tests seed facts alone (user 3 is an agent at location 3); it also presumes the current user is Tabitha Bullock (3), whereas input.json names Kurt Fritz (96)"
+      "evidence": "tests seed facts alone (user 3 is an agent at location 3); it also presumes the current user is Tabitha Bullock (3), whereas the task's acting user is Kurt Fritz (96)"
     },
     "update_case (3)": {
       "disposition": "weak",
@@ -304,6 +304,6 @@
       "evidence": "a SELECT state query expecting published; carried by the knowledge requirement jointly with create_knowledge"
     }
   },
-  "notes": "Merged from two passes that agree on the nine shared requirements (case 504 to critical, reopen_count 1, group 18 with assignee 803, user 803, membership 960, the two critical SLAs by natural key, link 216 removed, article 370 linked as 528) and on twelve of fourteen dispositions. disagreement: the reopened state: A in_progress, B IN ('new', 'in_progress'); kept in_progress as the benchmark's prior (logged in the requirement), so update_case is kept (A kept, B repaired). disagreement: the new user's cells: A email LIKE and role agent, B no email and role IN ('agent', 'manager'); kept the benchmark's exact email and role agent as the prior where nothing contradicts them (logged in the requirement). disagreement: the new user's location: both passes dropped it; set to 96 by the acting-user rule, which substitutes input.json's user into the benchmark's current-user premise instead of discarding the cell (logged in the requirement; the resolution least sure of). disagreement: owner_id of article 370: A 96, B none; kept 96 by the same rule. disagreement: product_id = 233 on the article (B only); dropped because nothing fixes it and the column is nullable. disagreement: form: A carries state = published as its own requirement, B folds it into the article; folded, with create_knowledge and create_knowledge (2) both named in source. disagreement: form: the link-removal sql (A adds case_id = 504, B the id alone); kept B's as the stricter test. disagreement: form: the stay on link 217 (A empty cells, B repeated columns); kept the row key as selector and the tested columns as cells. Several benchmark queries are not counts (SELECT assigned_to, SELECT state, SELECT reopen_count, SELECT location_id, SELECT sys_updated_on IS NOT NULL); the requirements restate them as COUNT(*) with the same substance. The benchmark's checks take the current user to be Tabitha Bullock (3): owner_id 3 and Liam's location 3 follow from that, while input.json names Kurt Fritz (96, a manager, allowed to reassign and reprioritise; user and membership creation fall under the policy's default admin role); the file follows input.json, with the benchmark's assumption recorded as evidence. The escalation flag is not required ('route it to the Escalation Management group' names the group; the policy's escalation rule is permissive). The entitlement verification passes on the seed (account-wide enterprise entitlements 213 and 216 cover product 233 under the policy's account-wide clause; 217 is the product's own standard one), so it is a read with no requirement. The request's premise that a current assigned user is blocked is false on the seed (assigned_to is null); nothing follows from it. The case's contact is 44, not Sabrina Buckley (contact 42); the request does not ask to change it. Retiring article 346 is not required: no tool does it and the request speaks of the link.",
+  "notes": "Merged from two passes that agree on the nine shared requirements (case 504 to critical, reopen_count 1, group 18 with assignee 803, user 803, membership 960, the two critical SLAs by natural key, link 216 removed, article 370 linked as 528) and on twelve of fourteen dispositions. disagreement: the reopened state: A in_progress, B IN ('new', 'in_progress'); kept in_progress as the benchmark's prior (logged in the requirement), so update_case is kept (A kept, B repaired). disagreement: the new user's cells: A email LIKE and role agent, B no email and role IN ('agent', 'manager'); kept the benchmark's exact email and role agent as the prior where nothing contradicts them (logged in the requirement). disagreement: the new user's location: both passes dropped it; set to 96 because the task's acting user takes the place of the benchmark's current user in the same premise, which keeps the cell instead of discarding it (logged in the requirement; the resolution least sure of). disagreement: owner_id of article 370: A 96, B none; kept 96 for the same reason. disagreement: product_id = 233 on the article (B only); dropped because nothing fixes it and the column is nullable. disagreement: form: A carries state = published as its own requirement, B folds it into the article; folded, with create_knowledge and create_knowledge (2) both named in source. disagreement: form: the link-removal sql (A adds case_id = 504, B the id alone); kept B's as the stricter test. disagreement: form: the stay on link 217 (A empty cells, B repeated columns); kept the row key as selector and the tested columns as cells. Several benchmark queries are not counts (SELECT assigned_to, SELECT state, SELECT reopen_count, SELECT location_id, SELECT sys_updated_on IS NOT NULL); the requirements restate them as COUNT(*) with the same substance. The benchmark's checks take the current user to be Tabitha Bullock (3): owner_id 3 and Liam's location 3 follow from that, while the task's acting user is Kurt Fritz (96, a manager, allowed to reassign and reprioritise; user and membership creation fall under the policy's default admin role); the file follows the task's acting user, with the benchmark's assumption recorded as evidence. The escalation flag is not required ('route it to the Escalation Management group' names the group; the policy's escalation rule is permissive). The entitlement verification passes on the seed (account-wide enterprise entitlements 213 and 216 cover product 233 under the policy's account-wide clause; 217 is the product's own standard one), so it is a read with no requirement. The request's premise that a current assigned user is blocked is false on the seed (assigned_to is null); nothing follows from it. The case's contact is 44, not Sabrina Buckley (contact 42); the request does not ask to change it. Retiring article 346 is not required: no tool does it and the request speaks of the link.\nrevised: the assumptions, evidence and notes on owner_id and location_id now give the task's acting user, Kurt Fritz (96), as the reason.\nrevised: the link-removal assumption said a change kind stood in for the delete; the requirement is a remove, so that clause is dropped.\nrevised: the stay on link 217's disagreement line now states the reason for its shape (the selector names the row, the cells carry what must hold on it).",
   "minutes": 15
 }

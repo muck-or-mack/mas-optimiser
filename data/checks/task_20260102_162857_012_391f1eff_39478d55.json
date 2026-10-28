@@ -61,7 +61,7 @@
       "text": "link knowledge article (boundary: the base product's articles)",
       "kind": "stay",
       "table": "case_knowledge",
-      "selector": "case_id = 1233 AND knowledge_id IN (7, 8)",
+      "selector": "case_id = 1233",
       "cells": {
         "knowledge_id": "IN (7, 8)"
       },
@@ -100,6 +100,6 @@
       "disposition": "kept"
     }
   },
-  "notes": "Merged from two passes that agree on the case (1233: account 8, contact 10, product 25, web, moderate, new), the link (528: article 38, suggested) and both dispositions (kept). disagreement: stay on no link from case 1233 to the base product's articles 7 and 8 (A only); kept because it is the boundary of the article selector: a title search without the variant sweeps them in. disagreement: stay on no link of article 38 to contact 10's existing cases (B only); kept because it is the boundary of 'the case': linking to one of his existing cases instead of the new one is what a loose reading would do. This policy variant (0d203073) adds the channel default web, which fixes the channel cell the request leaves open. The acting user (user 3) is an agent, who may create cases and link knowledge. The one judgement is used_as: 'for resolving the case' could be read as the policy's resolution value, but the case is new and the article is found by search, so the benchmark's suggested is kept.",
+  "notes": "Merged from two passes that agree on the case (1233: account 8, contact 10, product 25, web, moderate, new), the link (528: article 38, suggested) and both dispositions (kept). disagreement: stay on no link from case 1233 to the base product's articles 7 and 8 (A only); kept because it is the boundary of the article selector: a title search without the variant sweeps them in. disagreement: stay on no link of article 38 to contact 10's existing cases (B only); kept because it is the boundary of 'the case': linking to one of his existing cases instead of the new one is what a loose reading would do. This policy variant (0d203073) adds the channel default web, which fixes the channel cell the request leaves open. The acting user (user 3) is an agent, who may create cases and link knowledge. The one judgement is used_as: 'for resolving the case' could be read as the policy's resolution value, but the case is new and the article is found by search, so the benchmark's suggested is kept.\nrevised: the stay on the base product's articles 7 and 8 selects the new case's links (case_id = 1233) and tests knowledge_id IN (7, 8) only in its cells, since a column is not fixed by both; the query is unchanged.",
   "minutes": 7
 }

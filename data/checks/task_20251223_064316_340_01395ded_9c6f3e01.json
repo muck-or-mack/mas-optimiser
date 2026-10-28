@@ -17,9 +17,10 @@
         "urgency": "high",
         "priority": "critical",
         "assigned_to": "USER_006",
-        "status": "new"
+        "status": "new",
+        "category": "software"
       },
-      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_101' AND caller_id = 'USER_006' AND description = 'Payroll Service Total Outage' AND service_offering = 'SVCOFF_002' AND impact = 'high' AND urgency = 'high' AND priority = 'critical' AND assigned_to = 'USER_006' AND status = 'new'",
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_101' AND caller_id = 'USER_006' AND description = 'Payroll Service Total Outage' AND service_offering = 'SVCOFF_002' AND impact = 'high' AND urgency = 'high' AND priority = 'critical' AND assigned_to = 'USER_006' AND status = 'new' AND category = 'software'",
       "expected": 1,
       "comparison": "equals",
       "source": "Payroll Outage Incident Created",
@@ -30,7 +31,7 @@
         "'high impact, and urgency' read as impact high and urgency high; priority critical from the policy 3.1 matrix; status new from the policy default",
         "'Payroll Service' is the exact name of no service or offering: Global Payroll (SVC_002) and its standard offering SVCOFF_002 are the operational match; Payroll - Ad Hoc (SVCOFF_019) and the Payroll QA environment are in status ready",
         "the service column is not tested separately: the offering fixes the service",
-        "category is mandatory in the schema but the request and policy fix no value, so it is not a cell; the original check's software is dropped",
+        "category software kept from the benchmark check; not fixed by request or policy (the column is mandatory and software is one of the seed's categories)",
         "the text goes in description, as the request says; short_description is mandatory but its wording is not fixed, so it is not a cell; the policy's opened_by has no column",
         "disagreement: A tests assignment_group (IS NULL OR GROUP_002, from policy 3.2 and her one group membership), B does not; dropped because the request names no group and policy 3.2 binds only on a specified group, and a disjunction is not a cell predicate"
       ]
@@ -107,9 +108,7 @@
       "kind": "stay",
       "table": "notification",
       "selector": "message = 'Urgent: Payroll Service Outage reported by Stephanie' AND email <> 'robin.monroe83@servicenow.com'",
-      "cells": {
-        "email": "<> 'robin.monroe83@servicenow.com'"
-      },
+      "cells": {},
       "sql": "SELECT COUNT(*) FROM notification WHERE message = 'Urgent: Payroll Service Outage reported by Stephanie' AND email <> 'robin.monroe83@servicenow.com'",
       "expected": 0,
       "comparison": "equals",
@@ -123,8 +122,8 @@
   ],
   "original_checks": {
     "Payroll Outage Incident Created": {
-      "disposition": "repaired",
-      "evidence": "the request names no category and the policy's mandatory inputs (caller_id, short_description, impact, urgency) do not fix one, so category = 'software' is dropped; every other cell is carried and the row is anchored to INC_101, the only incident the task creates"
+      "disposition": "kept",
+      "evidence": "carried with every cell it tests, anchored to INC_101, the only incident the task creates"
     },
     "Previous Ticket Resolved": {
       "disposition": "kept",
@@ -139,6 +138,6 @@
       "evidence": "the check's two LIKE fragments are folded into one containment test of the quoted text; disagreement: A LIKE containment, B exact equality; the containment is kept because the check and the request's 'that' tolerate surrounding words"
     }
   },
-  "notes": "Merged from two independent passes. Both anchored the two notifications to NOTIF_031 (regional manager) and NOTIF_032 (Stephanie) in request order; rewritten as selectors on incident and recipient because the task creates two rows in that table and the request fixes no sending order, so an agent that sends Stephanie's first still passes. disagreement: A's assignment_group cell on the new incident (IS NULL OR GROUP_002, from policy 3.2; B had none); dropped because the request names no group and policy 3.2 binds only on a specified group, and a disjunction is not a cell predicate. disagreement: value: Stephanie's message is a LIKE containment in A and exact equality in B; the containment is kept, as the original check reads it. disagreement: form: resolution_notes is one COALESCE expression in A and a list of two predicates in B; the list is kept (the cell rule). disagreement: form: the regional-manager stay's cells mirror its SQL in A and contradict it in B; A's form is kept. disagreement: disposition: Previous Ticket Resolved is repaired in A and kept in B; kept, since the check is wrong in no value and only gains the policy's resolution_code cell. The regional manager is decided from the seed (Robin Monroe, USER_031, the only manager-role user at Stephanie's location LOC_001), not from the request, which never names him; the group manager_id of GROUP_002, Christina Oliver (USER_002), is a reporter in ORG_002. 'Payroll Service' is the exact name of no service or offering; Global Payroll (SVC_002) and its standard offering SVCOFF_002 are the operational match, with Payroll - Ad Hoc (SVCOFF_019) and the QA environment in status ready; the policy's ambiguity rule could instead have the agent halt and list the candidates, which the benchmark does not expect. The acting user Karen Watkins (USER_039) is an admin in ORG_001; INC_095 sits in ORG_011 though assigned to a user in ORG_001, which the policy does not address. Least sure: dropping the assignment_group cell, which encodes a real policy constraint (she is a member of GROUP_002 only) that the request leaves open.",
+  "notes": "Merged from two independent passes. Both anchored the two notifications to NOTIF_031 (regional manager) and NOTIF_032 (Stephanie) in request order; rewritten as selectors on incident and recipient because the task creates two rows in that table and the request fixes no sending order, so an agent that sends Stephanie's first still passes. disagreement: A's assignment_group cell on the new incident (IS NULL OR GROUP_002, from policy 3.2; B had none); dropped because the request names no group and policy 3.2 binds only on a specified group, and a disjunction is not a cell predicate. disagreement: value: Stephanie's message is a LIKE containment in A and exact equality in B; the containment is kept, as the original check reads it. disagreement: form: resolution_notes is one COALESCE expression in A and a list of two predicates in B; the list is kept (the cell rule). disagreement: form: the regional-manager stay's cells mirror its SQL in A and contradict it in B; A's form is kept. disagreement: disposition: Previous Ticket Resolved is repaired in A and kept in B; kept, since the check is wrong in no value and only gains the policy's resolution_code cell. The regional manager is decided from the seed (Robin Monroe, USER_031, the only manager-role user at Stephanie's location LOC_001), not from the request, which never names him; the group manager_id of GROUP_002, Christina Oliver (USER_002), is a reporter in ORG_002. 'Payroll Service' is the exact name of no service or offering; Global Payroll (SVC_002) and its standard offering SVCOFF_002 are the operational match, with Payroll - Ad Hoc (SVCOFF_019) and the QA environment in status ready; the policy's ambiguity rule could instead have the agent halt and list the candidates, which the benchmark does not expect. The acting user Karen Watkins (USER_039) is an admin in ORG_001; INC_095 sits in ORG_011 though assigned to a user in ORG_001, which the policy does not address. Least sure: dropping the assignment_group cell, which encodes a real policy constraint (she is a member of GROUP_002 only) that the request leaves open. revised: the new incident's category = 'software' was dropped as unstated, but neither the request nor the policy nor the seed contradicts it, so it is restored as a cell and Payroll Outage Incident Created is kept rather than repaired. revised: the regional-manager stay repeated its selector's email condition in cells; cells is now empty, since the selector already names the rows and the query is unchanged.",
   "minutes": 14
 }

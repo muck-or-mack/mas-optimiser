@@ -50,7 +50,7 @@
         "'her' is the caller USER_004, so the notification goes to aisha.williams@techcorp.com; 'this incident' is the incident created above, INC_024",
         "type is not a cell: the request names none, the policy lists no notification types, the schema puts no constraint on the column, and the two benchmark copies disagree (other vs reminder); see original_checks",
         "the message text (a scanned copy of her identity proof) is free text and not tested",
-        "disagreement: source: A carried the benchmark check repaired (type dropped), B excluded both copies and wrote this as new; the repaired form is kept per the merge rule"
+        "disagreement: source: A carried the benchmark check repaired (type dropped), B excluded both copies and wrote this as new; the repaired form is kept because the check is right in every cell but the undecidable type, so carrying it keeps the benchmark's verdict linked to this requirement"
       ]
     },
     {
@@ -81,9 +81,7 @@
       "kind": "stay",
       "table": "incident_knowledge",
       "selector": "incident_id = 'INC_024' AND knowledge_id IN ('KB_004', 'KB_005')",
-      "cells": {
-        "knowledge_id": "IN ('KB_004', 'KB_005')"
-      },
+      "cells": {},
       "sql": "SELECT COUNT(*) FROM incident_knowledge WHERE incident_id = 'INC_024' AND knowledge_id IN ('KB_004', 'KB_005')",
       "expected": 0,
       "comparison": "equals",
@@ -114,6 +112,6 @@
       "evidence": "a copy of the notification check differing only in type (reminder vs other); nothing in the request, policy or seed decides the type, so the first copy is carried repaired without it and this one is its duplicate"
     }
   },
-  "notes": "Merged from two independent passes that agree on every requirement's table, anchor, cells and SQL and on every value. disagreement: disposition of 'Verify if the notification is sent correctly.': A repaired (type cell dropped, check carried as source), B excluded both copies as undecidable and wrote a new requirement for the common core; the repaired form is kept per the merge rule, so the requirement keeps the benchmark's name as source and the (2) copy is excluded as its duplicate. disagreement: form: the KB_004/KB_005 stay has empty cells in A and the knowledge_id predicate in B; B's form is kept. Acting user USER_001 is an active admin, so logging on another user's behalf is within scope. The incident's org_id, short_description, category, channel and assignment are not tested: the request fixes none of them and this policy (4afd943b) gives no default for any. Policy 3.1 lists opened_by as a mandatory input, but the incident table has no such column, so nothing is tested for it. The notification type was the hardest call for both passes: the benchmark's two copies disagree (other vs reminder), the policy has no notification enumeration, and the seed's types (alert, reminder, update, solution_proposal, report) do not settle it, so the type is left untested rather than picking one.",
+  "notes": "Merged from two independent passes that agree on every requirement's table, anchor, cells and SQL and on every value. disagreement: disposition of 'Verify if the notification is sent correctly.': A repaired (type cell dropped, check carried as source), B excluded both copies as undecidable and wrote a new requirement for the common core; the repaired form is kept because the check is right in every cell but the undecidable type, so the requirement keeps the benchmark's name as source and the (2) copy is excluded as its duplicate. disagreement: form: the KB_004/KB_005 stay has empty cells in A and the knowledge_id predicate in B; B's form is kept. Acting user USER_001 is an active admin, so logging on another user's behalf is within scope. The incident's org_id, short_description, category, channel and assignment are not tested: the request fixes none of them and this policy (4afd943b) gives no default for any. Policy 3.1 lists opened_by as a mandatory input, but the incident table has no such column, so nothing is tested for it. The notification type was the hardest call for both passes: the benchmark's two copies disagree (other vs reminder), the policy has no notification enumeration, and the seed's types (alert, reminder, update, solution_proposal, report) do not settle it, so the type is left untested rather than picking one.\nrevised: the KB_004/KB_005 stay's cells are now empty: its selector already fixes knowledge_id IN ('KB_004', 'KB_005'), so repeating that predicate in cells restated the selector; its sql and count are unchanged.\nrevised: the reason for carrying the notification check repaired now stands on its own (every cell but the undecidable type is right, so the benchmark's verdict stays linked to the requirement), in the notification requirement's assumptions and in the disposition disagreement above.",
   "minutes": 8
 }

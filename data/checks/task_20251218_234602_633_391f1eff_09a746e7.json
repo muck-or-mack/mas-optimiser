@@ -66,9 +66,7 @@
       "kind": "stay",
       "table": "incident",
       "selector": "configuration_item = 'CI_097'",
-      "cells": {
-        "configuration_item": "CI_097"
-      },
+      "cells": {},
       "sql": "SELECT COUNT(*) FROM incident WHERE configuration_item = 'CI_097'",
       "expected": 0,
       "comparison": "equals",
@@ -76,7 +74,7 @@
       "seed_count": 0,
       "assumptions": [
         "selector boundary: CI_097 (Guest WiFi AP - ACME HQ, serial WIFI-GST-01) has the same owner and site as CI_019 and a WiFi name, so a lookup by name or location rather than serial, or a loose reading of 'the WiFi', could link the incident to it; the seed has no incident on it and none may appear",
-        "disagreement: cells: A leaves cells empty, B repeats the selector's column; chose {configuration_item: CI_097}, so the tested column is in cells as the repository's other count-zero stays write it; the sql is the same in both"
+        "disagreement: cells: A leaves cells empty, B repeats the selector's column; chose empty cells, since the selector already fixes configuration_item = 'CI_097' and a column the selector fixes is not repeated in cells; the sql is the same in both"
       ]
     }
   ],
@@ -88,6 +86,6 @@
       "disposition": "kept"
     }
   },
-  "notes": "Merged from two passes that agree on both benchmark checks (kept), the incident (INC_101 on CI_019, caller USER_039, chat, new, network, impact and urgency high, priority critical), the notification (NOTIF_031 on INC_101 to karen.watkins@servicenow.com, update, queued) and the boundary stay on CI_097. disagreement: cells of the CI_097 stay: A leaves cells empty, B repeats the selector's column; chose cells {configuration_item: CI_097} with the same selector, so the tested column is in cells as the repository's other count-zero stays write it (logged in the requirement). The acting user Robin Monroe (USER_031) is a manager with full CRUD on incidents, so the policy's role checks do not block the task. The CI's location (LOC_001, ACME HQ, USA) matches the request, and the request asks for no change to it. Karen Watkins also owns other network CIs at ACME HQ (CI_004 core switch, CI_045 retired lab switch), but neither is a WiFi and neither pass guarded them; none is added. No row must be gone, so there is no remove requirement.",
+  "notes": "Merged from two passes that agree on both benchmark checks (kept), the incident (INC_101 on CI_019, caller USER_039, chat, new, network, impact and urgency high, priority critical), the notification (NOTIF_031 on INC_101 to karen.watkins@servicenow.com, update, queued) and the boundary stay on CI_097. disagreement: cells of the CI_097 stay: A leaves cells empty, B repeats the selector's column; chose empty cells with the same selector, since the selector already fixes that column (logged in the requirement). The acting user Robin Monroe (USER_031) is a manager with full CRUD on incidents, so the policy's role checks do not block the task. The CI's location (LOC_001, ACME HQ, USA) matches the request, and the request asks for no change to it. Karen Watkins also owns other network CIs at ACME HQ (CI_004 core switch, CI_045 retired lab switch), but neither is a WiFi and neither pass guarded them; none is added. No row must be gone, so there is no remove requirement. revised: the CI_097 stay's cells are now empty instead of repeating configuration_item = 'CI_097', which its selector already fixes; the sql and count are unchanged.",
   "minutes": 20
 }

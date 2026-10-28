@@ -146,7 +146,7 @@
       "text": "Identify the top three incidents currently assigned to the IT Support group that I manage, that have moderate priority and ... (created before February 20, 2024)",
       "kind": "stay",
       "table": "incident",
-      "selector": "incident_id IN ('INC_004', 'INC_014', 'INC_016') AND status = 'new'",
+      "selector": "incident_id IN ('INC_004', 'INC_014', 'INC_016')",
       "cells": {
         "status": "new"
       },
@@ -164,7 +164,7 @@
       "text": "add Elena to the IT Support group",
       "kind": "stay",
       "table": "user_group_member",
-      "selector": "group_id = 'GROUP_003' AND user_id = 'USER_006'",
+      "selector": "group_id = 'GROUP_003'",
       "cells": {
         "user_id": "USER_006"
       },
@@ -195,6 +195,6 @@
       "disposition": "kept"
     }
   },
-  "notes": "Only INC_003 meets the request's description on the seed (GROUP_001, moderate, open, created before 2024-02-20), so the 'top three' is one incident and every benchmark check expects 1. The acting user (USER_002) manages GROUP_001 and GROUP_002; the group literally named 'IT Support Team' (GROUP_003) belongs to ORG_002 under USER_008; the benchmark checks fix GROUP_001 and the file follows them. INC_003 has no child incidents (no child_incident row with parent_incident = 'INC_003'; incident.parent_incident is null throughout), so the conditional 'reassign those child incidents' produces no requirement. The two notification requirements test one row (NOTIF_008) and split the benchmark's two notification checks between them so each keeps its link. All three writes have a tool (add_new_group_member, update_incident, send_notification). disagreement: membership org_id: A omits it, B tests ORG_001; kept B's tighter cell. disagreement: worknotes predicate: A a compound OR string, B LIKE '%workload%'; kept B. disagreement: notification details: A keeps 'contact' OR 'phone' as a compound string, B 'contact' alone; kept B. disagreement: notification details incident_id cell: A tests it, B omits it; kept A. disagreement: disposition of verify_notifications_sent_to_callers: A repaired (its cross-column disjunction cannot be one cell), B kept; chose kept because the check is right in substance and in every value, and the fold of its alternatives onto message LIKE '%reassign%' is the same treatment both passes gave verify_worknotes_added_for_reassignment as kept. disagreement: boundary stay form: A INC_014 and INC_016 keep status new, B none of INC_004, INC_014, INC_016 becomes Elena's and in_progress; kept one stay on all three rows keeping status new, stricter than either. disagreement: GROUP_003 membership stay: A only; kept because GROUP_003 is the near-match of 'the IT Support group' and add_new_group_member could add Elena there.",
+  "notes": "Only INC_003 meets the request's description on the seed (GROUP_001, moderate, open, created before 2024-02-20), so the 'top three' is one incident and every benchmark check expects 1. The acting user (USER_002) manages GROUP_001 and GROUP_002; the group literally named 'IT Support Team' (GROUP_003) belongs to ORG_002 under USER_008; the benchmark checks fix GROUP_001 and the file follows them. INC_003 has no child incidents (no child_incident row with parent_incident = 'INC_003'; incident.parent_incident is null throughout), so the conditional 'reassign those child incidents' produces no requirement. The two notification requirements test one row (NOTIF_008) and split the benchmark's two notification checks between them so each keeps its link. All three writes have a tool (add_new_group_member, update_incident, send_notification). disagreement: membership org_id: A omits it, B tests ORG_001; kept B's tighter cell. disagreement: worknotes predicate: A a compound OR string, B LIKE '%workload%'; kept B. disagreement: notification details: A keeps 'contact' OR 'phone' as a compound string, B 'contact' alone; kept B. disagreement: notification details incident_id cell: A tests it, B omits it; kept A. disagreement: disposition of verify_notifications_sent_to_callers: A repaired (its cross-column disjunction cannot be one cell), B kept; chose kept because the check is right in substance and in every value, and the fold of its alternatives onto message LIKE '%reassign%' is the same treatment both passes gave verify_worknotes_added_for_reassignment as kept. disagreement: boundary stay form: A INC_014 and INC_016 keep status new, B none of INC_004, INC_014, INC_016 becomes Elena's and in_progress; kept one stay on all three rows keeping status new, stricter than either. disagreement: GROUP_003 membership stay: A only; kept because GROUP_003 is the near-match of 'the IT Support group' and add_new_group_member could add Elena there. revised: the stay on INC_004, INC_014 and INC_016 named status = 'new' in both its selector and its cells; the selector now names the three rows and the cell carries the status. revised: the GROUP_003 membership stay named user_id in both its selector and its cells; the selector now names the group and the cell carries Elena (USER_006).",
   "minutes": 28
 }

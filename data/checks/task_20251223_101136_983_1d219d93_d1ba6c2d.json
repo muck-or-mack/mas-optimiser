@@ -29,11 +29,11 @@
       "text": "verify this location exists or create it if missing (boundary: no second Pune HQ)",
       "kind": "stay",
       "table": "location",
-      "selector": "name = 'Pune HQ' AND location_id <> 'LOC_024'",
+      "selector": "location_id <> 'LOC_024'",
       "cells": {
         "name": "Pune HQ"
       },
-      "sql": "SELECT COUNT(*) FROM location WHERE name = 'Pune HQ' AND location_id <> 'LOC_024'",
+      "sql": "SELECT COUNT(*) FROM location WHERE location_id <> 'LOC_024' AND name = 'Pune HQ'",
       "expected": 0,
       "comparison": "equals",
       "source": "new",
@@ -67,9 +67,8 @@
       "text": "search all other locations in India for 'in_stock' configuration items (boundary: the in_use items at Bangalore stay)",
       "kind": "stay",
       "table": "configuration_item",
-      "selector": "location_id = 'LOC_004' AND status = 'in_use'",
+      "selector": "location_id = 'LOC_004'",
       "cells": {
-        "location_id": "LOC_004",
         "status": "in_use"
       },
       "sql": "SELECT COUNT(*) FROM configuration_item WHERE location_id = 'LOC_004' AND status = 'in_use'",
@@ -85,12 +84,11 @@
       "text": "search all other locations in India for 'in_stock' configuration items (boundary: in_stock items outside India stay)",
       "kind": "stay",
       "table": "configuration_item",
-      "selector": "status = 'in_stock' AND location_id NOT IN ('LOC_004', 'LOC_024')",
+      "selector": "location_id NOT IN ('LOC_004', 'LOC_024')",
       "cells": {
-        "status": "in_stock",
-        "location_id": "NOT IN ('LOC_004', 'LOC_024')"
+        "status": "in_stock"
       },
-      "sql": "SELECT COUNT(*) FROM configuration_item WHERE status = 'in_stock' AND location_id NOT IN ('LOC_004', 'LOC_024')",
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE location_id NOT IN ('LOC_004', 'LOC_024') AND status = 'in_stock'",
       "expected": 5,
       "comparison": "equals",
       "source": "new",
@@ -214,6 +212,6 @@
       "disposition": "kept"
     }
   },
-  "notes": "Merged from two passes that agree on every carried requirement (LOC_024, CI_035 moved, the two CIs by serial, USER_042 to manager, KB_026 with both serials and not DEL-CT-5511), on all six dispositions (kept), and on the two boundary stays over configuration items (same counts).\ndisagreement: missing requirement: A adds a stay forbidding a second 'Pune HQ' row (name = 'Pune HQ' AND location_id <> 'LOC_024', expected 0); B has none; kept because 'verify this location exists or create it if missing' forbids a duplicate and the benchmark's by-name count of 1 is otherwise not carried once the create is anchored to LOC_024.\ndisagreement: form: the in_stock-outside-India stay: A excludes LOC_004 and LOC_024 by id, B excludes every location with country = 'India' by subquery; both count 5 on the seed and the same rows after a correct run; kept A's explicit ids, matching the file's id anchors and the benchmark's flat style.\ndisagreement: form: the Bangalore stay: A selects status = 'in_use' (expected 3), B status <> 'in_stock' (expected 3); same rows on the seed; kept A's as the tighter predicate (it also fails if an in_use item's status is changed).\ndisagreement: form: A repeats serial_number in the cells of the two created CIs, B leaves it to the selector; identical sql; kept B's form (selector columns are not repeated as cells).\nActing user USER_039 (Karen Watkins) is admin with full CRUD, so no policy block applies. The benchmark's checks resolve Pune HQ by name; this file assumes the created location is LOC_024, so a different id assignment fails the id-anchored requirements here but not the benchmark's. Two of the benchmark's check names end in a trailing space ('Adding cisco configuration item ') and are keyed exactly as given. Not tested because the request fixes no column or value: the address split of 'Tech Park, Building 4', the location's org_id and active flag, and the article's state and visibility.",
+  "notes": "Merged from two passes that agree on every carried requirement (LOC_024, CI_035 moved, the two CIs by serial, USER_042 to manager, KB_026 with both serials and not DEL-CT-5511), on all six dispositions (kept), and on the two boundary stays over configuration items (same counts).\ndisagreement: missing requirement: A adds a stay forbidding a second 'Pune HQ' row (name = 'Pune HQ' AND location_id <> 'LOC_024', expected 0); B has none; kept because 'verify this location exists or create it if missing' forbids a duplicate and the benchmark's by-name count of 1 is otherwise not carried once the create is anchored to LOC_024.\ndisagreement: form: the in_stock-outside-India stay: A excludes LOC_004 and LOC_024 by id, B excludes every location with country = 'India' by subquery; both count 5 on the seed and the same rows after a correct run; kept A's explicit ids, matching the file's id anchors and the benchmark's flat style.\ndisagreement: form: the Bangalore stay: A selects status = 'in_use' (expected 3), B status <> 'in_stock' (expected 3); same rows on the seed; kept A's as the tighter predicate (it also fails if an in_use item's status is changed).\ndisagreement: form: A repeats serial_number in the cells of the two created CIs, B leaves it to the selector; identical sql; kept B's form (selector columns are not repeated as cells).\nActing user USER_039 (Karen Watkins) is admin with full CRUD, so no policy block applies. The benchmark's checks resolve Pune HQ by name; this file assumes the created location is LOC_024, so a different id assignment fails the id-anchored requirements here but not the benchmark's. Two of the benchmark's check names end in a trailing space ('Adding cisco configuration item ') and are keyed exactly as given. Not tested because the request fixes no column or value: the address split of 'Tech Park, Building 4', the location's org_id and active flag, and the article's state and visibility.\nrevised: the three boundary stays (no second Pune HQ; the in_use items at Bangalore; the in_stock items outside India) repeated their selector's columns as cells; each selector now names the rows by location and the remaining column is carried only in cells, with the same counts on the seed.",
   "minutes": 30
 }

@@ -108,9 +108,7 @@
       "kind": "stay",
       "table": "configuration_item",
       "selector": "location_id IN ('LOC_007', 'LOC_011', 'LOC_014', 'LOC_016', 'LOC_020')",
-      "cells": {
-        "location_id": "IN ('LOC_007', 'LOC_011', 'LOC_014', 'LOC_016', 'LOC_020')"
-      },
+      "cells": {},
       "sql": "SELECT COUNT(*) FROM configuration_item WHERE location_id IN ('LOC_007', 'LOC_011', 'LOC_014', 'LOC_016', 'LOC_020')",
       "expected": 15,
       "comparison": "equals",
@@ -143,9 +141,7 @@
       "kind": "stay",
       "table": "users",
       "selector": "location_id = 'LOC_002' AND user_id NOT IN ('USER_024', 'USER_012', 'USER_009', 'USER_057', 'USER_041')",
-      "cells": {
-        "location_id": "LOC_002"
-      },
+      "cells": {},
       "sql": "SELECT COUNT(*) FROM users WHERE location_id = 'LOC_002' AND user_id NOT IN ('USER_024', 'USER_012', 'USER_009', 'USER_057', 'USER_041')",
       "expected": 7,
       "comparison": "equals",
@@ -172,6 +168,6 @@
       "disposition": "kept"
     }
   },
-  "notes": "Merged from two independent passes that agree on the six CIs, the three alerts (selected by incident and recipient, since the request fixes no sending order), the other-New-York stay and all four dispositions. disagreement: A's stay that USER_041's three other CIs (CI_010, CI_011, CI_098) stay at LOC_001 (B had no such requirement); kept because it is the boundary of the owner-alignment selector: an agent that relocates the impacted owners together with their assets would sweep in the only CIs the five owners hold outside the Sales Office. disagreement: value: the owner requirement's set and count (A five users, expected 5, seed_count 1; B four, expected 4, seed_count 0); A's kept as the tighter predicate that also carries the original check as written. disagreement: form: the LOC_002 users stay excludes five users in A and four in B; the same seven rows on the seed, so the five-user list is kept to match the owner requirement. The passes list the six CIs in different orders; the original check's order is kept. The CMDB audit and the transfer plan are prose with no table. INC_030 reaches CI_006 only through incident.configuration_item; no listed tool searches incidents by CI, so agents that follow the tools will miss it, but the request's 'associated' covers it. Least sure: keeping the USER_041 CI stay, which sits at the edge of the stay rule (a boundary, not a generic invariant, only if an owner-based reading counts as a loose reading of 'associated with the Sales Office location').",
+  "notes": "Merged from two independent passes that agree on the six CIs, the three alerts (selected by incident and recipient, since the request fixes no sending order), the other-New-York stay and all four dispositions. disagreement: A's stay that USER_041's three other CIs (CI_010, CI_011, CI_098) stay at LOC_001 (B had no such requirement); kept because it is the boundary of the owner-alignment selector: an agent that relocates the impacted owners together with their assets would sweep in the only CIs the five owners hold outside the Sales Office. disagreement: value: the owner requirement's set and count (A five users, expected 5, seed_count 1; B four, expected 4, seed_count 0); A's kept as the tighter predicate that also carries the original check as written. disagreement: form: the LOC_002 users stay excludes five users in A and four in B; the same seven rows on the seed, so the five-user list is kept to match the owner requirement. The passes list the six CIs in different orders; the original check's order is kept. The CMDB audit and the transfer plan are prose with no table. INC_030 reaches CI_006 only through incident.configuration_item; no listed tool searches incidents by CI, so agents that follow the tools will miss it, but the request's 'associated' covers it. Least sure: keeping the USER_041 CI stay, which sits at the edge of the stay rule (a boundary, not a generic invariant, only if an owner-based reading counts as a loose reading of 'associated with the Sales Office location'). revised: the two stays that count CIs at the other New York locations and the other LOC_002 users repeated their selector's location condition in cells; cells is now empty, since the selector already names those rows and the query is unchanged.",
   "minutes": 12
 }

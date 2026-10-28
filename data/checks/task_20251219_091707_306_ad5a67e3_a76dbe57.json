@@ -82,7 +82,7 @@
       "text": "create a problem record ... assign the problem to Travis Wood",
       "kind": "stay",
       "table": "problem",
-      "selector": "problem_id = 'PRB_001' AND original_task = 'INC_001' AND assigned_to = 'USER_059' AND status = 'fix_in_progress'",
+      "selector": "problem_id = 'PRB_001' AND original_task = 'INC_001'",
       "cells": {
         "assigned_to": "USER_059",
         "status": "fix_in_progress"
@@ -101,11 +101,11 @@
       "text": "a major incident oracle DB not responding (one incident; not the other SAP incidents)",
       "kind": "stay",
       "table": "incident",
-      "selector": "problem = 'PRB_011' AND incident_id <> 'INC_001'",
+      "selector": "incident_id <> 'INC_001'",
       "cells": {
         "problem": "PRB_011"
       },
-      "sql": "SELECT COUNT(*) FROM incident WHERE problem = 'PRB_011' AND incident_id <> 'INC_001'",
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id <> 'INC_001' AND problem = 'PRB_011'",
       "expected": 0,
       "comparison": "equals",
       "source": "new",
@@ -123,6 +123,6 @@
       "disposition": "kept"
     }
   },
-  "notes": "Merged from two passes that agree on every value (PRB_011, USER_011, INC_001, priority critical, status new, category database) and on both dispositions (kept). disagreement: form: A carries the linkage check in two requirements (the problem's original_task and the incident's problem column), B folds original_task into the single create requirement; kept A's split, and named both benchmark checks as the source of the incident link, since both join incident.problem = problem.problem_id (logged in requirement 2). disagreement: stay on PRB_001 (A only); kept because the seed already holds a problem for INC_001 with the same category, impact and urgency, so reassigning it is the loose reading of 'create a problem record' and would pass the benchmark's first check. disagreement: stay on the other SAP incidents staying unlinked (B only); kept because policy 4.2 ('link all affected Incidents') invites a loose reading that sweeps the other SVC_017 incidents in, and the request names one incident. Seed facts re-checked at merge: Travis Wood is USER_011 (active, agent, ORG_001); the acting user USER_004 is a manager; no incident has its problem column set, so both benchmark checks are 0 on the seed; PRB_010 is the highest problem. opened_by (NOT NULL in the schema) is not tested: the request does not state it and the policy names opened_by only for incidents; both passes left it out.",
+  "notes": "Merged from two passes that agree on every value (PRB_011, USER_011, INC_001, priority critical, status new, category database) and on both dispositions (kept). disagreement: form: A carries the linkage check in two requirements (the problem's original_task and the incident's problem column), B folds original_task into the single create requirement; kept A's split, and named both benchmark checks as the source of the incident link, since both join incident.problem = problem.problem_id (logged in requirement 2). disagreement: stay on PRB_001 (A only); kept because the seed already holds a problem for INC_001 with the same category, impact and urgency, so reassigning it is the loose reading of 'create a problem record' and would pass the benchmark's first check. disagreement: stay on the other SAP incidents staying unlinked (B only); kept because policy 4.2 ('link all affected Incidents') invites a loose reading that sweeps the other SVC_017 incidents in, and the request names one incident. Seed facts re-checked at merge: Travis Wood is USER_011 (active, agent, ORG_001); the acting user USER_004 is a manager; no incident has its problem column set, so both benchmark checks are 0 on the seed; PRB_010 is the highest problem. opened_by (NOT NULL in the schema) is not tested: the request does not state it and the policy names opened_by only for incidents; both passes left it out. revised: the stay on PRB_001 named assigned_to and status in both its selector and its cells; the selector now names the row (PRB_001, original task INC_001) and the cells carry the two values that must not change, with the same count. revised: the stay on other incidents named problem = 'PRB_011' in both its selector and its cells; the selector now names the rows (every incident other than INC_001) and the cell carries the link that must stay absent, with the same count.",
   "minutes": 28
 }

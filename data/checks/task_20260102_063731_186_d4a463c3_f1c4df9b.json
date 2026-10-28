@@ -15,7 +15,7 @@
       "seed_count": 1,
       "assumptions": [
         "the case is 1204: the only Tomcat 9 Variant 32 (product 52) case for contact 120, who is kathy.oliver@thomasgroup.com (user 238, contact.portal_user_id) on account 52",
-        "the guidance material is the case's one link, case_kb_id 515 to article 77 (used_as applied); a removal, so expected is 0, and the format has no delete kind, so kind is change",
+        "the guidance material is the case's one link, case_kb_id 515 to article 77 (used_as applied); a removal, so expected is 0",
         "'no longer presented in the case context' read as removing the link, not retiring the article (no tool writes the knowledge table)",
         "disagreement: anchor: A case_kb_id = 515, B selector case_id = 1204 AND knowledge_id = 77; chose B's because both pick row 515 on the seed and B's also fails if the row is deleted and relinked"
       ]
@@ -75,7 +75,7 @@
       "text": "the Tomcat product case (boundary: the account's other Tomcat 9 Variant 32 cases)",
       "kind": "stay",
       "table": "customer_case",
-      "selector": "account_id = 52 AND product_id = 52 AND case_id <> 1204 AND escalation = 0",
+      "selector": "account_id = 52 AND product_id = 52 AND case_id <> 1204",
       "cells": {
         "escalation": 0
       },
@@ -93,9 +93,9 @@
       "text": "ensure it is no longer presented in the case context (boundary: the knowledge links on the contact's other cases)",
       "kind": "stay",
       "table": "case_knowledge",
-      "selector": "case_kb_id IN (516, 521)",
+      "selector": "case_id IN (1205, 1215) AND knowledge_id = 306",
       "cells": {},
-      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_kb_id IN (516, 521)",
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_id IN (1205, 1215) AND knowledge_id = 306",
       "expected": 2,
       "comparison": "equals",
       "source": "new",
@@ -116,6 +116,6 @@
       "disposition": "kept"
     }
   },
-  "notes": "Merged from two passes that agree on the three things the request asks (unlink article 77 from case 1204, escalate 1204 for impact, record the email as a handled interaction 1233) and on all three dispositions (kept). disagreement: link-removal row: A anchors case_kb_id = 515, B selects case_id = 1204 AND knowledge_id = 77; kept B's as the tighter form (logged in the requirement). disagreement: stay on the account's other product 52 cases: A selects by description with expected 2, B by case_id IN (1201, 1216) AND escalation = 1 with expected 0; kept A's (logged in the requirement). disagreement: stay on case_knowledge 516 and 521 (B only); kept because it is the boundary of the 'guidance material currently associated with the case' selector: the links on the contact's other cases are what a wrong-case reading would delete. The contact is found through user 238's email (contact has no email column). The policy's 'justification in case notes' has no table in this schema. No tool updates the existing open chat interaction 1204, so it is left as is and not tested.",
+  "notes": "Merged from two passes that agree on the three things the request asks (unlink article 77 from case 1204, escalate 1204 for impact, record the email as a handled interaction 1233) and on all three dispositions (kept). disagreement: link-removal row: A anchors case_kb_id = 515, B selects case_id = 1204 AND knowledge_id = 77; kept B's as the tighter form (logged in the requirement). disagreement: stay on the account's other product 52 cases: A selects by description with expected 2, B by case_id IN (1201, 1216) AND escalation = 1 with expected 0; kept A's (logged in the requirement). disagreement: stay on case_knowledge 516 and 521 (B only); kept because it is the boundary of the 'guidance material currently associated with the case' selector: the links on the contact's other cases are what a wrong-case reading would delete. The contact is found through user 238's email (contact has no email column). The policy's 'justification in case notes' has no table in this schema. No tool updates the existing open chat interaction 1204, so it is left as is and not tested.\nrevised: the removal's assumption no longer says its kind is change; the kind is remove, which the format has.\nrevised: escalation = 0 left the selector of the stay on the account's other product 52 cases, since the cells already test it and a column is not fixed twice; the query is unchanged.\nrevised: the stay on the contact's other knowledge links selects them by case and article (cases 1205 and 1215, article 306) instead of by link id, since existing rows are found by their natural key; corrected reason: under this selector a link deleted and relinked to the same case and article still counts as kept, as the final state is the same.",
   "minutes": 10
 }

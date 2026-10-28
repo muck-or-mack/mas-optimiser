@@ -125,10 +125,7 @@
       "kind": "create",
       "table": "notification",
       "selector": "hr_case_id = 61 AND email = 'travis.wood@servicenow.com'",
-      "cells": {
-        "hr_case_id": 61,
-        "email": "travis.wood@servicenow.com"
-      },
+      "cells": {},
       "sql": "SELECT COUNT(*) FROM notification WHERE hr_case_id = 61 AND email = 'travis.wood@servicenow.com'",
       "expected": 1,
       "comparison": "equals",
@@ -146,10 +143,7 @@
       "kind": "create",
       "table": "notification",
       "selector": "hr_case_id = 61 AND email = 'randy.martinez94@servicenow.com'",
-      "cells": {
-        "hr_case_id": 61,
-        "email": "randy.martinez94@servicenow.com"
-      },
+      "cells": {},
       "sql": "SELECT COUNT(*) FROM notification WHERE hr_case_id = 61 AND email = 'randy.martinez94@servicenow.com'",
       "expected": 1,
       "comparison": "equals",
@@ -210,6 +204,6 @@
       "disposition": "kept"
     }
   },
-  "notes": "Merged from two passes that agree on every requirement, cell and value (case 61 for Travis Wood 11 with COE Talent Management, account TRANSFER-TW-2025, priority moderate, a valid source; task 150 of type checklist; both closed_complete; notifications to travis.wood@servicenow.com and his manager randy.martinez94@servicenow.com, selected by case and recipient; hr_profile 11 position Administration) and on seven of eight dispositions. disagreement: Case Ready State Verification: A excluded, B excluded (an exact duplicate of Case Closure Verification); kept, carried jointly by the closure requirement, because the current rule keeps an exact-duplicate check whose cells are all carried. The acting user Karen Watkins (user 39) has role admin; policy section 2 says an Administrator must not perform routine HR case work, but every benchmark check expects the case to be created and closed, so the file assumes the work is done. The policy's enumerations disagree with the seed (priority moderate vs medium; channel chat_bot/walk_in vs chat/walk-in; roles admin/agent vs administrator/hr_specialist); where they differ the seed's spellings are used. No stay requirements: the request forbids nothing and no selector has a boundary (Travis Wood is the only Travis and the only Wood in the seed). Least sure (both passes): the notification addresses, kept at the benchmark's user.email although every seed notification uses personal_email.",
+  "notes": "Merged from two passes that agree on every requirement, cell and value (case 61 for Travis Wood 11 with COE Talent Management, account TRANSFER-TW-2025, priority moderate, a valid source; task 150 of type checklist; both closed_complete; notifications to travis.wood@servicenow.com and his manager randy.martinez94@servicenow.com, selected by case and recipient; hr_profile 11 position Administration) and on seven of eight dispositions. disagreement: Case Ready State Verification: A excluded, B excluded (an exact duplicate of Case Closure Verification); kept, carried jointly by the closure requirement, because an exact-duplicate check whose cells are all carried is kept, carried jointly, not excluded. The acting user Karen Watkins (user 39) has role admin; policy section 2 says an Administrator must not perform routine HR case work, but every benchmark check expects the case to be created and closed, so the file assumes the work is done. The policy's enumerations disagree with the seed (priority moderate vs medium; channel chat_bot/walk_in vs chat/walk-in; roles admin/agent vs administrator/hr_specialist); where they differ the seed's spellings are used. No stay requirements: the request forbids nothing and no selector has a boundary (Travis Wood is the only Travis and the only Wood in the seed). Least sure (both passes): the notification addresses, kept at the benchmark's user.email although every seed notification uses personal_email. revised: the two notification requirements no longer repeat hr_case_id and email in cells, since their selectors already fix both columns. revised: the Case Ready State Verification resolution now states its reason (an exact duplicate whose cells are all carried) rather than appealing to a rule.",
   "minutes": 10
 }

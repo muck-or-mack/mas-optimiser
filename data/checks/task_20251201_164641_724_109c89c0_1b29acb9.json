@@ -36,7 +36,10 @@
       "sql": "SELECT COUNT(*) FROM contact WHERE contact_id = 3 AND is_primary = 1",
       "expected": 1,
       "comparison": "equals",
-      "source": "Update Primary Contact",
+      "source": [
+        "Update Primary Contact",
+        "Update Primary Contact (2)"
+      ],
       "seed_count": 0,
       "assumptions": []
     },
@@ -57,6 +60,7 @@
       "seed_count": 0,
       "assumptions": [
         "the request calls contact 2 the former primary and contact 3 the new primary; no account on the seed has two primary contacts, so the flag moves with the promotion rather than being duplicated",
+        "inferred from 'new primary' and 'former primary': the seed keeps one primary contact per account, so promoting contact 3 demotes contact 2; implied by the request, not stated",
         "disagreement: form: A tests is_primary = 0 as its own requirement, B folds it into the deactivation requirement's cells; chose A's split because the demotion is inferred, not stated, and a separate requirement keeps that judgement visible and scored on its own"
       ]
     },
@@ -76,7 +80,7 @@
       "source": "new",
       "seed_count": 0,
       "assumptions": [
-        "inferred from 'new primary' and 'former primary': the seed keeps one primary contact per account, so promoting contact 3 demotes contact 2; not a literal sentence of the request"
+        "stated in the request: contact 2 is the former primary contact (portal user 347); deactivating it means contact.active = 0"
       ]
     },
     {
@@ -229,10 +233,10 @@
       "evidence": "the duplicate of Notification Sent to New Primary whose subquery selects a resolved handover case, which the request does not ask for"
     },
     "Update Primary Contact (2)": {
-      "disposition": "excluded",
-      "evidence": "the duplicate of Update Primary Contact written as a value query (SELECT is_primary) rather than a count; the count form carries the requirement"
+      "disposition": "kept",
+      "evidence": "a SELECT is_primary query on contact 3 expecting 1; it tests the same cell as Update Primary Contact and is carried jointly by the promotion requirement"
     }
   },
-  "notes": "Merged from two passes that agree on the seven changed or created rows (ids, cells, values) and on six of seven dispositions. disagreement: Move all open cases: A kept, B repaired; kept (logged on the check). disagreement: the former primary's demotion: A a separate requirement, B folded into the deactivation's cells; kept A's split (logged in the requirement). disagreement: the stay on contact 4's six open cases is A only; kept as the boundary of the open-case selector (logged in the requirement). disagreement: notification sql: A without the anchor id, B with it; kept B's (logged in the requirement). disagreement: open-case selector: A with account_id = 4, B without; kept A's (logged in the requirement). disagreement: stay on contact 2's non-open cases: A by case ids, B by state selector; kept A's (logged in the requirement). disagreement: text of the contact 4 stay: A quotes the reassignment sentence, B the promotion sentence; kept B's because the boundary is of the most-recent-secondary selector in the promotion sentence. The 'most recent secondary contact' reading is by creation date (contact 3); by last update it would be contact 4. The notification's type = update is the benchmark's value, not fixed by the request or policy. The deactivation of the contact and of the portal user, and the demotion, have no original check. No tool writes case work notes, and the request asks for the handover detail in the case itself. Acting user 32 is an admin (active = 0 on the seed); the policy's default admin role is applied.",
+  "notes": "Merged from two passes that agree on the seven changed or created rows (ids, cells, values) and on six of seven dispositions. disagreement: Move all open cases: A kept, B repaired; kept (logged on the check). disagreement: the former primary's demotion: A a separate requirement, B folded into the deactivation's cells; kept A's split (logged in the requirement). disagreement: the stay on contact 4's six open cases is A only; kept as the boundary of the open-case selector (logged in the requirement). disagreement: notification sql: A without the anchor id, B with it; kept B's (logged in the requirement). disagreement: open-case selector: A with account_id = 4, B without; kept A's (logged in the requirement). disagreement: stay on contact 2's non-open cases: A by case ids, B by state selector; kept A's (logged in the requirement). disagreement: text of the contact 4 stay: A quotes the reassignment sentence, B the promotion sentence; kept B's because the boundary is of the most-recent-secondary selector in the promotion sentence. The 'most recent secondary contact' reading is by creation date (contact 3); by last update it would be contact 4. The notification's type = update is the benchmark's value, not fixed by the request or policy. The deactivation of the contact and of the portal user, and the demotion, have no original check. No tool writes case work notes, and the request asks for the handover detail in the case itself. Acting user 32 is an admin (active = 0 on the seed); the policy's default admin role is applied.\nrevised: Update Primary Contact (2) was excluded as a duplicate, but it tests the same is_primary cell of contact 3 as Update Primary Contact and contradicts nothing, so it is kept and named with it in the promotion requirement's source.\nrevised: the line saying the demotion is inferred, not stated, sat on the deactivation requirement, which the request states outright; it now sits on the demotion requirement, and the deactivation requirement says it is stated.",
   "minutes": 12
 }

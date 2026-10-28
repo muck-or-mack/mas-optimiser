@@ -55,17 +55,17 @@
         "worknotes": [
           "LIKE '%service%wide%'",
           "LIKE '%recurr%'",
-          "LIKE '%investigat%'"
+          "LIKE '%investigation%'"
         ]
       },
-      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_006' AND worknotes LIKE '%service%wide%' AND worknotes LIKE '%recurr%' AND worknotes LIKE '%investigat%'",
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_006' AND worknotes LIKE '%service%wide%' AND worknotes LIKE '%recurr%' AND worknotes LIKE '%investigation%'",
       "expected": 1,
       "comparison": "equals",
       "source": "Verify Incident Worknotes",
       "seed_count": 0,
       "assumptions": [
         "INC_006 ('Critical system outage', description 'Complete email system outage affecting all users', in_progress) is the only open incident on SVC_001 about the email service itself; the other seven are resolved or about printers, network, monitors and keyboards",
-        "the note goes in worknotes, as the benchmark check reads it; the request's three points are tested as stems (SQLite LIKE is case-insensitive), so 'service wide', 'recurrent' and 'investigating' also pass",
+        "the note goes in worknotes, as the benchmark check reads it; 'service-wide' and 'recurring' are tested as stems (SQLite LIKE is case-insensitive), so 'service wide' and 'recurrent' also pass; 'investigation' is tested whole, as the request and the benchmark check write it",
         "the benchmark's extra words (confirmed, multiple, users, root, active, monitoring) are not in the request and are dropped; its missing 'recurring' is added",
         "disagreement: form: A tests the three words in one compound LOWER(worknotes) string with '%recurring%', B as a list of predicates with '%recurr%'; the list is kept (the cell rule) with the stem, matching the stem both passes use for 'investigat'; LOWER is dropped as redundant"
       ]
@@ -144,6 +144,6 @@
       "evidence": "the request asks the note to say service-wide, recurring and under investigation; the check demands confirmed, multiple, users, root, active and monitoring, none of which the request says, and omits recurring"
     }
   },
-  "notes": "Merged from two independent passes that agree on every requirement's rows and every disposition. disagreement: form: the INC_006 work-note cell is one compound LOWER(worknotes) string in A ('%recurring%') and a list of three predicates in B ('%recurr%'); the list is kept (the cell rule), with B's stem over A's full word to match the stem both passes use for 'investigat'. disagreement: form: the boundary stay on the other seven SVC_001 incidents counts the rows still lacking the note in A (expected 7, an OR predicate) and the rows carrying it in B (expected 0); B's form is kept. Scope: the acting user Raj Patel (USER_007) is an admin in ORG_002 (Acme Corp) and owns SVC_003 'Acme Email Service'; the request's 'the Email Service' is the exact name of SVC_001 in ORG_001, and the policy scopes access by role with no organisation rule, so SVC_001, SVCOFF_001 and INC_006 are the targets and SVC_003 and SVCOFF_003 are boundary stays; if the benchmark's tools scope lookups by the acting user's organisation this file is wrong in every target. 'Reduced availability' names no status in the policy or seed (both tables hold only operational), so the benchmark's non-operational is kept; if the tool's enumeration has a degraded value, the offering cell should widen to status <> 'operational'. The locate, confirm and review steps are reads with no requirement. Least sure: the stem '%recurr%' over the request's exact word 'recurring'.",
+  "notes": "Merged from two independent passes that agree on every requirement's rows and every disposition. disagreement: form: the INC_006 work-note cell is one compound LOWER(worknotes) string in A ('%recurring%') and a list of three predicates in B ('%recurr%'); the list is kept (the cell rule), with B's stem over A's full word to match the stem both passes use for 'investigat'. disagreement: form: the boundary stay on the other seven SVC_001 incidents counts the rows still lacking the note in A (expected 7, an OR predicate) and the rows carrying it in B (expected 0); B's form is kept. Scope: the acting user Raj Patel (USER_007) is an admin in ORG_002 (Acme Corp) and owns SVC_003 'Acme Email Service'; the request's 'the Email Service' is the exact name of SVC_001 in ORG_001, and the policy scopes access by role with no organisation rule, so SVC_001, SVCOFF_001 and INC_006 are the targets and SVC_003 and SVCOFF_003 are boundary stays; if the benchmark's tools scope lookups by the acting user's organisation this file is wrong in every target. 'Reduced availability' names no status in the policy or seed (both tables hold only operational), so the benchmark's non-operational is kept; if the tool's enumeration has a degraded value, the offering cell should widen to status <> 'operational'. The locate, confirm and review steps are reads with no requirement. Least sure: the stem '%recurr%' over the request's exact word 'recurring'. revised: the INC_006 work-note cell tested the stem '%investigat%', which the seed's note ('investigating database corruption') already satisfies, so an appended note without the investigation point would pass; it now tests '%investigation%', the request's word and the benchmark check's term, which the seed does not hold.",
   "minutes": 10
 }

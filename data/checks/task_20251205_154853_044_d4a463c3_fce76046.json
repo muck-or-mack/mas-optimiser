@@ -101,9 +101,7 @@
       "kind": "stay",
       "table": "installed_product",
       "selector": "location_id = 817 AND installed_product_id <> 40",
-      "cells": {
-        "location_id": 817
-      },
+      "cells": {},
       "sql": "SELECT COUNT(*) FROM installed_product WHERE location_id = 817 AND installed_product_id <> 40",
       "expected": 3,
       "comparison": "equals",
@@ -153,6 +151,6 @@
       "evidence": "as above for tonya.stevens@stark-industries.com"
     }
   },
-  "notes": "Merged from two passes that agree on the relocation (device 40 to location 692, status in_use) and on the two notification recipients (marc.henry@ and tonya.stevens@stark-industries.com, the portal users of account 8's two active contacts). disagreement: missing requirement: the customer_case the notifications hang on; A excluded it as not asked, B created it with the policy's defaults; kept because the request implies it (notification.case_id is NOT NULL) and create_new_case is listed. disagreement: channel on that case: A none, B dropped alert as undecidable; chose alert, the benchmark's prior for a cell nothing fixes. disagreement: notification selectors: A any account-8 case with greater_than against the seed count, B case 1233 with equals 1; chose B's. disagreement: old-site stay selector: A installed_product_id <> 40, B serial_number NOT LIKE 'P25%'; same rows; chose A's. disagreement: device 15 stay cells: A {location_id, status}, B {location_id}; chose A's as tighter. disagreement: dispositions: Verify Create New Case A excluded, B repaired, chose repaired; Verify Notification Sent and (2) A repaired, B kept, chose kept. Every description in the request resolves to one seed row: old site 817, device 40, new site 692. acting_user is empty; the policy's default admin role applies. Server-kept sys_updated_on and notification.status are not cells.",
+  "notes": "Merged from two passes that agree on the relocation (device 40 to location 692, status in_use) and on the two notification recipients (marc.henry@ and tonya.stevens@stark-industries.com, the portal users of account 8's two active contacts). disagreement: missing requirement: the customer_case the notifications hang on; A excluded it as not asked, B created it with the policy's defaults; kept because the request implies it (notification.case_id is NOT NULL) and create_new_case is listed. disagreement: channel on that case: A none, B dropped alert as undecidable; chose alert, the benchmark's prior for a cell nothing fixes. disagreement: notification selectors: A any account-8 case with greater_than against the seed count, B case 1233 with equals 1; chose B's. disagreement: old-site stay selector: A installed_product_id <> 40, B serial_number NOT LIKE 'P25%'; same rows; chose A's. disagreement: device 15 stay cells: A {location_id, status}, B {location_id}; chose A's as tighter. disagreement: dispositions: Verify Create New Case A excluded, B repaired, chose repaired; Verify Notification Sent and (2) A repaired, B kept, chose kept. Every description in the request resolves to one seed row: old site 817, device 40, new site 692. acting_user is empty; the policy's default admin role applies. Server-kept sys_updated_on and notification.status are not cells. revised: the old-site stay no longer repeats location_id = 817 in cells; its selector already fixes that column, so its cells are empty and its count is unchanged.",
   "minutes": 12
 }

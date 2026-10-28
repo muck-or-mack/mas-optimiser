@@ -60,7 +60,7 @@
       "text": "no existing knowledge article was referenced during the incident resolution",
       "kind": "stay",
       "table": "incident_knowledge",
-      "selector": "incident_id = 'INC_014' AND knowledge_id <> 'KB_026'",
+      "selector": "incident_id = 'INC_014'",
       "cells": {
         "knowledge_id": "<> 'KB_026'"
       },
@@ -83,6 +83,6 @@
       "disposition": "kept"
     }
   },
-  "notes": "The request narrates what Anne does rather than instructing; the two creates follow from it and policy 7. Both benchmark checks anchor by the next ids in sequence (KB_026, IKB_046), which the seed's id_conventions confirm. The incident is already resolved on the seed and the request asks nothing of it, so no incident requirement is written. The article's org_id is left open: the acting user (ORG_001) and the incident (ORG_003) differ, and neither request, policy nor benchmark fixes it. Both creates have a tool (create_knowledge_article, link_knowledge_to_incident). Both passes found the same three requirements and kept both original checks. disagreement: body predicate: A containment (LIKE), B equality; kept A on the request's word 'includes'. disagreement: link stay selector: A any article other than KB_026, B KB_016 only; kept A as the tighter form.",
+  "notes": "The request narrates what Anne does rather than instructing; the two creates follow from it and policy 7. Both benchmark checks anchor by the next ids in sequence (KB_026, IKB_046), which the seed's id_conventions confirm. The incident is already resolved on the seed and the request asks nothing of it, so no incident requirement is written. The article's org_id is left open: the acting user (ORG_001) and the incident (ORG_003) differ, and neither request, policy nor benchmark fixes it. Both creates have a tool (create_knowledge_article, link_knowledge_to_incident). Both passes found the same three requirements and kept both original checks. disagreement: body predicate: A containment (LIKE), B equality; kept A on the request's word 'includes'. disagreement: link stay selector: A any article other than KB_026, B KB_016 only; kept A as the tighter form. revised: the link stay named knowledge_id <> 'KB_026' in both its selector and its cells; the selector now names INC_014's links and the cell carries the condition that no article other than KB_026 is linked.",
   "minutes": 17
 }

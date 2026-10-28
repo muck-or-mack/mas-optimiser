@@ -63,10 +63,7 @@
         "knowledge_id": "KB_006"
       },
       "cells": {
-        "title": [
-          "LIKE '%Email%Service%'",
-          "LIKE '%email%outage%'"
-        ],
+        "title": "LIKE '%Email%Service%' OR title LIKE '%email%outage%'",
         "body": [
           "LIKE '%outage%'",
           "LIKE '%restart%'",
@@ -84,7 +81,7 @@
       "seed_count": 0,
       "assumptions": [
         "id assumed next in sequence (KB_006 after KB_005); the task creates one article",
-        "title kept from the benchmark check as two alternatives: either pattern satisfies it (the sql joins them with OR); not fixed by request or policy",
+        "title kept from the benchmark check as one predicate with two alternatives: either pattern satisfies it; not fixed by request or policy",
         "body must name the outage symptoms, the server restart, the database corruption investigation and the webmail workaround, as the request lists them; all four body patterns must match",
         "state published kept from the benchmark check; not fixed by request or policy",
         "owner is the acting user, Priya Sharma (USER_002), who writes the article; org ORG_001 is hers and the incident's",
@@ -126,10 +123,7 @@
         "email": "marcus.thompson@techcorp.com",
         "type": "alert",
         "org_id": "ORG_001",
-        "subject": [
-          "LIKE '%Email Service%'",
-          "LIKE '%INC0000006%'"
-        ],
+        "subject": "LIKE '%Email Service%' OR subject LIKE '%INC0000006%'",
         "message": [
           "LIKE '%INC%006%'",
           "LIKE '%outage%'",
@@ -148,7 +142,7 @@
         "id assumed next in sequence (NOTIF_008 after NOTIF_007); the task creates one notification",
         "Marcus Thompson is USER_001, whose email the request gives; the notification refers to INC_006, the incident the summary is about",
         "type alert: the request asks for an alert notification",
-        "subject kept from the benchmark check as two alternatives: either pattern satisfies it (the sql joins them with OR); not fixed by request or policy",
+        "subject kept from the benchmark check as one predicate with two alternatives: either pattern satisfies it; not fixed by request or policy",
         "the message must carry each part of the summary the request lists (all six patterns must match): the incident (INC0000006 or INC_006), the outage, the SLA status, the problem (PRB_001 or PRB0000001), the assigned group and the article's reference",
         "the article's reference is its id (KB_006) or number (KB0000006), both of which contain KB",
         "disagreement: message incident and problem patterns: A '%INC%006%' and '%PRB%001%', B '%INC0000006%' and '%PRB_001%'; chose A's because the request mixes ids and numbers, so either form names the record, and B's would fail a summary that names INC_006 or PRB0000001",
@@ -193,9 +187,9 @@
     },
     "verify_only_critical_incident_in_scope": {
       "disposition": "repaired",
-      "evidence": "its DATE(created_at) window tests a server-kept column, which no step writes and no requirement can carry as a cell; INC_006 was created 2024-02-21 08:05, inside the window, and on the seed it is the only Email Service incident that meets the check's other filters, so the window is dropped and the rest (service, category, status, problem, org) is carried on INC_006"
+      "evidence": "its DATE(created_at) window tests a server-kept column, which no step writes and no requirement can carry as a cell; INC_006 was created 2024-02-21 08:05, inside the window, and within the window it is the only Email Service incident that meets the check's other filters (INC_016 meets them but was opened on 2024-02-25), so the window is dropped and the rest (service, category, status, problem, org) is carried on INC_006"
     }
   },
-  "notes": "disagreement: value: the problem link's cells: one pass adds service = 'SVC_001' and category IN ('software', 'network') from the scope check, the other does not; chose the tighter form, since both cells hold for INC_006 and carry the scope check once its date window is dropped.\ndisagreement: value: the article body's corruption pattern: one pass '%corrupt%', the other '%corruption%'; chose '%corrupt%', which accepts any wording of the request's 'database corruption'.\ndisagreement: value: the notification message's incident and problem patterns: one pass accepts id or number ('%INC%006%', '%PRB%001%'), the other only the quoted forms ('%INC0000006%', '%PRB_001%'); chose id or number because the request mixes the two forms.\ndisagreement: value: the notification message's group pattern: one pass the name ('%Service Desk%'), the other the id ('%GROUP_002%'); chose the name, which the request and the seed (Service Desk Operations) share.\ndisagreement: value: the notification message's outage and article patterns: one pass tests '%outage%' and '%KB%', the other neither; kept both because the request lists the outage and the article reference as parts of the summary.\ndisagreement: value: the boundary stay: one pass every other Email Service incident except INC_001 with no PRB_001 link (expected 0, carrying the scope check), the other INC_014 and INC_019 with no problem at all (expected 2, new); chose the second because INC_001, INC_004 and INC_007 are child incidents of INC_006 that the policy's linking rule may cover, while INC_019 shares the number INC0000006.\ndisagreement: disposition of verify_only_critical_incident_in_scope: one pass repaired (date window on created_at dropped), the other kept; chose repaired because a server-kept created_at cannot be a cell, so the requirement that carries the check drops that predicate.\nINC_006 has no incident_sla rows, so the SLA check finds nothing and nothing is breaching; the policy's breach escalation does not apply and the notification's SLA status can only say so. PRB_002 shares the number PRB0000001 with PRB_001 but belongs to ORG_002; the request names PRB_001 by id.\nPRB_001 already holds the webmail workaround. The policy's rule that a workaround be published to linked incidents and relevant articles belongs to the step that records a workaround, which this request does not take; the request places the workaround in the new article, and no tool updates problems, so no further requirement is drawn from it.\nINC_001, INC_004 and INC_007 are child incidents of INC_006; whether they may also be linked to PRB_001 is not tested either way.\nThe article's contents are tested in body; an article that puts them only in short_description would fail. Knowledge visibility and notification status are not fixed by the request or the policy and are not tested. The impact and priority check holds before the agent acts, so it is weak; it is carried as a stay. The acting user, Priya Sharma, holds the manager role, with full rights on incidents and knowledge.",
+  "notes": "disagreement: value: the problem link's cells: one pass adds service = 'SVC_001' and category IN ('software', 'network') from the scope check, the other does not; chose the tighter form, since both cells hold for INC_006 and carry the scope check once its date window is dropped.\ndisagreement: value: the article body's corruption pattern: one pass '%corrupt%', the other '%corruption%'; chose '%corrupt%', which accepts any wording of the request's 'database corruption'.\ndisagreement: value: the notification message's incident and problem patterns: one pass accepts id or number ('%INC%006%', '%PRB%001%'), the other only the quoted forms ('%INC0000006%', '%PRB_001%'); chose id or number because the request mixes the two forms.\ndisagreement: value: the notification message's group pattern: one pass the name ('%Service Desk%'), the other the id ('%GROUP_002%'); chose the name, which the request and the seed (Service Desk Operations) share.\ndisagreement: value: the notification message's outage and article patterns: one pass tests '%outage%' and '%KB%', the other neither; kept both because the request lists the outage and the article reference as parts of the summary.\ndisagreement: value: the boundary stay: one pass every other Email Service incident except INC_001 with no PRB_001 link (expected 0, carrying the scope check), the other INC_014 and INC_019 with no problem at all (expected 2, new); chose the second because INC_001, INC_004 and INC_007 are child incidents of INC_006 that the policy's linking rule may cover, while INC_019 shares the number INC0000006.\ndisagreement: disposition of verify_only_critical_incident_in_scope: one pass repaired (date window on created_at dropped), the other kept; chose repaired because a server-kept created_at cannot be a cell, so the requirement that carries the check drops that predicate.\nINC_006 has no incident_sla rows, so the SLA check finds nothing and nothing is breaching; the policy's breach escalation does not apply and the notification's SLA status can only say so. PRB_002 shares the number PRB0000001 with PRB_001 but belongs to ORG_002; the request names PRB_001 by id.\nPRB_001 already holds the webmail workaround. The policy's rule that a workaround be published to linked incidents and relevant articles belongs to the step that records a workaround, which this request does not take; the request places the workaround in the new article, and no tool updates problems, so no further requirement is drawn from it.\nINC_001, INC_004 and INC_007 are child incidents of INC_006; whether they may also be linked to PRB_001 is not tested either way.\nThe article's contents are tested in body; an article that puts them only in short_description would fail. Knowledge visibility and notification status are not fixed by the request or the policy and are not tested. The impact and priority check holds before the agent acts, so it is weak; it is carried as a stay. The acting user, Priya Sharma, holds the manager role, with full rights on incidents and knowledge.\nrevised: the article's title and the notification's subject each accept either of two patterns, so each is now one predicate joining its alternatives with OR; held as a list, the cell would demand both patterns while the count query accepts either.\nrevised: the scope check's evidence said INC_006 was the only Email Service incident meeting the check's other filters; INC_016 (network, new) meets them too, outside the window, so the evidence now limits that claim to the window.",
   "minutes": 52
 }

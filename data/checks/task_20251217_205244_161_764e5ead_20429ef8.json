@@ -21,7 +21,10 @@
       "sql": "SELECT COUNT(*) FROM location WHERE location_id = 'LOC_004' AND name = 'Berlin Office' AND plot_no = '42' AND street = 'Friedrichstrasse' AND city = 'Berlin' AND country = 'Germany' AND active = 1 AND org_id = 'ORG_001'",
       "expected": 1,
       "comparison": "equals",
-      "source": "verify_berlin_location_created",
+      "source": [
+        "verify_berlin_location_created",
+        "verify_two_cis_registered"
+      ],
       "seed_count": 0,
       "assumptions": [
         "id assumed next in sequence (LOC_004 after LOC_003); the only location this task creates",
@@ -273,7 +276,10 @@
       "sql": "SELECT COUNT(*) FROM configuration_item WHERE serial_number = 'SERVER-BER-RELAY-001' AND name = 'Berlin Email Relay Server' AND owner_id = 'USER_001' AND status = 'maintenance' AND cost = 8500 AND location_id = 'LOC_004' AND org_id = 'ORG_001'",
       "expected": 1,
       "comparison": "equals",
-      "source": "verify_server_in_maintenance",
+      "source": [
+        "verify_server_in_maintenance",
+        "verify_two_cis_registered"
+      ],
       "seed_count": 0,
       "assumptions": [
         "two CIs are created, so each is selected by its serial number",
@@ -286,7 +292,7 @@
       "text": "add the three agents as group members",
       "kind": "stay",
       "table": "user_group_member",
-      "selector": "group_id = 'GROUP_005' AND user_id IN ('USER_008', 'USER_009')",
+      "selector": "group_id = 'GROUP_005'",
       "cells": {
         "user_id": "IN ('USER_008', 'USER_009')"
       },
@@ -327,6 +333,6 @@
       "disposition": "kept"
     }
   },
-  "notes": "Every row the task creates is new on the seed, so all creates have seed_count 0. Rows are anchored by id only where the task creates one row in the table (location LOC_004, user_group GROUP_005); the four users, three memberships and two CIs are selected by natural key (email, group plus user, serial number), with user ids resolved by email subqueries. Every user requirement tests location_id = 'LOC_004' because the request places all four people at the Berlin office; the benchmark does not test it. The benchmark's check 3 phrase (user_name = 'sarah.mueller' OR user_name IS NOT NULL) reduces to NOT NULL on a NOT NULL column, so user_name is not a cell. The location name 'Berlin Office' is the benchmark's prior (check 7's join) and is the one cell the request leaves open that the file still fixes. The seed's user_role table is not tested: 'manager' and 'agents' map to users.role, which the benchmark tests, and no listed tool names user_role. All creates have a tool (add_location, add_new_user, add_new_user_group, add_new_group_member, register_configuration_item). Both passes found the same twelve creates with the same cells and kept all eight original checks; they differ only in the boundary stay. disagreement: membership stay on GROUP_005 for USER_008 and USER_009: A only; kept because add_new_group_member is listed and a surname lookup could add the wrong person. disagreement: users stay keeping USER_008 and USER_009's email and org: B only; dropped because no listed tool updates an existing user (add_new_user, get_user, get_user_using_name only), so the count cannot change and the stay adds length without strictness.",
+  "notes": "Every row the task creates is new on the seed, so all creates have seed_count 0. Rows are anchored by id only where the task creates one row in the table (location LOC_004, user_group GROUP_005); the four users, three memberships and two CIs are selected by natural key (email, group plus user, serial number), with user ids resolved by email subqueries. Every user requirement tests location_id = 'LOC_004' because the request places all four people at the Berlin office; the benchmark does not test it. The benchmark's check 3 phrase (user_name = 'sarah.mueller' OR user_name IS NOT NULL) reduces to NOT NULL on a NOT NULL column, so user_name is not a cell. The location name 'Berlin Office' is the benchmark's prior (check 7's join) and is the one cell the request leaves open that the file still fixes. The seed's user_role table is not tested: 'manager' and 'agents' map to users.role, which the benchmark tests, and no listed tool names user_role. All creates have a tool (add_location, add_new_user, add_new_user_group, add_new_group_member, register_configuration_item). Both passes found the same twelve creates with the same cells and kept all eight original checks; they differ only in the boundary stay. disagreement: membership stay on GROUP_005 for USER_008 and USER_009: A only; kept because add_new_group_member is listed and a surname lookup could add the wrong person. disagreement: users stay keeping USER_008 and USER_009's email and org: B only; dropped because no listed tool updates an existing user (add_new_user, get_user, get_user_using_name only), so the count cannot change and the stay adds length without strictness. revised: the server requirement carries verify_two_cis_registered for its row (location, cost, org) as its assumptions say, and the location requirement carries that check's location name 'Berlin Office'; both now list it in source beside their own check. revised: the membership stay named user_id in both its selector and its cells; the selector now names the group and the cell carries USER_008 and USER_009.",
   "minutes": 27
 }

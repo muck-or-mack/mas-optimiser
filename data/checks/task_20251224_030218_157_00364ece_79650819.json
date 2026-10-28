@@ -23,7 +23,7 @@
         "'default priority' is moderate by policy 3.1 ('priority: If not provided, default is moderate')",
         "'global service desk team' is user_group 3 'Global Service Desk' (group 4 'HR Service Desk' is the near match and the case's current group, not the target)",
         "status is not fixed by the request ('keep progressing on it' names no transition) and is left untested",
-        "disagreement: form: B carries the benchmark check in one requirement with assigned_to, A splits it into this de-escalation sentence and the assignment sentence; kept A's split because the request asks them in two sentences and the brief wants one requirement per thing; both requirements carry the same source and together test the original's four cells"
+        "disagreement: form: B carries the benchmark check in one requirement with assigned_to, A splits it into this de-escalation sentence and the assignment sentence; kept A's split because the request asks them in two sentences and each thing asked gets its own requirement; both requirements carry the same source and together test the original's four cells"
       ]
     },
     {
@@ -79,6 +79,6 @@
       "disposition": "kept"
     }
   },
-  "notes": "Merged from two passes that agree on every value (case 21, priority moderate, group 3, assignee 12, notification 61 of type report to Samantha's email) and on both dispositions (kept). disagreement: form: B carries the case check in one requirement, A splits it by sentence into the de-escalation and the assignment; kept A's split (logged in the first requirement). The acting user Scott Mitchell (user 41) is an active admin, who may update and reassign cases under policy section 2. Steven Manning (user 51, the case's opened_for) only sent the email and plays no part in the final state. No stay requirements: the account number, the group name and the name Samantha each match exactly one seed row, and the request forbids nothing. The case sits at awaiting_approval; the request asks for no status change, so none is tested.",
+  "notes": "Merged from two passes that agree on every value (case 21, priority moderate, group 3, assignee 12, notification 61 of type report to Samantha's email) and on both dispositions (kept). disagreement: form: B carries the case check in one requirement, A splits it by sentence into the de-escalation and the assignment; kept A's split (logged in the first requirement). The acting user Scott Mitchell (user 41) is an active admin, who may update and reassign cases under policy section 2. Steven Manning (user 51, the case's opened_for) only sent the email and plays no part in the final state. No stay requirements: the account number, the group name and the name Samantha each match exactly one seed row, and the request forbids nothing. The case sits at awaiting_approval; the request asks for no status change, so none is tested.\nrevised: the first requirement's disagreement line now gives its reason directly (each thing asked gets its own requirement) instead of citing a working document.",
   "minutes": 7
 }

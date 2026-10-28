@@ -71,10 +71,7 @@
       "text": "add all individuals from the former Support teams so they retain their communication channels and required access",
       "kind": "create",
       "table": "user_group_member",
-      "anchor": {
-        "group_id": "GROUP_005",
-        "user_id": "USER_003"
-      },
+      "selector": "group_id = 'GROUP_005' AND user_id = 'USER_003'",
       "cells": {
         "member_id": "IN ('MEMBER_006', 'MEMBER_007')"
       },
@@ -85,7 +82,7 @@
       "seed_count": 0,
       "assumptions": [
         "Carlos Rodriguez (USER_003) is a member of GROUP_001 on the seed (MEMBER_001)",
-        "anchored on the natural key (group_id, user_id), unique with org_id, rather than a sequence position: the request fixes no order between the two members",
+        "selected on the natural key (group_id, user_id), unique with org_id, rather than a sequence position: the request fixes no order between the two members",
         "ids assumed next in sequence (MEMBER_006 and MEMBER_007 after MEMBER_005), so the id is tested as either of the two",
         "disagreement: cells: A tests no cell, B tests member_id IN ('MEMBER_006', 'MEMBER_007'); chose B's because both are right under the next-in-sequence assumption and B's is tighter without fixing an order",
         "disagreement: source: A 'Checing group members', B 'new'; chose A's because the original check counts exactly these rows"
@@ -95,10 +92,7 @@
       "text": "add all individuals from the former Support teams so they retain their communication channels and required access",
       "kind": "create",
       "table": "user_group_member",
-      "anchor": {
-        "group_id": "GROUP_005",
-        "user_id": "USER_004"
-      },
+      "selector": "group_id = 'GROUP_005' AND user_id = 'USER_004'",
       "cells": {
         "member_id": "IN ('MEMBER_006', 'MEMBER_007')"
       },
@@ -109,7 +103,7 @@
       "seed_count": 0,
       "assumptions": [
         "Aisha Williams (USER_004) is a member of GROUP_001 on the seed (MEMBER_002)",
-        "anchored on the natural key and the id tested as either MEMBER_006 or MEMBER_007, as above (same two disagreements, resolved the same way)"
+        "selected on the natural key and the id tested as either MEMBER_006 or MEMBER_007, as above (same two disagreements, resolved the same way)"
       ]
     },
     {
@@ -177,9 +171,9 @@
     },
     "Checing group members": {
       "disposition": "kept",
-      "evidence": "its count of exactly 2 is carried as the two named members of GROUP_001 (rows anchored on group and user) plus a stay that nobody else is in the group; anchored on GROUP_005 rather than by subquery on the name"
+      "evidence": "its count of exactly 2 is carried as the two named members of GROUP_001 (rows selected by group and user) plus a stay that nobody else is in the group; anchored on GROUP_005 rather than by subquery on the name"
     }
   },
-  "notes": "Merged from two passes that agree on every requirement's table, anchor or selector, expected count and values (GROUP_001 dissolved, GROUP_005 created with the request's name, type and description, USER_002 as manager, USER_003 and USER_004 as its only members, GROUP_002 and GROUP_003 left active) and on all three dispositions. disagreement: manager requirement kind: A change, B create; chose create (logged in the requirement). disagreement: member rows' cells: A none, B member_id IN ('MEMBER_006', 'MEMBER_007'); chose B's (logged in the requirement). disagreement: member rows' source: A 'Checing group members', B 'new'; chose A's (logged in the requirement). disagreement: membership stay cells: A {}, B repeats the selector; chose {} (logged in the requirement). disagreement: texts: B adds parentheticals ('(Carlos Rodriguez)', '(and nobody else...)', '(Service Desk Operations is not a Support team and stays)'); kept A's, the request's own words. The policy has no rule on groups, so everything beyond the request's literal values comes from the seed. The least sure judgement, shared by both passes, is which groups are 'the different Support teams': the plural suggests more than one remains after excluding IT Support Team, which would pull in GROUP_002 Service Desk Operations and its member Elena Petrov; the narrow reading is taken because the new group is typed 'IT Support' and the original checks archive only GROUP_001 and count two members. 'any currently available manager' literally admits USER_008 too, but the organisation and the original check settle on USER_002. Memberships in the dissolved GROUP_001 are not required to be removed (the request does not ask it and no tool removes members). The acting user USER_001 Marcus Thompson is an admin in ORG_001, which the policy allows to manage groups.",
+  "notes": "Merged from two passes that agree on every requirement's table, anchor or selector, expected count and values (GROUP_001 dissolved, GROUP_005 created with the request's name, type and description, USER_002 as manager, USER_003 and USER_004 as its only members, GROUP_002 and GROUP_003 left active) and on all three dispositions. disagreement: manager requirement kind: A change, B create; chose create (logged in the requirement). disagreement: member rows' cells: A none, B member_id IN ('MEMBER_006', 'MEMBER_007'); chose B's (logged in the requirement). disagreement: member rows' source: A 'Checing group members', B 'new'; chose A's (logged in the requirement). disagreement: membership stay cells: A {}, B repeats the selector; chose {} (logged in the requirement). disagreement: texts: B adds parentheticals ('(Carlos Rodriguez)', '(and nobody else...)', '(Service Desk Operations is not a Support team and stays)'); kept A's, the request's own words. The policy has no rule on groups, so everything beyond the request's literal values comes from the seed. The least sure judgement, shared by both passes, is which groups are 'the different Support teams': the plural suggests more than one remains after excluding IT Support Team, which would pull in GROUP_002 Service Desk Operations and its member Elena Petrov; the narrow reading is taken because the new group is typed 'IT Support' and the original checks archive only GROUP_001 and count two members. 'any currently available manager' literally admits USER_008 too, but the organisation and the original check settle on USER_002. Memberships in the dissolved GROUP_001 are not required to be removed (the request does not ask it and no tool removes members). The acting user USER_001 Marcus Thompson is an admin in ORG_001, which the policy allows to manage groups.\nrevised: the two new membership rows were anchored on (group_id, user_id), but the task creates two rows in user_group_member, so neither is the sole created row; each is now a selector on that natural key, with the sql and counts unchanged.",
   "minutes": 11
 }

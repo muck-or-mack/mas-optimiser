@@ -27,7 +27,7 @@
       "text": "Randy Martinez ... no longer requires system access (boundary: the near-match users stay active)",
       "kind": "stay",
       "table": "users",
-      "selector": "user_id IN ('USER_013', 'USER_030', 'USER_093') AND active = 1",
+      "selector": "user_id IN ('USER_013', 'USER_030', 'USER_093')",
       "cells": {
         "active": 1
       },
@@ -88,7 +88,7 @@
       "text": "Randy Martinez from the L2 Field Support Team (boundary: Cheryl joins no near-matching group)",
       "kind": "stay",
       "table": "user_group_member",
-      "selector": "user_id = 'USER_049' AND group_id IN ('GROUP_002', 'GROUP_005')",
+      "selector": "user_id = 'USER_049'",
       "cells": {
         "group_id": "IN ('GROUP_002', 'GROUP_005')"
       },
@@ -124,11 +124,11 @@
       "text": "all configuration items currently assigned to Randy (boundary: no other item moves to Cheryl)",
       "kind": "stay",
       "table": "configuration_item",
-      "selector": "owner_id = 'USER_049' AND configuration_item_id <> 'CI_039'",
+      "selector": "configuration_item_id <> 'CI_039'",
       "cells": {
         "owner_id": "USER_049"
       },
-      "sql": "SELECT COUNT(*) FROM configuration_item WHERE owner_id = 'USER_049' AND configuration_item_id <> 'CI_039'",
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE configuration_item_id <> 'CI_039' AND owner_id = 'USER_049'",
       "expected": 0,
       "comparison": "equals",
       "source": "new",
@@ -178,11 +178,11 @@
       "text": "reassign them to Cheryl (boundary: Cheryl gains no incident outside the set)",
       "kind": "stay",
       "table": "incident",
-      "selector": "assigned_to = 'USER_049' AND incident_id NOT IN ('INC_016', 'INC_025', 'INC_036', 'INC_068', 'INC_099')",
+      "selector": "incident_id NOT IN ('INC_016', 'INC_025', 'INC_036', 'INC_068', 'INC_099')",
       "cells": {
         "assigned_to": "USER_049"
       },
-      "sql": "SELECT COUNT(*) FROM incident WHERE assigned_to = 'USER_049' AND incident_id NOT IN ('INC_016', 'INC_025', 'INC_036', 'INC_068', 'INC_099')",
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id NOT IN ('INC_016', 'INC_025', 'INC_036', 'INC_068', 'INC_099') AND assigned_to = 'USER_049'",
       "expected": 0,
       "comparison": "equals",
       "source": "new",
@@ -231,6 +231,6 @@
       "disposition": "kept"
     }
   },
-  "notes": "Merged from two passes that agree on all five carried requirements (USER_037 deactivated, MEM_029 in GROUP_006, CI_039 to USER_049, the five incidents to USER_049, one notification to Cheryl selected by recipient and incident), on all five dispositions (kept), and on two boundary stays (INC_032 stays with Randy; no other CI moves to Cheryl), with identical sql.\ndisagreement: missing requirement: A adds a stay that Cheryl is assigned no incident outside the five (expected 0); B has none; kept because it is the boundary of 'Randy's open and in-progress incidents': a loose reading (the whole L2 Field Support queue) would sweep other incidents to her.\ndisagreement: missing requirement: B adds a stay that USER_049 stays active with role agent or manager (expected 1); A has none; kept because the request asks for an account update whose content it leaves open, and policy 3.2 forbids assigning incidents to a user outside that state (a role set to admin, for instance, would break it).\ndisagreement: missing requirement: B adds a stay that the other Martinez users (USER_013, USER_093) stay active (expected 2); A has none; kept as the boundary of the name lookup, widened to USER_030 Randy Summers (expected 3), the first-name near match A names in its CI stay.\ndisagreement: missing requirement: B adds a stay that Cheryl is not added to GROUP_002 'L2 IT Support' or GROUP_005 'L1 Field Support' (expected 0); A has none; kept as the boundary of the group lookup for 'L2 Field Support Team'.\ndisagreement: form: the incident set is listed in a different order (A ascending, B the benchmark's order), the INC_032 stay is an anchor in B and a selector in A, and A repeats selector columns as cells; identical sql; kept the ascending list, the anchor form, and cells without selector columns.\nActing user USER_089 (Rebecca Foster) is admin with full CRUD, so no policy block applies. Cheryl's account update is read through policy 3.2: she is already an active manager, so the only change needed is GROUP_006 membership, which the benchmark also tests. The notification requirement keeps the benchmark's exactly-one count; a reviewer who reads 'notify Cheryl with details of the incidents' as one message per incident would change expected to 5 or the comparison to greater_than 0. Not tested because not asked: removing Randy from GROUP_006, the notification's org_id and subject, and the incidents' assignment_group.",
+  "notes": "Merged from two passes that agree on all five carried requirements (USER_037 deactivated, MEM_029 in GROUP_006, CI_039 to USER_049, the five incidents to USER_049, one notification to Cheryl selected by recipient and incident), on all five dispositions (kept), and on two boundary stays (INC_032 stays with Randy; no other CI moves to Cheryl), with identical sql.\ndisagreement: missing requirement: A adds a stay that Cheryl is assigned no incident outside the five (expected 0); B has none; kept because it is the boundary of 'Randy's open and in-progress incidents': a loose reading (the whole L2 Field Support queue) would sweep other incidents to her.\ndisagreement: missing requirement: B adds a stay that USER_049 stays active with role agent or manager (expected 1); A has none; kept because the request asks for an account update whose content it leaves open, and policy 3.2 forbids assigning incidents to a user outside that state (a role set to admin, for instance, would break it).\ndisagreement: missing requirement: B adds a stay that the other Martinez users (USER_013, USER_093) stay active (expected 2); A has none; kept as the boundary of the name lookup, widened to USER_030 Randy Summers (expected 3), the first-name near match A names in its CI stay.\ndisagreement: missing requirement: B adds a stay that Cheryl is not added to GROUP_002 'L2 IT Support' or GROUP_005 'L1 Field Support' (expected 0); A has none; kept as the boundary of the group lookup for 'L2 Field Support Team'.\ndisagreement: form: the incident set is listed in a different order (A ascending, B the benchmark's order), the INC_032 stay is an anchor in B and a selector in A, and A repeats selector columns as cells; identical sql; kept the ascending list, the anchor form, and cells without selector columns.\nActing user USER_089 (Rebecca Foster) is admin with full CRUD, so no policy block applies. Cheryl's account update is read through policy 3.2: she is already an active manager, so the only change needed is GROUP_006 membership, which the benchmark also tests. The notification requirement keeps the benchmark's exactly-one count; a reviewer who reads 'notify Cheryl with details of the incidents' as one message per incident would change expected to 5 or the comparison to greater_than 0. Not tested because not asked: removing Randy from GROUP_006, the notification's org_id and subject, and the incidents' assignment_group.\nrevised: four boundary stays (the near-match users stay active; Cheryl joins no near-matching group; no other item moves to Cheryl; Cheryl gains no incident outside the set) repeated a selector column as a cell; each selector now names only the rows and the tested column is carried only in cells, with the same counts on the seed.",
   "minutes": 30
 }

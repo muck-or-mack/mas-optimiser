@@ -100,10 +100,7 @@
       "kind": "create",
       "table": "checklist",
       "selector": "case_task_id = 150 AND checklist_item_description LIKE '%W-2%'",
-      "cells": {
-        "case_task_id": 150,
-        "checklist_item_description": "LIKE '%W-2%'"
-      },
+      "cells": {},
       "sql": "SELECT COUNT(*) FROM checklist WHERE case_task_id = 150 AND checklist_item_description LIKE '%W-2%'",
       "expected": 1,
       "comparison": "equals",
@@ -111,7 +108,7 @@
       "assumptions": [
         "the task creates two checklist items, so each is selected by its task and wording, not by id",
         "matched on the request's spelling 'W-2'",
-        "disagreement: expected: A equals 1, B greater_than 0; chose equals 1 because the brief fixes a created row's expected count at 1; an agent that splits the W-2 item into two rows would fail it",
+        "disagreement: expected: A equals 1, B greater_than 0; chose equals 1 because each named item is one created row, whose expected count is 1; an agent that splits the W-2 item into two rows would fail it",
         "checked not tested: the request says 'track', not complete; the benchmark query does not test it either despite its description"
       ],
       "seed_count": 0
@@ -121,10 +118,7 @@
       "kind": "create",
       "table": "checklist",
       "selector": "case_task_id = 150 AND checklist_item_description LIKE '%tax document%'",
-      "cells": {
-        "case_task_id": 150,
-        "checklist_item_description": "LIKE '%tax document%'"
-      },
+      "cells": {},
       "sql": "SELECT COUNT(*) FROM checklist WHERE case_task_id = 150 AND checklist_item_description LIKE '%tax document%'",
       "expected": 1,
       "comparison": "equals",
@@ -184,6 +178,6 @@
       "disposition": "kept"
     }
   },
-  "notes": "Merged from two passes that agree on every id (case 61 for profile 13, task 150, two checklist items selected by wording, notification 61 to the work email) and every value but one. disagreement: Task Creation Verification: A excluded (duplicate query), B kept; chose kept, carried jointly with Valid Task Type Verification by the checklist-task requirement (logged in its evidence). disagreement: the two checklist items' expected count: A equals 1, B greater_than 0; chose equals 1 because a created row's expected count is 1 (logged in each requirement). disagreement: B's stay requirement that no notification go to Jonathan's personal address; dropped because the notification is anchored by id with the work email as a cell, so a wrong address fails the create directly, and the request specifies the address rather than forbidding another: no selector has a boundary here. No stay requirements: every row is anchored by id or selected under the new task's id, and the request forbids nothing. The check named 'Notification draft to Joanne ' (trailing space in the name, 'Joanne' in the description) tests Jonathan Martinez's email, which is right; the name is kept verbatim as the key. Four check descriptions describe a different request (an invalid 'standard' priority, a 'tax_form' type, a Payroll Admin group, skipping task creation); their queries fit this request, so the queries are what was mapped. The checklist seed rows carry today's created_at, which suggests the seed was touched; id_conventions still match (90 rows, highest 90).",
+  "notes": "Merged from two passes that agree on every id (case 61 for profile 13, task 150, two checklist items selected by wording, notification 61 to the work email) and every value but one. disagreement: Task Creation Verification: A excluded (duplicate query), B kept; chose kept, carried jointly with Valid Task Type Verification by the checklist-task requirement (logged in its evidence). disagreement: the two checklist items' expected count: A equals 1, B greater_than 0; chose equals 1 because a created row's expected count is 1 (logged in each requirement). disagreement: B's stay requirement that no notification go to Jonathan's personal address; dropped because the notification is anchored by id with the work email as a cell, so a wrong address fails the create directly, and the request specifies the address rather than forbidding another: no selector has a boundary here. No stay requirements: every row is anchored by id or selected under the new task's id, and the request forbids nothing. The check named 'Notification draft to Joanne ' (trailing space in the name, 'Joanne' in the description) tests Jonathan Martinez's email, which is right; the name is kept verbatim as the key. Four check descriptions describe a different request (an invalid 'standard' priority, a 'tax_form' type, a Payroll Admin group, skipping task creation); their queries fit this request, so the queries are what was mapped. The checklist seed rows carry today's created_at, which suggests the seed was touched; id_conventions still match (90 rows, highest 90). revised: the two checklist requirements no longer repeat case_task_id and checklist_item_description in cells, since their selectors already fix both with the same conditions; revised: the W-2 item's expected-count disagreement now states its reason directly (each named item is one created row, so its count is 1).",
   "minutes": 12
 }

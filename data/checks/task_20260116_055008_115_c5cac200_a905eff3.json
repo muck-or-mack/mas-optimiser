@@ -100,10 +100,7 @@
       "kind": "create",
       "table": "checklist",
       "selector": "case_task_id = 150 AND checklist_item_description LIKE '%account status%'",
-      "cells": {
-        "case_task_id": 150,
-        "checklist_item_description": "LIKE '%account status%'"
-      },
+      "cells": {},
       "sql": "SELECT COUNT(*) FROM checklist WHERE case_task_id = 150 AND checklist_item_description LIKE '%account status%'",
       "expected": 0,
       "comparison": "greater_than",
@@ -119,10 +116,8 @@
       "text": "Once the troubleshooting is complete, send her an update notification",
       "kind": "change",
       "table": "checklist",
-      "selector": "case_task_id = 150 AND checklist_item_description LIKE '%account status%' AND checked = 1",
+      "selector": "case_task_id = 150 AND checklist_item_description LIKE '%account status%'",
       "cells": {
-        "case_task_id": 150,
-        "checklist_item_description": "LIKE '%account status%'",
         "checked": 1
       },
       "sql": "SELECT COUNT(*) FROM checklist WHERE case_task_id = 150 AND checklist_item_description LIKE '%account status%' AND checked = 1",
@@ -176,6 +171,6 @@
       "disposition": "kept"
     }
   },
-  "notes": "Merged from two passes that agree on every id and most values (case 61 for Anne Medina 29, COE HRIT, priority moderate, account HRIT-AM-2025 of type other, group 4 HR Service Desk; task 150 of type checklist in group 4; an account-status checklist item, checked; an update notification to anne.medina@servicenow.com) and on all four dispositions (all kept). disagreement: source: A IN ('self-service', 'web_portal'), B 'self-service'; chose A's because the request's words match the seed's self-service but policy section 7 enumerates web_portal and the benchmark's channel check in this domain lists both as valid, so nothing decides between them. disagreement: granularity: A tests the case's cells and its group in one requirement under Correct Assignment Group Verification, B in two; kept B's split because the request asks the assignment in its own sentence, and named Valid Task Type Verification as the base requirement's source because its priority = 'moderate' cell is that check's join condition on the case. disagreement: checklist item wording: A LIKE '%account%', B LIKE '%account status%'; chose B's as the tighter of two right predicates. disagreement: checklist completion: A folds checked = 1 into the create requirement, B tests it as its own change requirement; kept B's split (one requirement per thing: the item is created, then completed). disagreement: notification anchor: A notification_id = 61, B a selector; chose the id anchor because the task creates one notification. This policy version lets an admin (the acting user Karen Watkins) do case work and group assignment, lists moderate as a priority and drops the short-description template, so the task-1 policy conflicts do not apply. The check descriptions mention a 'ticket' task type and an 'IT Support L1' group that the request never asks for; the queries test what the request does ask and are kept as written. The request does not ask that the task or case be closed, so no status is tested. No stay requirements: nothing is forbidden and no selector has a boundary (one Medina, one Anne, one HR Service Desk group in the seed). Least sure: the case's source, accepted as either self-service (seed spelling) or web_portal (policy enumeration).",
+  "notes": "Merged from two passes that agree on every id and most values (case 61 for Anne Medina 29, COE HRIT, priority moderate, account HRIT-AM-2025 of type other, group 4 HR Service Desk; task 150 of type checklist in group 4; an account-status checklist item, checked; an update notification to anne.medina@servicenow.com) and on all four dispositions (all kept). disagreement: source: A IN ('self-service', 'web_portal'), B 'self-service'; chose A's because the request's words match the seed's self-service but policy section 7 enumerates web_portal and the benchmark's channel check in this domain lists both as valid, so nothing decides between them. disagreement: granularity: A tests the case's cells and its group in one requirement under Correct Assignment Group Verification, B in two; kept B's split because the request asks the assignment in its own sentence, and named Valid Task Type Verification as the base requirement's source because its priority = 'moderate' cell is that check's join condition on the case. disagreement: checklist item wording: A LIKE '%account%', B LIKE '%account status%'; chose B's as the tighter of two right predicates. disagreement: checklist completion: A folds checked = 1 into the create requirement, B tests it as its own change requirement; kept B's split (one requirement per thing: the item is created, then completed). disagreement: notification anchor: A notification_id = 61, B a selector; chose the id anchor because the task creates one notification. This policy version lets an admin (the acting user Karen Watkins) do case work and group assignment, lists moderate as a priority and drops the short-description template, so the acting user's role, the priority value and the case's short description raise no policy conflict. The check descriptions mention a 'ticket' task type and an 'IT Support L1' group that the request never asks for; the queries test what the request does ask and are kept as written. The request does not ask that the task or case be closed, so no status is tested. No stay requirements: nothing is forbidden and no selector has a boundary (one Medina, one Anne, one HR Service Desk group in the seed). Least sure: the case's source, accepted as either self-service (seed spelling) or web_portal (policy enumeration). revised: the checklist requirements no longer repeat case_task_id and the item wording in cells, since the selector already fixes both; the completion requirement's selector now names the item by task and wording only, with checked = 1 moved to its cells. revised: the note on policy conflicts now states why none arise rather than pointing to another task.",
   "minutes": 9
 }

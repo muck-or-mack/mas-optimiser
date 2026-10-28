@@ -90,9 +90,7 @@
       "kind": "stay",
       "table": "incident_sla",
       "selector": "incident_id = 'INC_003' AND sla_def_id = 'SLA_008'",
-      "cells": {
-        "sla_def_id": "SLA_008"
-      },
+      "cells": {},
       "sql": "SELECT COUNT(*) FROM incident_sla WHERE incident_id = 'INC_003' AND sla_def_id = 'SLA_008'",
       "expected": 0,
       "comparison": "equals",
@@ -111,6 +109,6 @@
       "disposition": "kept"
     }
   },
-  "notes": "Merged from two independent passes that agree on both dispositions and on every value. disagreement: A's stay that INC_010 (the other INC0000003 row) keeps its one SLA link (B had no such requirement); kept because it is the same selector boundary as the INC_010 incident stay both passes wrote, applied to the table the SLA link is written to. disagreement: form: the INC_010 incident stay tests three cells in A (impact, urgency, priority) and two in B (impact, priority); A's tighter set is kept, both hold on the seed, and it is written with the row's key as anchor as B had it. disagreement: form: the SLA_008 stay has empty cells in A and sla_def_id in B; B's form is kept because the cell names what the count tests. Acting user USER_001 is an active admin (full CRUD), so nothing in the policy blocks the update. Both passes read 'update the necessary details' as the two consequences the policy derives from a changed impact (priority by the 3.1 matrix, SLA alignment by section 6); the caller's narrative (pending documents, extended deadline) is not turned into a work-note requirement because the request never asks for one and the tool list has no work-note tool.",
+  "notes": "Merged from two independent passes that agree on both dispositions and on every value. disagreement: A's stay that INC_010 (the other INC0000003 row) keeps its one SLA link (B had no such requirement); kept because it is the same selector boundary as the INC_010 incident stay both passes wrote, applied to the table the SLA link is written to. disagreement: form: the INC_010 incident stay tests three cells in A (impact, urgency, priority) and two in B (impact, priority); A's tighter set is kept, both hold on the seed, and it is written with the row's key as anchor as B had it. disagreement: form: the SLA_008 stay has empty cells in A and sla_def_id in B; B's form is kept because the cell names what the count tests. Acting user USER_001 is an active admin (full CRUD), so nothing in the policy blocks the update. Both passes read 'update the necessary details' as the two consequences the policy derives from a changed impact (priority by the 3.1 matrix, SLA alignment by section 6); the caller's narrative (pending documents, extended deadline) is not turned into a work-note requirement because the request never asks for one and the tool list has no work-note tool.\nrevised: the SLA_008 stay's cells are now empty: its selector already fixes sla_def_id = 'SLA_008', so repeating that column in cells restated the selector rather than adding a predicate; its sql and count are unchanged.",
   "minutes": 9
 }

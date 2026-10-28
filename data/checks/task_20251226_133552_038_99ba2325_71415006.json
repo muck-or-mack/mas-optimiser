@@ -27,7 +27,7 @@
         "role 'agent' as the request says and as the seed's role table spells it (admin, manager, agent, employee); the policy's user.role list (hr_specialist) does not match the seed, so the benchmark check's 'agent' is kept",
         "active = 1 added from policy 3.2 (the assigned_to user must be active); not tested by the benchmark check",
         "org_id not fixed by the request; not tested",
-        "disagreement: active cell: A the JSON boolean true, B the predicate '= true'; written as the plain value 1 the seed stores, as the other check files spell it"
+        "disagreement: active cell: A the JSON boolean true, B the predicate '= true'; written as the plain value 1, the form in which the seed stores booleans"
       ]
     },
     {
@@ -125,10 +125,7 @@
       "text": "Stephanie Todd has left the organization (policy 5.1: they must be removed from the assignment group)",
       "kind": "remove",
       "table": "user_group_member",
-      "anchor": {
-        "group_id": 7,
-        "user_id": 6
-      },
+      "selector": "group_id = 7 AND user_id = 6",
       "cells": {},
       "sql": "SELECT COUNT(*) FROM user_group_member WHERE group_id = 7 AND user_id = 6",
       "expected": 0,
@@ -143,10 +140,7 @@
       "text": "Stephanie Todd has left the organization (policy 5.1: they must be removed from the assignment group)",
       "kind": "remove",
       "table": "user_group_member",
-      "anchor": {
-        "group_id": 2,
-        "user_id": 6
-      },
+      "selector": "group_id = 2 AND user_id = 6",
       "cells": {},
       "sql": "SELECT COUNT(*) FROM user_group_member WHERE group_id = 2 AND user_id = 6",
       "expected": 0,
@@ -182,6 +176,6 @@
       "disposition": "kept"
     }
   },
-  "notes": "Merged from two passes that agree on the seven requirements carrying the seven benchmark checks (user 101 with active added; membership of group 7; case 4 to user 101; user 6 deactivated; skill rows 223 and 224 gone; membership of group 7 gone) and on every disposition (all kept). disagreement: removal of Stephanie's group 2 membership (B only, source new); kept because policy 5.1's leaver rule ('must be removed from the assignment group') is not tied to the case being handed over, group 2 is an assignment group on the seed (cases 47 and 57), and remove_group_membership is listed; A read the singular as the handed-over case's group and left the row untested. disagreement: active cells: A JSON booleans, B predicate strings ('= true', '= false'); written as the plain values 1 and 0 the seed stores and the other check files use, with the sql spelt the same way (the benchmark's 'active = false' tests the same thing on SQLite 3.45). Rewrite: the created membership (group 7, user 101) is a selector on the natural key where both passes wrote an anchor on it, because the request's plural 'groups' leaves David's membership of group 2 open and nothing fixes it, so member_id is not anchored and no requirement or stay is written for group 2 (both passes agree). The acting user Karen Watkins (39) is an admin, so the policy's role restrictions on user records do not bind. The request's 'before making the changes' ordering cannot be read from the final state. The benchmark check name 'Verify New User ' carries a trailing space, kept verbatim as the scorer's key. The policy's user.role enumeration (hr_specialist) does not match the seed's values; the seed and the request's 'agent' win. Least sure: the group 2 removal, since an agent that reads policy 5.1 as A did removes only group 7 and fails it.",
+  "notes": "Merged from two passes that agree on the seven requirements carrying the seven benchmark checks (user 101 with active added; membership of group 7; case 4 to user 101; user 6 deactivated; skill rows 223 and 224 gone; membership of group 7 gone) and on every disposition (all kept). disagreement: removal of Stephanie's group 2 membership (B only, source new); kept because policy 5.1's leaver rule ('must be removed from the assignment group') is not tied to the case being handed over, group 2 is an assignment group on the seed (cases 47 and 57), and remove_group_membership is listed; A read the singular as the handed-over case's group and left the row untested. disagreement: active cells: A JSON booleans, B predicate strings ('= true', '= false'); written as the plain values 1 and 0, the form in which the seed stores booleans, with the sql spelt the same way (the benchmark's 'active = false' tests the same thing on SQLite 3.45). Rewrite: the created membership (group 7, user 101) is a selector on the natural key where both passes wrote an anchor on it, because the request's plural 'groups' leaves David's membership of group 2 open and nothing fixes it, so member_id is not anchored and no requirement or stay is written for group 2 (both passes agree). The acting user Karen Watkins (39) is an admin, so the policy's role restrictions on user records do not bind. The request's 'before making the changes' ordering cannot be read from the final state. The benchmark check name 'Verify New User ' carries a trailing space, kept verbatim as the scorer's key. The policy's user.role enumeration (hr_specialist) does not match the seed's values; the seed and the request's 'agent' win. Least sure: the group 2 removal, since an agent that reads policy 5.1 as A did removes only group 7 and fails it.\nrevised: the two removals of Stephanie's memberships (groups 7 and 2) are now selectors on the natural key (group_id, user_id) rather than anchors, since the table's key is member_id and these rows are found by description, not created.\nrevised: the boolean-spelling reason now rests on the seed's storage alone rather than on how other files spell it.",
   "minutes": 11
 }

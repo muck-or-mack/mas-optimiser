@@ -88,7 +88,7 @@
       "text": "move that unit to the other site",
       "kind": "stay",
       "table": "installed_product",
-      "selector": "account_id = 19 AND installed_product_id IN (97, 99, 101) AND location_id = 840",
+      "selector": "account_id = 19 AND installed_product_id IN (97, 99, 101)",
       "cells": {
         "location_id": 840
       },
@@ -136,6 +136,6 @@
       "disposition": "kept"
     }
   },
-  "notes": "Merged from two passes that agree on all six requirements (tables, anchors, ids, values) and on all four dispositions (kept). disagreement: in_stock-to-in_use requirement cells: A {location_id, status}, B {status} with location_id still in the sql; kept A's because both passes' sql tests location_id = 839 (logged in the requirement). disagreement: stay selector for the closed site's other units: A adds account_id = 19, B does not; same rows; kept A's (logged in the requirement). The original checks' name, city, country, account_id, product_id and serial_number cells are identity columns the request does not change and are implied by the anchors; the kept checks are carried without them. The acting user (32, Jose Roberson) is an admin, active = 0 on the seed; the policy's default admin role is applied, as the benchmark's checks assume. No tool writes a work note or notification and the request asks for none.",
+  "notes": "Merged from two passes that agree on all six requirements (tables, anchors, ids, values) and on all four dispositions (kept). disagreement: in_stock-to-in_use requirement cells: A {location_id, status}, B {status} with location_id still in the sql; kept A's because both passes' sql tests location_id = 839 (logged in the requirement). disagreement: stay selector for the closed site's other units: A adds account_id = 19, B does not; same rows; kept A's (logged in the requirement). The original checks' name, city, country, account_id, product_id and serial_number cells are identity columns the request does not change and are implied by the anchors; the kept checks are carried without them. The acting user (32, Jose Roberson) is an admin, active = 0 on the seed; the policy's default admin role is applied, as the benchmark's checks assume. No tool writes a work note or notification and the request asks for none.\nrevised: the stay on the closed site's other three units selected them with location_id = 840 and repeated that column in cells; the selector now names the units by account and id alone and cells carries location_id = 840, so the sql is unchanged.",
   "minutes": 8
 }
