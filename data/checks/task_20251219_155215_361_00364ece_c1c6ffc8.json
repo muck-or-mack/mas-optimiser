@@ -65,7 +65,10 @@
       "sql": "SELECT COUNT(*) FROM hr_case_task WHERE hr_case_task_id = 150 AND parent_case = 1 AND assigned_to = 11 AND assignment_group = 3 AND short_description = 'Verify routing number with bank portal' AND task_type = 'mark when complete' AND status = 'ready' AND active = 1",
       "expected": 1,
       "comparison": "equals",
-      "source": "Verify task Creation, Verify task Creation (2)",
+      "source": [
+        "Verify task Creation",
+        "Verify task Creation (2)"
+      ],
       "assumptions": [
         "id assumed next in sequence (hr_case_task_id 150 after 149); the only task the task creates, so the server number is not a cell",
         "'task instruction' is short_description (38 characters, inside the policy's 30-120 limit); 'should be marked when completed' is task_type 'mark when complete' (policy 3.2 task types)",

@@ -19,7 +19,10 @@
       "sql": "SELECT COUNT(*) FROM knowledge WHERE knowledge_id = 'KB_026' AND title = 'VPN Supplement: London Gateway' AND owner_id = 'USER_004' AND state = 'draft' AND visibility = 'internal' AND body LIKE '%London Gateway%'",
       "expected": 1,
       "comparison": "equals",
-      "source": "knowledge_article_creation_verifier, combined_state_changes_verifier",
+      "source": [
+        "knowledge_article_creation_verifier",
+        "combined_state_changes_verifier"
+      ],
       "seed_count": 0,
       "assumptions": [
         "id assumed next in sequence (KB_026 after KB_025); kb_number is server-kept and not a cell",
@@ -54,7 +57,10 @@
       "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_101' AND caller_id = 'USER_004' AND status = 'new' AND category = 'network' AND short_description LIKE '%VPN%' AND short_description LIKE '%London Gateway%' AND description LIKE '%London Gateway%' AND impact = 'low' AND urgency = 'low' AND priority = 'planning' AND assigned_to IS NULL AND assignment_group IS NULL",
       "expected": 1,
       "comparison": "equals",
-      "source": "incident_creation_verifier, combined_state_changes_verifier",
+      "source": [
+        "incident_creation_verifier",
+        "combined_state_changes_verifier"
+      ],
       "seed_count": 0,
       "assumptions": [
         "id assumed next in sequence (INC_101 after INC_100); number is server-kept and not a cell",
@@ -80,7 +86,10 @@
       "sql": "SELECT COUNT(*) FROM incident_knowledge WHERE incident_kb_id = 'IKB_046' AND incident_id = 'INC_101' AND knowledge_id = 'KB_003' AND used_as = 'applied'",
       "expected": 1,
       "comparison": "equals",
-      "source": "knowledge_incident_link_verifier, combined_state_changes_verifier",
+      "source": [
+        "knowledge_incident_link_verifier",
+        "combined_state_changes_verifier"
+      ],
       "seed_count": 0,
       "assumptions": [
         "id assumed next in sequence (IKB_046 after IKB_045); the only link the request asks for, so the row is anchored by id as the original check has it",

@@ -27,12 +27,38 @@ REQUIRED = {
     "sql": str,
     "expected": (int, float),
     "comparison": str,
-    "source": str,
 }
+
+
+def source_names(source: object) -> list[str] | None:
+    """The benchmark checks a requirement's ``source`` names; ``None`` if it is malformed.
+
+    A source is ``"new"`` (no benchmark check, so no names), one check's exact
+    name, or a list of exact names when one requirement carries several checks.
+    Names are matched exactly, whitespace included, because benchmark check
+    names may contain commas and stray spaces.
+    """
+    if source == "new":
+        return []
+    if isinstance(source, str) and source:
+        return [source]
+    if (
+        isinstance(source, list)
+        and source
+        and all(isinstance(name, str) and name and name != "new" for name in source)
+        and len(set(source)) == len(source)
+    ):
+        return list(source)
+    return None
 
 
 def validate(document: dict) -> list[str]:
     """Name every way a check file departs from the shape; an empty list means none.
+
+    Beyond each field's type, the file must hang together: every check a
+    requirement names as its source exists in ``original_checks`` and is not
+    excluded, every check kept or repaired is carried by at least one
+    requirement, and a ``remove`` requirement counts zero rows.
 
     Args:
         document: One task's check file, parsed.
@@ -41,6 +67,10 @@ def validate(document: dict) -> list[str]:
         Problems as ``"<where>: <what>"`` strings, in file order.
     """
     problems = []
+    originals = document.get("original_checks")
+    if not isinstance(originals, dict):
+        originals = None
+    carried = set()
     for field in ("task_id", "policy_sha1"):
         if not isinstance(document.get(field), str):
             problems.append(f"{field}: missing or not a string")
@@ -59,6 +89,24 @@ def validate(document: dict) -> list[str]:
             problems.append(f"{where}.kind: not one of {KINDS}")
         if requirement.get("comparison", "equals") not in COMPARISONS:
             problems.append(f"{where}.comparison: not one of {COMPARISONS}")
+        names = source_names(requirement.get("source"))
+        if names is None:
+            problems.append(
+                f"{where}.source: must be 'new', a check name or a list of check names"
+            )
+        elif originals is not None:
+            for name in names:
+                if name not in originals:
+                    problems.append(f"{where}.source: names no original check {name!r}")
+                elif (originals[name] or {}).get("disposition") == "excluded":
+                    problems.append(f"{where}.source: names excluded check {name!r}")
+                else:
+                    carried.add(name)
+        if requirement.get("kind") == "remove" and (
+            requirement.get("expected") != 0
+            or requirement.get("comparison", "equals") != "equals"
+        ):
+            problems.append(f"{where}: a remove requirement must count zero rows")
         if not isinstance(requirement.get("cells"), dict):
             problems.append(f"{where}.cells: missing or not a mapping")
         if "anchor" not in requirement and "selector" not in requirement:
@@ -75,8 +123,7 @@ def validate(document: dict) -> list[str]:
             isinstance(a, str) for a in assumptions
         ):
             problems.append(f"{where}.assumptions: must be a list of strings")
-    originals = document.get("original_checks")
-    if not isinstance(originals, dict):
+    if originals is None:
         problems.append("original_checks: missing or not a mapping")
         originals = {}
     for name, record in originals.items():
@@ -86,6 +133,8 @@ def validate(document: dict) -> list[str]:
             problems.append(f"{where}.disposition: not one of {DISPOSITIONS}")
         elif disposition in ("repaired", "excluded") and not record.get("evidence"):
             problems.append(f"{where}.evidence: required when {disposition}")
+        elif disposition in ("kept", "repaired") and name not in carried:
+            problems.append(f"{where}: {disposition} but no requirement names it")
     return problems
 
 

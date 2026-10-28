@@ -57,12 +57,70 @@ def test_a_requirement_needs_an_anchor_or_a_selector():
 
 def test_original_checks_need_a_disposition_and_evidence_when_repaired():
     doc = document()
-    doc["original_checks"] = {"Add CI": {"disposition": "repaired"}}
+    doc["original_checks"] = {"Report incident": {"disposition": "repaired"}}
     assert checks.validate(doc) == [
-        "original_checks['Add CI'].evidence: required when repaired"
+        "original_checks['Report incident'].evidence: required when repaired"
     ]
-    doc["original_checks"] = {"Add CI": {"disposition": "fixed"}}
+    doc["original_checks"] = {"Report incident": {"disposition": "fixed"}}
     assert any("disposition" in p for p in checks.validate(doc))
+
+
+def test_a_requirement_may_carry_several_checks_as_a_list():
+    doc = document(source=["Report incident", "Report incident, again "])
+    doc["original_checks"]["Report incident, again "] = {"disposition": "kept"}
+    assert checks.validate(doc) == []
+
+
+@pytest.mark.parametrize(
+    "source",
+    ["", [], ["Report incident", "new"], ["Report incident", "Report incident"], 3],
+)
+def test_a_malformed_source_is_named(source):
+    assert any("source: must be" in p for p in checks.validate(document(source=source)))
+
+
+def test_a_source_must_name_an_original_check_exactly():
+    joined = document(source="Report incident, Add CI")
+    assert any("names no original check" in p for p in checks.validate(joined))
+    spaced = document(source=" Report incident")
+    assert any("names no original check" in p for p in checks.validate(spaced))
+
+
+def test_a_source_may_not_name_an_excluded_check():
+    doc = document(source=["Report incident", "Report incident (2)"])
+    doc["original_checks"]["Report incident (2)"] = {
+        "disposition": "excluded",
+        "evidence": "contradicts the policy default",
+    }
+    assert any("names excluded check" in p for p in checks.validate(doc))
+
+
+def test_every_kept_or_repaired_check_must_be_carried():
+    doc = document(source="new")
+    assert checks.validate(doc) == [
+        "original_checks['Report incident']: kept but no requirement names it"
+    ]
+    doc["original_checks"]["Report incident"] = {"disposition": "weak"}
+    assert checks.validate(doc) == []
+
+
+def test_a_remove_requirement_counts_zero_rows():
+    assert checks.validate(document(kind="remove", expected=0.0)) == []
+    assert any("count zero rows" in p for p in checks.validate(document(kind="remove")))
+    assert any(
+        "count zero rows" in p
+        for p in checks.validate(
+            document(kind="remove", expected=0, comparison="less_than")
+        )
+    )
+
+
+def test_malformed_original_records_do_not_crash_the_source_checks():
+    doc = document()
+    doc["original_checks"] = {"Report incident": None}
+    assert any("disposition" in p for p in checks.validate(doc))
+    doc["original_checks"] = "not a mapping"
+    assert "original_checks: missing or not a mapping" in checks.validate(doc)
 
 
 def test_load_checks_reads_valid_files_and_rejects_a_mismatched_name(tmp_path):

@@ -193,7 +193,10 @@
       "sql": "SELECT COUNT(*) FROM knowledge WHERE knowledge_id = 370 AND title = 'Failed Resolution Analysis - Managed Network Services Variant 41: Protocol Mismatch Root Cause' AND visibility = 'internal' AND state = 'published' AND owner_id = 96 AND body IS NOT NULL",
       "expected": 1,
       "comparison": "equals",
-      "source": "create_knowledge, create_knowledge (2)",
+      "source": [
+        "create_knowledge",
+        "create_knowledge (2)"
+      ],
       "seed_count": 0,
       "assumptions": [
         "id assumed next in sequence (370 after 369); the only article the task creates; no article with this title exists",

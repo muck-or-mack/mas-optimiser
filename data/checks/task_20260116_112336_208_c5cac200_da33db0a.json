@@ -84,7 +84,10 @@
       "sql": "SELECT COUNT(*) FROM hr_case_task WHERE hr_case_task_id = 150 AND parent_case = 61 AND task_type = 'checklist'",
       "expected": 1,
       "comparison": "equals",
-      "source": "Valid Task Type Verification, Task Creation Verification",
+      "source": [
+        "Valid Task Type Verification",
+        "Task Creation Verification"
+      ],
       "assumptions": [
         "id assumed next in sequence (hr_case_task_id 150 after 149); the only task the request creates",
         "the task's status, group, assignee and short description are not stated and not tested",

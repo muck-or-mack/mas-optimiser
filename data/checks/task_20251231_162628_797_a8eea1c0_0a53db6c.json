@@ -20,7 +20,10 @@
       "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1233 AND account_id = 8 AND contact_id = 10 AND product_id = 140 AND installed_product_id = 42 AND channel = 'web' AND priority = 'critical'",
       "expected": 1,
       "comparison": "equals",
-      "source": "create_new_case, link_case_knowledge (2)",
+      "source": [
+        "create_new_case",
+        "link_case_knowledge (2)"
+      ],
       "seed_count": 0,
       "assumptions": [
         "id assumed next in sequence (1233 after 1232); the only case the task creates",
@@ -115,7 +118,11 @@
       "sql": "SELECT COUNT(*) FROM contract WHERE contract_id = 154 AND account_id = 8 AND contract_type = 'support' AND status = 'active' AND start_date = '2025-11-18' AND end_date = '2026-11-18'",
       "expected": 1,
       "comparison": "equals",
-      "source": "enlist_new_contract, enlist_new_contract (2), add_new_entitlement (2)",
+      "source": [
+        "enlist_new_contract",
+        "enlist_new_contract (2)",
+        "add_new_entitlement (2)"
+      ],
       "seed_count": 0,
       "assumptions": [
         "id assumed next in sequence (154 after 153); the only contract the task creates",

@@ -21,7 +21,10 @@
       "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND opened_for = 23 AND coe_type = 'Workforce Administration' AND short_description LIKE '%Kathleen Montgomery%' AND short_description LIKE '%phone%' AND priority = 'moderate'",
       "expected": 1,
       "comparison": "equals",
-      "source": "Valid Priority Value Verification, Case Completion Verification",
+      "source": [
+        "Valid Priority Value Verification",
+        "Case Completion Verification"
+      ],
       "assumptions": [
         "id assumed next in sequence (hr_case 61 after 60); the only case the task creates",
         "opened_for = 23 is Kathleen Montgomery's hr_profile_id (user 23, the seed's only Kathleen and only Montgomery)",
@@ -69,7 +72,10 @@
       "sql": "SELECT COUNT(*) FROM hr_case_task WHERE hr_case_task_id = 150 AND parent_case = 61 AND task_type = 'checklist'",
       "expected": 1,
       "comparison": "equals",
-      "source": "Valid Task Type Verification, Checklist Task Completion Verification",
+      "source": [
+        "Valid Task Type Verification",
+        "Checklist Task Completion Verification"
+      ],
       "assumptions": [
         "id assumed next in sequence (hr_case_task 150 after 149); the request asks for one task",
         "'contact_form' is not a task type (policy 3.2 and section 7); checklist is kept from the benchmark checks as the type that tracks a list of steps, and create_checklist is in the tools",

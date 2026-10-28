@@ -36,7 +36,10 @@
       "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 7 AND escalation = 1 AND escalation_reason = 'urgency'",
       "expected": 1,
       "comparison": "equals",
-      "source": "update_case (3), update_case (4)",
+      "source": [
+        "update_case (3)",
+        "update_case (4)"
+      ],
       "seed_count": 0,
       "assumptions": [
         "the request never says 'escalate', but a priority override 'due to urgency' handed to the Escalation Management group is an escalation; the policy's steps are escalation = true and a captured escalation_reason, and 'urgency' is the enum value that matches the request's word; both originals carry the cells",
@@ -57,7 +60,10 @@
       "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 7 AND assigned_to = 177 AND assignment_group_id = 18",
       "expected": 1,
       "comparison": "equals",
-      "source": "update_case, update_case (5)",
+      "source": [
+        "update_case",
+        "update_case (5)"
+      ],
       "seed_count": 0,
       "assumptions": [
         "Curtis Mccoy is user 177 (manager, active), the only user of that name (Tony Mccoy, 169, is another user); he is a member of group 18, so the policy's assignment constraints hold",
@@ -98,7 +104,10 @@
       "sql": "SELECT COUNT(*) FROM case_sla WHERE case_sla_id = 13 AND stage = 'completed' AND has_breached = 0 AND completed_time LIKE '2025-09-01%'",
       "expected": 1,
       "comparison": "equals",
-      "source": "update_case_sla_details, update_case_sla_details (3)",
+      "source": [
+        "update_case_sla_details",
+        "update_case_sla_details (3)"
+      ],
       "seed_count": 0,
       "assumptions": [
         "case 7 has exactly two case_sla rows, 13 (response, SLA Response - Low) and 14 (resolution, SLA Resolution - Low), both in_progress with no completed_time, so both are 'outstanding'; this is the response SLA",
@@ -122,7 +131,10 @@
       "sql": "SELECT COUNT(*) FROM case_sla WHERE case_sla_id = 14 AND stage = 'completed' AND has_breached = 0 AND completed_time LIKE '2025-09-01%'",
       "expected": 1,
       "comparison": "equals",
-      "source": "update_case_sla_details (2), update_case_sla_details (4)",
+      "source": [
+        "update_case_sla_details (2)",
+        "update_case_sla_details (4)"
+      ],
       "seed_count": 0,
       "assumptions": [
         "case 7 has exactly two case_sla rows, 13 (response, SLA Response - Low) and 14 (resolution, SLA Resolution - Low), both in_progress with no completed_time, so both are 'outstanding'; this is the resolution SLA",

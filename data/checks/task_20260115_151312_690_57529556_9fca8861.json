@@ -66,7 +66,10 @@
       "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND status = 'closed_complete'",
       "expected": 1,
       "comparison": "equals",
-      "source": "Case Closure Verification, Case Ready State Verification",
+      "source": [
+        "Case Closure Verification",
+        "Case Ready State Verification"
+      ],
       "assumptions": [
         "the row is created in this task; closure is its final transition",
         "'close' read as closed_complete: 'closed' is not in the policy's status enumeration (section 7) or the seed, policy 3.3 forbids a direct move to closed, and the benchmark checks test closed_complete",
