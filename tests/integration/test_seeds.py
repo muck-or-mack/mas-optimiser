@@ -8,8 +8,8 @@ pytestmark = pytest.mark.integration
 
 # The CSM server returns at most 100 rows unless a query sets its own limit.
 PAGE = 1000
-# The HR server sets these columns to the time it loads a seed, whatever the
-# seed file says, so they are left out of the comparison there.
+# In many rows the HR server replaces these columns with the time it loads
+# the seed, so they are left out of the comparison there.
 STAMPED = {"hr": {"created_at", "updated_at"}}
 
 
