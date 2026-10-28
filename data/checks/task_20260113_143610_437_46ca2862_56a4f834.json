@@ -1,0 +1,147 @@
+{
+  "task_id": "task_20260113_143610_437_46ca2862_56a4f834",
+  "policy_sha1": "4afd943b",
+  "requirements": [
+    {
+      "text": "Expand the portfolio by introducing complementary, production-ready offerings for mobile email access ... each owned by the appropriate service owner and classified as business-critical technology services",
+      "kind": "create",
+      "table": "service_offering",
+      "selector": "LOWER(name) = 'mobile email access'",
+      "cells": {
+        "business_service": "SVC_001",
+        "owned_by": "USER_004",
+        "used_for": "production",
+        "status": "ready",
+        "service_classification": "technology-management",
+        "business_criticality": "critical"
+      },
+      "sql": "SELECT COUNT(*) FROM service_offering WHERE LOWER(name) = 'mobile email access' AND business_service = 'SVC_001' AND owned_by = 'USER_004' AND used_for = 'production' AND status = 'ready' AND service_classification = 'technology-management' AND business_criticality = 'critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_mobile_email_access_offering_created",
+      "seed_count": 0,
+      "assumptions": [
+        "three offerings are created in one table and the request fixes no order, so each is selected by its name (case-insensitive), not by id",
+        "name taken from the request's phrase 'mobile email access', matched case-insensitively as the benchmark check does",
+        "'production-ready' read as used_for = production and status = ready, as the benchmark check does",
+        "'business-critical technology services' read as business_criticality = critical and service_classification = technology-management (values the seed's offerings use)",
+        "business_service = SVC_001 implied by the request, not stated: the email service catalog is Enterprise Email (SVC_001), the only email service in the seed",
+        "'the appropriate service owner' is Enterprise Email's owner USER_004 (Joanne Simpson, manager, active), who also owns its two existing offerings SVCOFF_001 and SVCOFF_018"
+      ]
+    },
+    {
+      "text": "Expand the portfolio by introducing complementary, production-ready offerings for ... email archiving and compliance ... each owned by the appropriate service owner and classified as business-critical technology services",
+      "kind": "create",
+      "table": "service_offering",
+      "selector": "LOWER(name) = 'email archiving and compliance'",
+      "cells": {
+        "business_service": "SVC_001",
+        "owned_by": "USER_004",
+        "used_for": "production",
+        "status": "ready",
+        "service_classification": "technology-management",
+        "business_criticality": "critical"
+      },
+      "sql": "SELECT COUNT(*) FROM service_offering WHERE LOWER(name) = 'email archiving and compliance' AND business_service = 'SVC_001' AND owned_by = 'USER_004' AND used_for = 'production' AND status = 'ready' AND service_classification = 'technology-management' AND business_criticality = 'critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_email_archiving_offering_created",
+      "seed_count": 0,
+      "assumptions": [
+        "three offerings are created in one table and the request fixes no order, so each is selected by its name (case-insensitive), not by id",
+        "name taken from the request's phrase 'email archiving and compliance', matched case-insensitively as the benchmark check does",
+        "'production-ready' read as used_for = production and status = ready, as the benchmark check does",
+        "'business-critical technology services' read as business_criticality = critical and service_classification = technology-management (values the seed's offerings use)",
+        "business_service = SVC_001 and owned_by = USER_004 as for the mobile email access offering"
+      ]
+    },
+    {
+      "text": "Expand the portfolio by introducing complementary, production-ready offerings for ... advanced email security ... each owned by the appropriate service owner and classified as business-critical technology services",
+      "kind": "create",
+      "table": "service_offering",
+      "selector": "LOWER(name) = 'advanced email security'",
+      "cells": {
+        "business_service": "SVC_001",
+        "owned_by": "USER_004",
+        "used_for": "production",
+        "status": "ready",
+        "service_classification": "technology-management",
+        "business_criticality": "critical"
+      },
+      "sql": "SELECT COUNT(*) FROM service_offering WHERE LOWER(name) = 'advanced email security' AND business_service = 'SVC_001' AND owned_by = 'USER_004' AND used_for = 'production' AND status = 'ready' AND service_classification = 'technology-management' AND business_criticality = 'critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_email_security_offering_created",
+      "seed_count": 0,
+      "assumptions": [
+        "three offerings are created in one table and the request fixes no order, so each is selected by its name (case-insensitive), not by id",
+        "name taken from the request's phrase 'advanced email security', matched case-insensitively as the benchmark check does",
+        "'production-ready' read as used_for = production and status = ready, as the benchmark check does",
+        "'business-critical technology services' read as business_criticality = critical and service_classification = technology-management (values the seed's offerings use)",
+        "business_service = SVC_001 and owned_by = USER_004 as for the mobile email access offering"
+      ]
+    },
+    {
+      "text": "Update the Outlook Not Syncing incident template to ensure it is correctly associated with the correct Service",
+      "kind": "change",
+      "table": "incident_template",
+      "anchor": {
+        "incident_template_id": "TMPL_004"
+      },
+      "cells": {
+        "service": "SVC_001"
+      },
+      "sql": "SELECT COUNT(*) FROM incident_template WHERE incident_template_id = 'TMPL_004' AND service = 'SVC_001'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_outlook_template_service_updated",
+      "seed_count": 1,
+      "assumptions": [
+        "the Outlook Not Syncing template is TMPL_004, the only template of that name",
+        "'the correct Service' is Enterprise Email (SVC_001), the service of the email catalog and of the Mobile Email Access offering",
+        "weak: TMPL_004 already has service = SVC_001 on the seed, so this holds before the agent acts; the requirement is that the template keeps its correct service"
+      ]
+    },
+    {
+      "text": "Update the Outlook Not Syncing incident template to ensure it is correctly associated with ... the Mobile Email Access offering for accurate categorization",
+      "kind": "change",
+      "table": "incident_template",
+      "anchor": {
+        "incident_template_id": "TMPL_004"
+      },
+      "cells": {
+        "service_offering": "IN (SELECT service_offering_id FROM service_offering WHERE LOWER(name) = 'mobile email access')"
+      },
+      "sql": "SELECT COUNT(*) FROM incident_template WHERE incident_template_id = 'TMPL_004' AND service_offering IN (SELECT service_offering_id FROM service_offering WHERE LOWER(name) = 'mobile email access')",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_outlook_template_service_offering_updated",
+      "seed_count": 0,
+      "assumptions": [
+        "the Mobile Email Access offering is created in this task among three in no fixed order, so its id is resolved by name in a subquery rather than assumed from the sequence",
+        "on the seed TMPL_004 points at SVCOFF_018 (Email - Silver); the request replaces that with the new offering",
+        "the Outlook Not Syncing template is TMPL_004, the only template of that name"
+      ]
+    }
+  ],
+  "original_checks": {
+    "verify_mobile_email_access_offering_created": {
+      "disposition": "kept"
+    },
+    "verify_email_archiving_offering_created": {
+      "disposition": "kept"
+    },
+    "verify_email_security_offering_created": {
+      "disposition": "kept"
+    },
+    "verify_outlook_template_service_updated": {
+      "disposition": "weak",
+      "evidence": "TMPL_004 already has service = SVC_001 (Enterprise Email) on the seed, so the check counts 1 before the agent acts; carried as a weak change requirement"
+    },
+    "verify_outlook_template_service_offering_updated": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Both passes agree on every requirement, cell, value and disposition: the three offerings selected by name (SVC_001, owner USER_004, production, ready, technology-management, critical), TMPL_004's service (weak, already SVC_001) and its new Mobile Email Access offering, four checks kept and one weak; there is no disagreement to record.\nThe three offering requirements add business_service = SVC_001 and owned_by = USER_004 to the benchmark's checks: the request is about the email service catalog (Enterprise Email is the only email service) and names 'the appropriate service owner' (its owner USER_004). The policy has no rule on service offerings, so every value comes from the request's words and the values the seed's offerings use.\nThe first sentence (assess all existing service offerings) is read-only and gives no requirement. No stay is written: the selectors are exact names and a single template id, and no listed tool updates or retires an existing offering. The acting user Karen Watkins (USER_039) has the admin role, with full access under policy section 2.",
+  "minutes": 24
+}

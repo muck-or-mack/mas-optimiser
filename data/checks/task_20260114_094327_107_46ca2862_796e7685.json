@@ -1,0 +1,93 @@
+{
+  "task_id": "task_20260114_094327_107_46ca2862_796e7685",
+  "policy_sha1": "9aa56c2a",
+  "requirements": [
+    {
+      "text": "The configuration item SAP-DB-01 (Oracle Database) with serial number SRV-ORC-9981 has an incorrect cost recorded and needs to be updated to $1,550",
+      "kind": "change",
+      "table": "configuration_item",
+      "anchor": {"configuration_item_id": "CI_001"},
+      "cells": {"serial_number": "SRV-ORC-9981", "cost": 1550},
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE configuration_item_id = 'CI_001' AND serial_number = 'SRV-ORC-9981' AND cost = 1550",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "CI cost updated",
+      "seed_count": 0,
+      "assumptions": [
+        "serial SRV-ORC-9981 resolves to CI_001 (SAP-DB-01, owner USER_001, in_use, seed cost 15000); no other CI has an SRV-ORC serial",
+        "$1,550 is stored as the number 1550 in the NUMERIC cost column"
+      ]
+    },
+    {
+      "text": "create a new medium impact and medium urgency child incident linked to the existing SAP database unreachable incident ... created under same owner as the CI",
+      "kind": "create",
+      "table": "incident",
+      "anchor": {"incident_id": "INC_101"},
+      "cells": {
+        "parent_incident": "INC_001",
+        "caller_id": "USER_001",
+        "configuration_item": "CI_001",
+        "impact": "medium",
+        "urgency": "medium",
+        "priority": "moderate",
+        "status": "new"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_101' AND parent_incident = 'INC_001' AND caller_id = 'USER_001' AND configuration_item = 'CI_001' AND impact = 'medium' AND urgency = 'medium' AND priority = 'moderate' AND status = 'new'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "New child incident is created and linked to the parent",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (INC_101 after INC_100); the only incident the task creates, so anchored by id where the benchmark check selects by cells only",
+        "the existing SAP database unreachable incident is INC_001 ('MAJOR:SAP Database Unreachable', in_progress, CI_001, caller USER_001)",
+        "'under same owner as the CI' read as caller_id = the CI's owner_id USER_001 (Thomas Green), as the benchmark check tests",
+        "priority moderate from the policy matrix: impact medium x urgency medium",
+        "status new is the policy's default for a new incident",
+        "configuration_item CI_001 kept from the benchmark check; implied by 'related to the same database' and allowed by policy 5.1 (CI in_use)",
+        "channel, category and short_description are not fixed by request or policy and are not tested"
+      ]
+    },
+    {
+      "text": "child incident linked to the existing SAP database unreachable incident",
+      "kind": "create",
+      "table": "child_incident",
+      "selector": "parent_incident = 'INC_001' AND child_incident = 'INC_101'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM child_incident WHERE parent_incident = 'INC_001' AND child_incident = 'INC_101'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "the seed records every parent-child link twice, in incident.parent_incident and as a child_incident row (all three existing children of INC_001 have both: CINC_001 to CINC_003), so the link is expected in both places",
+        "selected by natural key (parent and child); the mapping id would be the next in sequence (CINC_007) but is not tested",
+        "no tool writes this table: the row is expected from the server when the incident is created with a parent",
+        "disagreement: cells: A repeats the selector's parent_incident and child_incident as cells, B leaves cells empty; chose empty because the selector already fixes both columns with the same condition"
+      ]
+    },
+    {
+      "text": "make sure the owner is active and if it's not active then please active the owner",
+      "kind": "change",
+      "table": "users",
+      "anchor": {"user_id": "USER_001"},
+      "cells": {"active": 1},
+      "sql": "SELECT COUNT(*) FROM users WHERE user_id = 'USER_001' AND active = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "User is now active",
+      "seed_count": 0,
+      "assumptions": [
+        "the CI's owner USER_001 (Thomas Green, agent) is inactive on the seed (active = 0), so the activation is required, not optional",
+        "policy 8.1 requires the user to be active before the incident is created under them; a final-state check cannot test the order, and the final state is the same either way",
+        "disagreement: active: A 1, B true; chose 1 because the seed stores the BOOLEAN column as 1/0 (USER_001 reads 0) and SQLite reads the benchmark's true as 1, so the count is the same"
+      ]
+    }
+  ],
+  "original_checks": {
+    "CI cost updated": {"disposition": "kept"},
+    "New child incident is created and linked to the parent": {"disposition": "kept"},
+    "User is now active": {"disposition": "kept"}
+  },
+  "notes": "Merged from two passes that agree on every requirement (CI_001's cost to 1550, child incident INC_101 under INC_001 with caller USER_001, CI_001, medium/medium, moderate, new; the child_incident link row; USER_001 activated) and on all three dispositions (kept). disagreement: cells of the child_incident link: one pass repeats the selector's two columns as cells, the other leaves cells empty; chose empty because the selector already fixes them (logged in the requirement). disagreement: form of the users.active cell: one pass writes 1, the other the JSON boolean true; chose 1, the seed's storage of the BOOLEAN column (logged in the requirement). disagreement: text of the child-incident requirement: one pass quotes the request's sentences in full, the other elides the middle; kept the shorter quotation, still in the request's words. Acting user USER_039 (Karen Watkins) is an active admin, which the policy grants full CRUD on all tables. The child_incident requirement is the one judgement call: the request says 'linked' and the seed keeps every link in both the incident column and the mapping table, but no listed tool writes child_incident, so the row depends on create_incident maintaining it server-side; drop that requirement if it does not.",
+  "minutes": 24
+}

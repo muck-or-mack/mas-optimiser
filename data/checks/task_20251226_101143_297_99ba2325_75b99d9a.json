@@ -1,0 +1,120 @@
+{
+ "task_id": "task_20251226_101143_297_99ba2325_75b99d9a",
+ "policy_sha1": "f10443ca",
+ "requirements": [
+  {
+   "text": "Sara Clark emailed to request an update to her phone number (+16187361053)",
+   "kind": "change",
+   "table": "user",
+   "anchor": {
+    "user_id": 50
+   },
+   "cells": {
+    "phone": "+16187361053"
+   },
+   "sql": "SELECT COUNT(*) FROM user WHERE user_id = 50 AND phone = '+16187361053'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify User Profile",
+   "seed_count": 0,
+   "assumptions": [
+    "Sara Clark is user 50, the only user of that name",
+    "phone is stored on the user row; hr_profile has no phone column"
+   ]
+  },
+  {
+   "text": "her personal email be reviewed and updated to saraclark031@gm.com if it is not already reflected in our records",
+   "kind": "change",
+   "table": "hr_profile",
+   "anchor": {
+    "hr_profile_id": 50
+   },
+   "cells": {
+    "personal_email": "saraclark031@gm.com"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_profile WHERE hr_profile_id = 50 AND personal_email = 'saraclark031@gm.com'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify HR Profile",
+   "seed_count": 0,
+   "assumptions": [
+    "Sara Clark's HR profile is hr_profile 50 (user_id 50); its personal_email differs from the requested address on the seed, so the update is required"
+   ]
+  },
+  {
+   "text": "she raised an issue related to the Payroll Discrepancy service ... Please go ahead and create the case with detail as \"Payroll Discrepancy Investigation Required\"",
+   "kind": "create",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 61
+   },
+   "cells": {
+    "hr_service": 14,
+    "opened_for": 50,
+    "status": "draft",
+    "priority": "moderate",
+    "coe_type": "Payroll",
+    "source": "email",
+    "short_description": "Service: Payroll Discrepancy, Subject: Sara Clark, Detail: Payroll Discrepancy Investigation Required."
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND hr_service = 14 AND opened_for = 50 AND status = 'draft' AND priority = 'moderate' AND coe_type = 'Payroll' AND source = 'email' AND short_description = 'Service: Payroll Discrepancy, Subject: Sara Clark, Detail: Payroll Discrepancy Investigation Required.'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify Case",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (case 61 after 60)",
+    "Payroll Discrepancy is hr_service 14, active, the only service of that name",
+    "opened_for is Sara Clark (hr_profile 50, which is also user 50)",
+    "status draft is the policy's default for new cases",
+    "priority moderate from 'treated as a moderate priority'; the seed stores moderate although the policy's enum lists medium",
+    "coe_type Payroll from 'falls under the Payroll COE'",
+    "source email from 'Sara Clark emailed'",
+    "short_description follows the policy template 'Service: , Subject: , Detail: .' including its closing full stop (102 characters, within 30 to 120)"
+   ]
+  },
+  {
+   "text": "Send an alert to Sara about the case.",
+   "kind": "create",
+   "table": "notification",
+   "anchor": {
+    "notification_id": 61
+   },
+   "cells": {
+    "hr_case_id": 61,
+    "email": "sara.clark93@servicenow.com",
+    "type": "alert"
+   },
+   "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 61 AND hr_case_id = 61 AND email = 'sara.clark93@servicenow.com' AND type = 'alert'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify Notification",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (notification 61 after 60); it refers to the new case 61",
+    "type alert from 'Send an alert'",
+    "email kept from the benchmark check; not fixed by request or policy (it is Sara Clark's address on user 50)"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Verify Notification": {
+   "disposition": "kept"
+  },
+  "Verify Case": {
+   "disposition": "kept"
+  },
+  "Verify HR Profile": {
+   "disposition": "kept"
+  },
+  "Verify User Profile": {
+   "disposition": "kept"
+  },
+  "Verify Case (2)": {
+   "disposition": "excluded",
+   "evidence": "a copy of 'Verify Case' differing only in a short_description without the closing full stop; the policy's case short-description template 'Service: , Subject: , Detail: .' ends with a full stop, so the two cannot both hold and the policy supports 'Verify Case'"
+  }
+ },
+ "notes": "The two passes agree on every requirement, id, cell and disposition (four kept, one excluded); their texts and assumptions differ in wording only.\n'Someone with expertise in HR Benefits and Payroll' points to skills 9 (HR Benefits) and 15 (Payroll) on the case's skills column, but that JSON column is null on every seed case, so its storage format is not shown and the cell is left out as untestable. No listed tool assigns a user by skill, and several users hold both skills, so no assigned_to is required.\nThe notification address is the most open cell: every seed notification is addressed to the case subject's hr_profile personal_email, whereas the benchmark check expects Sara Clark's work address sara.clark93@servicenow.com. The request names no address, so the benchmark's value is kept, but an alert sent to her new personal address saraclark031@gm.com would also meet the request's words and fails that cell.\nopened_by is not a cell: the policy calls it the requester, which could be Sara Clark (who emailed) or the acting user Karen Watkins, and the benchmark does not test it.\nThe policy says profile fields other than address and phone need an HR case or an approved hr_approval to change; the request asks for the personal email update directly and the benchmark expects it, so the update is required and the policy point is recorded only.",
+ "minutes": 32
+}

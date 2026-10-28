@@ -1,0 +1,97 @@
+{
+  "task_id": "task_20251226_121423_362_c4ad7a70_4be55408",
+  "policy_sha1": "c931a7b2",
+  "requirements": [
+    {
+      "text": "please open a case under Leave Of Absence service",
+      "kind": "create",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 61
+      },
+      "cells": {
+        "hr_service": 6,
+        "opened_for": 92,
+        "priority": "moderate",
+        "source": "email",
+        "status": "ready",
+        "coe_type": "Total Rewards",
+        "short_description": "LIKE '%Service: Leave Of Absence, Subject: Albert Rodriguez, Detail%'"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND hr_service = 6 AND opened_for = 92 AND priority = 'moderate' AND source = 'email' AND status = 'ready' AND coe_type = 'Total Rewards' AND short_description LIKE '%Service: Leave Of Absence, Subject: Albert Rodriguez, Detail%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Case Created",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (hr_case 60 is the highest)",
+        "Leave Of Absence is hr_service 6, active",
+        "opened_for is Albert Rodriguez's profile 92 (user 92)",
+        "source is email: the request came in by email from Albert Rodriguez; the policy gives no default source",
+        "priority not stated; the policy's default is moderate ('emergency' names no priority)",
+        "status not stated; the policy's default for a new case is ready",
+        "coe_type Total Rewards follows the service's topic detail 18 (Leave of Absence) under topic category 3 (Benefits), whose coe_type is Total Rewards; also tested by the benchmark check",
+        "short description follows the policy's template 'Service: ..., Subject: ..., Detail: ...'; the slots (service name, employee name) are kept from the benchmark check, as the template does not say what fills them"
+      ]
+    },
+    {
+      "text": "If there is a relevant knowledge article available, please link it to the case as suggested.",
+      "kind": "create",
+      "table": "hr_case_knowledge",
+      "anchor": {
+        "hr_case_kb_id": 13
+      },
+      "cells": {
+        "hr_case_id": 61,
+        "knowledge_id": 3,
+        "used_as": "suggested"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case_knowledge WHERE hr_case_kb_id = 13 AND hr_case_id = 61 AND knowledge_id = 3 AND used_as = 'suggested'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Knowledge Linked",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (hr_case_kb_id 12 is the highest)",
+        "the relevant article is Leave of Absence Policy (knowledge 3, published, internal; the acting user is a manager and may see internal articles)"
+      ]
+    },
+    {
+      "text": "please open a case under Leave Of Absence service",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": 61
+      },
+      "cells": {
+        "hr_case_id": 61,
+        "email": "albert.rodriguez95@servicenow.com",
+        "type": "update",
+        "status": "ready"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 61 AND hr_case_id = 61 AND email = 'albert.rodriguez95@servicenow.com' AND type = 'update' AND status = 'ready'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Notification Sent",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (notification 60 is the highest); the only notification the task creates",
+        "policy: registering a case sends an update notification to the employee it is opened for, with the current case status (ready)",
+        "recipient address albert.rodriguez95@servicenow.com (his user email) kept from the benchmark check; not fixed by request or policy"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Case Created": {
+      "disposition": "kept"
+    },
+    "Knowledge Linked": {
+      "disposition": "kept"
+    },
+    "Notification Sent": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "The request says the leave affects time off; the policy moves a case needing authorisation to awaiting_approval, but no listed tool changes a case's status and the request asks only to open the case, so the policy's default status ready is required.\nBenefits Overview (knowledge 1) touches the request's mention of benefits but covers health plans, not leave; linking it as well is neither required nor forbidden.\nopened_by is not tested: the requester could be read as Albert Rodriguez (who asked for leave) or Robin Monroe (who relays the email), and nothing decides it.\nEvery seed notification (60 of 60) is addressed to the case subject's personal email, so Albert Rodriguez's personal address (albert.rodriguez.92@personal.example.com) is a plausible alternative recipient; the work address is kept because the benchmark tests it and the only user lookup available returns the user record.\nThe policy's 30-120 character limit on short descriptions is a format rule the benchmark does not test and is left out beyond the column's own length. The case's org_id and assignment are not fixed by the request.",
+  "minutes": 22
+}

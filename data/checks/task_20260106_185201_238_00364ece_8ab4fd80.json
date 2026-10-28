@@ -1,0 +1,141 @@
+{
+ "task_id": "task_20260106_185201_238_00364ece_8ab4fd80",
+ "policy_sha1": "38269939",
+ "requirements": [
+  {
+   "text": "an email from Marc Henry ... issues with the product SUSE Linux Enterprise Server 15 Variant 5 ... Have Tabitha Bullock look into this new case with high priority. Also, assign the Proactive Case Monitoring group to investigate this issue.",
+   "kind": "create",
+   "table": "customer_case",
+   "anchor": {
+    "case_id": 1233
+   },
+   "cells": {
+    "account_id": 8,
+    "contact_id": 10,
+    "product_id": 25,
+    "channel": "email",
+    "priority": "high",
+    "state": "new",
+    "assignment_group_id": 11,
+    "assigned_to": 3
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1233 AND account_id = 8 AND contact_id = 10 AND product_id = 25 AND channel = 'email' AND priority = 'high' AND state = 'new' AND assignment_group_id = 11 AND assigned_to = 3",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Validating whether the new high-priority case has been created. ",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (case_id 1233 after 1232)",
+    "Marc Henry is user 20, contact 10 of account 8 (Stark Industries); account 8 is the contact's account",
+    "SUSE Linux Enterprise Server 15 Variant 5 is product 25 (active; account 8 holds active entitlements for it)",
+    "channel email because the issue came in an email from Marc Henry",
+    "state new from 'this new case' and the policy's default state; no tool in this task updates a case",
+    "Tabitha Bullock is user 3 (active agent); Proactive Case Monitoring is group 11, not its _2, _3 or _4 namesakes",
+    "the installed product is not required: the policy asks for the product or the installed product, and the product is fixed"
+   ]
+  },
+  {
+   "text": "assign the Proactive Case Monitoring group to investigate this issue",
+   "kind": "create",
+   "table": "user_group_member",
+   "anchor": {
+    "member_id": 960
+   },
+   "cells": {
+    "group_id": 11,
+    "user_id": 3
+   },
+   "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 960 AND group_id = 11 AND user_id = 3",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Validating assignment policy. ",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (member_id 960 after 959)",
+    "implied by the request, not stated: the policy requires the assignee to be a member of the case's assignment group; Tabitha Bullock belongs only to group 67 on the seed"
+   ]
+  },
+  {
+   "text": "report the customer referencing the appropriate knowledge article",
+   "kind": "create",
+   "table": "notification",
+   "anchor": {
+    "notification_id": 734
+   },
+   "cells": {
+    "case_id": 1233,
+    "email": "marc.henry@stark-industries.com",
+    "type": "report",
+    "status": "success",
+    "knowledge_id": "IS NULL"
+   },
+   "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 734 AND case_id = 1233 AND email = 'marc.henry@stark-industries.com' AND type = 'report' AND status = 'success' AND knowledge_id IS NULL",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Validating report notification. ",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (notification_id 734 after 733)",
+    "type report from 'report the customer'; email is Marc Henry's (user 20)",
+    "status success kept from the benchmark check; not fixed by request or policy",
+    "knowledge_id empty: the appropriate article KB-0000038 is internal, which the policy limits to agents, so it is not sent to the customer",
+    "the benchmark check names the case by its number CS-0001233, the new case 1233; number is server-kept, so the case is named by its id"
+   ]
+  },
+  {
+   "text": "referencing the appropriate knowledge article",
+   "kind": "create",
+   "table": "case_knowledge",
+   "anchor": {
+    "case_kb_id": 528
+   },
+   "cells": {
+    "case_id": 1233,
+    "knowledge_id": 38,
+    "used_as": "suggested"
+   },
+   "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_kb_id = 528 AND case_id = 1233 AND knowledge_id = 38 AND used_as = 'suggested'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (case_kb_id 528 after 527)",
+    "implied by the request, not stated: the policy has a knowledge search run when a new case is to be investigated and a found article linked to the case",
+    "KB-0000038 is the only published article for product 25; the external SLES 15 articles cover the base product, not Variant 5",
+    "used_as suggested: the policy links articles found by search as suggested"
+   ]
+  },
+  {
+   "text": "report the customer referencing the appropriate knowledge article",
+   "kind": "stay",
+   "table": "notification",
+   "selector": "case_id = 1233",
+   "cells": {
+    "knowledge_id": 38
+   },
+   "sql": "SELECT COUNT(*) FROM notification WHERE case_id = 1233 AND knowledge_id = 38",
+   "expected": 0,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 0,
+   "assumptions": [
+    "forbidden by the policy: the policy limits internal articles to agents and KB-0000038 is internal, so no notification on the case may carry it to the customer",
+    "disagreement: form: one pass selects the case's notifications and tests knowledge_id = 38 as a cell, the other puts knowledge_id = 38 in the selector with no cells; the same SQL, kept the cell form because the article is what the stay tests"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Validating whether the new high-priority case has been created. ": {
+   "disposition": "kept"
+  },
+  "Validating assignment policy. ": {
+   "disposition": "kept"
+  },
+  "Validating report notification. ": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "The request asks for the report to reference the appropriate article, but that article (KB-0000038) is internal and the recipient is a customer; the policy's visibility rule decides, so the article is linked to the case and the notification goes without it, as the benchmark's notification check expects. The knowledge link has no benchmark check.\nThe installed product (40, account 8's in-use install of product 25) is not stated by the request and is left untested.\nThe short description follows the policy's template ('Product: ..., Issue: is not working as expected.'), which no benchmark check tests, so it is not a cell.\ndisagreement: form of the stay that no notification on the new case carries article 38: one pass tests knowledge_id = 38 as a cell on the case's notifications, the other puts it in the selector; the SQL is the same; kept the cell form.",
+ "minutes": 28
+}

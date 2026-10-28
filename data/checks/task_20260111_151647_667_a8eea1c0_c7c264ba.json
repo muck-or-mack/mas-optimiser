@@ -1,0 +1,229 @@
+{
+ "task_id": "task_20260111_151647_667_a8eea1c0_c7c264ba",
+ "policy_sha1": "b2da3f42",
+ "requirements": [
+  {
+   "text": "I need it set to moderate priority and handled by Anne Medina",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 10
+   },
+   "cells": {
+    "priority": "moderate",
+    "assigned_to": 29,
+    "assignment_group": 4,
+    "status": "draft"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 10 AND priority = 'moderate' AND assigned_to = 29 AND assignment_group = 4 AND status = 'draft'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_case_update_hrc0000720",
+    "combined_comprehensive_verifier"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "case HRC0000720 is hr_case 10; its number is fixed by the anchor",
+    "'currently in planning' is the case's seed priority, planning; moderate is the new priority",
+    "Anne Medina is user 29, the only user of that name",
+    "assignment_group 4 (HR Service Desk) implied by the request, not stated: the policy requires the assignee to be an active member of the case's group, Anne Medina is not in the current group 5, and the request adds her to group 4",
+    "status draft kept from the benchmark check; the request asks for no status change and the case is draft on the seed"
+   ]
+  },
+  {
+   "text": "Update the case description for Marc Henry accordingly",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 10
+   },
+   "cells": {
+    "short_description": [
+     "LIKE '%Onboarding%'",
+     "LIKE '%Marc Henry%'",
+     "LIKE '%Visa Compliance%'"
+    ]
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 10 AND short_description LIKE '%Onboarding%' AND short_description LIKE '%Marc Henry%' AND short_description LIKE '%Visa Compliance%'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_case_update_hrc0000720",
+    "combined_comprehensive_verifier"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "the case has no description column; short_description is its description",
+    "the case is opened for HR profile 20, Marc Henry",
+    "the three terms kept from the benchmark check; 'accordingly' ties the text to the onboarding case, its subject and the new skill"
+   ]
+  },
+  {
+   "text": "She needs the Visa Compliance Skill for this",
+   "kind": "create",
+   "table": "skill",
+   "anchor": {
+    "skill_id": 20
+   },
+   "cells": {
+    "name": "Visa Compliance",
+    "active": true,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM skill WHERE skill_id = 20 AND name = 'Visa Compliance' AND active = true AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "visa_compliance_skill_creation",
+    "combined_comprehensive_verifier"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "no skill named Visa Compliance exists on the seed and the request later calls it 'this new skill', so it is created",
+    "id assumed next in sequence (highest skill_id on the seed is 19)",
+    "name 'Visa Compliance' without the word Skill, as every seed skill is named; kept from the benchmark check",
+    "active true kept from the benchmark check; not fixed by request or policy",
+    "org_id 1 kept from the benchmark check; the acting user and every existing skill are in org 1"
+   ]
+  },
+  {
+   "text": "She needs the Visa Compliance Skill for this",
+   "kind": "create",
+   "table": "user_skill",
+   "anchor": {
+    "user_skill_id": 336
+   },
+   "cells": {
+    "skill": 20,
+    "user": 29,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM user_skill WHERE user_skill_id = 336 AND skill = 20 AND user = 29 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "anne_medina_skill_assignment",
+    "combined_comprehensive_verifier"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "Anne Medina is user 29, the only user of that name",
+    "id assumed next in sequence (highest user_skill_id on the seed is 335)",
+    "skill 20 is the new Visa Compliance skill's assumed id",
+    "org_id 1 kept from the benchmark check; Anne Medina is in org 1"
+   ]
+  },
+  {
+   "text": "make sure she's a member of the HR Service Desk Group",
+   "kind": "create",
+   "table": "user_group_member",
+   "anchor": {
+    "member_id": 44
+   },
+   "cells": {
+    "group_id": 4,
+    "user_id": 29,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 44 AND group_id = 4 AND user_id = 29 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_service_desk_group_membership",
+    "combined_comprehensive_verifier"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "HR Service Desk is group 4; on the seed Anne Medina belongs only to group 7, so a membership is created",
+    "id assumed next in sequence (highest member_id on the seed is 43)",
+    "org_id 1 kept from the benchmark check; the group and the user are in org 1"
+   ]
+  },
+  {
+   "text": "create a Moderate Onboarding Visa Routing assignment rule that directs moderate priority cases requiring this new skill to that same group",
+   "kind": "create",
+   "table": "assignment_rules",
+   "anchor": {
+    "assignment_rule_id": 9
+   },
+   "cells": {
+    "name": "Moderate Onboarding Visa Routing",
+    "based_on_priority": "moderate",
+    "based_on_skills": "LIKE '%Visa Compliance%'",
+    "user_group": 4,
+    "active": true,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM assignment_rules WHERE assignment_rule_id = 9 AND name = 'Moderate Onboarding Visa Routing' AND based_on_priority = 'moderate' AND based_on_skills LIKE '%Visa Compliance%' AND user_group = 4 AND active = true AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "moderate_onboarding_visa_assignment_rule_creation",
+    "combined_comprehensive_verifier"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (highest assignment_rule_id on the seed is 8)",
+    "'that same group' is HR Service Desk, group 4",
+    "based_on_skills added: the rule routes cases requiring the new skill, and every seed rule stores its skills as a JSON list of skill names, so the name must appear in it",
+    "active true kept from the benchmark check; a rule meant to route future cases must be active",
+    "org_id 1 kept from the benchmark check; every existing rule and the group are in org 1",
+    "based_on_country not fixed by request or policy, so not tested"
+   ]
+  },
+  {
+   "text": "ensure the draft notification for this case is ready for the next outgoing batch",
+   "kind": "change",
+   "table": "notification",
+   "anchor": {
+    "notification_id": 10
+   },
+   "cells": {
+    "hr_case_id": 10,
+    "email": "marc.henry.20@personal.example.com",
+    "type": "report",
+    "status": "ready",
+    "org_id": 10
+   },
+   "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 10 AND hr_case_id = 10 AND email = 'marc.henry.20@personal.example.com' AND type = 'report' AND status = 'ready' AND org_id = 10",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "notification_status_update_verifier",
+    "combined_comprehensive_verifier"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "notification 10 is the only notification for case 10 and is draft on the seed",
+    "'ready for the next outgoing batch' read as status ready, a status other notifications hold on the seed",
+    "hr_case_id, email, type and org_id are the row's seed values, kept from the benchmark check; the request does not change them"
+   ]
+  }
+ ],
+ "original_checks": {
+  "visa_compliance_skill_creation": {
+   "disposition": "kept"
+  },
+  "anne_medina_skill_assignment": {
+   "disposition": "kept"
+  },
+  "hr_service_desk_group_membership": {
+   "disposition": "kept"
+  },
+  "moderate_onboarding_visa_assignment_rule_creation": {
+   "disposition": "kept"
+  },
+  "hr_case_update_hrc0000720": {
+   "disposition": "kept"
+  },
+  "notification_status_update_verifier": {
+   "disposition": "kept"
+  },
+  "combined_comprehensive_verifier": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "The two passes agree on every row, id, cell and disposition (all seven checks kept); their assumptions differ in wording only. One carried the case's priority and assignee and its description in one requirement, the other in two; the request asks for them in separate sentences, so they are two requirements here, and both carry the benchmark's case check and the combined check.\nThe case check's number predicate is dropped because the anchor hr_case_id 10 names the same row. The combined check is a conjunction of the six other checks and is carried jointly by every requirement. The acting user, Joanne Simpson, holds the manager role; the policy says managers cannot modify system configuration and lists assignment rules among the administrator's tables, so creating the skill and the rule could be refused under a strict reading. The file follows the request and the benchmark, which both expect every step done; a strict reading would turn the skill and assignment-rule requirements into stays. The case's skills column (JSON) is null on every seed case, so its storage format is not shown and no cell is written for it, although the request implies the case needs the Visa Compliance skill. The policy's short-description format (Service, Subject, Detail) and its 30-120 character limit are not tested by the benchmark and are left out. The case and its notification belong to org 10, while Anne Medina, HR Service Desk, the skill and the rule are in org 1; the benchmark's checks accept this and so do these requirements. No stay requirement: the request forbids nothing and selects no set of rows by description.",
+ "minutes": 34
+}

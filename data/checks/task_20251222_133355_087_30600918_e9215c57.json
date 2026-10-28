@@ -1,0 +1,169 @@
+{
+  "task_id": "task_20251222_133355_087_30600918_e9215c57",
+  "policy_sha1": "69ddd920",
+  "requirements": [
+    {
+      "text": "Cheryl Osborne called us ... unable to connect to the internet ... raise a critical priority incident. Kindly log that",
+      "kind": "create",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_101"
+      },
+      "cells": {
+        "caller_id": "USER_049",
+        "channel": "phone",
+        "status": "new",
+        "priority": "critical",
+        "impact": "high",
+        "urgency": "high"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_101' AND caller_id = 'USER_049' AND channel = 'phone' AND status = 'new' AND priority = 'critical' AND impact = 'high' AND urgency = 'high'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Incident ",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (INC_101 after INC_100)",
+        "caller resolved from the seed: Cheryl Osborne is USER_049 (cheryl.osborne@servicenow.com, active, manager role, ORG_001), the only user with that name; the request treats her as the affected user",
+        "channel phone because she 'called us'; the policy's chat default applies only when no channel is given",
+        "status new is the policy's default state for a new incident (the column is status in this schema)",
+        "priority critical is stated; impact high and urgency high are the only pair in the policy's Impact x Urgency matrix that gives critical",
+        "short_description is mandatory but free text; category and org_id are not fixed by the request or policy; none is tested"
+      ]
+    },
+    {
+      "text": "raise a critical priority incident (policy: every incident created should have an SLA tagged based on priority)",
+      "kind": "create",
+      "table": "incident_sla",
+      "selector": "incident_id = 'INC_101' AND sla_def_id = 'SLA_001'",
+      "cells": {
+        "stage": "in_progress"
+      },
+      "sql": "SELECT COUNT(*) FROM incident_sla WHERE incident_id = 'INC_101' AND sla_def_id = 'SLA_001' AND stage = 'in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify SLA",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by the policy (section 6), not stated in the request",
+        "SLA_001 is the seed's active response SLA with applies_to_priority = critical ('Priority 1 - Response', ORG_001)",
+        "stage in_progress kept from the benchmark check; the policy says the SLA starts when the priority is tagged",
+        "two SLA rows are created in this table, so the row is selected by its natural key (incident, definition), not by id"
+      ]
+    },
+    {
+      "text": "raise a critical priority incident (policy: every incident created should have an SLA tagged based on priority)",
+      "kind": "create",
+      "table": "incident_sla",
+      "selector": "incident_id = 'INC_101' AND sla_def_id = 'SLA_002'",
+      "cells": {
+        "stage": "in_progress"
+      },
+      "sql": "SELECT COUNT(*) FROM incident_sla WHERE incident_id = 'INC_101' AND sla_def_id = 'SLA_002' AND stage = 'in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify SLA",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by the policy (section 6), not stated in the request",
+        "SLA_002 is the seed's active resolution SLA with applies_to_priority = critical ('Priority 1 - Resolution', ORG_001); the policy tracks both response and resolution metrics",
+        "stage in_progress kept from the benchmark check; the policy says the SLA starts when the priority is tagged",
+        "two SLA rows are created in this table, so the row is selected by its natural key (incident, definition), not by id"
+      ]
+    },
+    {
+      "text": "SLA tagged based on priority (boundary: no SLA for another priority)",
+      "kind": "stay",
+      "table": "incident_sla",
+      "selector": "incident_id = 'INC_101' AND sla_def_id NOT IN ('SLA_001', 'SLA_002')",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM incident_sla WHERE incident_id = 'INC_101' AND sla_def_id NOT IN ('SLA_001', 'SLA_002')",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of 'based on priority': the seed's six other definitions apply to high, moderate and low priority, and a loose 'link the SLAs' would sweep them in"
+      ]
+    },
+    {
+      "text": "provide a relevant knowledge article to be used as resolution to the issue",
+      "kind": "create",
+      "table": "incident_knowledge",
+      "anchor": {
+        "incident_kb_id": "IKB_046"
+      },
+      "cells": {
+        "incident_id": "INC_101",
+        "knowledge_id": "KB_017",
+        "used_as": "suggested"
+      },
+      "sql": "SELECT COUNT(*) FROM incident_knowledge WHERE incident_id = 'INC_101' AND knowledge_id = 'KB_017' AND incident_kb_id = 'IKB_046' AND used_as = 'suggested'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify KB Tag",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (IKB_046 after IKB_045); the request asks for one article, so one link",
+        "KB_017 'Guest WiFi Access' (published, external) is the seed's only article on guest internet access (she 'tried connecting as a guest')",
+        "used_as suggested kept from the benchmark check: policy section 7 links articles found at incident creation as suggested and reserves resolution for an article that resolves the incident, which stays new here; 'to be used as resolution' is read as the article's purpose",
+        "disagreement: used_as: A suggested, B resolution; chose suggested because the benchmark's check is the prior and the request's phrase does not plainly contradict it: the incident is logged, not resolved, and policy 7 ties the resolution type to resolving the incident"
+      ]
+    },
+    {
+      "text": "provide a relevant knowledge article (boundary: not the near-match article)",
+      "kind": "stay",
+      "table": "incident_knowledge",
+      "selector": "incident_id = 'INC_101' AND knowledge_id = 'KB_018'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM incident_knowledge WHERE incident_id = 'INC_101' AND knowledge_id = 'KB_018'",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "KB_018 'Slow Internet in Building B' is the only other article a loose search for 'internet' returns; it is a known-issue note about speed, not a resolution for a failure to connect, and the request asks for one article"
+      ]
+    },
+    {
+      "text": "also procced notifying the caller",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": "NOTIF_031"
+      },
+      "cells": {
+        "incident_id": "INC_101",
+        "email": "cheryl.osborne@servicenow.com",
+        "type": "update"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 'NOTIF_031' AND incident_id = 'INC_101' AND email = 'cheryl.osborne@servicenow.com' AND type = 'update'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Notification",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (NOTIF_031 after NOTIF_030); the only notification the task creates, so anchored by id",
+        "email is the caller's seed email (USER_049), added because the request names the caller as the recipient",
+        "type update kept from the benchmark check; not fixed by request or policy (the policy's default 'other' applies only when no type is given)"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify KB Tag": {
+      "disposition": "kept"
+    },
+    "Verify Notification": {
+      "disposition": "kept"
+    },
+    "Verify Incident ": {
+      "disposition": "kept"
+    },
+    "Verify SLA": {
+      "disposition": "repaired",
+      "evidence": "two incident_sla rows are created and the request fixes no order, so TSLA_027 and TSLA_028 cannot be bound to SLA_001 and SLA_002 by sequence position; carried as two requirements selected by (incident_id, sla_def_id) with the same stage and definitions, expected 1 each. The original's AND/OR precedence also lets its second branch match without incident_id = 'INC_101'."
+    }
+  },
+  "notes": "Merged from two passes that agree on every requirement (the incident INC_101, the two SLA rows selected by natural key, the KB_017 link at IKB_046, the notification NOTIF_031, and the two boundary stays) and on three of the four dispositions; the one contested cell is used_as on the knowledge link.\ndisagreement: value: used_as on the KB_017 link: A suggested (benchmark check kept), B resolution (benchmark check repaired from the request's words 'to be used as resolution'); chose suggested because the benchmark's check is the prior, policy section 7 links creation-time search results as suggested and reserves resolution for an article that resolves the incident, and the incident is logged as new, not resolved. A reviewer who reads the request's phrase as the link type rather than the article's purpose changes that one cell and sets 'Verify KB Tag' to repaired.\ndisagreement: disposition: 'Verify KB Tag': A kept, B repaired; kept, following the used_as decision above (same root, not a separate judgement).\ndisagreement: form: the two stay requirements and the SLA assumptions differ in wording only between the passes, with identical sql, expected and seed_count; kept A's wording with B's seed details folded in.\nNo assignment, category or short_description value is fixed by the request or policy, so none is tested. The caller holds the manager role on the seed; the request treats her as the affected user, so she is caller_id.",
+  "minutes": 31
+}

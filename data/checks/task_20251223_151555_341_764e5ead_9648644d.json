@@ -1,0 +1,162 @@
+{
+  "task_id": "task_20251223_151555_341_764e5ead_9648644d",
+  "policy_sha1": "4afd943b",
+  "requirements": [
+    {
+      "text": "ensure the appropriate support group is in place with Robin Monroe designated as the manager",
+      "kind": "create",
+      "table": "user_group",
+      "anchor": {"group_id": "GROUP_009"},
+      "cells": {"name": "Security Operations", "manager_id": "USER_031", "active": 1, "type": "Field Support Technicians", "org_id": "ORG_001"},
+      "sql": "SELECT COUNT(*) FROM user_group WHERE group_id = 'GROUP_009' AND name = 'Security Operations' AND manager_id = 'USER_031' AND active = 1 AND type = 'Field Support Technicians' AND org_id = 'ORG_001'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_security_ops_group_created",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (GROUP_009 after GROUP_008); no group named Security Operations exists on the seed, so 'newly established' means create",
+        "name 'Security Operations' from 'a newly established Security Operations function'",
+        "Robin Monroe is USER_031 on the seed (active manager, ORG_001, LOC_001)",
+        "type Field Support Technicians kept from the benchmark check; not fixed by request or policy, and it is the seed's type for on-site work (GROUP_005 and GROUP_006)",
+        "active = 1 from 'is in place'",
+        "disagreement: org_id: A ORG_001, B not tested; chose ORG_001 because ACME HQ (LOC_001), Robin and every existing group belong to ORG_001 on the seed"
+      ]
+    },
+    {
+      "text": "David Park (david.park@servicenow.com, +1-212-555-0198) is joining the organization as a new agent tomorrow at the ACME headquarters; complete the necessary onboarding setup for David",
+      "kind": "create",
+      "table": "users",
+      "anchor": {"user_id": "USER_101"},
+      "cells": {"first_name": "David", "last_name": "Park", "email": "david.park@servicenow.com", "phone": "+1-212-555-0198", "role": "agent", "active": 1, "location_id": "LOC_001", "org_id": "ORG_001"},
+      "sql": "SELECT COUNT(*) FROM users WHERE user_id = 'USER_101' AND first_name = 'David' AND last_name = 'Park' AND email = 'david.park@servicenow.com' AND phone = '+1-212-555-0198' AND role = 'agent' AND active = 1 AND location_id = 'LOC_001' AND org_id = 'ORG_001'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_david_park_user_created",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (USER_101 after USER_100); no user with this name, email or phone exists on the seed",
+        "ACME headquarters is location LOC_001 'ACME HQ' (Santa Clara), the only ACME location on the seed",
+        "phone in the request's format '+1-212-555-0198', as the benchmark check fixes it; users.phone is unique and no seed user holds it",
+        "role agent from 'as a new agent'; active = 1 because he must be a group member and an owner of hardware from tomorrow",
+        "disagreement: org_id: A ORG_001, B not tested; chose ORG_001 because 'the organization' is the one ACME HQ belongs to (ORG_001, named ServiceNow, matching his servicenow.com address), which is also Robin's and the acting user's"
+      ]
+    },
+    {
+      "text": "will be part of a newly established Security Operations function",
+      "kind": "create",
+      "table": "user_group_member",
+      "anchor": {"member_id": "MEM_029"},
+      "cells": {"group_id": "GROUP_009", "user_id": "USER_101", "org_id": "ORG_001"},
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 'MEM_029' AND group_id = 'GROUP_009' AND user_id = 'USER_101' AND org_id = 'ORG_001'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_david_added_to_security_group",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (MEM_029 after MEM_028); the only membership the request creates",
+        "group and user ids follow the two created rows above",
+        "disagreement: org_id: A ORG_001, B not tested; chose ORG_001 because org_id is part of the membership's unique key and the group, David and all 28 seed memberships are ORG_001"
+      ]
+    },
+    {
+      "text": "Allocate suitable end-user hardware from available inventory at ACME HQ and ensure it is assigned to him",
+      "kind": "change",
+      "table": "configuration_item",
+      "selector": "configuration_item_id IN ('CI_041', 'CI_042')",
+      "cells": {"owner_id": "USER_101", "status": "in_use", "location_id": "LOC_001"},
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE configuration_item_id IN ('CI_041', 'CI_042') AND owner_id = 'USER_101' AND status = 'in_use' AND location_id = 'LOC_001'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_laptop_assigned_from_stock",
+      "seed_count": 0,
+      "assumptions": [
+        "available inventory at ACME HQ is the in_stock CIs at LOC_001: only CI_041 and CI_042 (Spare Agent Laptop 01 and 02, owner USER_031); the request fixes no choice between them, so a selector over both",
+        "expected 1, not 2: 'hardware' for one new agent is one allocation, and assigning both spares over-allocates",
+        "assigned means owner_id = David and status in_use, as the benchmark check reads it; allocation from stock takes the CI out of in_stock",
+        "location_id stays LOC_001, where he works"
+      ]
+    },
+    {
+      "text": "Allocate suitable end-user hardware from available inventory at ACME HQ",
+      "kind": "stay",
+      "table": "configuration_item",
+      "selector": "owner_id = 'USER_101' AND configuration_item_id NOT IN ('CI_041', 'CI_042')",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE owner_id = 'USER_101' AND configuration_item_id NOT IN ('CI_041', 'CI_042')",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of 'available inventory at ACME HQ': the in_stock CIs at other sites (CI_035, the Dell Latitude at LOC_004 and the only other in-stock laptop in ORG_001; CI_078, CI_081, CI_088) and the in-use or maintenance items at HQ (Robin's tablet CI_037, among others) lie outside it and must not be given to David",
+        "disagreement: selector: A CI_035 keeps status in_stock, owner USER_026 and location LOC_004 (expected 1), B no CI other than CI_041 and CI_042 is owned by David (expected 0); chose B's because it also catches CI_035 going to David and covers every other near match, whereas a change to CI_035 that leaves David out is not something the request forbids"
+      ]
+    },
+    {
+      "text": "log a low-priority onboarding incident to track the setup and related coordination",
+      "kind": "create",
+      "table": "incident",
+      "anchor": {"incident_id": "INC_101"},
+      "cells": {"category": "inquiry-help", "status": "new", "priority": "low", "assigned_to": "USER_031", "channel": "email"},
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_101' AND category = 'inquiry-help' AND status = 'new' AND priority = 'low' AND assigned_to = 'USER_031' AND channel = 'email' AND (short_description LIKE '%onboard%' OR description LIKE '%onboard%')",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_onboarding_incident_created",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (INC_101 after INC_100); no seed incident mentions onboarding",
+        "priority low from 'low-priority' (impact and urgency not fixed: low x medium and medium x low both give low under policy 3.1); status new is the policy default (3.1)",
+        "category inquiry-help, assigned_to USER_031 and channel email kept from the benchmark check; not fixed by request or policy (Robin is an active manager, so 3.2 permits the assignment)",
+        "'onboard' must appear in short_description or description, as the benchmark check reads it; this OR spans two columns, so no single-column cell carries it and the sql holds it",
+        "disagreement: cells: A none for the onboarding text, B short_description LIKE '%onboard%'; chose none because a short_description cell would demand more than the sql, which also accepts the word in description",
+        "caller_id not tested: the request does not say who the incident is for"
+      ]
+    },
+    {
+      "text": "notify both David and Robin via email with confirmation of team alignment and assigned hardware details",
+      "kind": "create",
+      "table": "notification",
+      "selector": "incident_id = 'INC_101' AND email = 'david.park@servicenow.com'",
+      "cells": {"status": "sent", "message": "IS NOT NULL"},
+      "sql": "SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_101' AND email = 'david.park@servicenow.com' AND status = 'sent' AND message IS NOT NULL",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_notification_sent_to_david",
+      "seed_count": 0,
+      "assumptions": [
+        "two notifications are created, so each is selected by its natural key (incident and recipient email), not by sequence position",
+        "tied to the onboarding incident INC_101, as the benchmark check joins it by the onboarding text",
+        "status sent and a non-null message kept from the benchmark check; not fixed by request or policy",
+        "message content (team alignment, hardware details) not tested: no wording is fixed"
+      ]
+    },
+    {
+      "text": "notify both David and Robin via email with confirmation of team alignment and assigned hardware details",
+      "kind": "create",
+      "table": "notification",
+      "selector": "incident_id = 'INC_101' AND email = 'robin.monroe83@servicenow.com'",
+      "cells": {"status": "sent", "message": "IS NOT NULL"},
+      "sql": "SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_101' AND email = 'robin.monroe83@servicenow.com' AND status = 'sent' AND message IS NOT NULL",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_notification_sent_to_Robin",
+      "seed_count": 0,
+      "assumptions": [
+        "Robin Monroe's email on the seed is robin.monroe83@servicenow.com (USER_031)",
+        "selected by incident and recipient, as for David's",
+        "status sent and a non-null message kept from the benchmark check; not fixed by request or policy"
+      ]
+    }
+  ],
+  "original_checks": {
+    "verify_security_ops_group_created": {"disposition": "kept"},
+    "verify_david_park_user_created": {"disposition": "kept"},
+    "verify_david_added_to_security_group": {"disposition": "kept"},
+    "verify_laptop_assigned_from_stock": {"disposition": "kept"},
+    "verify_onboarding_incident_created": {"disposition": "kept"},
+    "verify_notification_sent_to_david": {"disposition": "kept"},
+    "verify_notification_sent_to_Robin": {"disposition": "kept"}
+  },
+  "notes": "disagreement: value: org_id on the Security Operations group: one pass ORG_001, the other untested; kept ORG_001 because ACME HQ, Robin and every existing group belong to ORG_001.\ndisagreement: value: org_id on David's user row: one pass ORG_001, the other untested; kept ORG_001 because 'the organization' at ACME HQ is ORG_001 (ServiceNow, matching his servicenow.com address), as for Robin and the acting user.\ndisagreement: value: org_id on David's group membership: one pass ORG_001, the other untested; kept ORG_001 because it is part of the membership's unique key and the group and every seed membership are ORG_001.\ndisagreement: value: the hardware boundary stay: one pass keeps CI_035 unchanged in status, owner and location, the other counts CIs other than CI_041 and CI_042 owned by David (expected 0); chose the second because it covers CI_035 going to David and every other near match, while a change to CI_035 that leaves David out is not forbidden by the request.\ndisagreement: value: the incident's cells: one pass lists short_description LIKE '%onboard%', the other none; chose none because the sql accepts the word in short_description or description, and a cell on one column would demand more than the sql.\ndisagreement: form: the user and membership requirements quote different sentences of the request, with identical sql; merged, the membership quoting 'will be part of a newly established Security Operations function'.\nThe single created rows (group, user, membership, incident) are anchored by the next id in each sequence, where the benchmark checks select by name or description; a duplicate group or user passes the anchored requirement but fails the benchmark's by-name count of 1. The two notifications are selected by incident and recipient. The benchmark's verify_david_park_user_created description says 'NYC location', but its query tests LOC_001, which is ACME HQ in Santa Clara and matches the request; the query stands. The policy's mandatory opened_by has no incident column, and caller_id is not tested because the request names no affected user. user_role is not tested: users.role carries the agent role and the request mentions roles only in 'new agent'. The acting user USER_039 (Karen Watkins) is an active admin, so no permission rule blocks any step.",
+  "minutes": 36
+}

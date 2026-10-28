@@ -1,0 +1,93 @@
+{
+  "task_id": "task_20251218_234602_633_391f1eff_09a746e7",
+  "policy_sha1": "c56705c3",
+  "requirements": [
+    {
+      "text": "Karen Watkins, the owner of the WiFi, reported that the network is currently experiencing delayed data transfer speeds ... high business impact and requires high urgency. Report this issue as a new incident",
+      "kind": "create",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_101"
+      },
+      "cells": {
+        "configuration_item": "CI_019",
+        "caller_id": "USER_039",
+        "channel": "chat",
+        "status": "new",
+        "category": "network",
+        "impact": "high",
+        "urgency": "high",
+        "priority": "critical"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_101' AND configuration_item = 'CI_019' AND caller_id = 'USER_039' AND channel = 'chat' AND status = 'new' AND category = 'network' AND impact = 'high' AND urgency = 'high' AND priority = 'critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Report incident",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (INC_101 after INC_100); the task creates exactly one incident",
+        "serial NET-WIFI-01 resolves to CI_019 (WiFi-Controller-HQ, owner USER_039, location LOC_001 ACME HQ, USA, status in_use, so policy 5.1 allows the link)",
+        "caller is Karen Watkins (USER_039), who reported the issue; the acting user Robin Monroe (USER_031, manager) logs it and is not the caller",
+        "channel not stated ('reported'); the policy's default is chat",
+        "priority = critical from the policy matrix (impact high x urgency high)",
+        "status = new from the policy's default state for new incidents",
+        "category = network kept from the benchmark check; the request calls the CI 'the network' and 'network' is a seed category value",
+        "short_description is mandatory by policy but its wording is not fixed by the request; not tested"
+      ]
+    },
+    {
+      "text": "notify the network owner about the same",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": "NOTIF_031"
+      },
+      "cells": {
+        "incident_id": "INC_101",
+        "email": "karen.watkins@servicenow.com",
+        "type": "update",
+        "status": "queued"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 'NOTIF_031' AND incident_id = 'INC_101' AND email = 'karen.watkins@servicenow.com' AND type = 'update' AND status = 'queued'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Notify updates",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (NOTIF_031 after NOTIF_030); the request asks for one notification, to one owner, so the task creates exactly one row",
+        "the network owner is the CI's owner_id USER_039, Karen Watkins, email karen.watkins@servicenow.com from the seed",
+        "'about the same' ties the notification to the new incident INC_101",
+        "type = update and status = queued kept from the benchmark check; not fixed by request or policy (both values occur in the seed)",
+        "subject, message and org_id not fixed by the request; not tested"
+      ]
+    },
+    {
+      "text": "The network WiFi-Controller-HQ (serial number: NET-WIFI-01)",
+      "kind": "stay",
+      "table": "incident",
+      "selector": "configuration_item = 'CI_097'",
+      "cells": {
+        "configuration_item": "CI_097"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE configuration_item = 'CI_097'",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "selector boundary: CI_097 (Guest WiFi AP - ACME HQ, serial WIFI-GST-01) has the same owner and site as CI_019 and a WiFi name, so a lookup by name or location rather than serial, or a loose reading of 'the WiFi', could link the incident to it; the seed has no incident on it and none may appear",
+        "disagreement: cells: A leaves cells empty, B repeats the selector's column; chose {configuration_item: CI_097}, so the tested column is in cells as the repository's other count-zero stays write it; the sql is the same in both"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Report incident": {
+      "disposition": "kept"
+    },
+    "Notify updates": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on both benchmark checks (kept), the incident (INC_101 on CI_019, caller USER_039, chat, new, network, impact and urgency high, priority critical), the notification (NOTIF_031 on INC_101 to karen.watkins@servicenow.com, update, queued) and the boundary stay on CI_097. disagreement: cells of the CI_097 stay: A leaves cells empty, B repeats the selector's column; chose cells {configuration_item: CI_097} with the same selector, so the tested column is in cells as the repository's other count-zero stays write it (logged in the requirement). The acting user Robin Monroe (USER_031) is a manager with full CRUD on incidents, so the policy's role checks do not block the task. The CI's location (LOC_001, ACME HQ, USA) matches the request, and the request asks for no change to it. Karen Watkins also owns other network CIs at ACME HQ (CI_004 core switch, CI_045 retired lab switch), but neither is a WiFi and neither pass guarded them; none is added. No row must be gone, so there is no remove requirement.",
+  "minutes": 20
+}

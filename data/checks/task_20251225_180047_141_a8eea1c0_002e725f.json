@@ -1,0 +1,195 @@
+{
+ "task_id": "task_20251225_180047_141_a8eea1c0_002e725f",
+ "policy_sha1": "7d1d02c3",
+ "requirements": [
+  {
+   "text": "Please update his work location to Office Based and set his new position in his HR profile",
+   "kind": "change",
+   "table": "hr_profile",
+   "anchor": {
+    "hr_profile_id": 21
+   },
+   "cells": {
+    "location_type": "Office Based",
+    "position": "Administration",
+    "user_id": 21,
+    "national_tax_id": "TAX-12-0021",
+    "personal_email": "andrew.bell.21@personal.example.com"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_profile WHERE hr_profile_id = 21 AND location_type = 'Office Based' AND position = 'Administration' AND user_id = 21 AND national_tax_id = 'TAX-12-0021' AND personal_email = 'andrew.bell.21@personal.example.com'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_profile_update_verification",
+    "comprehensive_cross_table_state_verification",
+    "referential_integrity_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "Andrew Bell's profile is 21, found by national_tax_id TAX-12-0021 (user 21), the only Andrew Bell on the seed; seed location_type Hotdesk, position QA",
+    "the new position is Administration, from 'his new Administration role', a position value the seed already uses",
+    "user_id, national_tax_id and personal_email kept from the benchmark check; not fixed by request or policy",
+    "number is server-kept and named by the anchor, so it is not a cell"
+   ]
+  },
+  {
+   "text": "update his contact record with the new office line: +1-212-555-0199",
+   "kind": "change",
+   "table": "user",
+   "anchor": {
+    "user_id": 21
+   },
+   "cells": {
+    "phone": "IN ('+1-212-555-0199', '+12125550199')",
+    "first_name": "Andrew",
+    "last_name": "Bell",
+    "email": "andrew.bell58@averyltd.com",
+    "role": "employee",
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM user WHERE user_id = 21 AND phone IN ('+1-212-555-0199', '+12125550199') AND first_name = 'Andrew' AND last_name = 'Bell' AND email = 'andrew.bell58@averyltd.com' AND role = 'employee' AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "user_contact_update_verification",
+    "comprehensive_cross_table_state_verification",
+    "referential_integrity_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "the contact record is user 21; seed phone +441212121981",
+    "the seed stores phones both with dashes (+1-555-000-008) and without (+12068306386), so the number is accepted as given or without its dashes",
+    "first_name, last_name, email, role and active: kept from the benchmark check; not fixed by request or policy"
+   ]
+  },
+  {
+   "text": "Find his pending tasks for that case and mark the cultural orientation video as completed",
+   "kind": "change",
+   "table": "hr_case_task",
+   "anchor": {
+    "hr_case_task_id": 26
+   },
+   "cells": {
+    "status": "closed_complete",
+    "short_description": "Watch Cultural Orientation Video",
+    "task_type": "url",
+    "parent_case": 11,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case_task WHERE hr_case_task_id = 26 AND status = 'closed_complete' AND short_description = 'Watch Cultural Orientation Video' AND task_type = 'url' AND parent_case = 11 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_case_task_update_verification",
+    "comprehensive_cross_table_state_verification",
+    "referential_integrity_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "the case's pending tasks are 26 (HRT0001025, Watch Cultural Orientation Video) and 27 (Sign Non-Disclosure Agreement), both ready and active on the seed",
+    "'completed' is closed_complete",
+    "short_description, task_type, parent_case and active kept from the benchmark check; not fixed by request or policy; the seed holds closed_complete tasks both active and inactive"
+   ]
+  },
+  {
+   "text": "Find his pending tasks for that case and mark the cultural orientation video as completed",
+   "kind": "stay",
+   "table": "hr_case_task",
+   "anchor": {
+    "hr_case_task_id": 27
+   },
+   "cells": {
+    "status": "NOT IN ('closed_complete', 'closed_incomplete')",
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case_task WHERE hr_case_task_id = 27 AND status NOT IN ('closed_complete', 'closed_incomplete') AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 1,
+   "assumptions": [
+    "boundary of the selector: task 27, Sign Non-Disclosure Agreement, is the case's other pending task and is not the video, so it is neither closed nor made inactive",
+    "disagreement: cells: A status NOT IN ('closed_complete', 'closed_incomplete') and active = 1, B status <> 'closed_complete'; chose A's because both are right and it is tighter: the request completes only the video, so the other task should be neither closed in any way nor deactivated"
+   ]
+  },
+  {
+   "text": "Finally, move the entire case to work in progress, set the priority to high, and assign it to Joanne Simpson",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 11
+   },
+   "cells": {
+    "status": "work_in_progress",
+    "priority": "high",
+    "assigned_to": 4,
+    "short_description": "Request Onboarding case for Andrew Bell",
+    "opened_for": 21
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 11 AND status = 'work_in_progress' AND priority = 'high' AND assigned_to = 4 AND short_description = 'Request Onboarding case for Andrew Bell' AND opened_for = 21",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_case_update_verification",
+    "comprehensive_cross_table_state_verification",
+    "referential_integrity_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "HRC0000721 is case 11, opened for Andrew Bell's profile 21 under the New Hire Onboarding service; seed status ready, priority critical, assigned_to 54; ready to work_in_progress is a valid transition",
+    "Joanne Simpson is user 4, the only user of that name, a manager and active",
+    "short_description and opened_for kept from the benchmark check; not fixed by request or policy",
+    "number is server-kept and named by the anchor, so it is not a cell"
+   ]
+  },
+  {
+   "text": "assign it to Joanne Simpson",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 11
+   },
+   "cells": {
+    "assignment_group": "IN (SELECT group_id FROM user_group_member WHERE user_id = 4)"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 11 AND assignment_group IN (SELECT group_id FROM user_group_member WHERE user_id = 4)",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 0,
+   "assumptions": [
+    "policy: a case must be assigned to an active user in its assignment group",
+    "Joanne Simpson belongs only to group 10, HR Leadership Approval, not to the case's group 4, HR Service Desk, and no tool changes group membership, so the case's group must become one she belongs to",
+    "the case's seed assignee, user 54, is not a member of group 4 either, so the seed itself does not follow this rule; the requirement holds the agent's change to the policy all the same"
+   ]
+  }
+ ],
+ "original_checks": {
+  "hr_case_task_update_verification": {
+   "disposition": "kept"
+  },
+  "hr_case_update_verification": {
+   "disposition": "kept"
+  },
+  "hr_profile_update_verification": {
+   "disposition": "kept"
+  },
+  "user_contact_update_verification": {
+   "disposition": "repaired",
+   "evidence": "the request gives the office line as +1-212-555-0199 and the check expects +12125550199 only; the seed holds phones both with dashes (+1-555-000-008) and without (+12068306386), so either spelling satisfies the request and the phone cell accepts both"
+  },
+  "comprehensive_cross_table_state_verification": {
+   "disposition": "repaired",
+   "evidence": "a conjunction of the task, case, profile and phone changes that other carried checks test; its phone part takes the same repair as the user check, accepting +1-212-555-0199 as the request writes it or +12125550199"
+  },
+  "audit_trail_verification": {
+   "disposition": "weak",
+   "evidence": "it tests only the server-kept updated_at of task 26, case 11, profile 21 and user 21; with those predicates dropped it tests only that the four rows exist, which holds on the seed. disagreement: disposition: A repaired, B weak; chose weak because the check has no cell beyond the row ids once its timestamps are dropped, and each row's requested change is tested by its own requirement"
+  },
+  "referential_integrity_verification": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "disagreement: missing requirement: a stay that the New Hire Onboarding service (hr_service 11) remains manual; one pass has it, the other does not; dropped because the request asks only to check the service, which is a read: it is manual on the seed, no listed tool writes hr_service, and the request does not forbid a change, so the stay could not fail and adds nothing.\ndisagreement: missing requirement: that case 11's assignment group is one Joanne Simpson belongs to; one pass has it, the other left the group untested; kept because the policy requires a case to be assigned to an active user in its assignment group, she is a member only of group 10 and not of the case's group 4, and the case's group is a field update_hr_case writes.\ndisagreement: the cells of the stay on task 27; resolved on that requirement.\ndisagreement: the disposition of audit_trail_verification; resolved in its evidence.\nThe two passes otherwise agree on every row, id and cell. One split the profile's location and position, and the case's status, priority and assignee, into separate requirements; each is one change to one row asked in one sentence, and is one requirement here. referential_integrity_verification is a conjunction over the task's parent case, the case's assignee and the profile's user, so it is carried jointly by the task, case, profile and user requirements.\nThe acting user, Karen Watkins, is an administrator, whom the policy bars from routine HR case work. The request asks for exactly that work (the case's status, priority and assignee, and a task), and the benchmark expects it done, so the request is taken as deciding the final state; an agent that halted on this restriction would meet none of the case requirements.\n'Move the entire case to work in progress' is read as the case's status. The New Hire Onboarding service has no service template, so the move should generate no new tasks.\nRecord numbers in the benchmark's checks are server-kept and are left out of the cells; each requirement's id anchor names the same row. Andrew Bell's other case, HRC0000768 (HR Accounts Inquiry), is outside the request, which names HRC0000721 by number.\nnational_tax_id is stored in plain text on the seed although the policy asks for encryption; the benchmark's plain-text value is kept.",
+ "minutes": 47
+}

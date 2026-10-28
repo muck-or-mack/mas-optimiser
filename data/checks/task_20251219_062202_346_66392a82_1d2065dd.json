@@ -1,0 +1,141 @@
+{
+  "task_id": "task_20251219_062202_346_66392a82_1d2065dd",
+  "policy_sha1": "4afd943b",
+  "requirements": [
+    {
+      "text": "The new consolidated group should named 'Unified Reliability Squad', categorised as 'IT Support' ... assign any active manager to oversee this newly created group",
+      "kind": "create",
+      "table": "user_group",
+      "anchor": {
+        "group_id": "GROUP_005"
+      },
+      "cells": {
+        "name": "Unified Reliability Squad",
+        "type": "IT Support",
+        "manager_id": "IN ('USER_002', 'USER_008')",
+        "active": 1
+      },
+      "sql": "SELECT COUNT(*) FROM user_group WHERE group_id = 'GROUP_005' AND name = 'Unified Reliability Squad' AND type = 'IT Support' AND manager_id IN ('USER_002', 'USER_008') AND active = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "New unified group created with correct properties",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (GROUP_005 after GROUP_004); the task creates exactly one group, the benchmark's group check selects by name only and its membership check already uses GROUP_005",
+        "'categorised as' maps to the type column, the only category-like column of user_group",
+        "'any active manager': the seed's active users with role manager are USER_002 (Priya Sharma, ORG_001) and USER_008 (Sophie Mueller, ORG_002), so either is accepted as the benchmark check does; the request does not restrict the choice by organisation",
+        "active = 1 kept from the benchmark check; a group created 'to work together' is read as active, the request does not state it",
+        "org_id, email and description not fixed by request or policy; not tested"
+      ]
+    },
+    {
+      "text": "after dissolving those teams ... 'IT Support Team' ... and another called 'Infrastructure Team'",
+      "kind": "change",
+      "table": "user_group",
+      "selector": "group_id IN ('GROUP_003', 'GROUP_004')",
+      "cells": {
+        "active": 0
+      },
+      "sql": "SELECT COUNT(*) FROM user_group WHERE group_id IN ('GROUP_003', 'GROUP_004') AND active = 0",
+      "expected": 2,
+      "comparison": "equals",
+      "source": "Old support and infrastructure teams have been deactivated",
+      "seed_count": 0,
+      "assumptions": [
+        "'IT Support Team' resolves to GROUP_003 and 'Infrastructure Team' to GROUP_004 (both ORG_002, same site, manager USER_008, both active on the seed)",
+        "'dissolving' is read as deactivating (active = 0): it is the only column that retires a group, update_user_group is the only tool that writes user_group, and no tool deletes a group",
+        "the request does not say to remove the old memberships and no tool removes one; not tested"
+      ]
+    },
+    {
+      "text": "Add everyone who belongs to the those team groups",
+      "kind": "create",
+      "table": "user_group_member",
+      "selector": "user_id = 'USER_009'",
+      "cells": {
+        "group_id": "GROUP_005"
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE user_id = 'USER_009' AND group_id = 'GROUP_005'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "All members from the old groups are now members of the new unified group",
+      "seed_count": 0,
+      "assumptions": [
+        "USER_009 (Kenji Tanaka) is the only member of GROUP_003 on the seed",
+        "two memberships are created and the request fixes no order, so each is selected by its natural key (group, user), not by member_id; the new group's id is assumed GROUP_005, next in sequence",
+        "disagreement: structure: A carries the benchmark's count-2 check as one requirement over user_id IN ('USER_009', 'USER_008'), B as one requirement per member; kept B's split as the tighter form (a count of 2 cannot tell one row per user from two rows for one) and because the request fixes no order among the created memberships, so each is selected by its natural key; the benchmark check is carried jointly",
+        "disagreement: cells: A leaves cells empty, B repeats both selector columns; chose selector user_id = <user> with group_id = GROUP_005 as the cell, so the selector names the row by its user and cells carries the tested group, with no column repeated"
+      ]
+    },
+    {
+      "text": "Add everyone who belongs to the those team groups",
+      "kind": "create",
+      "table": "user_group_member",
+      "selector": "user_id = 'USER_008'",
+      "cells": {
+        "group_id": "GROUP_005"
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE user_id = 'USER_008' AND group_id = 'GROUP_005'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "All members from the old groups are now members of the new unified group",
+      "seed_count": 0,
+      "assumptions": [
+        "USER_008 (Sophie Mueller) is the only member of GROUP_004 on the seed; she is added as a member whether or not she is also chosen as manager",
+        "two memberships are created and the request fixes no order, so each is selected by its natural key (group, user), not by member_id; the new group's id is assumed GROUP_005, next in sequence",
+        "disagreement: structure: A carries the benchmark's count-2 check as one requirement over user_id IN ('USER_009', 'USER_008'), B as one requirement per member; kept B's split as the tighter form (a count of 2 cannot tell one row per user from two rows for one) and because the request fixes no order among the created memberships, so each is selected by its natural key; the benchmark check is carried jointly",
+        "disagreement: cells: A leaves cells empty, B repeats both selector columns; chose selector user_id = <user> with group_id = GROUP_005 as the cell, so the selector names the row by its user and cells carries the tested group, with no column repeated"
+      ]
+    },
+    {
+      "text": "Add everyone who belongs to the those team groups",
+      "kind": "stay",
+      "table": "user_group_member",
+      "selector": "user_id IN ('USER_003', 'USER_004', 'USER_006')",
+      "cells": {
+        "group_id": "GROUP_005"
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE user_id IN ('USER_003', 'USER_004', 'USER_006') AND group_id = 'GROUP_005'",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "selector boundary: USER_003, USER_004 and USER_006 are the members of the other two groups (GROUP_001 Level 1 Support Team, GROUP_002 Service Desk Operations, both ORG_001), which a loose reading of 'all members from different teams' would sweep in; they must not join the new group",
+        "a manager added as a member is not forbidden by the request and is left unconstrained",
+        "disagreement: cells: A leaves cells empty, B repeats both selector columns; chose selector on the users with group_id = GROUP_005 as the cell, the same shape as the membership requirements"
+      ]
+    },
+    {
+      "text": "after dissolving those teams",
+      "kind": "stay",
+      "table": "user_group",
+      "selector": "group_id IN ('GROUP_001', 'GROUP_002')",
+      "cells": {
+        "active": 1
+      },
+      "sql": "SELECT COUNT(*) FROM user_group WHERE group_id IN ('GROUP_001', 'GROUP_002') AND active = 1",
+      "expected": 2,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 2,
+      "assumptions": [
+        "selector boundary: only the two named teams are dissolved; GROUP_001 (Level 1 Support Team) is also of type IT Support and GROUP_002 is a service desk, so a loose reading of 'support team' could deactivate them, and they must stay active",
+        "disagreement: cells: A leaves cells empty with active = 1 in the selector, B repeats active = 1 in both; chose selector on the two group ids with active = 1 as the cell, so the tested column is in cells; the sql is the same in all three"
+      ]
+    }
+  ],
+  "original_checks": {
+    "New unified group created with correct properties": {
+      "disposition": "kept"
+    },
+    "Old support and infrastructure teams have been deactivated": {
+      "disposition": "kept"
+    },
+    "All members from the old groups are now members of the new unified group": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on all three benchmark checks (kept), the new group (GROUP_005: Unified Reliability Squad, IT Support, manager USER_002 or USER_008, active), the deactivation of GROUP_003 and GROUP_004, the two new memberships (USER_009, USER_008) and the two boundary stays (the other groups' members stay out of GROUP_005; GROUP_001 and GROUP_002 stay active). disagreement: the membership check's structure: A carries it as one requirement with a count of 2 over user_id IN ('USER_009', 'USER_008'), B as one natural-key requirement per member; kept B's split as the tighter form and because several rows created in one table in no fixed order are each selected by their natural key, with the benchmark check carried jointly by both (logged in each). disagreement: cells of the two memberships and the two stays: A leaves cells empty, B repeats the selector's columns; chose the row key (user ids or group ids) in the selector and the tested column (group_id = GROUP_005, active = 1) as the cell, so each selector names the rows and cells carries the tested column without repeating it; no sql changed (logged in each). The acting user Marcus Thompson (USER_001) is an admin; the policy says nothing about groups, so no policy defaults were applied. The two old teams and their members are all ORG_002 and USER_008 (their manager) is the only ORG_002 manager, but the request says 'any active manager' and does not restrict the choice by organisation, so both are accepted as the benchmark does. No remove requirement: the request asks for the old teams to be dissolved (deactivated, as the benchmark tests) and for their members to be added to the new group, not for the old membership rows (MEMBER_004, MEMBER_005) to be deleted, and no listed tool removes a membership; both passes agree. revised: the membership requirements' assumptions and these notes now state the reasons for the natural-key selectors and the cell layout directly, instead of pointing to a rule or to other files.",
+  "minutes": 25
+}

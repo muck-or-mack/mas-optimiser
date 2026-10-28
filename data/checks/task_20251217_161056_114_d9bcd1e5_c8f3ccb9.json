@@ -1,0 +1,149 @@
+{
+ "task_id": "task_20251217_161056_114_d9bcd1e5_c8f3ccb9",
+ "policy_sha1": "b2da3f42",
+ "requirements": [
+  {
+   "text": "a dedicated HR support group named US Payroll Tier 2 Support exists with Service Desk group type and it should be activated in the system",
+   "kind": "create",
+   "table": "user_group",
+   "anchor": {
+    "group_id": 19
+   },
+   "cells": {
+    "name": "US Payroll Tier 2 Support",
+    "type": "Service Desk",
+    "active": 1,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM user_group WHERE group_id = 19 AND name = 'US Payroll Tier 2 Support' AND type = 'Service Desk' AND active = 1 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "Verify Tabitha Bullock is a member",
+    "Verify HR criteria record",
+    "Verify the assignment rule"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (group_id 19 after 18)",
+    "org 1 is the ServiceNow tenant of the acting admin and of both named users",
+    "type and active are stated by the request; the benchmark's checks test the group only by name through their joins, so they are carried jointly here",
+    "disagreement: source: A the three checks that join on the group's name, B new; chose the three because each tests the group's name, which this requirement carries, and the joint carriage keeps the link to the benchmark's checks"
+   ]
+  },
+  {
+   "text": "This group is intended to include active members, so add Thomas Green and Tabitha Bullock",
+   "kind": "create",
+   "table": "user_group_member",
+   "anchor": {
+    "member_id": 44
+   },
+   "cells": {
+    "group_id": 19,
+    "user_id": 3,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 44 AND group_id = 19 AND user_id = 3 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify Tabitha Bullock is a member",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (member_id 44 after 43); Tabitha Bullock's membership is the only one created",
+    "Tabitha Bullock is user 3 (tabitha.bullock@servicenow.com), active, in org 1"
+   ]
+  },
+  {
+   "text": "This group is intended to include active members, so add Thomas Green and Tabitha Bullock",
+   "kind": "stay",
+   "table": "user_group_member",
+   "selector": "user_id = 1 AND group_id IN (SELECT group_id FROM user_group WHERE name = 'US Payroll Tier 2 Support')",
+   "cells": {},
+   "sql": "SELECT COUNT(*) FROM user_group_member WHERE user_id = 1 AND group_id IN (SELECT group_id FROM user_group WHERE name = 'US Payroll Tier 2 Support')",
+   "expected": 0,
+   "comparison": "equals",
+   "source": "Verify Thomas Green is NOT a member",
+   "seed_count": 0,
+   "assumptions": [
+    "Thomas Green is user 1 (thomas.green@servicenow.com) and is inactive on the seed",
+    "forbidden by the request and policy: the request limits the group to active members and the policy requires users to be active before they are processed, so he must not be added",
+    "disagreement: selector: A user_id = 1 AND group_id = 19, B user_id = 1 in any group named US Payroll Tier 2 Support; chose B's because it holds every row of A's and also catches him in the group if it is created at another id, as the benchmark's join by name does"
+   ]
+  },
+  {
+   "text": "an HR criteria record called US Payroll - Tier 2 approvers of type approval, marked active and associated with the group",
+   "kind": "create",
+   "table": "hr_criteria",
+   "anchor": {
+    "hr_criteria_id": 8
+   },
+   "cells": {
+    "name": "US Payroll - Tier 2 approvers",
+    "type": "approval",
+    "active": 1,
+    "user_group": 19,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_criteria WHERE hr_criteria_id = 8 AND name = 'US Payroll - Tier 2 approvers' AND type = 'approval' AND active = 1 AND user_group = 19 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "Verify HR criteria record",
+    "Verify criteria and assignment rule share the same group"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (hr_criteria_id 8 after 7)",
+    "'associated with the group' is user_group = the new group 19; the criteria's users list is not stated and not tested"
+   ]
+  },
+  {
+   "text": "an assignment rule named US Payroll Tier 2 - Critical exists, directing HR cases whose country field is US and whose priority is critical to the group for fulfillment",
+   "kind": "create",
+   "table": "assignment_rules",
+   "anchor": {
+    "assignment_rule_id": 9
+   },
+   "cells": {
+    "name": "US Payroll Tier 2 - Critical",
+    "based_on_country": "US",
+    "based_on_priority": "critical",
+    "active": 1,
+    "user_group": 19,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM assignment_rules WHERE assignment_rule_id = 9 AND name = 'US Payroll Tier 2 - Critical' AND based_on_country = 'US' AND based_on_priority = 'critical' AND active = 1 AND user_group = 19 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "Verify the assignment rule",
+    "Verify criteria and assignment rule share the same group"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (assignment_rule_id 9 after 8)",
+    "active = 1 kept from the benchmark check; the request says the rule is in place and directing cases, which needs it active",
+    "based_on_skills and users are not stated and not tested"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Verify Thomas Green is NOT a member": {
+   "disposition": "kept"
+  },
+  "Verify Tabitha Bullock is a member": {
+   "disposition": "kept"
+  },
+  "Verify HR criteria record": {
+   "disposition": "kept"
+  },
+  "Verify the assignment rule": {
+   "disposition": "kept"
+  },
+  "Verify criteria and assignment rule share the same group": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "disagreement: value: the source of the group requirement: one pass lists the three checks that join on the group's name, the other marks it new; chose the three because each tests the group's name, which only this requirement carries.\ndisagreement: value: the selector of the stay on Thomas Green: one pass his membership of group 19, the other his membership of any group named US Payroll Tier 2 Support; chose the name-based selector, which holds every row of the other and still catches him if the group is created at another id.\nThe two passes otherwise agree on every requirement, id, cell and disposition (all five checks kept); their texts and assumptions differ in wording only.\nThe request names Thomas Green for the group but also says the group is to hold active members, and he is inactive on the seed; the policy's validation rule requires users to be active before processing. The file therefore expects only Tabitha Bullock to be added and Thomas Green to stay out, as the benchmark does. That check holds on the seed only because it forbids an action, so it is carried as a stay rather than counted weak.\nThe check that the criteria and the rule share a group is a conjunction of their user_group cells and is carried jointly by both, each fixing user_group to the new group 19.\nThe closing summary of the group, criteria, rule and members is a chat response and leaves no database state, so it has no requirement.\nThe acting user (Karen Watkins) is an administrator, whom the policy allows to write configuration tables.",
+ "minutes": 29
+}

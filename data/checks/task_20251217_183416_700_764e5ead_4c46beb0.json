@@ -1,0 +1,200 @@
+{
+  "task_id": "task_20251217_183416_700_764e5ead_4c46beb0",
+  "policy_sha1": "4afd943b",
+  "requirements": [
+    {
+      "text": "Before reassigning, add Elena to the IT Support group",
+      "kind": "create",
+      "table": "user_group_member",
+      "anchor": {
+        "member_id": "MEMBER_006"
+      },
+      "cells": {
+        "group_id": "GROUP_001",
+        "user_id": "USER_006",
+        "org_id": "ORG_001"
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 'MEMBER_006' AND group_id = 'GROUP_001' AND user_id = 'USER_006' AND org_id = 'ORG_001'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_elena_in_correct_group",
+      "seed_count": 0,
+      "assumptions": [
+        "'the IT Support group that I manage' is GROUP_001 ('Level 1 Support Team', type 'IT Support', manager_id USER_002 = Priya Sharma, the acting user), as the benchmark checks fix it; GROUP_003 'IT Support Team' is managed by USER_008 in ORG_002",
+        "Elena Petrov is USER_006 (user_name elena.petrov, active agent, ORG_001), a member of GROUP_002 only on the seed",
+        "id assumed next in sequence (MEMBER_006 after MEMBER_005); the only membership the task creates",
+        "disagreement: cells: A omits org_id, B tests org_id = 'ORG_001'; chose B's tighter predicate because the column is NOT NULL and the group and the user are both in ORG_001 on the seed"
+      ]
+    },
+    {
+      "text": "Reassign these incidents to Elena Petrov, update their status to in progress",
+      "kind": "change",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_003"
+      },
+      "cells": {
+        "assigned_to": "USER_006",
+        "status": "in_progress",
+        "assignment_group": "GROUP_001"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_003' AND assigned_to = 'USER_006' AND status = 'in_progress' AND assignment_group = 'GROUP_001'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_incidents_reassigned_to_elena",
+      "seed_count": 0,
+      "assumptions": [
+        "'top three' selects one incident on this seed: INC_003 is the only GROUP_001 incident with priority moderate, created before 2024-02-20 and open (status not resolved or closed); INC_001 matches the group, priority and date but is resolved",
+        "'open' read as status not in (resolved, closed), as the benchmark check does",
+        "assignment_group stays GROUP_001, kept from the benchmark check: the request adds Elena to that group before reassigning, and policy 3.2 requires assigned_to to be a member of the assignment_group",
+        "new -> in_progress is a valid transition (policy 3.3)"
+      ]
+    },
+    {
+      "text": "add worknotes explaining that the reassignment is part of workload balancing",
+      "kind": "change",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_003"
+      },
+      "cells": {
+        "worknotes": "LIKE '%workload%'"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_003' AND worknotes LIKE '%workload%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_worknotes_added_for_reassignment",
+      "seed_count": 0,
+      "assumptions": [
+        "the benchmark's three OR alternatives ('workload balancing', 'reassignment', 'workload rebalancing') folded into one containment on the request's word 'workload', since a disjunction is not a cell predicate; 'reassignment' alone would pass a note that does not explain the workload balancing the request asks for",
+        "worknotes is a single VARCHAR(120) column, so the note replaces or extends the seed text",
+        "disagreement: worknotes: A one compound string of the benchmark's three LIKE alternatives joined by OR, B LIKE '%workload%'; chose B because a cell never holds a compound string and the request's own words are 'workload balancing'"
+      ]
+    },
+    {
+      "text": "For each reassigned incident, send a notification to the original caller explaining the change",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": "NOTIF_008"
+      },
+      "cells": {
+        "incident_id": "INC_003",
+        "email": "benjamin.chen@techcorp.com",
+        "message": "LIKE '%reassign%'"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 'NOTIF_008' AND incident_id = 'INC_003' AND email = 'benjamin.chen@techcorp.com' AND message LIKE '%reassign%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_notifications_sent_to_callers",
+      "seed_count": 0,
+      "assumptions": [
+        "the original caller of INC_003 is USER_005 Benjamin Chen, benjamin.chen@techcorp.com (seed); the request fixes the recipient though the benchmark check does not test it",
+        "one reassigned incident, so one notification: id assumed next in sequence (NOTIF_008 after NOTIF_007)",
+        "the benchmark's four OR alternatives across subject and message folded into one containment on the message, LIKE '%reassign%', which covers 'reassigned' and 'reassignment' ('explaining the change' is about the reassignment); the contact-information alternative is tested by the next requirement"
+      ]
+    },
+    {
+      "text": "send a notification to the original caller ... providing updated contact information",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": "NOTIF_008"
+      },
+      "cells": {
+        "incident_id": "INC_003",
+        "message": [
+          "LIKE '%Elena%'",
+          "LIKE '%contact%'"
+        ],
+        "type": "IN ('alert', 'update')"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 'NOTIF_008' AND incident_id = 'INC_003' AND message LIKE '%Elena%' AND message LIKE '%contact%' AND type IN ('alert', 'update')",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_notification_details_complete",
+      "seed_count": 0,
+      "assumptions": [
+        "same row as the previous requirement (NOTIF_008); the two benchmark checks test different parts of its message",
+        "type IN ('alert', 'update') kept from the benchmark check; not fixed by request or policy",
+        "the benchmark's (contact OR phone) alternative folded into one containment on the request's word 'contact' ('updated contact information'), since a disjunction is not a cell predicate",
+        "disagreement: message: A keeps the benchmark's 'contact' OR 'phone' as one compound string inside the list, B LIKE '%contact%' alone; chose B because a cell never holds a compound string and the request's words are 'contact information'",
+        "disagreement: cells: A tests incident_id = 'INC_003', B omits it; chose A's tighter predicate because the benchmark check joins the notification to the reassigned incident"
+      ]
+    },
+    {
+      "text": "that have moderate priority and have been open for more than five days",
+      "kind": "stay",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_001"
+      },
+      "cells": {
+        "assigned_to": "USER_003",
+        "status": "resolved"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_001' AND assigned_to = 'USER_003' AND status = 'resolved'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "boundary of the selector: INC_001 is GROUP_001, moderate and created 2024-02-10 but resolved, so it is not open; a reading that ignores 'open' would sweep it in"
+      ]
+    },
+    {
+      "text": "Identify the top three incidents currently assigned to the IT Support group that I manage, that have moderate priority and ... (created before February 20, 2024)",
+      "kind": "stay",
+      "table": "incident",
+      "selector": "incident_id IN ('INC_004', 'INC_014', 'INC_016') AND status = 'new'",
+      "cells": {
+        "status": "new"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id IN ('INC_004', 'INC_014', 'INC_016') AND status = 'new'",
+      "expected": 3,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 3,
+      "assumptions": [
+        "boundary of the selector: the other open GROUP_001 incidents (INC_004 is high priority; INC_014 and INC_016 are moderate but created on or after 2024-02-20) must not be padded in to make three; padding would move them to in_progress",
+        "disagreement: form: A tests INC_014 and INC_016 keep status new (count 2), B tests that none of INC_004, INC_014, INC_016 becomes Elena's and in_progress (count 0); kept one stay on all three rows keeping status new (count 3), which is stricter than either, because INC_004 and INC_016 are already Elena's with status new, so status alone detects a padded reassignment"
+      ]
+    },
+    {
+      "text": "add Elena to the IT Support group",
+      "kind": "stay",
+      "table": "user_group_member",
+      "selector": "group_id = 'GROUP_003' AND user_id = 'USER_006'",
+      "cells": {
+        "user_id": "USER_006"
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE group_id = 'GROUP_003' AND user_id = 'USER_006'",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of the selector: GROUP_003 is named 'IT Support Team' but is managed by USER_008 in ORG_002, not by the acting user; a name match would add Elena there instead"
+      ]
+    }
+  ],
+  "original_checks": {
+    "verify_incidents_reassigned_to_elena": {
+      "disposition": "kept"
+    },
+    "verify_worknotes_added_for_reassignment": {
+      "disposition": "kept"
+    },
+    "verify_notifications_sent_to_callers": {
+      "disposition": "kept"
+    },
+    "verify_elena_in_correct_group": {
+      "disposition": "kept"
+    },
+    "verify_notification_details_complete": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Only INC_003 meets the request's description on the seed (GROUP_001, moderate, open, created before 2024-02-20), so the 'top three' is one incident and every benchmark check expects 1. The acting user (USER_002) manages GROUP_001 and GROUP_002; the group literally named 'IT Support Team' (GROUP_003) belongs to ORG_002 under USER_008; the benchmark checks fix GROUP_001 and the file follows them. INC_003 has no child incidents (no child_incident row with parent_incident = 'INC_003'; incident.parent_incident is null throughout), so the conditional 'reassign those child incidents' produces no requirement. The two notification requirements test one row (NOTIF_008) and split the benchmark's two notification checks between them so each keeps its link. All three writes have a tool (add_new_group_member, update_incident, send_notification). disagreement: membership org_id: A omits it, B tests ORG_001; kept B's tighter cell. disagreement: worknotes predicate: A a compound OR string, B LIKE '%workload%'; kept B. disagreement: notification details: A keeps 'contact' OR 'phone' as a compound string, B 'contact' alone; kept B. disagreement: notification details incident_id cell: A tests it, B omits it; kept A. disagreement: disposition of verify_notifications_sent_to_callers: A repaired (its cross-column disjunction cannot be one cell), B kept; chose kept because the check is right in substance and in every value, and the fold of its alternatives onto message LIKE '%reassign%' is the same treatment both passes gave verify_worknotes_added_for_reassignment as kept. disagreement: boundary stay form: A INC_014 and INC_016 keep status new, B none of INC_004, INC_014, INC_016 becomes Elena's and in_progress; kept one stay on all three rows keeping status new, stricter than either. disagreement: GROUP_003 membership stay: A only; kept because GROUP_003 is the near-match of 'the IT Support group' and add_new_group_member could add Elena there.",
+  "minutes": 28
+}

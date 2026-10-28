@@ -1,0 +1,136 @@
+{
+  "task_id": "task_20260113_125933_225_accab84d_d7ec710e",
+  "policy_sha1": "9698a42f",
+  "requirements": [
+    {
+      "text": "the resolver of that child incident should take responsibility for a new incident ... The same assignment group should also continue supporting the new issue ... a report submitted through email by Isabella ... the service owned by me ... the item located in San Francisco with a cost greater than 2000 ... the highest levels of impact, urgency, and priority",
+      "kind": "create",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_024"
+      },
+      "cells": {
+        "caller_id": "USER_010",
+        "service": "SVC_003",
+        "configuration_item": "CI_004",
+        "assigned_to": "USER_009",
+        "assignment_group": "GROUP_003",
+        "channel": "email",
+        "impact": "high",
+        "urgency": "high",
+        "priority": "critical",
+        "status": "new",
+        "short_description": [
+          "LIKE '%connectivity%'",
+          "LIKE '%network%'",
+          "LIKE '%failure%'"
+        ]
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_024' AND caller_id = 'USER_010' AND service = 'SVC_003' AND configuration_item = 'CI_004' AND assigned_to = 'USER_009' AND assignment_group = 'GROUP_003' AND channel = 'email' AND impact = 'high' AND urgency = 'high' AND priority = 'critical' AND status = 'new' AND LOWER(short_description) LIKE '%connectivity%' AND LOWER(short_description) LIKE '%network%' AND LOWER(short_description) LIKE '%failure%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_incident_created",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (INC_024 after INC_023)",
+        "Isabella is USER_010 (Isabella Rossi, isabella.rossi@acme.com), the only Isabella in users; 'submitted through email' fixes channel = email",
+        "'the service owned by me': the acting user USER_007 (Raj Patel) owns only SVC_003 (Acme Email Service)",
+        "'the item located in San Francisco with a cost greater than 2000' is CI_004 (Acme Email Server, LOC_003, cost 6000, in_use); CI_003 is also in San Francisco but costs 1500",
+        "IT Support Team is GROUP_003; its oldest resolved incident INC_011 (created 2024-02-22) has no child and is itself the child of the closed INC_013 (2024-02-18); both readings give resolver USER_009 and group GROUP_003",
+        "USER_009 (Kenji Tanaka) is active, has the agent role and is a member of GROUP_003, so the assignment meets policy 3.2",
+        "'highest levels of impact, urgency, and priority': impact high and urgency high, and the policy 3.1 matrix gives priority critical",
+        "status new is the policy 3.1 default for new incidents, not stated in the request",
+        "short_description predicates kept from the benchmark check; the request says 'severe connectivity and network failures'"
+      ]
+    },
+    {
+      "text": "The user that reported the incident should receive a notification alert regarding this new incident with the subject Network Access Issue Logged - Service Impact Notification ... acknowledging the incident, referencing the connectivity failure on the San Francisco device, and indicating that it has been escalated due to its operational impact",
+      "kind": "create",
+      "table": "notification",
+      "selector": "incident_id = 'INC_024' AND email = 'isabella.rossi@acme.com'",
+      "cells": {
+        "type": "alert",
+        "subject": "Network Access Issue Logged - Service Impact Notification",
+        "message": [
+          "LIKE '%connectivity%'",
+          "LIKE '%escalate%'",
+          "LIKE '%failure%'",
+          "LIKE '%operation%'",
+          "LIKE '%impact%'"
+        ]
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_024' AND email = 'isabella.rossi@acme.com' AND type = 'alert' AND subject = 'Network Access Issue Logged - Service Impact Notification' AND LOWER(message) LIKE '%connectivity%' AND LOWER(message) LIKE '%escalate%' AND LOWER(message) LIKE '%failure%' AND LOWER(message) LIKE '%operation%' AND LOWER(message) LIKE '%impact%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_notification_isabella_sent",
+      "seed_count": 0,
+      "assumptions": [
+        "two notifications are created on the same incident, so each is selected by its natural key (incident and recipient email), not by notification id",
+        "the reporting user is the caller USER_010, email isabella.rossi@acme.com",
+        "incident INC_024 assumed to be the new incident (next in sequence)",
+        "'notification alert' fixes type = alert",
+        "message predicates kept from the benchmark check; no predicate on 'San Francisco', since the device may be named by its CI name or serial",
+        "the benchmark's JOIN on incident is dropped as redundant: incident_id is fixed by the selector"
+      ]
+    },
+    {
+      "text": "The assigned resolver should receive a separate notification alert regarding this new incident too with the subject Critical Connectivity Failure Assigned - Immediate Attention Required, summarizing the severe network disruption, noting its similarity to the earlier case they resolved, and emphasizing the need for urgent restoration of service availability",
+      "kind": "create",
+      "table": "notification",
+      "selector": "incident_id = 'INC_024' AND email = 'kenji.tanaka@acme.com'",
+      "cells": {
+        "type": "alert",
+        "subject": "Critical Connectivity Failure Assigned - Immediate Attention Required",
+        "message": [
+          "LIKE '%network%'",
+          "LIKE '%disruption%'",
+          "LIKE '%similar%'",
+          "LIKE '%resolve%'",
+          "LIKE '%restor%'",
+          "LIKE '%service%'"
+        ]
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_024' AND email = 'kenji.tanaka@acme.com' AND type = 'alert' AND subject = 'Critical Connectivity Failure Assigned - Immediate Attention Required' AND LOWER(message) LIKE '%network%' AND LOWER(message) LIKE '%disruption%' AND LOWER(message) LIKE '%similar%' AND LOWER(message) LIKE '%resolve%' AND LOWER(message) LIKE '%restor%' AND LOWER(message) LIKE '%service%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_notification_resolver_sent",
+      "seed_count": 0,
+      "assumptions": [
+        "two notifications are created on the same incident, so each is selected by its natural key (incident and recipient email), not by notification id",
+        "the assigned resolver is USER_009 (Kenji Tanaka), email kenji.tanaka@acme.com",
+        "incident INC_024 assumed to be the new incident (next in sequence)",
+        "'notification alert' fixes type = alert",
+        "message predicates kept from the benchmark check; 'urgent' is not tested, since the agent may phrase the urgency differently",
+        "the benchmark's JOIN on incident is dropped as redundant: incident_id is fixed by the selector"
+      ]
+    },
+    {
+      "text": "the item located in San Francisco with a cost greater than 2000",
+      "kind": "stay",
+      "table": "incident",
+      "selector": "configuration_item = 'CI_003'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM incident WHERE configuration_item = 'CI_003'",
+      "expected": 4,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 4,
+      "assumptions": [
+        "boundary of the CI selector: CI_003 (Kenji Workstation, WS-SF-001) is also in San Francisco but costs 1500, so no new incident may be logged against it; four incidents (INC_011, INC_013, INC_019, INC_022) reference it on the seed"
+      ]
+    }
+  ],
+  "original_checks": {
+    "verify_incident_created": {
+      "disposition": "kept"
+    },
+    "verify_notification_isabella_sent": {
+      "disposition": "kept"
+    },
+    "verify_notification_resolver_sent": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Both passes agree on every requirement, cell, value and disposition: the incident INC_024 (caller USER_010, service SVC_003, CI_004, assignee USER_009 in GROUP_003, email, high/high/critical, new), the two notifications selected by incident and recipient, the stay on CI_003 and all three checks kept; there is no disagreement to record.\nThe request's 'oldest resolved incident handled by the IT Support Team, together with the child incident associated with it' does not fit the seed exactly: INC_011, the oldest GROUP_003 incident in status resolved, has no child mapping and is itself the child of the closed INC_013. Both readings give the same resolver (USER_009) and group (GROUP_003), so no cell depends on the choice.\nThe incident requirement adds the anchor INC_024 and status = new (policy 3.1 default) to the benchmark's check; the notification requirements drop the benchmark's redundant JOIN on incident and keep every predicate.\nPolicy 7 (knowledge search and suggested links on incident creation) is not a requirement: no listed tool searches or links knowledge, and none of the seed's five articles (passwords, email client set-up, desktop boot, email account recovery and access) is about a network connectivity failure, so the set to link is undecidable. No parent or child link for the new incident is asked for, and no listed tool creates one.",
+  "minutes": 30
+}

@@ -1,0 +1,182 @@
+{
+  "task_id": "task_20251208_072220_004_99ba2325_74403162",
+  "policy_sha1": "6288a530",
+  "requirements": [
+    {
+      "text": "our new agent Oliver Oats (oliver.oats@servicenow.com), has joined from the Reyes Inc Site A - New York office. He needs to be stationed there",
+      "kind": "create",
+      "table": "user",
+      "anchor": {
+        "user_id": 803
+      },
+      "cells": {
+        "first_name": "Oliver",
+        "last_name": "Oats",
+        "email": "oliver.oats@servicenow.com",
+        "role": "agent",
+        "active": 1,
+        "location_id": 832
+      },
+      "sql": "SELECT COUNT(*) FROM user WHERE user_id = 803 AND first_name = 'Oliver' AND last_name = 'Oats' AND email = 'oliver.oats@servicenow.com' AND role = 'agent' AND active = 1 AND location_id = 832",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify user creation",
+      "seed_count": 0,
+      "assumptions": [
+        "user_id 803 assumed next in sequence; no user with this email exists in the seed, so the agent is created",
+        "location 832 is 'Reyes Inc Site A - New York', the office he is stationed at (831 is the same company's Tokyo headquarters)",
+        "role agent from 'our new agent'",
+        "active 1: onboarding is complete and the policy requires an assigned agent to be active",
+        "first_name and last_name from 'Oliver Oats'; the benchmark check does not test them"
+      ]
+    },
+    {
+      "text": "Assign case assignment team for monitoring the case",
+      "kind": "create",
+      "table": "user_group_member",
+      "anchor": {
+        "member_id": 960
+      },
+      "cells": {
+        "group_id": 4,
+        "user_id": 803
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 960 AND group_id = 4 AND user_id = 803",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify group membership",
+      "seed_count": 0,
+      "assumptions": [
+        "member_id 960 assumed next in sequence; this is the only membership the task creates",
+        "group 4 is 'Case Assignment', the exact name; 'Case Assignment_2', '_3' and '_4' are different groups",
+        "implied by the request, not stated: the policy requires assigned_to to be a member of assignment_group_id, and Oliver (user 803, id assumed next in sequence) is the case's assignee"
+      ]
+    },
+    {
+      "text": "Assign case assignment team for monitoring the case",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 1
+      },
+      "cells": {
+        "assignment_group_id": 4
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1 AND assignment_group_id = 4",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify case update",
+      "seed_count": 0,
+      "assumptions": [
+        "CS-0000001 is case 1, in group 6 ('Contract & Warranty Desk') on the seed",
+        "group 4 is 'Case Assignment', the exact name"
+      ]
+    },
+    {
+      "text": "He needs to be stationed there because a critical-priority case, CS-0000001, has come in",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 1
+      },
+      "cells": {
+        "assigned_to": 803
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1 AND assigned_to = 803",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify case update",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by the request, not stated: the new agent joins to work CS-0000001, so the case is assigned to him (user 803)",
+        "the seed assignee, user 68, is an inactive manager, so the policy's rule that assignees be active supports the reassignment"
+      ]
+    },
+    {
+      "text": "Please move the case to work in progress",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 1
+      },
+      "cells": {
+        "state": "in_progress"
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1 AND state = 'in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify case update",
+      "seed_count": 0,
+      "assumptions": [
+        "'work in progress' is state in_progress; new to in_progress is a valid transition"
+      ]
+    },
+    {
+      "text": "validate that all applicable SLAs are attached correctly to ensure proper tracking",
+      "kind": "change",
+      "table": "case_sla",
+      "anchor": {
+        "case_sla_id": 1
+      },
+      "cells": {
+        "case_id": 1,
+        "sla_def_id": 1,
+        "stage": "in_progress",
+        "has_breached": 1
+      },
+      "sql": "SELECT COUNT(*) FROM case_sla WHERE case_sla_id = 1 AND case_id = 1 AND sla_def_id = 1 AND stage = 'in_progress' AND has_breached = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify case sla 1",
+      "seed_count": 0,
+      "assumptions": [
+        "case SLA 1 attaches 'SLA Response - Critical' (definition 1, active), which applies to the critical case and stays attached",
+        "stage in_progress: the policy aligns SLAs when a new case moves to work in progress and pauses them only while the case is pending; the row is paused on the seed",
+        "has_breached 1 kept from the benchmark check; its breach_time (2025-08-27 16:02:44) is before the policy's today, 1 Jan 2026"
+      ]
+    },
+    {
+      "text": "validate that all applicable SLAs are attached correctly to ensure proper tracking",
+      "kind": "change",
+      "table": "case_sla",
+      "anchor": {
+        "case_sla_id": 2
+      },
+      "cells": {
+        "case_id": 1,
+        "sla_def_id": 6,
+        "stage": "in_progress",
+        "has_breached": 1
+      },
+      "sql": "SELECT COUNT(*) FROM case_sla WHERE case_sla_id = 2 AND case_id = 1 AND sla_def_id = 6 AND stage = 'in_progress' AND has_breached = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify case sla 2",
+      "seed_count": 0,
+      "assumptions": [
+        "case SLA 2 attaches 'SLA Resolution - Critical' (definition 6, active), which applies to the critical case and stays attached",
+        "stage in_progress: the policy aligns SLAs when a new case moves to work in progress and pauses them only while the case is pending; the row is paused on the seed",
+        "has_breached 1 kept from the benchmark check; its breach_time (2025-08-27 19:47:44) is before the policy's today, 1 Jan 2026"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify group membership": {
+      "disposition": "kept"
+    },
+    "Verify case sla 1": {
+      "disposition": "kept"
+    },
+    "Verify case update": {
+      "disposition": "kept"
+    },
+    "Verify user creation": {
+      "disposition": "kept"
+    },
+    "Verify case sla 2": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "disagreement: shape of the case 1 assignment: one pass tests the group and the assignee in one requirement, the other in two; chose two, one requirement per thing asked (the group is stated, the assignee implied), with the same cells and the same original in each source\nThe acting user, Jose Roberson (user 32), is an admin whose account is inactive in the seed; the policy has the assistant act with admin responsibilities by default and names no rule barring an inactive requester, so the request is treated as carried out.\nCase 1 is critical and already carries both active critical SLA definitions (response 1 and resolution 6, as case SLAs 1 and 2), and no other definition applies to critical priority, so 'attached correctly' is read as those two rows staying attached to case 1 and aligned (stage in_progress) as the case moves to work in progress; no listed tool creates case SLA rows.\n'Verify case update' is one conjunction over group, assignee and state, carried jointly by the three case requirements.",
+  "minutes": 36
+}

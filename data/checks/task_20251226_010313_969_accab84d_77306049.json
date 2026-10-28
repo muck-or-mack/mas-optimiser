@@ -1,0 +1,74 @@
+{
+  "task_id": "task_20251226_010313_969_accab84d_77306049",
+  "policy_sha1": "32caf4ad",
+  "requirements": [
+    {
+      "text": "please create the transfer case using Employee Profile Update service for Workforce Administration. Include the transfer details ,service and new manager in the description, set it to ready",
+      "kind": "create",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 61
+      },
+      "cells": {
+        "hr_service": 35,
+        "coe_type": "Workforce Administration",
+        "opened_for": 22,
+        "opened_by": 39,
+        "status": "ready",
+        "priority": "moderate",
+        "short_description": [
+          "LIKE 'Service: Employee Profile Update, Subject: David Jones, Detail: %'",
+          "LIKE '%IT Support L2%'",
+          "LIKE '%Robin Monroe%'"
+        ]
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND hr_service = 35 AND coe_type = 'Workforce Administration' AND opened_for = 22 AND opened_by = 39 AND status = 'ready' AND priority = 'moderate' AND short_description LIKE 'Service: Employee Profile Update, Subject: David Jones, Detail: %' AND short_description LIKE '%IT Support L2%' AND short_description LIKE '%Robin Monroe%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify HR Case Creation",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest hr_case_id in the seed is 60); the only case the task creates",
+        "Employee Profile Update is hr_service 35, active; its topic category's coe_type is Workforce Administration",
+        "David Jones is user 22 with hr_profile 22, the only David Jones in the seed; opened_for references hr_profile",
+        "opened_by is the requester per policy 3.1: the acting user Karen Watkins, hr_profile 39",
+        "status ready is stated in the request",
+        "priority not stated; the policy's default is moderate",
+        "the description must include the service, the transfer target and the new manager, as the request says; the Service and Subject prefix follows the policy 8 format and the benchmark check; the Detail wording is not fixed",
+        "disagreement: opened_by: A 39, B untested; chose 39 because policy 3.1 defines opened_by as the requester, the acting user Karen Watkins (hr_profile 39); every seed case has opened_by = opened_for, but that is a pattern in the seed's data, not a rule that contradicts the policy",
+        "disagreement: short_description: A the prefix 'Service: Employee Profile Update, Subject: David Jones, Detail: ' plus IT Support L2 and Robin Monroe, B the bare template 'Service: %, Subject: %, Detail: %' plus the service name, IT Support L2 and Robin Monroe; chose A's because it implies every condition of B's and its subject, David Jones, is the case's subject employee, as the benchmark check also has it"
+      ]
+    },
+    {
+      "text": "update his HR profile with the new manager assignment",
+      "kind": "change",
+      "table": "hr_profile",
+      "anchor": {
+        "hr_profile_id": 22
+      },
+      "cells": {
+        "manager": 31
+      },
+      "sql": "SELECT COUNT(*) FROM hr_profile WHERE hr_profile_id = 22 AND manager = 31",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify HR Profile Update (Manager Change)",
+      "seed_count": 0,
+      "assumptions": [
+        "manager references hr_profile; Robin Monroe is user 31 with hr_profile 31, the only Robin Monroe in the seed",
+        "the seed manager of hr_profile 22 is 59"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify HR Case Creation": {
+      "disposition": "repaired",
+      "evidence": "the check demands one exact description, 'Service: Employee Profile Update, Subject: David Jones, Detail: Transfer to IT Support L2 with new manager Robin Monroe'; the request fixes only what the description includes (the transfer details, the service and the new manager) and the policy's template ends with a full stop the check's string lacks, so the exact Detail wording is undecidable; the description is tested as the Service and Subject prefix plus IT Support L2 and Robin Monroe, and the check's other cells are kept"
+    },
+    "Verify HR Profile Update (Manager Change)": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "disagreement: value: the case's opened_by: one pass tests 39, the other leaves it untested; kept 39 because policy 3.1 makes opened_by the requester, the acting user (logged in the requirement).\ndisagreement: value: the case's short_description: one pass tests the full Service and Subject prefix, the other only the template shape plus the service name; kept the tighter prefix, which implies every condition of the looser one (logged in the requirement).\nThe two passes otherwise agree on every requirement, id, cell and disposition; their texts and assumptions differ in wording only.\nThe acting user Karen Watkins holds the admin role, and the policy says administrators must not perform routine HR case work; the request and the benchmark's checks both expect the case and the profile update, so the requirements follow them and the conflict is only noted here.\n'Verify their HR profile IDs' is a lookup with no write. IT Support L2 is also a user group in this seed (group 2), but the request asks for no membership change and no listed tool writes memberships; it asks for no change to the profile's position either, so neither is required.\nThe policy's 30-120 character limit on short_description is not tested.",
+  "minutes": 34
+}

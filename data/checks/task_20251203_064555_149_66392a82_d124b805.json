@@ -1,0 +1,111 @@
+{
+  "task_id": "task_20251203_064555_149_66392a82_d124b805",
+  "policy_sha1": "10503d62",
+  "requirements": [
+    {
+      "text": "register Horizon Fleet Services as an active customer in the system",
+      "kind": "create",
+      "table": "account",
+      "anchor": {"account_id": 53},
+      "cells": {"name": "Horizon Fleet Services", "account_type": "customer", "active": 1},
+      "sql": "SELECT COUNT(*) FROM account WHERE account_id = 53 AND name = 'Horizon Fleet Services' AND account_type = 'customer' AND active = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Horizon Fleet Services Customer Account Creation",
+      "seed_count": 0,
+      "assumptions": [
+        "no account named Horizon Fleet Services exists in the seed; id assumed next in sequence (53 after 52)",
+        "account_type customer and active 1 from the request's 'an active customer'"
+      ]
+    },
+    {
+      "text": "create a dedicated field coordination group named \"Horizon Field Response Coordination\" to oversee on-site activities",
+      "kind": "create",
+      "table": "user_group",
+      "anchor": {"group_id": 81},
+      "cells": {"name": "Horizon Field Response Coordination", "type": "field", "active": 1},
+      "sql": "SELECT COUNT(*) FROM user_group WHERE group_id = 81 AND name = 'Horizon Field Response Coordination' AND type = 'field' AND active = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Horizon Field Response Coordination Group Creation",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (81 after 80)",
+        "type field from the request's 'field coordination group' and 'the new field group'",
+        "active 1 kept from the benchmark check; not fixed by request or policy"
+      ]
+    },
+    {
+      "text": "Select one manager with Field Service Coordination experience and move them to the new field group",
+      "kind": "create",
+      "table": "user_group_member",
+      "anchor": {"member_id": 960},
+      "cells": {"group_id": 81, "user_id": 518},
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 960 AND group_id = 81 AND user_id = 518",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Manager 518 is Assigned to Horizon Field Response Coordination",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (960 after 959); the task creates one membership",
+        "user 518 (Jennifer Vasquez) kept from the benchmark check; not fixed by request or policy",
+        "518 is the only manager of Field Service Coordination_3 (group 54), the only active field-type Field Service Coordination group; the request's field framing supports it",
+        "the benchmark check also tests the group's type field, which the group requirement carries"
+      ]
+    },
+    {
+      "text": "Select one manager ... and move them to the new field group",
+      "kind": "create",
+      "table": "user_group_member",
+      "selector": "group_id = 81",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE group_id = 81",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "the request moves one manager and asks for no other members, so the new group holds exactly one member; the seed has six other managers across the Field Service Coordination groups (14, 34, 54, 74), and none of them joins",
+        "disagreement: form: A a stay that group 81 holds no member other than user 518 (expected 0), B a create that group 81 holds exactly one member (expected 1); chose B's because it is tighter: it also fails a duplicate membership of user 518, while the anchored membership requirement already fixes who the one member is"
+      ]
+    },
+    {
+      "text": "move them to the new field group",
+      "kind": "remove",
+      "table": "user_group_member",
+      "selector": "group_id = 54 AND user_id = 518",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE group_id = 54 AND user_id = 518",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "Verify Manager 518 is Removed from Field Service Coordination_3",
+      "seed_count": 1,
+      "assumptions": [
+        "a move ends the manager's membership of the Field Service Coordination group they came from (group 54, member 54 in the seed)"
+      ]
+    },
+    {
+      "text": "move them to the new field group",
+      "kind": "stay",
+      "table": "user_group_member",
+      "selector": "group_id = 37 AND user_id = 518",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE group_id = 37 AND user_id = 518",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "user 518 also belongs to Renewals & Retention_2 (group 37, backoffice); the move concerns their field coordination role, so that membership stays"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify Horizon Fleet Services Customer Account Creation": {"disposition": "kept"},
+    "Verify Horizon Field Response Coordination Group Creation": {"disposition": "kept"},
+    "Verify Manager 518 is Assigned to Horizon Field Response Coordination": {"disposition": "kept"},
+    "Verify Manager 518 is Removed from Field Service Coordination_3": {"disposition": "kept"}
+  },
+  "notes": "disagreement: how the new group's membership is bounded: one pass a stay that no one other than user 518 joins group 81, the other a count of exactly one member; chose the exact count as tighter, logged on that requirement.\n'Select one manager' leaves the choice open, and the seed holds four groups named Field Service Coordination: group 14 (support, inactive; managers 59 and 165), group 34 (_2, support, active; managers 336, 663 and 699), group 54 (_3, field, active; manager 518) and group 74 (_4, support, inactive; managers 375 and 699). The requirements keep the benchmark's choice of user 518, the only manager of the only active field-type group, which fits the request's field framing ('field operations', 'field ownership', 'the new field group') and gives a unique pick; under a looser reading any of the six other managers would also satisfy the request, and a manager chosen from another of these groups would fail the add and the remove. No tool updates a membership row, so the move is an addition to the new group plus a removal from group 54. The membership requirements depend on the new group taking id 81 and the new membership id 960; the benchmark's own add check finds the group by name instead. The acting user (user 32, admin) is inactive in the seed; the policy grants admin responsibilities by default and does not bar an inactive user from acting, so the changes are still expected.",
+  "minutes": 32
+}

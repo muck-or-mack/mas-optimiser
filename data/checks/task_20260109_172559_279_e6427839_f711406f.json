@@ -1,0 +1,230 @@
+{
+ "task_id": "task_20260109_172559_279_e6427839_f711406f",
+ "policy_sha1": "9ffbbf7e",
+ "requirements": [
+  {
+   "text": "creating a topic category called Global Assignments under the Workforce Administration COE",
+   "kind": "create",
+   "table": "topic_category",
+   "anchor": {
+    "topic_category_id": 13
+   },
+   "cells": {
+    "name": "Global Assignments",
+    "coe_type": "Workforce Administration",
+    "active": 1,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM topic_category WHERE topic_category_id = 13 AND name = 'Global Assignments' AND coe_type = 'Workforce Administration' AND active = 1 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "Topic Category created: Global Assignments under Workforce Administration COE",
+    "Topic Details created: exactly the 3 requested, under Global Assignments"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (highest topic_category_id in the seed is 12)",
+    "the ServiceNow organization is org_id 1, which is also the acting user's organisation",
+    "active = 1 kept from the benchmark check; not fixed by request or policy",
+    "the acting user holds the admin role, which the policy allows to configure HR services and system tables",
+    "the topic details check joins its details to a category named Global Assignments; with the details tested against category 13, that name is tested here, so this requirement carries that check jointly"
+   ]
+  },
+  {
+   "text": "add three topic details beneath it: Assignment Closure",
+   "kind": "create",
+   "table": "topic_detail",
+   "selector": "name = 'Assignment Closure' AND org_id = 1",
+   "cells": {
+    "topic_category": 13,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM topic_detail WHERE name = 'Assignment Closure' AND org_id = 1 AND topic_category = 13 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Topic Details created: exactly the 3 requested, under Global Assignments",
+   "seed_count": 0,
+   "assumptions": [
+    "three topic details are created and the request fixes no order, so the row is found by name within the organization rather than by id",
+    "topic_category 13 is the Global Assignments category the category requirement anchors",
+    "active = 1 kept from the benchmark check; not fixed by request or policy",
+    "disagreement: topic_category: one pass finds the parent by the name Global Assignments in organization 1, the other by id 13; chose 13 because both hold for the category this task creates and the id is tighter, naming the row the category requirement tests"
+   ]
+  },
+  {
+   "text": "add three topic details beneath it: ... Equipment and Access Decommissioning",
+   "kind": "create",
+   "table": "topic_detail",
+   "selector": "name = 'Equipment and Access Decommissioning' AND org_id = 1",
+   "cells": {
+    "topic_category": 13,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM topic_detail WHERE name = 'Equipment and Access Decommissioning' AND org_id = 1 AND topic_category = 13 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Topic Details created: exactly the 3 requested, under Global Assignments",
+   "seed_count": 0,
+   "assumptions": [
+    "three topic details are created and the request fixes no order, so the row is found by name within the organization rather than by id",
+    "topic_category 13 is the Global Assignments category the category requirement anchors",
+    "active = 1 kept from the benchmark check; not fixed by request or policy",
+    "disagreement: topic_category: one pass finds the parent by the name Global Assignments in organization 1, the other by id 13; chose 13 because both hold for the category this task creates and the id is tighter, naming the row the category requirement tests"
+   ]
+  },
+  {
+   "text": "add three topic details beneath it: ... Final Payroll and Benefits",
+   "kind": "create",
+   "table": "topic_detail",
+   "selector": "name = 'Final Payroll and Benefits' AND org_id = 1",
+   "cells": {
+    "topic_category": 13,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM topic_detail WHERE name = 'Final Payroll and Benefits' AND org_id = 1 AND topic_category = 13 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Topic Details created: exactly the 3 requested, under Global Assignments",
+   "seed_count": 0,
+   "assumptions": [
+    "three topic details are created and the request fixes no order, so the row is found by name within the organization rather than by id",
+    "topic_category 13 is the Global Assignments category the category requirement anchors",
+    "active = 1 kept from the benchmark check; not fixed by request or policy",
+    "disagreement: topic_category: one pass finds the parent by the name Global Assignments in organization 1, the other by id 13; chose 13 because both hold for the category this task creates and the id is tighter, naming the row the category requirement tests"
+   ]
+  },
+  {
+   "text": "create a service template named Global Assignment Offboarding Template and set the change request so that the short description is Coordinate all steps to close a global assignment, the category is offboarding, and the XML content ... which is stored as xml_payload",
+   "kind": "create",
+   "table": "service_template",
+   "anchor": {
+    "service_template_id": 7
+   },
+   "cells": {
+    "name": "Global Assignment Offboarding Template",
+    "coe_type": "Workforce Administration",
+    "active": 1,
+    "org_id": 1,
+    "json_extract(change_request_values, '$.short_description')": "Coordinate all steps to close a global assignment",
+    "json_extract(change_request_values, '$.category')": "offboarding",
+    "json_extract(change_request_values, '$.xml_payload')": "<assignmentClosure><scope>global</scope><requiresManagerSignoff>true</requiresManagerSignoff></assignmentClosure>"
+   },
+   "sql": "SELECT COUNT(*) FROM service_template WHERE service_template_id = 7 AND name = 'Global Assignment Offboarding Template' AND coe_type = 'Workforce Administration' AND active = 1 AND org_id = 1 AND json_extract(change_request_values, '$.short_description') = 'Coordinate all steps to close a global assignment' AND json_extract(change_request_values, '$.category') = 'offboarding' AND json_extract(change_request_values, '$.xml_payload') = '<assignmentClosure><scope>global</scope><requiresManagerSignoff>true</requiresManagerSignoff></assignmentClosure>'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "Service Template created with correct change request fields + xml_payload",
+    "HR Service created + linked to topic detail + template + criteria"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (highest service_template_id in the seed is 6)",
+    "change_request_values is stored as a JSON object, as every seed template shows, so the three keys are read with json_extract",
+    "coe_type Workforce Administration kept from the benchmark check; not fixed by request or policy, though it matches the program's COE",
+    "active = 1 kept from the benchmark check; not fixed by request or policy",
+    "the HR service check joins its template by the name Global Assignment Offboarding Template; with the service tested against template 7, that name is tested here, so this requirement carries that check jointly"
+   ]
+  },
+  {
+   "text": "one approval-type criterion called Global Assignment Approval that should be limited to the HR Service Desk group",
+   "kind": "create",
+   "table": "hr_criteria",
+   "selector": "name = 'Global Assignment Approval' AND org_id = 1",
+   "cells": {
+    "type": "approval",
+    "active": 1,
+    "user_group": 4
+   },
+   "sql": "SELECT COUNT(*) FROM hr_criteria WHERE name = 'Global Assignment Approval' AND org_id = 1 AND type = 'approval' AND active = 1 AND user_group = 4",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "HR Criteria (approval): Global Assignment Approval limited to a Service Desk group",
+   "seed_count": 0,
+   "assumptions": [
+    "two criteria are created and the request fixes no order, so the row is found by name within the organization rather than by id",
+    "HR Service Desk is group 4 (type Service Desk, organization 1), the only group of that name",
+    "active = 1 kept from the benchmark check; not fixed by request or policy"
+   ]
+  },
+  {
+   "text": "one case visibility-type criterion called Global Assignment Visibility that should restrict visibility to the HR Service Desk group and the Infrastructure Problem Team groups",
+   "kind": "create",
+   "table": "hr_criteria",
+   "selector": "name = 'Global Assignment Visibility' AND org_id = 1",
+   "cells": {
+    "type": "case_visibility",
+    "active": 1,
+    "user_group": 4
+   },
+   "sql": "SELECT COUNT(*) FROM hr_criteria WHERE name = 'Global Assignment Visibility' AND org_id = 1 AND type = 'case_visibility' AND active = 1 AND user_group = 4",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "HR Criteria (case visibility)",
+   "seed_count": 0,
+   "assumptions": [
+    "two criteria are created and the request fixes no order, so the row is found by name within the organization rather than by id",
+    "case visibility type stored as case_visibility, the spelling the seed's visibility criteria use",
+    "HR Service Desk is group 4, held in the single user_group column",
+    "the Infrastructure Problem Team groups (7 and 8 in this organization) can only be carried in the users JSON column, whose storage format the seed does not show; that cell is not tested",
+    "active = 1 kept from the benchmark check; not fixed by request or policy"
+   ]
+  },
+  {
+   "text": "create a new HR service called Global Assignment Offboarding Event, set the fulfillment type to lifecycle event, and link it to the Assignment Closure topic detail, the Global Assignment Offboarding Template, and the new HR criteria record (Global Assignment Visibility)",
+   "kind": "create",
+   "table": "hr_service",
+   "anchor": {
+    "hr_service_id": 55
+   },
+   "cells": {
+    "service_name": "Global Assignment Offboarding Event",
+    "fulfillment_type": "lifecycle event",
+    "active": 1,
+    "org_id": 1,
+    "topic_detail": "IN (SELECT topic_detail_id FROM topic_detail WHERE name = 'Assignment Closure' AND org_id = 1)",
+    "service_template": 7,
+    "hr_criteria": "IN (SELECT hr_criteria_id FROM hr_criteria WHERE name = 'Global Assignment Visibility' AND org_id = 1)"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 55 AND service_name = 'Global Assignment Offboarding Event' AND fulfillment_type = 'lifecycle event' AND active = 1 AND org_id = 1 AND topic_detail IN (SELECT topic_detail_id FROM topic_detail WHERE name = 'Assignment Closure' AND org_id = 1) AND service_template = 7 AND hr_criteria IN (SELECT hr_criteria_id FROM hr_criteria WHERE name = 'Global Assignment Visibility' AND org_id = 1)",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "HR Service created + linked to topic detail + template + criteria",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (highest hr_service_id in the seed is 54)",
+    "the topic detail and criterion are found by name within the organization, since several of each are created and their ids depend on creation order",
+    "template 7 is the Global Assignment Offboarding Template the template requirement anchors, the only template this task creates",
+    "the criterion must be Global Assignment Visibility, as the request names it",
+    "fulfillment_type lifecycle event as the request states, although the policy's enumeration for hr_service.fulfillment_type omits it",
+    "active = 1 kept from the benchmark check; not fixed by request or policy",
+    "disagreement: service_template: one pass finds the template by its name in organization 1, the other by id 7; chose 7 because both hold for the template this task creates and the id is tighter, naming the row the template requirement tests"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Topic Category created: Global Assignments under Workforce Administration COE": {
+   "disposition": "kept"
+  },
+  "Topic Details created: exactly the 3 requested, under Global Assignments": {
+   "disposition": "kept"
+  },
+  "Service Template created with correct change request fields + xml_payload": {
+   "disposition": "kept"
+  },
+  "HR Criteria (approval): Global Assignment Approval limited to a Service Desk group": {
+   "disposition": "repaired",
+   "evidence": "the request limits the criterion to the HR Service Desk group (group 4); the check accepts any group of type Service Desk, which in this organization also matches Global Service Desk (3) and HR Case Readers (11), so the group is pinned to 4"
+  },
+  "HR Criteria (case visibility)": {
+   "disposition": "repaired",
+   "evidence": "the check also requires hr_criteria.users to hold a member of an Infrastructure Problem Team group via json_each; every criterion in the seed stores users as null, so the column's storage format is not shown and that predicate is dropped; the Service Desk group is tightened to the HR Service Desk group (group 4) the request names, where the check accepts any Service Desk group (3, 4 or 11)"
+  },
+  "HR Service created + linked to topic detail + template + criteria": {
+   "disposition": "repaired",
+   "evidence": "the check accepts either Global Assignment Approval or Global Assignment Visibility as the linked criterion; the request names 'the new HR criteria record (Global Assignment Visibility)', so the approval criterion is dropped from the accepted set"
+  }
+ },
+ "notes": "disagreement: value: the parent cell of the three topic details: one pass finds the parent by the name Global Assignments, the other by id 13; chose 13, the tighter, which names the row the category requirement anchors; the category requirement therefore also carries the topic details check, whose join on the category's name it tests (resolved on those requirements).\ndisagreement: value: the HR service's template cell: one pass finds the template by name, the other by id 7; chose 7, the tighter, which names the row the template requirement anchors; the template requirement therefore also carries the HR service check, whose join on the template's name it tests (resolved on those requirements).\ndisagreement: disposition: the approval criterion check: one pass repaired it (group pinned to HR Service Desk), the other kept it while testing the same group 4; chose repaired, since the query as written accepts Global Service Desk and HR Case Readers, which the request does not name.\nThe passes otherwise agree on every requirement, id and cell; their texts and assumptions differ in wording only.\nThe visibility criterion is to cover both the HR Service Desk group and the Infrastructure Problem Team groups (Network Infrastructure, group 7, and Server Operations, group 8, in organization 1), but hr_criteria holds one user_group; the second part can only go into the users JSON column (members of groups 7 and 8 are users 29, 33, 38 and 40), whose storage format the seed does not show (every seed criterion has users empty), so that cell is untestable and left out.\nThe policy's enumeration for hr_service.fulfillment_type lists workflow, approval, manual and integration only, and every seed service is manual; the request and the benchmark both ask for lifecycle event, so the requirement keeps that value. The same enumeration section also disagrees with values the seed stores (user roles admin and manager, case priorities moderate and planning), so it is not treated as binding; a server that enforced it would reject the value.\nThe requested names (Global Assignments and the topic detail names) are shorter than the policy's 30-character minimum for titles; the request gives them verbatim and they are tested as given.",
+ "minutes": 38
+}

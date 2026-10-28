@@ -1,0 +1,113 @@
+{
+  "task_id": "task_20251207_012657_395_accab84d_6ec27d2f",
+  "policy_sha1": "b627c371",
+  "requirements": [
+    {
+      "text": "Please reopen the case immediately by incrementing the count",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {"case_id": 108},
+      "cells": {"state": "in_progress", "reopen_count": 1},
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 108 AND state = 'in_progress' AND reopen_count = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Case for Thomas at Initech is reopened and routed to Michael in the right group",
+      "seed_count": 0,
+      "assumptions": [
+        "the case is CS-0000108 (case 108): Initech's only resolved Apache HTTP Server Variant 10 case, raised by Thomas Bailey's contact (5) and carrying a resolution article",
+        "reopen_count is 0 on the seed and the request asks for one increment, so it must be exactly 1; the benchmark's >= 1 would also accept a double increment",
+        "state in_progress kept from the benchmark check: the policy reopens a resolved case by resolved -> new, and new -> in_progress is a valid further step for the second look; neither the request nor the policy contradicts it",
+        "disagreement: state: A in_progress, B IN ('new', 'in_progress'); chose in_progress because the benchmark's cell is the prior where the request and policy do not contradict it, and a valid new -> in_progress transition reaches it"
+      ]
+    },
+    {
+      "text": "route it directly to Michael Lee in the CSM Tier 1 Support group",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {"case_id": 108},
+      "cells": {"assigned_to": 228, "assignment_group_id": 1},
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 108 AND assigned_to = 228 AND assignment_group_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Case for Thomas at Initech is reopened and routed to Michael in the right group",
+      "seed_count": 0,
+      "assumptions": [
+        "CSM Tier 1 Support is group 1 (not the _2, _3 or _4 groups)",
+        "two active agents are named Michael Lee (228 and 648); only 228 is a member of group 1, and the policy requires the assignee to be a member of the assignment group"
+      ]
+    },
+    {
+      "text": "remove the existing resolution KB attached to the ticket",
+      "kind": "remove",
+      "table": "case_knowledge",
+      "selector": "case_id = 108 AND knowledge_id = 46",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_id = 108 AND knowledge_id = 46",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "Old resolution KB removed",
+      "seed_count": 1,
+      "assumptions": [
+        "the existing resolution article is KB-0000046 (knowledge 46), linked to case 108 as resolution (case_kb_id 41), the only article linked to the case",
+        "the link must be gone whatever its used_as; relabelling it would leave the article attached"
+      ]
+    },
+    {
+      "text": "search for a latest variant 90 KB article to link instead",
+      "kind": "create",
+      "table": "case_knowledge",
+      "anchor": {"case_kb_id": 528},
+      "cells": {"case_id": 108, "knowledge_id": 170, "used_as": "suggested"},
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_kb_id = 528 AND case_id = 108 AND knowledge_id = 170 AND used_as = 'suggested'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "New suggested KB attached",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence",
+        "two published Apache HTTP Server Variant 90 articles exist (169 and 170); 170, the higher-numbered article, kept from the benchmark check as the latest",
+        "used_as suggested: the policy links an article found through search as suggested"
+      ]
+    },
+    {
+      "text": "search for a latest variant 90 KB article to link instead",
+      "kind": "stay",
+      "table": "case_knowledge",
+      "selector": "case_id = 108 AND knowledge_id = 169",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_id = 108 AND knowledge_id = 169",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "the request asks for one article; KB-0000169, the other Variant 90 article, is the near match a loose reading would also link"
+      ]
+    },
+    {
+      "text": "Please reopen the case immediately",
+      "kind": "stay",
+      "table": "customer_case",
+      "anchor": {"case_id": 99},
+      "cells": {"reopen_count": 0, "assigned_to": "IS NULL"},
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 99 AND reopen_count = 0 AND assigned_to IS NULL",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "CS-0000099 is Initech's other Apache HTTP Server Variant 10 case, still new, unassigned and from another contact (6), so no solution on it has failed and it must not be reopened or rerouted"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Case for Thomas at Initech is reopened and routed to Michael in the right group": {
+      "disposition": "kept",
+      "evidence": "disagreement: disposition: A kept, B repaired (state widened to new or in_progress); kept because the request and policy do not contradict state in_progress, which a valid new -> in_progress step reaches; carried on case 108, the only Initech case it can select, with reopen_count >= 1 tightened to = 1 since the seed holds 0 and the request asks for one increment"
+    },
+    "Old resolution KB removed": {"disposition": "kept"},
+    "New suggested KB attached": {"disposition": "kept"}
+  },
+  "notes": "disagreement: missing requirement: the stay on case 99, present in one pass only; kept because CS-0000099 is Initech's other Apache HTTP Server Variant 10 case, the row a loose reading of 'the case' would sweep in, and it is new with no solution provided, so reopening or rerouting it would be wrong\ndisagreement: value: state of the reopened case 108: A in_progress, B IN ('new', 'in_progress'); kept in_progress as the benchmark's prior, which the request and policy do not contradict (logged in the requirement)\ndisagreement: disposition: 'Case for Thomas at Initech is reopened and routed to Michael in the right group': A kept, B repaired; kept, following the state resolution (logged in its evidence)\nThe policy's only reopen transition is resolved -> new; the benchmark expects the reopened case in in_progress, which needs a further new -> in_progress step the request does not state, so an agent that reopens to new and stops fails the state cell.\n'Latest' Variant 90 article is ambiguous on the seed: KB-0000170 has the higher number, but KB-0000169 has the later sys_created_on and sys_updated_on; the benchmark's 170 is kept, read as the higher-numbered article.\nThe benchmark's account-wide selectors are narrowed to case 108; on the seed, article 46 is linked as resolution to no other Initech case, so the narrowing selects the same rows.\nThe policy's SLA alignment on moving a case to in_progress is not required: the request does not ask for it and no listed tool writes case_sla.",
+  "minutes": 36
+}

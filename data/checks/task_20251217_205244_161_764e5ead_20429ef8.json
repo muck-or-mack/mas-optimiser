@@ -1,0 +1,332 @@
+{
+  "task_id": "task_20251217_205244_161_764e5ead_20429ef8",
+  "policy_sha1": "4afd943b",
+  "requirements": [
+    {
+      "text": "create a new active location for our Berlin office at Plot 42, Friedrichstrasse, Berlin, Germany",
+      "kind": "create",
+      "table": "location",
+      "anchor": {
+        "location_id": "LOC_004"
+      },
+      "cells": {
+        "name": "Berlin Office",
+        "plot_no": "42",
+        "street": "Friedrichstrasse",
+        "city": "Berlin",
+        "country": "Germany",
+        "active": 1,
+        "org_id": "ORG_001"
+      },
+      "sql": "SELECT COUNT(*) FROM location WHERE location_id = 'LOC_004' AND name = 'Berlin Office' AND plot_no = '42' AND street = 'Friedrichstrasse' AND city = 'Berlin' AND country = 'Germany' AND active = 1 AND org_id = 'ORG_001'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_berlin_location_created",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (LOC_004 after LOC_003); the only location this task creates",
+        "name = 'Berlin Office' kept from the benchmark check verify_two_cis_registered (which joins on l.name); not fixed by request or policy, which say 'our Berlin office'",
+        "org_id ORG_001 is the acting user's organisation (Marcus Thompson, USER_001); state not stated and not tested"
+      ]
+    },
+    {
+      "text": "Sarah Mueller ... she'll be a manager and should have an active account with the email sarah.mueller@techcorp.com and phone number +49-309-550-0201, and she should be based at the Berlin location",
+      "kind": "create",
+      "table": "users",
+      "selector": "email = 'sarah.mueller@techcorp.com'",
+      "cells": {
+        "first_name": "Sarah",
+        "last_name": "Mueller",
+        "role": "manager",
+        "phone": "+49-309-550-0201",
+        "active": 1,
+        "location_id": "LOC_004",
+        "org_id": "ORG_001"
+      },
+      "sql": "SELECT COUNT(*) FROM users WHERE email = 'sarah.mueller@techcorp.com' AND first_name = 'Sarah' AND last_name = 'Mueller' AND role = 'manager' AND phone = '+49-309-550-0201' AND active = 1 AND location_id = 'LOC_004' AND org_id = 'ORG_001'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_sarah_mueller_created",
+      "seed_count": 0,
+      "assumptions": [
+        "four users are created, so each is selected by its natural key (email), not by id",
+        "location_id LOC_004 is the Berlin location this task creates ('based at the Berlin location')",
+        "phone +49-309-550-0201 is the request's value as written (the three agents use +49-305); the benchmark tests the same value",
+        "the benchmark's '(user_name = ''sarah.mueller'' OR user_name IS NOT NULL)' is a tautology on a NOT NULL column and is not carried; user_name is not fixed by the request",
+        "'manager' is the users.role column (the benchmark tests it); a user_role row is left to the server and not tested",
+        "the existing Sophie Mueller (USER_008, acme.com, ORG_002) is a different person; no tool in the list can update her"
+      ]
+    },
+    {
+      "text": "onboard three support agents: ... Lars Jensen (lars.jensen@techcorp.com, +49-305-550-0202) ... all with active accounts and complete details assigned to the Berlin office",
+      "kind": "create",
+      "table": "users",
+      "selector": "email = 'lars.jensen@techcorp.com'",
+      "cells": {
+        "first_name": "Lars",
+        "last_name": "Jensen",
+        "role": "agent",
+        "phone": "+49-305-550-0202",
+        "active": 1,
+        "location_id": "LOC_004",
+        "org_id": "ORG_001"
+      },
+      "sql": "SELECT COUNT(*) FROM users WHERE email = 'lars.jensen@techcorp.com' AND first_name = 'Lars' AND last_name = 'Jensen' AND role = 'agent' AND phone = '+49-305-550-0202' AND active = 1 AND location_id = 'LOC_004' AND org_id = 'ORG_001'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_three_agents_created",
+      "seed_count": 0,
+      "assumptions": [
+        "four users are created, so each is selected by its natural key (email), not by id; one requirement per agent with its own phone (the benchmark's phone IN (...) would accept swapped phones)",
+        "'support agents' means role = agent (policy section 2); 'assigned to the Berlin office' means location_id = LOC_004, the location this task creates",
+        "org_id ORG_001 is the acting user's org (the techcorp.com domain); user_name is left to the agent and not tested"
+      ]
+    },
+    {
+      "text": "onboard three support agents: ... Dmitri Volkov (dmitri.volkov@techcorp.com, +49-305-550-0203) ... all with active accounts and complete details assigned to the Berlin office",
+      "kind": "create",
+      "table": "users",
+      "selector": "email = 'dmitri.volkov@techcorp.com'",
+      "cells": {
+        "first_name": "Dmitri",
+        "last_name": "Volkov",
+        "role": "agent",
+        "phone": "+49-305-550-0203",
+        "active": 1,
+        "location_id": "LOC_004",
+        "org_id": "ORG_001"
+      },
+      "sql": "SELECT COUNT(*) FROM users WHERE email = 'dmitri.volkov@techcorp.com' AND first_name = 'Dmitri' AND last_name = 'Volkov' AND role = 'agent' AND phone = '+49-305-550-0203' AND active = 1 AND location_id = 'LOC_004' AND org_id = 'ORG_001'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_three_agents_created",
+      "seed_count": 0,
+      "assumptions": [
+        "four users are created, so each is selected by its natural key (email), not by id; one requirement per agent with its own phone (the benchmark's phone IN (...) would accept swapped phones)",
+        "'support agents' means role = agent (policy section 2); 'assigned to the Berlin office' means location_id = LOC_004, the location this task creates",
+        "org_id ORG_001 is the acting user's org (the techcorp.com domain); user_name is left to the agent and not tested"
+      ]
+    },
+    {
+      "text": "onboard three support agents: ... Yuki Tanaka (yuki.tanaka@techcorp.com, +49-305-550-0204) ... all with active accounts and complete details assigned to the Berlin office",
+      "kind": "create",
+      "table": "users",
+      "selector": "email = 'yuki.tanaka@techcorp.com'",
+      "cells": {
+        "first_name": "Yuki",
+        "last_name": "Tanaka",
+        "role": "agent",
+        "phone": "+49-305-550-0204",
+        "active": 1,
+        "location_id": "LOC_004",
+        "org_id": "ORG_001"
+      },
+      "sql": "SELECT COUNT(*) FROM users WHERE email = 'yuki.tanaka@techcorp.com' AND first_name = 'Yuki' AND last_name = 'Tanaka' AND role = 'agent' AND phone = '+49-305-550-0204' AND active = 1 AND location_id = 'LOC_004' AND org_id = 'ORG_001'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_three_agents_created",
+      "seed_count": 0,
+      "assumptions": [
+        "four users are created, so each is selected by its natural key (email), not by id; one requirement per agent with its own phone (the benchmark's phone IN (...) would accept swapped phones)",
+        "'support agents' means role = agent (policy section 2); 'assigned to the Berlin office' means location_id = LOC_004, the location this task creates",
+        "org_id ORG_001 is the acting user's org (the techcorp.com domain); user_name is left to the agent and not tested",
+        "the existing Kenji Tanaka (USER_009, acme.com, ORG_002) is a different person"
+      ]
+    },
+    {
+      "text": "create a new active user group called 'Berlin Support Team' with a small description for IT Support, set the group email to berlin-support@techcorp.com",
+      "kind": "create",
+      "table": "user_group",
+      "anchor": {
+        "group_id": "GROUP_005"
+      },
+      "cells": {
+        "name": "Berlin Support Team",
+        "type": "IT Support",
+        "description": "IS NOT NULL",
+        "email": "berlin-support@techcorp.com",
+        "active": 1,
+        "org_id": "ORG_001"
+      },
+      "sql": "SELECT COUNT(*) FROM user_group WHERE group_id = 'GROUP_005' AND name = 'Berlin Support Team' AND type = 'IT Support' AND description IS NOT NULL AND email = 'berlin-support@techcorp.com' AND active = 1 AND org_id = 'ORG_001'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_berlin_support_team_created",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (GROUP_005 after GROUP_004); the only user_group row this task creates",
+        "type = 'IT Support' kept from the benchmark check; the request's 'for IT Support' is read as the group type, which GROUP_001 and GROUP_003 already use on the seed",
+        "'a small description' fixes no wording, so description is only tested as present, as the benchmark does"
+      ]
+    },
+    {
+      "text": "assign Sarah Mueller as the manager",
+      "kind": "create",
+      "table": "user_group",
+      "anchor": {
+        "group_id": "GROUP_005"
+      },
+      "cells": {
+        "manager_id": "IN (SELECT user_id FROM users WHERE email = 'sarah.mueller@techcorp.com')"
+      },
+      "sql": "SELECT COUNT(*) FROM user_group WHERE group_id = 'GROUP_005' AND manager_id IN (SELECT user_id FROM users WHERE email = 'sarah.mueller@techcorp.com')",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_sarah_is_group_manager",
+      "seed_count": 0,
+      "assumptions": [
+        "same row as the previous requirement (GROUP_005); split so the benchmark's manager check keeps its own requirement",
+        "Sarah's user_id is not fixed (four users are created), so the manager is resolved through her email, as the benchmark check does; Sophie Mueller (USER_008) would fail this"
+      ]
+    },
+    {
+      "text": "add the three agents as group members (Lars Jensen)",
+      "kind": "create",
+      "table": "user_group_member",
+      "selector": "group_id = 'GROUP_005' AND user_id IN (SELECT user_id FROM users WHERE email = 'lars.jensen@techcorp.com')",
+      "cells": {
+        "org_id": "ORG_001"
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE group_id = 'GROUP_005' AND user_id IN (SELECT user_id FROM users WHERE email = 'lars.jensen@techcorp.com') AND org_id = 'ORG_001'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_three_group_members_added",
+      "seed_count": 0,
+      "assumptions": [
+        "three memberships are created, so each is selected by its natural key (group and user), the user resolved by email because four users are created and the request fixes no order",
+        "GROUP_005 is the one user_group row this task creates (id assumed next in sequence after GROUP_004)"
+      ]
+    },
+    {
+      "text": "add the three agents as group members (Dmitri Volkov)",
+      "kind": "create",
+      "table": "user_group_member",
+      "selector": "group_id = 'GROUP_005' AND user_id IN (SELECT user_id FROM users WHERE email = 'dmitri.volkov@techcorp.com')",
+      "cells": {
+        "org_id": "ORG_001"
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE group_id = 'GROUP_005' AND user_id IN (SELECT user_id FROM users WHERE email = 'dmitri.volkov@techcorp.com') AND org_id = 'ORG_001'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_three_group_members_added",
+      "seed_count": 0,
+      "assumptions": [
+        "three memberships are created, so each is selected by its natural key (group and user), the user resolved by email because four users are created and the request fixes no order",
+        "GROUP_005 is the one user_group row this task creates (id assumed next in sequence after GROUP_004)"
+      ]
+    },
+    {
+      "text": "add the three agents as group members (Yuki Tanaka)",
+      "kind": "create",
+      "table": "user_group_member",
+      "selector": "group_id = 'GROUP_005' AND user_id IN (SELECT user_id FROM users WHERE email = 'yuki.tanaka@techcorp.com')",
+      "cells": {
+        "org_id": "ORG_001"
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE group_id = 'GROUP_005' AND user_id IN (SELECT user_id FROM users WHERE email = 'yuki.tanaka@techcorp.com') AND org_id = 'ORG_001'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_three_group_members_added",
+      "seed_count": 0,
+      "assumptions": [
+        "three memberships are created, so each is selected by its natural key (group and user), the user resolved by email because four users are created and the request fixes no order",
+        "GROUP_005 is the one user_group row this task creates (id assumed next in sequence after GROUP_004)"
+      ]
+    },
+    {
+      "text": "a laptop called 'Sarah Manager Laptop' with serial number LAPTOP-BER-MGR-001, assigned to Sarah, marked as in use, with a cost of 1800.00",
+      "kind": "create",
+      "table": "configuration_item",
+      "selector": "serial_number = 'LAPTOP-BER-MGR-001'",
+      "cells": {
+        "name": "Sarah Manager Laptop",
+        "owner_id": "IN (SELECT user_id FROM users WHERE email = 'sarah.mueller@techcorp.com')",
+        "status": "in_use",
+        "cost": 1800,
+        "location_id": "LOC_004",
+        "org_id": "ORG_001"
+      },
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE serial_number = 'LAPTOP-BER-MGR-001' AND name = 'Sarah Manager Laptop' AND owner_id IN (SELECT user_id FROM users WHERE email = 'sarah.mueller@techcorp.com') AND status = 'in_use' AND cost = 1800 AND location_id = 'LOC_004' AND org_id = 'ORG_001'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_two_cis_registered",
+      "seed_count": 0,
+      "assumptions": [
+        "two CIs are created, so each is selected by its natural key (serial number), not by id",
+        "'for the Berlin office' fixes location_id = LOC_004 (the benchmark check joins the location by name 'Berlin Office', carried on the location requirement)",
+        "'assigned to Sarah' means owner_id, the table's only user column (policy 5.1: all CIs must have an owner_id), resolved by her email"
+      ]
+    },
+    {
+      "text": "an under maintenance server called 'Berlin Email Relay Server' with serial number SERVER-BER-RELAY-001, assigned to me (Marcus Thompson), with a cost of 8500.00",
+      "kind": "create",
+      "table": "configuration_item",
+      "selector": "serial_number = 'SERVER-BER-RELAY-001'",
+      "cells": {
+        "name": "Berlin Email Relay Server",
+        "owner_id": "USER_001",
+        "status": "maintenance",
+        "cost": 8500,
+        "location_id": "LOC_004",
+        "org_id": "ORG_001"
+      },
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE serial_number = 'SERVER-BER-RELAY-001' AND name = 'Berlin Email Relay Server' AND owner_id = 'USER_001' AND status = 'maintenance' AND cost = 8500 AND location_id = 'LOC_004' AND org_id = 'ORG_001'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_server_in_maintenance",
+      "seed_count": 0,
+      "assumptions": [
+        "two CIs are created, so each is selected by its serial number",
+        "'me' is the acting user Marcus Thompson, USER_001",
+        "'under maintenance' is status = maintenance (policy section 9 enumeration); the benchmark's 'was updated to' wording is loose, the request asks for it at registration",
+        "location_id = LOC_004, cost = 8500 and org_id = ORG_001 also carry verify_two_cis_registered for this row"
+      ]
+    },
+    {
+      "text": "add the three agents as group members",
+      "kind": "stay",
+      "table": "user_group_member",
+      "selector": "group_id = 'GROUP_005' AND user_id IN ('USER_008', 'USER_009')",
+      "cells": {
+        "user_id": "IN ('USER_008', 'USER_009')"
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE group_id = 'GROUP_005' AND user_id IN ('USER_008', 'USER_009')",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of the selector: Sophie Mueller (USER_008) and Kenji Tanaka (USER_009, both acme.com, ORG_002) share surnames with the new hires and could be found by a get_user_using_name lookup; they are not the three agents and must not be added",
+        "disagreement: A only (B wrote a stay on the users rows of USER_008 and USER_009 instead); kept because add_new_group_member is the one listed tool through which a surname lookup could pull them in"
+      ]
+    }
+  ],
+  "original_checks": {
+    "verify_three_group_members_added": {
+      "disposition": "kept"
+    },
+    "verify_berlin_location_created": {
+      "disposition": "kept"
+    },
+    "verify_sarah_mueller_created": {
+      "disposition": "kept"
+    },
+    "verify_three_agents_created": {
+      "disposition": "kept"
+    },
+    "verify_berlin_support_team_created": {
+      "disposition": "kept"
+    },
+    "verify_sarah_is_group_manager": {
+      "disposition": "kept"
+    },
+    "verify_two_cis_registered": {
+      "disposition": "kept"
+    },
+    "verify_server_in_maintenance": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Every row the task creates is new on the seed, so all creates have seed_count 0. Rows are anchored by id only where the task creates one row in the table (location LOC_004, user_group GROUP_005); the four users, three memberships and two CIs are selected by natural key (email, group plus user, serial number), with user ids resolved by email subqueries. Every user requirement tests location_id = 'LOC_004' because the request places all four people at the Berlin office; the benchmark does not test it. The benchmark's check 3 phrase (user_name = 'sarah.mueller' OR user_name IS NOT NULL) reduces to NOT NULL on a NOT NULL column, so user_name is not a cell. The location name 'Berlin Office' is the benchmark's prior (check 7's join) and is the one cell the request leaves open that the file still fixes. The seed's user_role table is not tested: 'manager' and 'agents' map to users.role, which the benchmark tests, and no listed tool names user_role. All creates have a tool (add_location, add_new_user, add_new_user_group, add_new_group_member, register_configuration_item). Both passes found the same twelve creates with the same cells and kept all eight original checks; they differ only in the boundary stay. disagreement: membership stay on GROUP_005 for USER_008 and USER_009: A only; kept because add_new_group_member is listed and a surname lookup could add the wrong person. disagreement: users stay keeping USER_008 and USER_009's email and org: B only; dropped because no listed tool updates an existing user (add_new_user, get_user, get_user_using_name only), so the count cannot change and the stay adds length without strictness.",
+  "minutes": 27
+}

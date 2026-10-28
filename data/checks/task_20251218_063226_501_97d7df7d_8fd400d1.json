@@ -1,0 +1,103 @@
+{
+  "task_id": "task_20251218_063226_501_97d7df7d_8fd400d1",
+  "policy_sha1": "9698a42f",
+  "requirements": [
+    {
+      "text": "Send alerts to the users currently assigned to these incidents using the subject Priority Escalation for Aging Incidents, and make it clear in the message that the incident has been escalated as top-priority work due to how long it has remained unresolved, briefly reminding the assignee what the case is about by referencing its incident summary and also stating the date in which this incident was created, and emphasizing that this work should now be handled ahead of other tasks and driven to resolution as quickly as possible (printer incident)",
+      "kind": "create",
+      "table": "notification",
+      "selector": "incident_id = 'INC_003' AND email = 'carlos.rodriguez@techcorp.com'",
+      "cells": {
+        "type": "alert",
+        "subject": "Priority Escalation for Aging Incidents",
+        "message": [
+          "LIKE '%escalated%'",
+          "LIKE '%unresolved%'",
+          "LIKE '%printer connectivity%'",
+          "LIKE '%ahead of other tasks%'",
+          "LIKE '%quick%'",
+          "LIKE '%top%'",
+          "LIKE '%priority%'",
+          "LIKE '%possible%'",
+          "LIKE '%19%'"
+        ]
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_003' AND email = 'carlos.rodriguez@techcorp.com' AND type = 'alert' AND subject = 'Priority Escalation for Aging Incidents' AND LOWER(message) LIKE '%escalated%' AND LOWER(message) LIKE '%unresolved%' AND LOWER(message) LIKE '%printer connectivity%' AND LOWER(message) LIKE '%ahead of other tasks%' AND LOWER(message) LIKE '%quick%' AND LOWER(message) LIKE '%top%' AND LOWER(message) LIKE '%priority%' AND LOWER(message) LIKE '%possible%' AND LOWER(message) LIKE '%19%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_printer_priority_alert_sent",
+      "seed_count": 0,
+      "assumptions": [
+        "the set is the incidents with assignment_group = GROUP_001 ('Level 1 Support Team'), status not resolved or closed, created_at before 2024-02-20: INC_004 (18 Feb) and INC_003 (19 Feb); INC_001 (10 Feb) is resolved so not open",
+        "INC_003 'Printer connectivity issue' (status new) is assigned to USER_003 Carlos Rodriguez (carlos.rodriguez@techcorp.com), created 2024-02-19 10:00",
+        "'Send alerts' fixes type = alert",
+        "the incident summary is INC_003.short_description, tested by its distinctive words 'printer connectivity'",
+        "the created date is 2024-02-19 10:00; its written format is not fixed, so only the day number '19' is tested, as the benchmark check does",
+        "message predicates are case-insensitive (LOWER(message) in the sql), as in the benchmark check",
+        "two alerts are created, so the row is selected by incident and recipient, not by id",
+        "disagreement: message cell form: A 'LOWER(message) LIKE ...' (column repeated in the predicate), B 'LIKE ...'; chose B's form because the README writes a predicate as SQL on the column and the repository's check files write case-insensitive LIKE so, with LOWER() in the sql; same meaning in both passes"
+      ]
+    },
+    {
+      "text": "Send alerts to the users currently assigned to these incidents using the subject Priority Escalation for Aging Incidents, and make it clear in the message that the incident has been escalated as top-priority work due to how long it has remained unresolved, briefly reminding the assignee what the case is about by referencing its incident summary and also stating the date in which this incident was created, and emphasizing that this work should now be handled ahead of other tasks and driven to resolution as quickly as possible (network incident)",
+      "kind": "create",
+      "table": "notification",
+      "selector": "incident_id = 'INC_004' AND email = 'elena.petrov@techcorp.com'",
+      "cells": {
+        "type": "alert",
+        "subject": "Priority Escalation for Aging Incidents",
+        "message": [
+          "LIKE '%escalated%'",
+          "LIKE '%unresolved%'",
+          "LIKE '%network connectivity%'",
+          "LIKE '%ahead of other tasks%'",
+          "LIKE '%quick%'",
+          "LIKE '%top%'",
+          "LIKE '%priority%'",
+          "LIKE '%possible%'",
+          "LIKE '%18%'"
+        ]
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_004' AND email = 'elena.petrov@techcorp.com' AND type = 'alert' AND subject = 'Priority Escalation for Aging Incidents' AND LOWER(message) LIKE '%escalated%' AND LOWER(message) LIKE '%unresolved%' AND LOWER(message) LIKE '%network connectivity%' AND LOWER(message) LIKE '%ahead of other tasks%' AND LOWER(message) LIKE '%quick%' AND LOWER(message) LIKE '%top%' AND LOWER(message) LIKE '%priority%' AND LOWER(message) LIKE '%possible%' AND LOWER(message) LIKE '%18%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_network_priority_alert_sent",
+      "seed_count": 0,
+      "assumptions": [
+        "INC_004 'Network connectivity issues' (status new) is in the set: assignment_group = GROUP_001, created_at 2024-02-18 09:30 (before 20 February 2024)",
+        "the user currently assigned is INC_004.assigned_to = USER_006 Elena Petrov (elena.petrov@techcorp.com); Elena is not a member of GROUP_001 on the seed, but the request names the user currently assigned, not the group's members",
+        "'Send alerts' fixes type = alert",
+        "the incident summary is INC_004.short_description, tested by its distinctive words 'network connectivity'",
+        "the created date is 2024-02-18 09:30; its written format is not fixed, so only the day number '18' is tested, as the benchmark check does",
+        "message predicates are case-insensitive (LOWER(message) in the sql), as in the benchmark check",
+        "two alerts are created, so the row is selected by incident and recipient, not by id",
+        "disagreement: message cell form: A 'LOWER(message) LIKE ...', B 'LIKE ...'; chose B's form for the reason given on the first requirement; same meaning in both passes"
+      ]
+    },
+    {
+      "text": "all currently open incidents assigned to the group named Level 1 Support Team that were opened before 20 February 2024 (boundary: no escalation alert on any other incident)",
+      "kind": "stay",
+      "table": "notification",
+      "selector": "subject = 'Priority Escalation for Aging Incidents' AND incident_id NOT IN ('INC_003', 'INC_004')",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM notification WHERE subject = 'Priority Escalation for Aging Incidents' AND incident_id NOT IN ('INC_003', 'INC_004')",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of the selector, the rows a loose reading sweeps in: INC_001 (Level 1, before 20 February, but resolved); INC_014 and INC_016 (Level 1, open, but created after 20 February); INC_005, INC_008 and INC_012 (open before 20 February but in other groups)"
+      ]
+    }
+  ],
+  "original_checks": {
+    "verify_printer_priority_alert_sent": {
+      "disposition": "kept"
+    },
+    "verify_network_priority_alert_sent": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on both benchmark checks (kept), the incident set (INC_003 and INC_004: GROUP_001, open, created before 20 February 2024), the two assignees (Carlos Rodriguez, Elena Petrov), the summary words, the day-number date predicates and the one boundary stay; the two create requirements and the stay are identical in selector, cells and sql, differing only in the order of the message predicates. disagreement: the form of the message cells: A writes 'LOWER(message) LIKE ...', B 'LIKE ...'; chose B's form (the README writes a predicate as SQL on the column, and the repository's check files write case-insensitive LIKE so, with LOWER() in the sql); the meaning is identical, so no value changed (logged on both requirements). 'Open' is read as status not in (resolved, closed); on the seed the set is exactly INC_003 and INC_004, as the benchmark checks assume. Both passes read 'treat them as requiring the same level of attention as top-priority work' as the framing of the alert ('escalated as top-priority work'), not as a change to incident.priority or any other incident cell: the request names no field change, no listed tool writes the incident table, the incident table has no escalation column, and the policy fixes priority from impact x urgency; no incident requirement is written for that reason. The '%19%' and '%18%' date predicates are loose (they also match other numbers) but the request fixes no date format, so they are kept as the benchmark wrote them.",
+  "minutes": 20
+}

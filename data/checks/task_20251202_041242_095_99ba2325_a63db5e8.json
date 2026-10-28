@@ -1,0 +1,137 @@
+{
+  "task_id": "task_20251202_041242_095_99ba2325_a63db5e8",
+  "policy_sha1": "10503d62",
+  "requirements": [
+    {
+      "text": "case CS-0000311 needs to be pushed up to critical",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 311
+      },
+      "cells": {
+        "priority": "critical"
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 311 AND priority = 'critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify case updation",
+      "seed_count": 0,
+      "assumptions": [
+        "CS-0000311 is case 311, high priority on the seed"
+      ]
+    },
+    {
+      "text": "since he left the company today, just deactivate his profile",
+      "kind": "change",
+      "table": "user",
+      "anchor": {
+        "user_id": 432
+      },
+      "cells": {
+        "active": 0
+      },
+      "sql": "SELECT COUNT(*) FROM user WHERE user_id = 432 AND active = 0",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify user deactivation",
+      "seed_count": 0,
+      "assumptions": [
+        "Christopher Underwood is user 432, the only user of that name and the case's current assignee"
+      ]
+    },
+    {
+      "text": "katherine gallegos will be taking this one over, so shift the case to her",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 311
+      },
+      "cells": {
+        "assigned_to": 770
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 311 AND assigned_to = 770",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify case updation",
+      "seed_count": 0,
+      "assumptions": [
+        "Katherine Gallegos is user 770, an active manager and a member of the case's assignment group Customer Health Monitoring_4 (79), so the policy's assignment constraints hold without changing the group"
+      ]
+    },
+    {
+      "text": "make sure the case has the right reference material tied to it",
+      "kind": "change",
+      "table": "knowledge",
+      "anchor": {
+        "knowledge_id": 44
+      },
+      "cells": {
+        "state": "published"
+      },
+      "sql": "SELECT COUNT(*) FROM knowledge WHERE knowledge_id = 44 AND state = 'published'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify KB state",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by the request, not stated: KB-0000044 is a draft on the seed and the policy links only published articles to a case, so it must be published for the link to be made"
+      ]
+    },
+    {
+      "text": "the KB that starts with KB-0000044",
+      "kind": "create",
+      "table": "case_knowledge",
+      "anchor": {
+        "case_kb_id": 528
+      },
+      "cells": {
+        "case_id": 311,
+        "knowledge_id": 44,
+        "used_as": "applied"
+      },
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_kb_id = 528 AND case_id = 311 AND knowledge_id = 44 AND used_as = 'applied'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Varify case and KB link",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence",
+        "KB-0000044 is knowledge 44, the only article whose number starts that way",
+        "used_as applied: the requester names the article, so it is neither found by automated search (suggested) nor used to resolve the case (resolution), and the policy links knowledge as applied in other cases"
+      ]
+    },
+    {
+      "text": "the KB that starts with KB-0000044",
+      "kind": "stay",
+      "table": "case_knowledge",
+      "selector": "case_id = 311 AND knowledge_id <> 44",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_id = 311 AND knowledge_id <> 44",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "boundary of the article: 'the one that's usually linked for this type of issue' loosely fits KB-0000134 (same title as KB-0000044, the case's product 89, linked to four cases and already linked to this one as resolution) and KB-0000045 (KB-0000044's product 29); the case keeps its one existing link and gains no link other than KB-0000044",
+        "disagreement: missing requirement: A has this stay, B has none; kept because KB-0000134 is a near match of the request's description of the article, like a second serial that nearly matches, so it is the boundary of the article selector rather than a generic invariant"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify user deactivation": {
+      "disposition": "kept"
+    },
+    "Verify case updation": {
+      "disposition": "kept"
+    },
+    "Varify case and KB link": {
+      "disposition": "kept"
+    },
+    "Verify KB state": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "disagreement: missing requirement: one pass adds a stay that case 311 keeps exactly one knowledge link other than KB-0000044 (its existing KB-0000134 link), the other has none; kept because KB-0000134 shares KB-0000044's title, covers the case's product and is the article most often linked for it, so a loose reading of 'the one that's usually linked for this type of issue' reaches it; the stay is the boundary of the article selector. The other requirement texts and assumptions differ in wording only.\nThe benchmark's case check tests priority and assignee together; it is carried jointly by the two case requirements, one per thing asked. The link's used_as is fixed by the policy and added to what the benchmark's link check tests.\nKB-0000044's title names PostgreSQL 14 Variant 69 (the case's product 89) while its product_id is 29 (Variant 9); the request names the article by number and the policy sets no product match for knowledge links, so the link is to knowledge 44 and its product is not tested. The existing KB-0000134 link is not removed: the request says nothing of removing it and no listed tool removes one.\nThe case's assignment group stays 79, since the new assignee already belongs to it. The deactivated user's other cases and group memberships are not tested: the request asks only to deactivate the profile. Raising the priority to critical brings no SLA requirement: the request does not ask for it and no listed tool links an SLA.\nThe acting user, Jose Roberson, is an admin whose user record is inactive; the policy has the assistant act with admin responsibilities by default and does not bar an inactive requester.",
+  "minutes": 31
+}

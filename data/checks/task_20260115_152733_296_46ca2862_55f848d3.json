@@ -1,0 +1,156 @@
+{
+  "task_id": "task_20260115_152733_296_46ca2862_55f848d3",
+  "policy_sha1": "9aa56c2a",
+  "requirements": [
+    {
+      "text": "Create a new service named Cloud Email Platform with description 'Cloud-based enterprise email platform' while keeping all the fields same as the Enterprise Email service",
+      "kind": "create",
+      "table": "service",
+      "anchor": {
+        "service_id": "SVC_049"
+      },
+      "cells": {
+        "name": "Cloud Email Platform",
+        "description": "Cloud-based enterprise email platform",
+        "owned_by": "USER_004",
+        "org_id": "ORG_001",
+        "used_for": "production",
+        "status": "operational",
+        "service_classification": "business",
+        "business_criticality": "critical"
+      },
+      "sql": "SELECT COUNT(*) FROM service WHERE service_id = 'SVC_049' AND name = 'Cloud Email Platform' AND description = 'Cloud-based enterprise email platform' AND owned_by = 'USER_004' AND org_id = 'ORG_001' AND used_for = 'production' AND status = 'operational' AND service_classification = 'business' AND business_criticality = 'critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "New service created",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (SVC_048 is the highest service id in the seed)",
+        "owned_by, org_id, used_for, status, service_classification and business_criticality copied from Enterprise Email (SVC_001), since the request keeps all its fields the same",
+        "org_id is not tested by the benchmark check; added because it is one of the fields the request keeps the same as SVC_001"
+      ]
+    },
+    {
+      "text": "made a new corresponding service offering for it named as 'Cloud Email Platform - Standard' with short description as 'Standard cloud mailbox', used for a 'production', status as 'operational', service_classification as 'application' and business_criticality as 'critical'",
+      "kind": "create",
+      "table": "service_offering",
+      "anchor": {
+        "service_offering_id": "SVCOFF_061"
+      },
+      "cells": {
+        "name": "Cloud Email Platform - Standard",
+        "short_description": "Standard cloud mailbox",
+        "business_service": "SVC_049",
+        "owned_by": "USER_004",
+        "used_for": "production",
+        "status": "operational",
+        "service_classification": "application",
+        "business_criticality": "critical"
+      },
+      "sql": "SELECT COUNT(*) FROM service_offering WHERE service_offering_id = 'SVCOFF_061' AND name = 'Cloud Email Platform - Standard' AND short_description = 'Standard cloud mailbox' AND business_service = 'SVC_049' AND owned_by = 'USER_004' AND used_for = 'production' AND status = 'operational' AND service_classification = 'application' AND business_criticality = 'critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "New service offering is created",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (SVCOFF_060 is the highest service offering id in the seed)",
+        "business_service is the new Cloud Email Platform service, SVC_049, as the offering is 'for it'",
+        "owned_by = USER_004 kept from the benchmark check; not fixed by request or policy (it matches the owner of the service it belongs to)",
+        "short_description is stated in the request but not tested by the benchmark check"
+      ]
+    },
+    {
+      "text": "any currently open (new and in_progress) incidents associated with Enterprise Email should be moved to the new service and it's offerings",
+      "kind": "change",
+      "table": "incident",
+      "selector": "incident_id IN ('INC_004', 'INC_073')",
+      "cells": {
+        "service": "SVC_049",
+        "service_offering": "SVCOFF_061"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id IN ('INC_004', 'INC_073') AND service = 'SVC_049' AND service_offering = 'SVCOFF_061'",
+      "expected": 2,
+      "comparison": "equals",
+      "source": "Open incidents moved to new service and service offering",
+      "seed_count": 0,
+      "assumptions": [
+        "the selector is every incident in status new or in_progress on SVC_001 or its offerings SVCOFF_001 and SVCOFF_018: INC_004 (new) and INC_073 (in_progress) on the seed",
+        "the new service has a single offering, so both incidents take SVCOFF_061, including INC_073, which has no offering on the seed"
+      ]
+    },
+    {
+      "text": "any currently open (new and in_progress) incidents associated with Enterprise Email",
+      "kind": "stay",
+      "table": "incident",
+      "selector": "incident_id IN ('INC_018', 'INC_048', 'INC_075')",
+      "cells": {
+        "service": "SVC_001",
+        "service_offering": "IN ('SVCOFF_001', 'SVCOFF_018')"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id IN ('INC_018', 'INC_048', 'INC_075') AND service = 'SVC_001' AND service_offering IN ('SVCOFF_001', 'SVCOFF_018')",
+      "expected": 3,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 3,
+      "assumptions": [
+        "boundary of the open-incident selector: INC_018, INC_048 and INC_075 are on Enterprise Email but resolved, so the move to the new service leaves them on SVC_001 and its offerings"
+      ]
+    },
+    {
+      "text": "Enterprise Email is being decommissioned",
+      "kind": "change",
+      "table": "service",
+      "anchor": {
+        "service_id": "SVC_001"
+      },
+      "cells": {
+        "status": "retired"
+      },
+      "sql": "SELECT COUNT(*) FROM service WHERE service_id = 'SVC_001' AND status = 'retired'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Old service is retired",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by the request, not stated: a decommissioned, unsupported service is set to retired (update_service is available and retired is a service status in the seed)"
+      ]
+    },
+    {
+      "text": "The existing Enterprise Email service and its related offerings are no longer supported.",
+      "kind": "change",
+      "table": "service_offering",
+      "selector": "service_offering_id IN ('SVCOFF_001', 'SVCOFF_018')",
+      "cells": {
+        "status": "retired"
+      },
+      "sql": "SELECT COUNT(*) FROM service_offering WHERE service_offering_id IN ('SVCOFF_001', 'SVCOFF_018') AND status = 'retired'",
+      "expected": 2,
+      "comparison": "equals",
+      "source": "Old service offering retired",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by the request, not stated: the unsupported offerings are set to retired (update_service_offering is available)",
+        "SVCOFF_001 and SVCOFF_018 are the only offerings with business_service = SVC_001 in the seed"
+      ]
+    }
+  ],
+  "original_checks": {
+    "New service created": {
+      "disposition": "kept"
+    },
+    "Open incidents moved to new service and service offering": {
+      "disposition": "kept"
+    },
+    "Old service is retired": {
+      "disposition": "kept"
+    },
+    "Old service offering retired": {
+      "disposition": "kept"
+    },
+    "New service offering is created": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "The acting user, Karen Watkins (USER_039), is an admin, so every write is permitted. The request never names a status for Enterprise Email or its offerings; retirement is read from 'decommissioned' and 'no longer supported'. The new service keeps SVC_001's operational status, since the copy is taken from the service as it stands before it is retired. The new offering's org_id and description are not fixed by the request (the 'keep all the fields same' clause applies to the service, not the offering), so they are not tested. No on_hold incident is associated with Enterprise Email on the seed. The two independent passes agreed on every requirement, cell, value and disposition; there were no disagreements to resolve.",
+  "minutes": 29
+}

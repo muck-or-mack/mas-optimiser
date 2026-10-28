@@ -1,0 +1,79 @@
+{
+  "task_id": "task_20260113_182602_664_46ca2862_b6ef60ca",
+  "policy_sha1": "044e7a06",
+  "requirements": [
+    {
+      "text": "Benjamin's new corporate laptop (serial number - LAPTOP-UK-229), purchased for around ₹92,500 ... in the new york office ... marked as in_use under TechCorp (ORG_001). Please get this added to the item records.",
+      "kind": "create",
+      "table": "configuration_item",
+      "anchor": {
+        "configuration_item_id": "CI_005"
+      },
+      "cells": {
+        "serial_number": "LAPTOP-UK-229",
+        "owner_id": "USER_005",
+        "location_id": "LOC_001",
+        "org_id": "ORG_001",
+        "status": "in_use",
+        "cost": 92500
+      },
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE configuration_item_id = 'CI_005' AND serial_number = 'LAPTOP-UK-229' AND owner_id = 'USER_005' AND location_id = 'LOC_001' AND org_id = 'ORG_001' AND status = 'in_use' AND cost = 92500",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Add Configuration Item",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (CI_005 after CI_004); the only CI the task creates",
+        "Benjamin = USER_005 Benjamin Chen (benjamin.chen@techcorp.com, reporter, ORG_001), the only Benjamin in users; he is the owner (policy 5.1: all CIs must have an owner_id)",
+        "'the new york office' = LOC_001 'TechCorp NYC Headquarters', the only New York location; the CI's location follows the request, not Benjamin's own user location LOC_002 (London)",
+        "org_id ORG_001 added as a cell: the request states it ('under TechCorp (ORG_001)'); the benchmark check does not test it",
+        "cost 92500 taken as the stated figure, as the benchmark check reads it; 'around' and the rupee sign are not recorded (cost is a plain number)",
+        "the device specification (i7, 16GB RAM, 512GB SSD, wireless) has no column in configuration_item and the name is not fixed by the request, so neither is a cell"
+      ]
+    },
+    {
+      "text": "He is requesting to open an incident for Software installation with medium impact and urgency.",
+      "kind": "create",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_024"
+      },
+      "cells": {
+        "caller_id": "USER_005",
+        "configuration_item": "CI_005",
+        "short_description": "LIKE '%Software installation%'",
+        "category": "software",
+        "impact": "medium",
+        "urgency": "medium",
+        "priority": "moderate",
+        "status": "new"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_024' AND caller_id = 'USER_005' AND configuration_item = 'CI_005' AND short_description LIKE '%Software installation%' AND category = 'software' AND impact = 'medium' AND urgency = 'medium' AND priority = 'moderate' AND status = 'new'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Report incident",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (INC_024 after INC_023); the only incident the task creates",
+        "caller_id USER_005: 'He is requesting' refers to Benjamin, the user affected (policy 3.1)",
+        "configuration_item CI_005 kept from the benchmark check; implied by the request (the incident follows the new laptop's registration), not stated",
+        "category software from 'an incident for Software installation'; the seed's software-installation incident (INC_005) uses category software; the benchmark check does not test category",
+        "short_description LIKE '%Software installation%' from the request's words (SQLite LIKE is case-insensitive); the seed's own wording for this kind of incident is 'Software installation request' (INC_005)",
+        "priority moderate from the policy matrix (impact medium x urgency medium)",
+        "status new from the policy default for new incidents (3.1)",
+        "channel is not fixed by the request or the policy (this policy sets no channel default), so it is not a cell",
+        "disagreement: short_description: A untested, B LIKE '%Software installation%'; chose B's because the request names the incident's subject in those words, short_description is the mandatory field (policy 3.1) that carries it, and without it nothing tests the installation part of the request"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Report incident": {
+      "disposition": "kept"
+    },
+    "Add Configuration Item": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on the CI CI_005 (serial LAPTOP-UK-229, owner USER_005, LOC_001, ORG_001, in_use, cost 92500), the incident INC_024 (caller USER_005, CI_005, software, medium/medium/moderate, new) and both dispositions (kept).\ndisagreement: value: incident short_description: A leaves it untested, B tests LIKE '%Software installation%'; chose B's because the request names the incident's subject in those words, the field is mandatory under policy 3.1, and the category cell alone would pass an incident about something other than an installation. It is the cell least fixed by the request: an agent that words the summary differently ('Install software') fails it.\nThe acting user USER_001 (Marcus Thompson, admin, ORG_001) may register CIs and create incidents under the policy. The location is a point a reviewer may weigh: Benjamin's user record sits at LOC_002 (London) and the serial reads UK, but the request says he is using the laptop in the New York office, which is LOC_001, as the benchmark tests. No stay requirements: nothing is forbidden, no seed CI carries a serial near LAPTOP-UK-229 (the existing serials are LAPTOP-NYC-001, DESKTOP-NYC-145, WS-SF-001, SERVER-SF-SRV01), and both rows are anchored by id. The policy's knowledge-search rule yields nothing: no article in this seed relates to software installation, and no knowledge tool is listed. The benchmark's queries use double-quoted string literals; the requirements rewrite them with single quotes.",
+  "minutes": 28
+}

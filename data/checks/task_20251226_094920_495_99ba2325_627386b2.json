@@ -1,0 +1,169 @@
+{
+ "task_id": "task_20251226_094920_495_99ba2325_627386b2",
+ "policy_sha1": "f10443ca",
+ "requirements": [
+  {
+   "text": "confirm that she is currently active in her role as an Agent",
+   "kind": "change",
+   "table": "user",
+   "anchor": {
+    "user_id": 40
+   },
+   "cells": {
+    "active": 1,
+    "role": "agent"
+   },
+   "sql": "SELECT COUNT(*) FROM user WHERE user_id = 40 AND active = 1 AND role = 'agent'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify User Profile",
+   "seed_count": 1,
+   "assumptions": [
+    "Susan Adams is user 40, the only user of that name",
+    "role stored as 'agent', the name the seed's users hold; the policy's hr_specialist enum names the same Agent role",
+    "weak: user 40 is already active with role agent on the seed, so the alignment needs no write"
+   ]
+  },
+  {
+   "text": "with a Full-Time employment arrangement, and update her employment details if any alignment is required",
+   "kind": "change",
+   "table": "hr_profile",
+   "anchor": {
+    "hr_profile_id": 40
+   },
+   "cells": {
+    "type": "full-time"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_profile WHERE hr_profile_id = 40 AND type = 'full-time'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify HR Profile",
+   "seed_count": 1,
+   "assumptions": [
+    "Susan Adams' HR profile is hr_profile 40 (user_id 40)",
+    "employment arrangement stored in hr_profile.type as 'full-time', the seed's spelling; the policy's full_time enum is not the stored form",
+    "weak: profile 40 is already full-time on the seed, so no update is required"
+   ]
+  },
+  {
+   "text": "move all critical-priority cases from that group over to the Global Service Desk. This should include only the ready ones",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 56
+   },
+   "cells": {
+    "priority": "critical",
+    "assignment_group": 3
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 56 AND priority = 'critical' AND assignment_group = 3",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify HR Case",
+   "seed_count": 0,
+   "assumptions": [
+    "Field Ops - North is group 5 and Global Service Desk is group 3",
+    "case 56 is the only case in group 5 with priority critical and status ready; the other critical cases there (26, 36, 46) are not ready",
+    "priority critical kept from the benchmark check; the request does not change it"
+   ]
+  },
+  {
+   "text": "once they're reassigned, make sure Susan Adams is set as the owner for those cases",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 56
+   },
+   "cells": {
+    "assigned_to": 40
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 56 AND assigned_to = 40",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify HR Case",
+   "seed_count": 0,
+   "assumptions": [
+    "owner read as hr_case.assigned_to; Susan Adams is user 40",
+    "those cases are the reassigned set, which is case 56 alone"
+   ]
+  },
+  {
+   "text": "make sure Susan Adams is set as the owner for those cases",
+   "kind": "create",
+   "table": "user_group_member",
+   "anchor": {
+    "member_id": 44
+   },
+   "cells": {
+    "group_id": 3,
+    "user_id": 40
+   },
+   "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 44 AND group_id = 3 AND user_id = 40",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify Group Membership",
+   "seed_count": 0,
+   "assumptions": [
+    "implied by the request, not stated: the policy requires the assigned_to user to be a current member of the case's assignment group, and on the seed Susan Adams belongs only to Server Operations (group 8)",
+    "id assumed next in sequence (member 44 after 43)"
+   ]
+  },
+  {
+   "text": "move all critical-priority cases from that group ... This should include only the ready ones",
+   "kind": "stay",
+   "table": "hr_case",
+   "selector": "hr_case_id IN (2, 26, 36, 46)",
+   "cells": {
+    "assignment_group": 5,
+    "assigned_to": "<> 40"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id IN (2, 26, 36, 46) AND assignment_group = 5 AND assigned_to <> 40",
+   "expected": 4,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 4,
+   "assumptions": [
+    "boundary of the selector: cases 26 (suspended), 36 (cancelled) and 46 (draft) are critical but not ready, and case 2 is ready but high priority; all four stay in Field Ops - North and are not given to Susan Adams",
+    "disagreement: assignment_group: A = 5, B <> 3; chose = 5, the tighter test, because all four cases are in group 5 on the seed and the request moves none of them, so any move of theirs is outside the request"
+   ]
+  },
+  {
+   "text": "move all critical-priority cases from that group over to the Global Service Desk",
+   "kind": "stay",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 11
+   },
+   "cells": {
+    "assignment_group": 4,
+    "assigned_to": "<> 40"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 11 AND assignment_group = 4 AND assigned_to <> 40",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 1,
+   "assumptions": [
+    "boundary of the selector: case 11 is the only other critical, ready case on the seed, but it sits in HR Service Desk (group 4), not Field Ops - North, so a reading that drops 'from that group' would sweep it in; it stays in group 4 and is not given to Susan Adams"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Verify HR Case": {
+   "disposition": "kept"
+  },
+  "Verify Group Membership": {
+   "disposition": "kept"
+  },
+  "Verify HR Profile": {
+   "disposition": "weak",
+   "evidence": "the HR profile of user 40 already has type full-time on the seed"
+  },
+  "Verify User Profile": {
+   "disposition": "weak",
+   "evidence": "user 40 is already active with role agent on the seed"
+  }
+ },
+ "notes": "disagreement: missing requirement: a stay holding case 11 (critical, ready, in HR Service Desk) out of the Global Service Desk and away from Susan Adams; one pass has it, the other does not; kept because case 11 is the only critical, ready case outside Field Ops - North, so it is the boundary of the request's 'from that group' selector rather than a generic invariant. It is written as its own stay because its seed group (4) differs from the other boundary cases' group (5).\ndisagreement: value: the stay on cases 2, 26, 36 and 46: one pass tests assignment_group = 5, the other assignment_group <> 3; chose = 5, the tighter test, since all four hold it on the seed and the request moves none of them (resolved on that requirement).\nThe two passes otherwise agree on every requirement, id, cell and disposition (two kept, two weak); their texts and assumptions differ in wording only.\nThe profile review asks for no write: Susan Adams (user 40) is already an active agent with a full-time profile, so both profile checks are weak.\nThe acting user, Karen Watkins (user 39), holds the admin role. The policy says administrators must not perform routine HR case work and lists cross-group reassignment under HR Manager, though it lets administrators manage groups; the request's words are taken as the evidence that the reassignment and the group membership are wanted, and the conflict is recorded here rather than turned into a requirement.\nCase 56 belongs to org 16 while Global Service Desk and Susan Adams belong to org 1; nothing in the request or policy fixes org_id, so it is not a cell.\nThe status of case 56 is not a cell: the request selects cases by status ready but does not ask for a change of status.",
+ "minutes": 36
+}

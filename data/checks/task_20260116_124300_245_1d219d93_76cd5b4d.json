@@ -1,0 +1,77 @@
+{
+  "task_id": "task_20260116_124300_245_1d219d93_76cd5b4d",
+  "policy_sha1": "4afd943b",
+  "requirements": [
+    {
+      "text": "A new office printer (serial number: PRN-LDN-221) was recently installed at the London development center, purchased for 8000 GBP",
+      "kind": "create",
+      "table": "configuration_item",
+      "anchor": {
+        "configuration_item_id": "CI_005"
+      },
+      "cells": {
+        "serial_number": "PRN-LDN-221",
+        "owner_id": "USER_005",
+        "location_id": "LOC_002",
+        "cost": 8000,
+        "status": "in_use"
+      },
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE configuration_item_id = 'CI_005' AND serial_number = 'PRN-LDN-221' AND owner_id = 'USER_005' AND location_id = 'LOC_002' AND cost = 8000 AND status = 'in_use'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Printer CI registration – London Development Center",
+      "seed_count": 0,
+      "assumptions": [
+        "registration implied by the request, not stated: no configuration item has serial PRN-LDN-221 in the seed, and the incident must be tied to the printer",
+        "id assumed next in sequence (CI_005 after CI_004)",
+        "owner Benjamin Chen resolves to USER_005; 'London development center' resolves to LOC_002 (London Development Center)",
+        "cost recorded as 8000; the cost column holds no currency, so GBP is not tested",
+        "status in_use kept from the benchmark check; the printer is installed and deployed, and only in_use or maintenance items may be linked to an active incident",
+        "name not stated by the request, so not tested"
+      ]
+    },
+    {
+      "text": "this issue should be captured as a new incident tied to the printer so the level 1 support team can look into it",
+      "kind": "create",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_024"
+      },
+      "cells": {
+        "caller_id": "USER_005",
+        "configuration_item": "CI_005",
+        "status": "new",
+        "category": "hardware",
+        "impact": "medium",
+        "urgency": "high",
+        "priority": "high",
+        "assignment_group": "GROUP_001"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_024' AND caller_id = 'USER_005' AND configuration_item = 'CI_005' AND status = 'new' AND category = 'hardware' AND impact = 'medium' AND urgency = 'high' AND priority = 'high' AND assignment_group = 'GROUP_001'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Printer performance incident creation and L1 routing",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (INC_024 after INC_023)",
+        "caller is the owner who reported the fault, Benjamin Chen (USER_005)",
+        "tied to the printer through the incident's configuration_item, CI_005 being the printer registered above",
+        "medium impact and high urgency as the request states; priority high from the policy's impact x urgency matrix",
+        "status new is the policy's default for new incidents",
+        "category hardware kept from the benchmark check; not fixed by request or policy, and consistent with a printer fault",
+        "'level 1 support team' resolves to GROUP_001 (Level 1 Support Team)"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Printer CI registration – London Development Center": {
+      "disposition": "kept"
+    },
+    "Printer performance incident creation and L1 routing": {
+      "disposition": "repaired",
+      "evidence": "the check also tests number = 'INC-000024', a column the server assigns; the seed numbers incidents per organisation as INC plus seven digits (ORG_001's latest is INC0000013), so that value does not follow the seed's format; the number predicate is dropped and every other cell is carried"
+    }
+  },
+  "notes": "Merged from two passes that agree on both requirements (the printer CI_005 at LOC_002 owned by USER_005, cost 8000, in_use; the incident INC_024 for USER_005 on CI_005, hardware, medium/high/high, new, GROUP_001) and on both dispositions; no disagreements.\nThe acting user USER_001 (Marcus Thompson, admin, ORG_001) may register CIs and create incidents. The request names neither the item's name nor the organisation of either row, nor the incident's channel; none is tested (the location and owner both belong to ORG_001).\nThe benchmark's joins to users, location and user_group test seed names behind the ids and are carried by the id cells.\nThe policy asks for a knowledge search on incident creation with matching articles linked as suggested; the seed holds no printer article (all five concern passwords, email and desktop boot) and no listed tool writes incident_knowledge, so no link is required. No tool writes incident_affected_cis; the link to the printer is tested on the incident's configuration_item.",
+  "minutes": 30
+}

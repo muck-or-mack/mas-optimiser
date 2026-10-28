@@ -1,0 +1,208 @@
+{
+  "task_id": "task_20260113_151550_104_a8eea1c0_7e9733a5",
+  "policy_sha1": "044e7a06",
+  "requirements": [
+    {
+      "text": "First, please update my phone number in the system to +44-286-753-3785",
+      "kind": "change",
+      "table": "users",
+      "anchor": {
+        "user_id": "USER_004"
+      },
+      "cells": {
+        "phone": "+44-286-753-3785",
+        "first_name": "Joanne",
+        "last_name": "Simpson",
+        "role": "manager",
+        "active": 1
+      },
+      "sql": "SELECT COUNT(*) FROM users WHERE user_id = 'USER_004' AND phone = '+44-286-753-3785' AND first_name = 'Joanne' AND last_name = 'Simpson' AND role = 'manager' AND active = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "user_phone_update_verification",
+      "seed_count": 0,
+      "assumptions": [
+        "'my' is the acting user USER_004 (Joanne Simpson), not Tabitha, the subject of the previous sentence",
+        "first_name, last_name, role and active kept from the benchmark check; not fixed by request or policy (they hold on the seed and test that only the phone changed)",
+        "disagreement: active: A 1, B = true; chose 1 because the seed stores active as the integer 1 and a plain value means equality; SQLite reads the benchmark's true as 1, so both forms count the same rows"
+      ]
+    },
+    {
+      "text": "log a ticket for Tabitha regarding the email problems with high impact and medium urgency; recurring Outlook Sync software issues with her machine (serial DEL-TB-4451) when using the enterprise email service",
+      "kind": "create",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_101"
+      },
+      "cells": {
+        "caller_id": "USER_003",
+        "service": "SVC_001",
+        "configuration_item": "CI_022",
+        "short_description": "LIKE '%sync%'",
+        "category": "software",
+        "impact": "high",
+        "urgency": "medium",
+        "priority": "high",
+        "status": "new",
+        "assigned_to": "IS NULL",
+        "assignment_group": "IS NULL",
+        "resolution_code": "IS NULL"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_101' AND caller_id = 'USER_003' AND service = 'SVC_001' AND configuration_item = 'CI_022' AND LOWER(short_description) LIKE '%sync%' AND category = 'software' AND impact = 'high' AND urgency = 'medium' AND priority = 'high' AND status = 'new' AND assigned_to IS NULL AND assignment_group IS NULL AND resolution_code IS NULL",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "incident_creation_complete_verification",
+        "priority_matrix_policy_compliance_verification",
+        "cross_table_relationship_verification"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (INC_101 after INC_100)",
+        "Tabitha Bullock is USER_003 (agent, active), the only user of that name; the enterprise email service is SVC_001 (Enterprise Email), the only email service; her machine with serial DEL-TB-4451 is CI_022",
+        "the benchmark's exact short_description 'Recurring email sync issues on Dell XPS 15' is not fixed by the request; replaced by LIKE '%sync%', the one word every reading of 'Outlook Sync software issues' and 'the email problems' shares",
+        "the benchmark's number = 'INC-000101' dropped: number is a server-kept column",
+        "category = software from the request's 'Outlook Sync software issues'",
+        "priority high from the policy 3.1 matrix (impact high, urgency medium); status new is the policy 3.1 default",
+        "assigned_to, assignment_group and resolution_code IS NULL kept from the benchmark check; not fixed by request or policy (the request asks for no assignment or resolution)",
+        "also carries the priority-matrix check (impact, urgency and priority on INC_101) and the incident cells of the cross-table composite"
+      ]
+    },
+    {
+      "text": "Because this is her primary work device, mark that laptop as being in maintenance",
+      "kind": "change",
+      "table": "configuration_item",
+      "anchor": {
+        "configuration_item_id": "CI_022"
+      },
+      "cells": {
+        "status": "maintenance",
+        "serial_number": "DEL-TB-4451",
+        "owner_id": "USER_003",
+        "name": "Dell XPS 15 - Tabitha Bullock",
+        "location_id": "LOC_003",
+        "cost": 2200
+      },
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE configuration_item_id = 'CI_022' AND serial_number = 'DEL-TB-4451' AND owner_id = 'USER_003' AND status = 'maintenance' AND name = 'Dell XPS 15 - Tabitha Bullock' AND location_id = 'LOC_003' AND cost = 2200",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "ci_status_maintenance_verification",
+        "cross_table_relationship_verification"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "'that laptop' is CI_022, the only CI with serial DEL-TB-4451 and the only CI owned by Tabitha (USER_003); it is in_use on the seed",
+        "serial_number, owner_id, name, location_id and cost kept from the benchmark check; not fixed by request or policy (they hold on the seed and test that only the status changed)",
+        "policy 5.1 allows a CI in maintenance to stay linked to an active incident, so the order of the CI update and the incident creation does not matter",
+        "also carries the CI cells of the cross-table composite (CI_022 in maintenance, owned by USER_003)"
+      ]
+    },
+    {
+      "text": "find the knowledge article specifically for the software and attach it to the new ticket as a suggestion",
+      "kind": "create",
+      "table": "incident_knowledge",
+      "anchor": {
+        "incident_kb_id": "IKB_046"
+      },
+      "cells": {
+        "incident_id": "INC_101",
+        "knowledge_id": "KB_007",
+        "used_as": "suggested"
+      },
+      "sql": "SELECT COUNT(*) FROM incident_knowledge WHERE incident_kb_id = 'IKB_046' AND incident_id = 'INC_101' AND knowledge_id = 'KB_007' AND used_as = 'suggested'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "incident_knowledge_link_verification",
+        "cross_table_relationship_verification"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (IKB_046 after IKB_045); the task creates exactly one link",
+        "'the knowledge article specifically for the software' is KB_007 'Outlook Sync Issues' (published), the only article whose title mentions Outlook, sync or email",
+        "'as a suggestion' fixes used_as = suggested, matching policy 7's search rule",
+        "'the new ticket' is INC_101, assumed next in sequence",
+        "also carries the link cells of the cross-table composite (KB_007 linked to INC_101 as suggested)"
+      ]
+    },
+    {
+      "text": "please update my phone number",
+      "kind": "stay",
+      "table": "users",
+      "anchor": {
+        "user_id": "USER_003"
+      },
+      "cells": {
+        "phone": "+917949689758"
+      },
+      "sql": "SELECT COUNT(*) FROM users WHERE user_id = 'USER_003' AND phone = '+917949689758'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "boundary of 'my': a loose reading would update Tabitha's phone (the subject of the previous sentence) instead of the acting user's; her seed phone must stay"
+      ]
+    },
+    {
+      "text": "her machine (serial DEL-TB-4451)",
+      "kind": "stay",
+      "table": "configuration_item",
+      "anchor": {
+        "configuration_item_id": "CI_028"
+      },
+      "cells": {
+        "status": "in_use"
+      },
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE configuration_item_id = 'CI_028' AND status = 'in_use'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "boundary of the serial selector: CI_028 (Dell Precision - Samantha Stone, DEL-SS-4411, in_use) is the seed's nearest serial to DEL-TB-4451 (three characters apart, same DEL- prefix) and must not be moved to maintenance"
+      ]
+    },
+    {
+      "text": "find the knowledge article specifically for the software and attach it",
+      "kind": "stay",
+      "table": "incident_knowledge",
+      "selector": "incident_id = 'INC_101' AND knowledge_id <> 'KB_007'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM incident_knowledge WHERE incident_id = 'INC_101' AND knowledge_id <> 'KB_007'",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of the article selector: the request names one article ('the knowledge article specifically for the software'); a loose reading of policy 7 would link every loosely matching article, so no other article may be linked to INC_101"
+      ]
+    }
+  ],
+  "original_checks": {
+    "user_phone_update_verification": {
+      "disposition": "kept"
+    },
+    "ci_status_maintenance_verification": {
+      "disposition": "kept"
+    },
+    "incident_creation_complete_verification": {
+      "disposition": "repaired",
+      "evidence": "number = 'INC-000101' is a server-kept column and is dropped; short_description = 'Recurring email sync issues on Dell XPS 15' is exact wording the request never fixes (it says 'recurring Outlook Sync software issues' and 'the email problems'), replaced by LOWER(short_description) LIKE '%sync%'; every other cell is kept"
+    },
+    "incident_knowledge_link_verification": {
+      "disposition": "kept"
+    },
+    "cross_table_relationship_verification": {
+      "disposition": "repaired",
+      "evidence": "a composite over cells the incident, CI and link requirements already test (INC_101's caller USER_003, service SVC_001, CI_022, high/medium/high and status new; CI_022 in maintenance and owned by USER_003; KB_007 linked as suggested), joined with seed facts that hold before the agent acts (Tabitha Bullock's name, the service name Enterprise Email, KB_007's kb_number KB0000007 and published state); carried jointly by those three requirements, with i.number = 'INC-000101' dropped because number is a server-kept column"
+    },
+    "priority_matrix_policy_compliance_verification": {
+      "disposition": "kept",
+      "evidence": "a subset of the incident check (impact high, urgency medium and priority high on INC_101; the parenthesised clause repeats the same three predicates), carried jointly by the incident requirement"
+    }
+  },
+  "notes": "Both passes agree on the phone change for USER_004, the incident INC_101 (caller USER_003, SVC_001, CI_022, software, high/medium/high, new, unassigned, short_description LIKE '%sync%'), CI_022 to maintenance, the link IKB_046 (KB_007, suggested), the stays on Tabitha's phone and on no other article for INC_101, and every disposition.\ndisagreement: missing requirement: one pass adds a stay that CI_028 (Dell Precision - Samantha Stone, serial DEL-SS-4411) keeps status in_use, the other has none; kept because it is the boundary of the serial selector: DEL-SS-4411 is the seed's nearest serial to DEL-TB-4451 (three characters apart, same DEL- prefix and 44x1 digits), the near match a misread serial would move to maintenance.\ndisagreement: value: users.active on USER_004: one pass the plain value 1, the other the predicate '= true'; chose 1 because the seed stores active as the integer 1 and a plain value means equality; SQLite reads true as 1, so both forms count the same rows.\nBoth passes excluded the two composite checks as duplicates. A composite whose agent-written cells are all tested by carried requirements is carried jointly rather than excluded, so cross_table_relationship_verification is repaired (its server-kept i.number predicate dropped; its other cells are carried by the incident, CI and link requirements or are seed facts) and priority_matrix_policy_compliance_verification is kept; both are named in the source of the requirements that carry their parts.\nPolicy 7's knowledge search is satisfied by the requested link: KB_007 is the only article whose title mentions Outlook, sync or email, so the expected set is exactly that article, and the stay on INC_101 guards against linking others. The incident's short_description is the one repaired value: the benchmark's exact sentence is not in the request.",
+  "minutes": 33
+}

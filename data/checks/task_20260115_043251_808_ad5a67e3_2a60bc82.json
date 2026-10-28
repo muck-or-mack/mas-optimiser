@@ -1,0 +1,210 @@
+{
+ "task_id": "task_20260115_043251_808_ad5a67e3_2a60bc82",
+ "policy_sha1": "9ffbbf7e",
+ "requirements": [
+  {
+   "text": "verify if the Executive Transitions topic category is correctly provisioned within the Talent Management COE; create it if missing",
+   "kind": "create",
+   "table": "topic_category",
+   "anchor": {
+    "topic_category_id": 13
+   },
+   "cells": {
+    "name": "Executive Transitions",
+    "coe_type": "Talent Management",
+    "active": 1,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM topic_category WHERE topic_category_id = 13 AND name = 'Executive Transitions' AND coe_type = 'Talent Management' AND active = 1 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "Topic Category exists: \"Executive Transitions\" in \"Talent Management\" COE",
+    "Topic Detail exists under that category: \"Strategic Leadership Onboarding\"",
+    "HR Service exists and is wired correctly"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "no topic category named Executive Transitions exists on the seed, so it must be created",
+    "id assumed next in sequence (highest topic_category_id is 12)",
+    "org_id 1 is the ServiceNow organisation the request names, also the acting user's organisation",
+    "active = 1 kept from the benchmark check; not fixed by request or policy"
+   ]
+  },
+  {
+   "text": "Within that category, ensure there is a Strategic Leadership Onboarding topic detail",
+   "kind": "create",
+   "table": "topic_detail",
+   "anchor": {
+    "topic_detail_id": 36
+   },
+   "cells": {
+    "name": "Strategic Leadership Onboarding",
+    "topic_category": 13,
+    "active": 1,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM topic_detail WHERE topic_detail_id = 36 AND name = 'Strategic Leadership Onboarding' AND topic_category = 13 AND active = 1 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "Topic Detail exists under that category: \"Strategic Leadership Onboarding\"",
+    "HR Service exists and is wired correctly"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "no topic detail of this name exists on the seed, so it must be created",
+    "id assumed next in sequence (highest topic_detail_id is 35)",
+    "topic_category 13 is the Executive Transitions category created above",
+    "active = 1 kept from the benchmark check; not fixed by request or policy"
+   ]
+  },
+  {
+   "text": "Instantiate a service template Executive Framework with the following JSON configuration: {priority: high, assignment_group: HR Leadership Approval, short_description: Executive Onboarding Initiation}",
+   "kind": "create",
+   "table": "service_template",
+   "anchor": {
+    "service_template_id": 7
+   },
+   "cells": {
+    "name": "Executive Framework",
+    "change_request_values": [
+     "json_extract(change_request_values, '$.priority') = 'high'",
+     "json_extract(change_request_values, '$.assignment_group') = 'HR Leadership Approval'",
+     "json_extract(change_request_values, '$.short_description') = 'Executive Onboarding Initiation'"
+    ],
+    "coe_type": "Talent Management",
+    "active": 1,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM service_template WHERE service_template_id = 7 AND name = 'Executive Framework' AND json_extract(change_request_values, '$.priority') = 'high' AND json_extract(change_request_values, '$.assignment_group') = 'HR Leadership Approval' AND json_extract(change_request_values, '$.short_description') = 'Executive Onboarding Initiation' AND coe_type = 'Talent Management' AND active = 1 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "Service Template exists with the required JSON config: \"Executive Framework\"",
+    "HR Service exists and is wired correctly"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (highest service_template_id is 6)",
+    "the seed stores change_request_values as a JSON object, so each key is read with json_extract",
+    "assignment_group holds the group's name as the request's configuration writes it (HR Leadership Approval is user_group 10), not the id",
+    "coe_type Talent Management kept from the benchmark check; the request places the flow in the Talent Management COE but does not state the template's COE",
+    "active = 1 kept from the benchmark check; not fixed by request or policy"
+   ]
+  },
+  {
+   "text": "define an Executive Oversight visibility criteria including Joanne Simpson and Richard Lopez",
+   "kind": "create",
+   "table": "hr_criteria",
+   "anchor": {
+    "hr_criteria_id": 8
+   },
+   "cells": {
+    "name": "Executive Oversight",
+    "type": "case_visibility",
+    "active": 1,
+    "users": [
+     "EXISTS (SELECT 1 FROM json_each(users) WHERE value = 4)",
+     "EXISTS (SELECT 1 FROM json_each(users) WHERE value = 57)"
+    ],
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_criteria WHERE hr_criteria_id = 8 AND name = 'Executive Oversight' AND type = 'case_visibility' AND active = 1 AND EXISTS (SELECT 1 FROM json_each(users) WHERE value = 4) AND EXISTS (SELECT 1 FROM json_each(users) WHERE value = 57) AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "Visibility Criteria exists: \"Executive Oversight\" includes Joanne Simpson AND Richard Lopez",
+    "HR Service exists and is wired correctly"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (highest hr_criteria_id is 7)",
+    "visibility criteria read as type case_visibility, one of the two types on the seed",
+    "Joanne Simpson is user 4 and Richard Lopez is user 57, the only users of those names",
+    "users stored as a JSON array of user ids: kept from the benchmark check; not fixed by request or policy, and no seed row holds a users list",
+    "active = 1 kept from the benchmark check; not fixed by request or policy",
+    "disagreement: users: A tested only that the list was set (users IS NOT NULL), B tested that it holds user ids 4 and 57; chose the membership test because it is the benchmark check's own cell, nothing in the request, policy or seed contradicts the id form, and it is the tighter predicate"
+   ]
+  },
+  {
+   "text": "Using this template, create an HR Service Global Executive Onboarding with workflow as the fulfillment type ... and associate it with the service",
+   "kind": "create",
+   "table": "hr_service",
+   "anchor": {
+    "hr_service_id": 55
+   },
+   "cells": {
+    "service_name": "Global Executive Onboarding",
+    "fulfillment_type": "workflow",
+    "service_template": 7,
+    "topic_detail": 36,
+    "hr_criteria": 8,
+    "active": 1,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 55 AND service_name = 'Global Executive Onboarding' AND fulfillment_type = 'workflow' AND service_template = 7 AND topic_detail = 36 AND hr_criteria = 8 AND active = 1 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "HR Service exists and is wired correctly",
+    "Validation case exists for Gregory Richards using that HR service"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (highest hr_service_id is 54)",
+    "service_template 7 and hr_criteria 8 are the template and criteria created above",
+    "topic_detail 36 (Strategic Leadership Onboarding): implied by the request, not stated",
+    "active = 1 kept from the benchmark check; the validation case must reference an active service (policy 3.1)",
+    "disagreement: source: A also lists the validation case check, B the service check alone; chose both because the case check finds the case's service by the name Global Executive Onboarding, which only this requirement carries, so it is carried jointly"
+   ]
+  },
+  {
+   "text": "create a case for Gregory Richards (account number: ACC-1234) using this service",
+   "kind": "create",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 61
+   },
+   "cells": {
+    "hr_service": 55,
+    "opened_for": 59,
+    "account_number": "ACC-1234",
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND hr_service = 55 AND opened_for = 59 AND account_number = 'ACC-1234' AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Validation case exists for Gregory Richards using that HR service",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (highest hr_case_id is 60)",
+    "Gregory Richards is user 59, the only user of that name; opened_for holds hr_profile 59, which belongs to user 59, so it is 59 under either reading",
+    "hr_service 55 is the service created above",
+    "priority, assignment group, short description, COE type and account type are not stated for the case and are not tested"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Topic Category exists: \"Executive Transitions\" in \"Talent Management\" COE": {
+   "disposition": "kept"
+  },
+  "Topic Detail exists under that category: \"Strategic Leadership Onboarding\"": {
+   "disposition": "kept"
+  },
+  "Service Template exists with the required JSON config: \"Executive Framework\"": {
+   "disposition": "kept"
+  },
+  "Visibility Criteria exists: \"Executive Oversight\" includes Joanne Simpson AND Richard Lopez": {
+   "disposition": "kept"
+  },
+  "HR Service exists and is wired correctly": {
+   "disposition": "kept"
+  },
+  "Validation case exists for Gregory Richards using that HR service": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "disagreement: value: the Executive Oversight users cell: one pass tests only that the list was set, the other that it holds user ids 4 and 57 as the benchmark check does; kept the membership test, since it is the benchmark's own cell and nothing in the request, policy or seed contradicts the id form (resolved on that requirement).\ndisagreement: disposition: 'Visibility Criteria exists: \"Executive Oversight\" includes Joanne Simpson AND Richard Lopez': one pass repaired it by dropping the membership test as untestable, the other kept it; kept, because the benchmark check is the prior and the seed, though it holds no users list, does not contradict its user-id form.\ndisagreement: value: the source of the HR service requirement: one pass adds the validation case check, the other gives the service check alone; chose both, since the case check finds the service by its name, which only the service requirement carries (resolved on that requirement).\nThe passes otherwise agree on every requirement, id, cell and disposition; their texts and assumptions differ in wording only. The service template's JSON cells were written in two equivalent forms; the form keyed by the change_request_values column is kept, since cells are keyed by column.\nEvery row the task creates is in the ServiceNow organisation (org 1). The service check is carried jointly: the service row by its own requirement, and the joined category, detail, template and criteria facts by theirs, linked through the assumed ids. The criteria users list is NULL on every seed row; it is tested as user ids, as the benchmark check assumes.\nThe listed tools include no update for hr_service, so the criteria must exist before the service is created; the requirements test only the final state.\nThe validation case's priority, assignment group, short description, COE type and account type are not tested: the request states none of them; the template's values (priority high, HR Leadership Approval, Executive Onboarding Initiation) might pre-fill the case, but neither the request nor the policy says so, and the policy's default priority (moderate) would conflict with the template's high. The policy's short-description template is a format rule the benchmark does not test and is left out.\nThe acting user Karen Watkins (user 39) has the admin role, and the policy says an administrator must not perform routine HR case work; the request and the benchmark checks both expect the validation case created, so the requirements keep it.",
+ "minutes": 20
+}

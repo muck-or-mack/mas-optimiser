@@ -1,0 +1,125 @@
+{
+  "task_id": "task_20251210_051952_801_99ba2325_a136867b",
+  "policy_sha1": "10503d62",
+  "requirements": [
+    {
+      "text": "The case, though marked as resolved, might need to be looked at again - perhaps reopened without delay",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 62
+      },
+      "cells": {
+        "account_id": 3,
+        "product_id": 97,
+        "state": "new",
+        "reopen_count": 1
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 62 AND account_id = 3 AND product_id = 97 AND state = 'new' AND reopen_count = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Case identified and reopened",
+      "seed_count": 0,
+      "assumptions": [
+        "case 62 (CS-0000062) is the only Acme Systems (account 3) case on Atlassian Jira Data Center Variant 77 (product 97) that is resolved and was last updated in November (2025-11-10)",
+        "the policy's lifecycle lets a resolved case go only to closed or new, so reopening sets state = new; nothing in the request moves it on to in_progress",
+        "reopening once raises reopen_count from 0 to 1; account_id and product_id kept from the benchmark check as the case's identifying cells"
+      ]
+    },
+    {
+      "text": "assign the case to Jennifer Elliott, who appears to be part of the Case Assignment group",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 62
+      },
+      "cells": {
+        "assigned_to": 439,
+        "assignment_group_id": 4
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 62 AND assigned_to = 439 AND assignment_group_id = 4",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Case identified and reopened",
+      "seed_count": 0,
+      "assumptions": [
+        "Jennifer Elliott is user 439, an active agent and a member of group 4 'Case Assignment'",
+        "the case's group moves from 24 (Case Assignment_2) to 4, since the policy requires assigned_to to be a member of assignment_group_id"
+      ]
+    },
+    {
+      "text": "explore whatever knowledge resources exist regarding Jira performance, and then connect whichever one feels most fitting back to the case",
+      "kind": "create",
+      "table": "case_knowledge",
+      "anchor": {
+        "case_kb_id": 528
+      },
+      "cells": {
+        "case_id": 62,
+        "knowledge_id": 145
+      },
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_kb_id = 528 AND case_id = 62 AND knowledge_id = 145",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Case Knowledge",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence; the task creates one case_knowledge row",
+        "article 145 kept from the benchmark check: it is the only published Variant 77 (product 97) article not already linked to case 62 (146 is linked as resolution), and its steps cover JVM heap/GC tuning, the performance-related Jira guidance",
+        "used_as left out: the policy gives suggested for knowledge found by automated search and applied otherwise, and the request does not decide which applies"
+      ]
+    },
+    {
+      "text": "connect whichever one feels most fitting back to the case",
+      "kind": "stay",
+      "table": "case_knowledge",
+      "selector": "case_id = 62",
+      "cells": {
+        "knowledge_id": "NOT IN (145, 146, 147)"
+      },
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_id = 62 AND knowledge_id NOT IN (145, 146, 147)",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "the request asks for one article, so no article other than 145 and the two already linked (146, 147) may be linked to case 62",
+        "this also covers the policy rule that only published articles may be linked, such as the draft Jira articles 26 and 56",
+        "disagreement: selector and expected: A case_id = 62 AND knowledge_id <> 145 staying at 2, B case_id = 62 AND knowledge_id NOT IN (145, 146, 147) staying at 0; chose B because it tests exactly what the request rules out (a second article linked), whereas A's count also requires the existing links to survive, a generic invariant that no request sentence asks for"
+      ]
+    },
+    {
+      "text": "a case tied to Acme Systems and the product Atlassian Jira Data Center Variant 77 ... marked as resolved",
+      "kind": "stay",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 68
+      },
+      "cells": {
+        "state": "canceled",
+        "reopen_count": 0,
+        "assigned_to": 576,
+        "assignment_group_id": 58
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 68 AND state = 'canceled' AND reopen_count = 0 AND assigned_to = 576 AND assignment_group_id = 58",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "case 68 shares the account and product but is canceled and was last updated in April 2026, so it is outside the request's description and must not be reopened or reassigned"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify Case identified and reopened": {
+      "disposition": "repaired",
+      "evidence": "the check tests state = 'in_progress', but the request asks only that the resolved case be reopened, and the policy's lifecycle lets a resolved case move only to closed or new, so a reopened case is in state new; in_progress would need a further transition the request never asks for. Its other cells (account 3, product 97, reopen_count 1, assigned_to 439, group 4) are kept, split between the reopen and the assignment requirements"
+    },
+    "Verify Case Knowledge": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on the reopen of case 62 to state new with reopen_count 1, its assignment to user 439 in group 4, the link of article 145 as case_knowledge 528, the stay on case 68, and both dispositions (the case check repaired, the knowledge check kept).\ndisagreement: value: knowledge-link stay: A counts case 62's links other than 145 and expects them to stay at 2, B counts links to any article outside 145, 146 and 147 and expects 0; chose B's because it tests exactly the second link the request rules out, while A's also requires the existing links to survive, a generic invariant no sentence asks for.\nThe benchmark expects the reopened case to end in in_progress; the policy's lifecycle (resolved -> closed / new) gives new as the state a reopen produces, and the request does not ask for work to start, so the reopen requirement tests new and leaves in_progress to the assignee who takes the case further. If the server moves a case to in_progress on reassignment, that requirement would need revisiting.\nThe link's used_as is not tested: the policy's rule (suggested when found by automated search, applied otherwise) does not settle which applies to an article the agent searched for and chose.\nclosed_on is not tested: neither the request nor the policy says what happens to it on reopening.",
+  "minutes": 33
+}

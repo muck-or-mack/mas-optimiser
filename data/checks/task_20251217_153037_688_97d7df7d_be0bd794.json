@@ -1,0 +1,92 @@
+{
+  "task_id": "task_20251217_153037_688_97d7df7d_be0bd794",
+  "policy_sha1": "9698a42f",
+  "requirements": [
+    {
+      "text": "identify the oldest incident that Carlos previously reported and update it so that its associated service now points to the one owned by Priya instead of the originally selected service",
+      "kind": "change",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_004"
+      },
+      "cells": {
+        "service": "SVC_002",
+        "caller_id": "USER_003",
+        "configuration_item": "CI_001",
+        "assigned_to": "USER_006"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_004' AND service = 'SVC_002' AND caller_id = 'USER_003' AND configuration_item = 'CI_001' AND assigned_to = 'USER_006'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_incident_service_updated",
+      "seed_count": 0,
+      "assumptions": [
+        "Carlos resolves to USER_003 (Carlos Rodriguez), the only Carlos on the seed; 'reported' is read as caller_id, the schema's only reporter column (no opened_by)",
+        "oldest by created_at: Carlos's incidents are INC_004 (2024-02-18), INC_007 (2024-02-22) and INC_016 (2024-02-25); the incident number gives the same answer",
+        "Priya resolves to USER_002 (Priya Sharma), the only Priya; the only service she owns (owned_by) is SVC_002 'Customer Portal'; the original service SVC_001 'Email Service' is owned by USER_001",
+        "caller_id, configuration_item and assigned_to kept from the benchmark check; not fixed by request or policy (seed values the request does not change); assigned_to = USER_006 also fixes the notification's recipient",
+        "service_offering (SVCOFF_001, an offering of the old service) is not mentioned by the request and not tested"
+      ]
+    },
+    {
+      "text": "send an alert notification to the user currently assigned to resolve the incident using the subject Service Association Updated for Assigned Incident, with a ... note that acknowledges the updated service association, reflects that the case is now aligned to the service owned by Priya",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": "NOTIF_008"
+      },
+      "cells": {
+        "incident_id": "INC_004",
+        "email": "elena.petrov@techcorp.com",
+        "type": "alert",
+        "subject": "Service Association Updated for Assigned Incident",
+        "message": [
+          "LIKE '%update%'",
+          "LIKE '%service%'",
+          "LIKE '%align%'",
+          "LIKE '%priya%'"
+        ]
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 'NOTIF_008' AND incident_id = 'INC_004' AND email = 'elena.petrov@techcorp.com' AND type = 'alert' AND subject = 'Service Association Updated for Assigned Incident' AND message LIKE '%update%' AND message LIKE '%service%' AND message LIKE '%align%' AND message LIKE '%priya%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_service_update_notification_sent",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (NOTIF_008 after NOTIF_007); the only notification the task creates",
+        "the user currently assigned to INC_004 is USER_006 (Elena Petrov, elena.petrov@techcorp.com, active); notifications are keyed by email",
+        "'alert notification' is the notification type 'alert', as the benchmark check tests and the seed uses",
+        "the message words update, service, align and priya are the benchmark's reading of the request's 'updated service association' and 'aligned to the service owned by Priya'; SQLite's LIKE is case-insensitive for ASCII, so the benchmark's LOWER() is dropped without loosening the test",
+        "the notification's status and org_id are not fixed by the request or policy and not tested by the benchmark check; left out of cells"
+      ]
+    },
+    {
+      "text": "the oldest incident that Carlos previously reported",
+      "kind": "stay",
+      "table": "incident",
+      "selector": "caller_id = 'USER_003' AND incident_id IN ('INC_007', 'INC_016')",
+      "cells": {
+        "service": "SVC_001"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE caller_id = 'USER_003' AND incident_id IN ('INC_007', 'INC_016') AND service = 'SVC_001'",
+      "expected": 2,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 2,
+      "assumptions": [
+        "boundary of the 'oldest incident' selector: Carlos's two newer incidents (INC_007, INC_016) also sit on SVC_001 and a loose reading ('incidents Carlos reported') would move them too; only the oldest changes, so they keep SVC_001",
+        "disagreement: form: A names the two boundary rows (incident_id IN ('INC_007', 'INC_016')), B selects caller_id = 'USER_003' AND incident_id <> 'INC_004'; both pick the same two rows on the seed; chose A's because it names the boundary rows the stay exists for"
+      ]
+    }
+  ],
+  "original_checks": {
+    "verify_service_update_notification_sent": {
+      "disposition": "kept"
+    },
+    "verify_incident_service_updated": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Both benchmark checks match the seed and the request and are kept by both passes. Both passes found the same three requirements with the same cells. disagreement: form: the stay on Carlos's other incidents is written with an explicit id list in A and with incident_id <> 'INC_004' in B; the same two rows on the seed; kept A's. The request changes only the incident's service; its service_offering (SVCOFF_001, an offering of the old service SVC_001) is not asked to change and is not tested. The acting user Marcus Thompson (USER_001) is an admin with full CRUD under the policy, and owns the original service SVC_001, which the request calls 'the originally selected service' and asks for no change to. The benchmark's join to incident in the notification check only asserts the incident exists, which the foreign key already does, so the requirement reads notification alone. No stay is written against notifying the caller or Priya: the request names the recipient plainly and forbids nothing.\nrevised: the notification requirement's text drops the request's adjective for the note's length, keeping the request's other words; the message is still tested by its four words. revised: the stay on Carlos's two newer incidents repeated service = 'SVC_001' in both its selector and its cells; the selector now names only the two rows (caller and ids) and cells carries the service, so its sql and count are unchanged.",
+  "minutes": 20
+}

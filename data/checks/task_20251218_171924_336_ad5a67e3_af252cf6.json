@@ -1,0 +1,103 @@
+{
+  "task_id": "task_20251218_171924_336_ad5a67e3_af252cf6",
+  "policy_sha1": "4afd943b",
+  "requirements": [
+    {
+      "text": "Christina calls the L1 Service Desk team via phone because she cannot access the Attendance Portal software ... med level impact and high urgency ... the Service Desk logs an incident on Christina's behalf and assigns it to team member tabitha bullock",
+      "kind": "create",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_101"
+      },
+      "cells": {
+        "caller_id": "USER_002",
+        "channel": "phone",
+        "status": "new",
+        "category": "software",
+        "impact": "medium",
+        "urgency": "high",
+        "priority": "high",
+        "assigned_to": "USER_003",
+        "assignment_group": "GROUP_003"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_101' AND caller_id = 'USER_002' AND channel = 'phone' AND status = 'new' AND category = 'software' AND impact = 'medium' AND urgency = 'high' AND priority = 'high' AND assigned_to = 'USER_003' AND assignment_group = 'GROUP_003'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Attendance Portal Incident Created and Assigned Correctly",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest on the seed is INC_100); the only incident the task creates",
+        "Christina is USER_002 Christina Oliver, the only Christina on the seed (active reporter); 'on Christina's behalf' makes her the caller",
+        "'L1 Service Desk team' is GROUP_003 L1 Service Desk, the exact name; GROUP_001 'L1 IT Support' is the near match and is excluded by the assignment_group cell",
+        "'tabitha bullock' is USER_003, an active agent and a member of GROUP_003 (MEM_008), so policy 3.2 allows the assignment",
+        "'med level impact' read as impact = medium; priority = high from the policy matrix (medium x high), which the seed's rows also follow",
+        "status = new from policy 3.1 (default status for new incidents)",
+        "category = software kept from the benchmark check; the request calls the portal 'software' and category is mandatory",
+        "disagreement: cells: B adds LOWER(short_description) LIKE '%attendance portal%', A does not; chose A's cells because the request fixes no wording for the description and the benchmark tests no short_description",
+        "the benchmark check's join to user_group_member is dropped: it tests the membership row MEM_008, which exists on the seed and no listed tool removes; the group is tested as the assignment_group cell",
+        "contact_type is not tested (the benchmark check maps 'via phone' to channel only); the incident table has no opened_by column; org_id is unstated (Christina is ORG_002, the group ORG_001) and not tested"
+      ]
+    },
+    {
+      "text": "Create an 'Attendance Portal' business service, assign service ownership to me",
+      "kind": "create",
+      "table": "service",
+      "anchor": {
+        "service_id": "SVC_049"
+      },
+      "cells": {
+        "name": "Attendance Portal",
+        "owned_by": "USER_004",
+        "service_classification": "business",
+        "status": "operational",
+        "business_criticality": "critical",
+        "used_for": "production"
+      },
+      "sql": "SELECT COUNT(*) FROM service WHERE service_id = 'SVC_049' AND name = 'Attendance Portal' AND owned_by = 'USER_004' AND service_classification = 'business' AND status = 'operational' AND business_criticality = 'critical' AND used_for = 'production'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Attendance Portal Service Created with Correct Ownership",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest on the seed is SVC_048); no service named Attendance Portal exists on the seed; the only service the task creates",
+        "'me' is the acting user Joanne Simpson, USER_004 (a manager), so owned_by = USER_004",
+        "service_classification = business from 'business service'; the seed uses 'business' as a classification value",
+        "status = operational, business_criticality = critical and used_for = production kept from the benchmark check; not fixed by request or policy (all three columns are mandatory; the payroll-cutoff urgency supports critical but does not state it)"
+      ]
+    },
+    {
+      "text": "and then link that service to the incident for proper impact tracking and future reporting",
+      "kind": "change",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_101"
+      },
+      "cells": {
+        "service": "SVC_049"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_101' AND service = 'SVC_049'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Incident Updated with Attendance Portal Service",
+      "seed_count": 0,
+      "assumptions": [
+        "the link is the incident's service column, set after the service exists (update_incident is listed); the final state is the same if it were set at creation",
+        "disagreement: kind: A create, B change; chose change because the cell is set by a later tool call on the created row, as earlier merges did; seed_count is 0 because INC_101 does not exist yet",
+        "SVC_005 NextGen Customer Portal Dev is the only other 'portal' service on the seed and is not the one asked for; the equality on SVC_049 excludes it"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify Attendance Portal Incident Created and Assigned Correctly": {
+      "disposition": "kept"
+    },
+    "Verify Attendance Portal Service Created with Correct Ownership": {
+      "disposition": "kept"
+    },
+    "Verify Incident Updated with Attendance Portal Service": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on the three requirements (INC_101 for Christina at high, assigned to Tabitha Bullock in GROUP_003; SVC_049 Attendance Portal owned by USER_004; the incident's service set to SVC_049), on every value and on all three dispositions; the two differences are logged in their requirements. disagreement: incident cells: B adds short_description LIKE '%attendance portal%', A does not; chose A's because the request fixes no wording and the benchmark tests no short_description. disagreement: kind of the service-link requirement: A create, B change; chose change because the cell is set by a later tool call on the created row, as earlier merges did. All ids in the benchmark checks agree with the seed: USER_002 (Christina Oliver), USER_003 (Tabitha Bullock, active agent, member of GROUP_003), GROUP_003 (L1 Service Desk), USER_004 (the acting user, a manager), INC_101 and SVC_049 next in sequence. The request's order is incident first, then service, then link; the final state is the same whichever order the agent uses. No stay requirements: nothing in the request or policy is forbidden here, and the one near match (GROUP_001 L1 IT Support) is excluded by the assignment_group cell on the single created row. Policy 7 asks for a knowledge search on incident creation; which articles match is undecidable and no listed tool searches or links knowledge, so neither pass wrote a requirement for it. Christina (ORG_002) and the group (ORG_001) are in different organisations; the request does not address it and no requirement tests org_id. No requirement is a remove: nothing on the seed must be gone.",
+  "minutes": 23
+}

@@ -1,0 +1,300 @@
+{
+  "task_id": "task_20251221_191123_397_97d7df7d_7196ef19",
+  "policy_sha1": "9698a42f",
+  "requirements": [
+    {
+      "text": "deactivate the group whose type is IT Support and that is considered Level 1",
+      "kind": "change",
+      "table": "user_group",
+      "anchor": {
+        "group_id": "GROUP_001"
+      },
+      "cells": {
+        "active": 0
+      },
+      "sql": "SELECT COUNT(*) FROM user_group WHERE group_id = 'GROUP_001' AND active = 0",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_it_support_level1_group_inactivated",
+      "seed_count": 0,
+      "assumptions": [
+        "GROUP_001 'Level 1 Support Team' (type IT Support, active on the seed) is the only group matching both 'IT Support' and 'Level 1'; GROUP_003 'IT Support Team' is IT Support but not Level 1",
+        "active = 0 is SQLite's FALSE, as the benchmark check writes it"
+      ]
+    },
+    {
+      "text": "All incidents that are currently assigned to this Level 1 IT Support group and are still unresolved should be put on hold until further notice",
+      "kind": "change",
+      "table": "incident",
+      "selector": "incident_id IN ('INC_003','INC_004','INC_014','INC_016')",
+      "cells": {
+        "status": "on_hold"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id IN ('INC_016','INC_014','INC_003','INC_004') AND status = 'on_hold'",
+      "expected": 4,
+      "comparison": "equals",
+      "source": "verify_level1_unresolved_incidents_on_hold",
+      "seed_count": 0,
+      "assumptions": [
+        "unresolved = status not in (resolved, closed): on the seed GROUP_001 has INC_003, INC_004, INC_014, INC_016 (all new) unresolved and INC_001, INC_007, INC_017 resolved, so the set is four rows",
+        "new -> on_hold is a valid transition under policy 3.3",
+        "on_hold_reason is not tested: the request gives none ('until further notice') and none of the policy's three enumerations (Awaiting Change/Caller/Problem) fits a budget deactivation; the SLA pause rule (policy 6) therefore does not fire, and no SLA tool is listed",
+        "assignment_group is not tested: the request defers a new group to 'the next few days', so the rows are selected by id rather than by group",
+        "selected by id as the benchmark does, so the check holds even if the agent also clears the assignment group"
+      ]
+    },
+    {
+      "text": "Send reports to the users who originally reported them using the subject Important Update: Temporary Wait of Your IT Support Incident. In the messages greet the reporter by their full name and offer a clear apology ...",
+      "kind": "create",
+      "table": "notification",
+      "selector": "incident_id = 'INC_016' AND email = 'carlos.rodriguez@techcorp.com'",
+      "cells": {
+        "type": "report",
+        "subject": "Important Update: Temporary Wait of Your IT Support Incident",
+        "message": [
+          "LIKE '%carlos rodriguez%'",
+          "LIKE '%apolog%'",
+          "LIKE '%company%'",
+          "LIKE '%limited%'",
+          "LIKE '%budget%'",
+          "LIKE '%previous%'",
+          "LIKE '%service%'",
+          "LIKE '%wifi connection drops frequently%'",
+          "LIKE '%perform%'",
+          "LIKE '%daily task%'",
+          "LIKE '%next few days%'",
+          "LIKE '%new support group%'",
+          "LIKE '%assign%'",
+          "LIKE '%address%'",
+          "LIKE '%resolved%'",
+          "LIKE '%soon%'"
+        ]
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_016' AND email = 'carlos.rodriguez@techcorp.com' AND type = 'report' AND subject = 'Important Update: Temporary Wait of Your IT Support Incident' AND LOWER(message) LIKE '%carlos rodriguez%' AND LOWER(message) LIKE '%apolog%' AND LOWER(message) LIKE '%company%' AND LOWER(message) LIKE '%limited%' AND LOWER(message) LIKE '%budget%' AND LOWER(message) LIKE '%previous%' AND LOWER(message) LIKE '%service%' AND LOWER(message) LIKE '%wifi connection drops frequently%' AND LOWER(message) LIKE '%perform%' AND LOWER(message) LIKE '%daily task%' AND LOWER(message) LIKE '%next few days%' AND LOWER(message) LIKE '%new support group%' AND LOWER(message) LIKE '%assign%' AND LOWER(message) LIKE '%address%' AND LOWER(message) LIKE '%resolved%' AND LOWER(message) LIKE '%soon%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_notification_inc_016_sent",
+      "seed_count": 0,
+      "assumptions": [
+        "the user who originally reported INC_016 is its caller_id USER_003 (carlos.rodriguez@techcorp.com) on the seed; the incident table has no opened_by column",
+        "type = report from the request's word 'reports'; subject quoted exactly from the request",
+        "incident summary = short_description 'wifi connection drops frequently' on the seed; every message predicate is a word or phrase of the request, as the benchmark check tests them",
+        "selected by incident and recipient, not by id, because four notifications are created in no fixed order",
+        "SQLite LIKE is case-insensitive for ASCII, so the cells' LIKE predicates equal the benchmark's LOWER(message) LIKE",
+        "status not fixed by request or policy and not tested by the benchmark; not tested"
+      ]
+    },
+    {
+      "text": "Send reports to the users who originally reported them using the subject Important Update: Temporary Wait of Your IT Support Incident. In the messages greet the reporter by their full name and offer a clear apology ...",
+      "kind": "create",
+      "table": "notification",
+      "selector": "incident_id = 'INC_014' AND email = 'benjamin.chen@techcorp.com'",
+      "cells": {
+        "type": "report",
+        "subject": "Important Update: Temporary Wait of Your IT Support Incident",
+        "message": [
+          "LIKE '%benjamin chen%'",
+          "LIKE '%apolog%'",
+          "LIKE '%company%'",
+          "LIKE '%limited%'",
+          "LIKE '%budget%'",
+          "LIKE '%previous%'",
+          "LIKE '%service%'",
+          "LIKE '%monitor display flickering%'",
+          "LIKE '%perform%'",
+          "LIKE '%daily task%'",
+          "LIKE '%next few days%'",
+          "LIKE '%new support group%'",
+          "LIKE '%assign%'",
+          "LIKE '%address%'",
+          "LIKE '%resolved%'",
+          "LIKE '%soon%'"
+        ]
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_014' AND email = 'benjamin.chen@techcorp.com' AND type = 'report' AND subject = 'Important Update: Temporary Wait of Your IT Support Incident' AND LOWER(message) LIKE '%benjamin chen%' AND LOWER(message) LIKE '%apolog%' AND LOWER(message) LIKE '%company%' AND LOWER(message) LIKE '%limited%' AND LOWER(message) LIKE '%budget%' AND LOWER(message) LIKE '%previous%' AND LOWER(message) LIKE '%service%' AND LOWER(message) LIKE '%monitor display flickering%' AND LOWER(message) LIKE '%perform%' AND LOWER(message) LIKE '%daily task%' AND LOWER(message) LIKE '%next few days%' AND LOWER(message) LIKE '%new support group%' AND LOWER(message) LIKE '%assign%' AND LOWER(message) LIKE '%address%' AND LOWER(message) LIKE '%resolved%' AND LOWER(message) LIKE '%soon%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_notification_inc_014_sent",
+      "seed_count": 0,
+      "assumptions": [
+        "the user who originally reported INC_014 is its caller_id USER_005 (benjamin.chen@techcorp.com) on the seed; the incident table has no opened_by column",
+        "type = report from the request's word 'reports'; subject quoted exactly from the request",
+        "incident summary = short_description 'monitor display flickering' on the seed; every message predicate is a word or phrase of the request, as the benchmark check tests them",
+        "selected by incident and recipient, not by id, because four notifications are created in no fixed order",
+        "SQLite LIKE is case-insensitive for ASCII, so the cells' LIKE predicates equal the benchmark's LOWER(message) LIKE",
+        "status not fixed by request or policy and not tested by the benchmark; not tested"
+      ]
+    },
+    {
+      "text": "Send reports to the users who originally reported them using the subject Important Update: Temporary Wait of Your IT Support Incident. In the messages greet the reporter by their full name and offer a clear apology ...",
+      "kind": "create",
+      "table": "notification",
+      "selector": "incident_id = 'INC_003' AND email = 'benjamin.chen@techcorp.com'",
+      "cells": {
+        "type": "report",
+        "subject": "Important Update: Temporary Wait of Your IT Support Incident",
+        "message": [
+          "LIKE '%benjamin chen%'",
+          "LIKE '%apolog%'",
+          "LIKE '%company%'",
+          "LIKE '%limited%'",
+          "LIKE '%budget%'",
+          "LIKE '%previous%'",
+          "LIKE '%service%'",
+          "LIKE '%printer connectivity issue%'",
+          "LIKE '%perform%'",
+          "LIKE '%daily task%'",
+          "LIKE '%next few days%'",
+          "LIKE '%new support group%'",
+          "LIKE '%assign%'",
+          "LIKE '%address%'",
+          "LIKE '%resolved%'",
+          "LIKE '%soon%'"
+        ]
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_003' AND email = 'benjamin.chen@techcorp.com' AND type = 'report' AND subject = 'Important Update: Temporary Wait of Your IT Support Incident' AND LOWER(message) LIKE '%benjamin chen%' AND LOWER(message) LIKE '%apolog%' AND LOWER(message) LIKE '%company%' AND LOWER(message) LIKE '%limited%' AND LOWER(message) LIKE '%budget%' AND LOWER(message) LIKE '%previous%' AND LOWER(message) LIKE '%service%' AND LOWER(message) LIKE '%printer connectivity issue%' AND LOWER(message) LIKE '%perform%' AND LOWER(message) LIKE '%daily task%' AND LOWER(message) LIKE '%next few days%' AND LOWER(message) LIKE '%new support group%' AND LOWER(message) LIKE '%assign%' AND LOWER(message) LIKE '%address%' AND LOWER(message) LIKE '%resolved%' AND LOWER(message) LIKE '%soon%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_notification_inc_003_sent",
+      "seed_count": 0,
+      "assumptions": [
+        "the user who originally reported INC_003 is its caller_id USER_005 (benjamin.chen@techcorp.com) on the seed; the incident table has no opened_by column",
+        "type = report from the request's word 'reports'; subject quoted exactly from the request",
+        "incident summary = short_description 'printer connectivity issue' on the seed; every message predicate is a word or phrase of the request, as the benchmark check tests them",
+        "selected by incident and recipient, not by id, because four notifications are created in no fixed order",
+        "SQLite LIKE is case-insensitive for ASCII, so the cells' LIKE predicates equal the benchmark's LOWER(message) LIKE",
+        "status not fixed by request or policy and not tested by the benchmark; not tested"
+      ]
+    },
+    {
+      "text": "Send reports to the users who originally reported them using the subject Important Update: Temporary Wait of Your IT Support Incident. In the messages greet the reporter by their full name and offer a clear apology ...",
+      "kind": "create",
+      "table": "notification",
+      "selector": "incident_id = 'INC_004' AND email = 'carlos.rodriguez@techcorp.com'",
+      "cells": {
+        "type": "report",
+        "subject": "Important Update: Temporary Wait of Your IT Support Incident",
+        "message": [
+          "LIKE '%carlos rodriguez%'",
+          "LIKE '%apolog%'",
+          "LIKE '%company%'",
+          "LIKE '%limited%'",
+          "LIKE '%budget%'",
+          "LIKE '%previous%'",
+          "LIKE '%service%'",
+          "LIKE '%network connectivity issues%'",
+          "LIKE '%perform%'",
+          "LIKE '%daily task%'",
+          "LIKE '%next few days%'",
+          "LIKE '%new support group%'",
+          "LIKE '%assign%'",
+          "LIKE '%address%'",
+          "LIKE '%resolved%'",
+          "LIKE '%soon%'"
+        ]
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_004' AND email = 'carlos.rodriguez@techcorp.com' AND type = 'report' AND subject = 'Important Update: Temporary Wait of Your IT Support Incident' AND LOWER(message) LIKE '%carlos rodriguez%' AND LOWER(message) LIKE '%apolog%' AND LOWER(message) LIKE '%company%' AND LOWER(message) LIKE '%limited%' AND LOWER(message) LIKE '%budget%' AND LOWER(message) LIKE '%previous%' AND LOWER(message) LIKE '%service%' AND LOWER(message) LIKE '%network connectivity issues%' AND LOWER(message) LIKE '%perform%' AND LOWER(message) LIKE '%daily task%' AND LOWER(message) LIKE '%next few days%' AND LOWER(message) LIKE '%new support group%' AND LOWER(message) LIKE '%assign%' AND LOWER(message) LIKE '%address%' AND LOWER(message) LIKE '%resolved%' AND LOWER(message) LIKE '%soon%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_notification_inc_004_sent",
+      "seed_count": 0,
+      "assumptions": [
+        "the user who originally reported INC_004 is its caller_id USER_003 (carlos.rodriguez@techcorp.com) on the seed; the incident table has no opened_by column",
+        "type = report from the request's word 'reports'; subject quoted exactly from the request",
+        "incident summary = short_description 'network connectivity issues' on the seed; every message predicate is a word or phrase of the request, as the benchmark check tests them",
+        "selected by incident and recipient, not by id, because four notifications are created in no fixed order",
+        "SQLite LIKE is case-insensitive for ASCII, so the cells' LIKE predicates equal the benchmark's LOWER(message) LIKE",
+        "status not fixed by request or policy and not tested by the benchmark; not tested"
+      ]
+    },
+    {
+      "text": "deactivate the group whose type is IT Support and that is considered Level 1 (the other IT Support group stays active)",
+      "kind": "stay",
+      "table": "user_group",
+      "selector": "type = 'IT Support' AND group_id <> 'GROUP_001'",
+      "cells": {
+        "active": 1
+      },
+      "sql": "SELECT COUNT(*) FROM user_group WHERE type = 'IT Support' AND group_id <> 'GROUP_001' AND active = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "boundary of the group description: GROUP_003 'IT Support Team' (type IT Support) is not Level 1 and must stay active; it is the only other IT Support group on the seed",
+        "disagreement: row selection: A anchor group_id = 'GROUP_003', B selector type = 'IT Support' AND group_id <> 'GROUP_001'; chose B's selector because it picks the same single row on the seed and names the boundary in the request's own terms"
+      ]
+    },
+    {
+      "text": "All incidents that are currently assigned to this Level 1 IT Support group and are still unresolved",
+      "kind": "stay",
+      "table": "incident",
+      "selector": "incident_id IN ('INC_001','INC_007','INC_017')",
+      "cells": {
+        "status": "resolved"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id IN ('INC_001','INC_007','INC_017') AND status = 'resolved'",
+      "expected": 3,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 3,
+      "assumptions": [
+        "boundary of the incident selector: GROUP_001's three resolved incidents are outside 'still unresolved' and must stay resolved (policy 3.3 allows no resolved -> on_hold transition)"
+      ]
+    },
+    {
+      "text": "All incidents that are currently assigned to this Level 1 IT Support group (incidents of other groups are not put on hold)",
+      "kind": "stay",
+      "table": "incident",
+      "selector": "assignment_group <> 'GROUP_001' AND status = 'on_hold' AND incident_id NOT IN ('INC_010','INC_018','INC_023')",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM incident WHERE assignment_group <> 'GROUP_001' AND status = 'on_hold' AND incident_id NOT IN ('INC_010','INC_018','INC_023')",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of the incident selector: no incident of another group may be put on hold; INC_010, INC_018 and INC_023 are the only non-GROUP_001 incidents on hold on the seed, and GROUP_003's one unresolved incident (INC_019, new) is what a loose reading of 'IT Support group' would sweep in",
+        "disagreement: selector: A assignment_group <> 'GROUP_001' AND status = 'on_hold' expected 3, B assignment_group = 'GROUP_003' AND status = 'on_hold' expected 0; chose a selector that excludes the three seed rows and expects 0 because it is tighter than both (any other group's incident newly on hold fails it, whichever group it belongs to)"
+      ]
+    },
+    {
+      "text": "Send reports to the users who originally reported them (no report for the resolved incidents)",
+      "kind": "stay",
+      "table": "notification",
+      "selector": "incident_id IN ('INC_001','INC_007','INC_017') AND subject = 'Important Update: Temporary Wait of Your IT Support Incident'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM notification WHERE incident_id IN ('INC_001','INC_007','INC_017') AND subject = 'Important Update: Temporary Wait of Your IT Support Incident'",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of 'them': reports go only to the reporters of the four incidents put on hold, not to the reporters of GROUP_001's three resolved incidents",
+        "disagreement: B has this stay, A does not; kept because it is the other side of the 'still unresolved' boundary (the rows a loose reading of 'all incidents assigned to this group' would sweep in)"
+      ]
+    }
+  ],
+  "original_checks": {
+    "verify_it_support_level1_group_inactivated": {
+      "disposition": "kept"
+    },
+    "verify_level1_unresolved_incidents_on_hold": {
+      "disposition": "kept"
+    },
+    "verify_notification_inc_016_sent": {
+      "disposition": "kept"
+    },
+    "verify_notification_inc_014_sent": {
+      "disposition": "kept"
+    },
+    "verify_notification_inc_003_sent": {
+      "disposition": "kept"
+    },
+    "verify_notification_inc_004_sent": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on the six benchmark checks (all kept), the group deactivation (GROUP_001), the four incidents put on hold (INC_003, INC_004, INC_014, INC_016, selected by id), the four report notifications (selected by incident and recipient, no id anchor, since four are created in no fixed order) and the stay on the group's three resolved incidents.\ndisagreement: stay that the other IT Support group stays active: A anchors GROUP_003, B selects type = 'IT Support' AND group_id <> 'GROUP_001'; chose B's selector, the same row on the seed (logged on the requirement).\ndisagreement: stay that other groups' incidents are not put on hold: A counts all non-GROUP_001 on-hold incidents (expected 3), B counts GROUP_003's (expected 0); chose a selector excluding the three seed rows with expected 0, tighter than both (logged on the requirement).\ndisagreement: stay that no report goes to the reporters of the three resolved incidents: B has it, A does not; kept as the boundary of 'them' (logged on the requirement).\nBoth passes agree that no on_hold_reason is required ('until further notice' matches none of the policy's three reasons), so the policy's SLA pause rule gives no requirement and no SLA tool is listed. Whether the four incidents keep assignment_group = GROUP_001 is left untested: the request's 'no longer actively being worked on under this group's responsibility' could be read either way, and reassignment is a collateral change measured separately. Acting user USER_001 (Marcus Thompson) is admin, so the group deactivation and incident updates are within scope.",
+  "minutes": 38
+}

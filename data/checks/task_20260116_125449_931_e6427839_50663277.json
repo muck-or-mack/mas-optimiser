@@ -1,0 +1,125 @@
+{
+  "task_id": "task_20260116_125449_931_e6427839_50663277",
+  "policy_sha1": "0679ba10",
+  "requirements": [
+    {
+      "text": "de-escalate case HRC0000731, which currently should be made default priority, as it is no longer critical",
+      "kind": "change",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 21
+      },
+      "cells": {
+        "priority": "moderate"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 21 AND priority = 'moderate'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Validating case HRC0000731 de-escalation and reassignment.",
+      "seed_count": 0,
+      "assumptions": [
+        "HRC0000731 resolved by number to hr_case 21 (currently critical)",
+        "default priority is moderate, the policy's default when none is given"
+      ]
+    },
+    {
+      "text": "this case should be assigned to Casey Green",
+      "kind": "change",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 21
+      },
+      "cells": {
+        "assigned_to": 52
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 21 AND assigned_to = 52",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Validating case HRC0000731 de-escalation and reassignment.",
+      "seed_count": 0,
+      "assumptions": [
+        "Casey Green resolved by name to user 52 (casey.green@servicenow.com), the only Casey Green, an active agent in organisation 1; Thomas Green (user 1) is a different, inactive user"
+      ]
+    },
+    {
+      "text": "make sure HR Case Readers are working on this as well",
+      "kind": "change",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 21
+      },
+      "cells": {
+        "assignment_group": 11
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 21 AND assignment_group = 11",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Validating case HRC0000731 de-escalation and reassignment.",
+      "seed_count": 0,
+      "assumptions": [
+        "HR Case Readers resolved by name to group 11 (organisation 1); the case's assignment group moves from 4 to 11"
+      ]
+    },
+    {
+      "text": "this case should be assigned to Casey Green. Also, make sure HR Case Readers are working on this as well",
+      "kind": "create",
+      "table": "user_group_member",
+      "anchor": {
+        "member_id": 44
+      },
+      "cells": {
+        "group_id": 11,
+        "user_id": 52,
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 44 AND group_id = 11 AND user_id = 52 AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Validating group membership to align with assignment policy.",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by the request, not stated: the policy requires a case's assigned user to be an active member of its assignment group, and Casey Green is not in HR Case Readers on the seed",
+        "id assumed next in sequence (highest member_id in the seed is 43)",
+        "disagreement: text: A quotes 'this case should be assigned to Casey Green. Also, make sure HR Case Readers are working on this as well', B only the second sentence; same sql; chose A's because the membership follows from assigning Casey to a case held by that group, so both sentences give rise to it"
+      ]
+    },
+    {
+      "text": "Once done, remind Casey.",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": 61
+      },
+      "cells": {
+        "hr_case_id": 21,
+        "email": "casey.green@servicenow.com",
+        "type": "reminder",
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 61 AND hr_case_id = 21 AND email = 'casey.green@servicenow.com' AND type = 'reminder' AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Validating reminder notification. ",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest notification_id in the seed is 60)",
+        "email is Casey's user email, kept from the benchmark check; her profile also holds a personal address, which the request does not ask for",
+        "type 'reminder' follows the request's word 'remind' and is an existing notification type in the seed",
+        "org_id 1 is the case's organisation"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Validating case HRC0000731 de-escalation and reassignment.": {
+      "disposition": "kept"
+    },
+    "Validating group membership to align with assignment policy.": {
+      "disposition": "kept"
+    },
+    "Validating reminder notification. ": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "disagreement: value: the text of the membership requirement: one pass quotes both the assignment sentence and the HR Case Readers sentence, the other only the latter, with identical sql (the reminder's quote also differs by a closing full stop); kept both sentences, since the membership follows from assigning Casey to a case held by that group.\nThe two passes otherwise agree on every requirement, id, cell and disposition.\nThe benchmark's first check is a conjunction of priority, assignee and assignment group; it is carried jointly by the three hr_case requirements, one per thing the request asks of the case.\nThe acting user, Scott Mitchell (user 41), is an admin, whom the policy allows to update and reassign cases and to change group membership.\nNotification status is not stated and is left untested. The seed's existing notifications go to case subjects' personal addresses, but the reminder is to the assignee, and the only address a name lookup returns is her user email, so the benchmark's address is kept.\nThe case's status (awaiting_approval) is not asked to change and is not tested.",
+  "minutes": 24
+}

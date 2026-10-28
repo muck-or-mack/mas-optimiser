@@ -1,0 +1,186 @@
+{
+ "task_id": "task_20260109_162344_706_95fd9f79_85a7972c",
+ "policy_sha1": "9ffbbf7e",
+ "requirements": [
+  {
+   "text": "only the appropriate compensation specialists ... in the HR Service Desk can see full details and work these payroll and benefits cases",
+   "kind": "create",
+   "table": "user_group",
+   "anchor": {
+    "group_id": 19
+   },
+   "cells": {
+    "name": "LIKE '%Compensation%'",
+    "type": "Service Desk",
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM user_group WHERE group_id = 19 AND name LIKE '%Compensation%' AND type = 'Service Desk' AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "Compensation Specialists group exists",
+    "Compensation and Benefits Visibility” criteria exists and points to that group"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "implied by the request, not stated: no group on the seed holds the compensation specialists, whom the request names as the owners of these cases, so one must be created",
+    "id assumed next in sequence (highest group_id on the seed is 18)",
+    "type Service Desk from 'in the HR Service Desk', as the benchmark check also tests",
+    "name containing 'Compensation' and active = 1 kept from the benchmark check; not fixed by request or policy",
+    "the acting user holds the admin role, which the policy allows to create groups"
+   ]
+  },
+  {
+   "text": "use the existing roles, permissions, user groups and HR criteria that control visibility ... so that access to salary and benefits information is limited to the right roles",
+   "kind": "create",
+   "table": "hr_criteria",
+   "anchor": {
+    "hr_criteria_id": 4
+   },
+   "cells": {
+    "type": "case_visibility",
+    "active": 1,
+    "user_group": 19
+   },
+   "sql": "SELECT COUNT(*) FROM hr_criteria WHERE hr_criteria_id = 4 AND type = 'case_visibility' AND active = 1 AND user_group = 19",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "Compensation and Benefits Visibility” criteria exists and points to that group",
+    "Both services use that exact criteria"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "no case_visibility criterion on the seed points to a compensation group (Admin Only Visibility uses the Infrastructure Team, group 4; HR Team Visibility uses group 2 in org 2), so a new one is registered; id assumed next in sequence (highest hr_criteria_id on the seed is 3)",
+    "user_group is the compensation group the group requirement anchors",
+    "active = 1 kept from the benchmark check; not fixed by request or policy",
+    "criterion name not fixed by the request or the benchmark query; not tested",
+    "disagreement: source: one pass names the criterion check alone, the other also the services check; chose both because the services check requires the services' criterion to be active and of type case_visibility, which only this requirement tests"
+   ]
+  },
+  {
+   "text": "any HR agent can open and fully view cases for the “Payroll Support” service ... Other HR agents should not be able to open or read the contents of these cases at all",
+   "kind": "change",
+   "table": "hr_service",
+   "anchor": {
+    "hr_service_id": 3
+   },
+   "cells": {
+    "hr_criteria": 4,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 3 AND hr_criteria = 4 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Both services use that exact criteria",
+   "seed_count": 0,
+   "assumptions": [
+    "Payroll Support is hr_service 3; on the seed it carries only the approval criterion Manager Approval Required (criterion 2), so it has no visibility restriction",
+    "the service must point to the new compensation visibility criterion; any other active case_visibility criterion would let a group other than the compensation specialists see the cases",
+    "active = 1 kept from the benchmark check; not fixed by request or policy"
+   ]
+  },
+  {
+   "text": "“Benefits Enrollment” cases are restricted to a legacy Infrastructure Team group instead of the compensation and total rewards teams that should own that work",
+   "kind": "change",
+   "table": "hr_service",
+   "anchor": {
+    "hr_service_id": 2
+   },
+   "cells": {
+    "hr_criteria": 4,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 2 AND hr_criteria = 4 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Both services use that exact criteria",
+   "seed_count": 0,
+   "assumptions": [
+    "Benefits Enrollment is hr_service 2; on the seed it uses Admin Only Visibility (criterion 1, Infrastructure Team)",
+    "the service must point to the new compensation visibility criterion",
+    "active = 1 kept from the benchmark check; not fixed by request or policy",
+    "disagreement: source: one pass names the services check and the Infrastructure Team check, the other the services check alone; chose the services check alone because the Infrastructure Team check is carried by its own requirement for the request's clause on removing those paths"
+   ]
+  },
+  {
+   "text": "outdated Infrastructure Team–based paths are removed or corrected",
+   "kind": "remove",
+   "table": "hr_service",
+   "anchor": {
+    "hr_service_id": 2
+   },
+   "cells": {
+    "hr_criteria": "IN (SELECT c.hr_criteria_id FROM hr_criteria c JOIN user_group g ON c.user_group = g.group_id WHERE g.name = 'Infrastructure Team')"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 2 AND hr_criteria IN (SELECT c.hr_criteria_id FROM hr_criteria c JOIN user_group g ON c.user_group = g.group_id WHERE g.name = 'Infrastructure Team')",
+   "expected": 0,
+   "comparison": "equals",
+   "source": "Benefits Enrollment is no longer tied to Infrastructure Team",
+   "seed_count": 1,
+   "assumptions": [
+    "the Infrastructure Team path the request names is Benefits Enrollment's link through criterion 1 to group 4",
+    "disagreement: missing requirement: one pass has this requirement, the other tests the Infrastructure Team check only through the Benefits Enrollment change; kept because the request asks for it in its own clause, one requirement per thing asked"
+   ]
+  },
+  {
+   "text": "approval routing still works for the right people",
+   "kind": "stay",
+   "table": "hr_criteria",
+   "anchor": {
+    "hr_criteria_id": 2
+   },
+   "cells": {
+    "type": "approval",
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_criteria WHERE hr_criteria_id = 2 AND type = 'approval' AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 1,
+   "assumptions": [
+    "the approval criterion Manager Approval Required (criterion 2), the only approval criterion on the seed, must stay an active approval criterion",
+    "disagreement: missing requirement: one pass has this stay, the other does not; kept because the request states that approval routing must still work, so it forbids deactivating or retyping the approval criterion"
+   ]
+  },
+  {
+   "text": "standard, non-sensitive HR services continue to function as they do today",
+   "kind": "stay",
+   "table": "hr_service",
+   "anchor": {
+    "hr_service_id": 1
+   },
+   "cells": {
+    "hr_criteria": 1,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 1 AND hr_criteria = 1 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 1,
+   "assumptions": [
+    "Employee Onboarding (hr_service 1) shares the Infrastructure Team criterion 1 with Benefits Enrollment, so a loose reading of removing Infrastructure Team paths would sweep it in; it is a standard service the request says must keep working as today",
+    "disagreement: cells: one pass tests hr_criteria alone, the other also active = 1; chose both because 'continue to function' also forbids deactivating the service, and the tighter predicate holds on the seed"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Compensation Specialists group exists": {
+   "disposition": "kept"
+  },
+  "Compensation and Benefits Visibility” criteria exists and points to that group": {
+   "disposition": "kept"
+  },
+  "Both services use that exact criteria": {
+   "disposition": "repaired",
+   "evidence": "the query accepts any active case_visibility criterion, so pointing Payroll Support at Admin Only Visibility (criterion 1, Infrastructure Team) would pass it although the request removes Infrastructure Team paths and limits these cases to the compensation specialists; the check's own description and the request require both services to use the new criterion for the compensation group (criterion 4)"
+  },
+  "Benefits Enrollment is no longer tied to Infrastructure Team": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "disagreement: missing requirement: that Benefits Enrollment no longer links to an Infrastructure Team criterion, as its own requirement; one pass has it, the other carries that check only through the Benefits Enrollment change; kept because the request asks for it in its own clause (resolved on that requirement).\ndisagreement: missing requirement: a stay that the approval criterion Manager Approval Required remains an active approval criterion; one pass has it, the other does not; kept because the request states that approval routing must still work (resolved on that requirement).\ndisagreement: value: the source of the criterion requirement: one pass lists the criterion check alone, the other adds the services check; chose both, since the services check requires the criterion to be active and of type case_visibility, which only that requirement tests (resolved on that requirement).\ndisagreement: value: the source of the Benefits Enrollment change: one pass adds the Infrastructure Team check, the other names the services check alone; chose the services check alone, since the Infrastructure Team check has its own requirement (resolved on that requirement).\ndisagreement: value: the cells of the Employee Onboarding stay: one pass tests its criterion alone, the other also that it stays active; chose both (resolved on that requirement).\ndisagreement: disposition: Both services use that exact criteria: one pass repaired it (the services must use the new criterion 4), the other kept it while testing the same criterion 4; chose repaired, since the query as written accepts the Infrastructure Team criterion, which the request removes.\nThe passes otherwise agree on every id and cell; their texts and assumptions differ in wording only.\nhr_service holds one hr_criteria per service, so pointing Payroll Support at the visibility criterion replaces its service-level link to the approval criterion 2. The request asks both that only compensation specialists and admins see payroll cases and that approval routing still works; the benchmark resolves this in favour of visibility, which this file follows while keeping criterion 2 itself active. Approval routing on existing cases lives in hr_case.approval_criteria and approver, which no listed tool writes, and is not tested.\nThe limit on managers (status-only views of their direct reports) cannot be expressed in this schema: permission and role_permission grant access per resource with no field or reporting-line scope, and no listed tool writes roles or permissions, so it is not tested.\nThe members of the new group (compensation specialists and HR platform admins) and the new criterion's users list are not tested: the request names no people, and no listed tool writes user_group_member. The new group's and criterion's org_id is not tested: the request does not fix it, though the services and the acting user belong to organisation 1.\nThe request asks to use the existing access objects, but none represents the compensation owners, so a new group and criterion are required, as the benchmark expects. Performance Review and Policy Questions (services 4 and 5, org 2) use HR Team Visibility and are outside the request.",
+ "minutes": 38
+}

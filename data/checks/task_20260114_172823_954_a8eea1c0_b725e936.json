@@ -1,0 +1,267 @@
+{
+ "task_id": "task_20260114_172823_954_a8eea1c0_b725e936",
+ "policy_sha1": "b2da3f42",
+ "requirements": [
+  {
+   "text": "I'd like this case moved out of its current group and assigned to the Global Service Desk Group instead",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 1
+   },
+   "cells": {
+    "assignment_group": 3,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 1 AND assignment_group = 3 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_case_update_verification",
+    "combined_end_to_end_state_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "case HRC0000711 is hr_case_id 1 (org 1), currently in group 4 (HR Service Desk)",
+    "Global Service Desk is group_id 3, the only group of that name",
+    "acting user Joanne Simpson holds the manager role, which may reassign cases across groups",
+    "disagreement: org_id: A 1, B untested; chose 1 because the benchmark check tests org_id = 1, the case's organisation on the seed, and nothing contradicts it"
+   ]
+  },
+  {
+   "text": "transition it to the next state since work is now in progress",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 1
+   },
+   "cells": {
+    "status": "work_in_progress",
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 1 AND status = 'work_in_progress' AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_case_update_verification",
+    "combined_end_to_end_state_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "the case is in draft; draft to work_in_progress is a valid lifecycle transition and matches 'work is now in progress'",
+    "disagreement: org_id: A 1, B untested; chose 1 because the benchmark check tests org_id = 1, the case's organisation on the seed, and nothing contradicts it"
+   ]
+  },
+  {
+   "text": "change the priority to high",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 1
+   },
+   "cells": {
+    "priority": "high",
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 1 AND priority = 'high' AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_case_update_verification",
+    "combined_end_to_end_state_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "the case's priority is critical on the seed; the request sets high, and the manager role may override priority settings",
+    "disagreement: org_id: A 1, B untested; chose 1 because the benchmark check tests org_id = 1, the case's organisation on the seed, and nothing contradicts it"
+   ]
+  },
+  {
+   "text": "Update the short description to accurately reflect the change",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 1
+   },
+   "cells": {
+    "short_description": "Service: General Inquiry, Subject: Christina Oliver, Detail: Priority escalated for Global Service Desk.",
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 1 AND short_description = 'Service: General Inquiry, Subject: Christina Oliver, Detail: Priority escalated for Global Service Desk.' AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_case_update_verification",
+    "combined_end_to_end_state_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "text quoted verbatim by the request; it fits the policy's 'Service, Subject, Detail' format and 30-120 character limit",
+    "disagreement: org_id: A 1, B untested; chose 1 because the benchmark check tests org_id = 1, the case's organisation on the seed, and nothing contradicts it"
+   ]
+  },
+  {
+   "text": "add a Employee Identity Verification task routed to the same Global Group",
+   "kind": "create",
+   "table": "hr_case_task",
+   "anchor": {
+    "hr_case_task_id": 150
+   },
+   "cells": {
+    "short_description": "Employee Identity Verification",
+    "assignment_group": 3,
+    "parent_case": 1,
+    "task_type": "checklist",
+    "status": "ready",
+    "active": true,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case_task WHERE hr_case_task_id = 150 AND short_description = 'Employee Identity Verification' AND assignment_group = 3 AND parent_case = 1 AND task_type = 'checklist' AND status = 'ready' AND active = true AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_case_task_creation_verification",
+    "combined_end_to_end_state_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (150 after 149)",
+    "parent case is HRC0000711 (hr_case_id 1), the case the request is about",
+    "task type not stated; a task that carries a checklist item is of type checklist, the benchmark check's value",
+    "status ready and active kept from the benchmark check; not fixed by request or policy",
+    "org_id 1 is the parent case's organisation"
+   ]
+  },
+  {
+   "text": "with a checklist item to Review Government ID",
+   "kind": "create",
+   "table": "checklist",
+   "anchor": {
+    "checklist_id": 91
+   },
+   "cells": {
+    "checklist_item_description": "Review Government ID",
+    "case_task_id": 150,
+    "checked": false,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM checklist WHERE checklist_id = 91 AND checklist_item_description = 'Review Government ID' AND case_task_id = 150 AND checked = false AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "checklist_item_creation_verification",
+    "combined_end_to_end_state_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (91 after 90)",
+    "linked to the new verification task 150",
+    "unchecked kept from the benchmark check; a newly added item has not been done"
+   ]
+  },
+  {
+   "text": "retrieve the satisfaction survey for how easy was it to create your HR request, update its fourth question to how helpful was the Global Service Desk",
+   "kind": "change",
+   "table": "survey",
+   "anchor": {
+    "survey_id": 1
+   },
+   "cells": {
+    "question_4": "How helpful was the Global Service Desk?",
+    "question_1": "How easy was it to create your HR request?",
+    "question_2": "Was your request completed within the expected time?",
+    "question_3": "How satisfied are you with the way your agent handled the case?",
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM survey WHERE survey_id = 1 AND question_4 = 'How helpful was the Global Service Desk?' AND question_1 = 'How easy was it to create your HR request?' AND question_2 = 'Was your request completed within the expected time?' AND question_3 = 'How satisfied are you with the way your agent handled the case?' AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "survey_update_verification",
+    "combined_end_to_end_state_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "survey_id 1 is the only survey whose first question is 'How easy was it to create your HR request?'",
+    "capital H and question mark kept from the benchmark check, matching the survey's other questions",
+    "questions 1-3 unchanged kept from the benchmark check; only the fourth question is to be updated",
+    "disagreement: org_id: A 1, B untested; chose 1 because the benchmark check tests org_id = 1, the survey's organisation on the seed, and nothing contradicts it"
+   ]
+  },
+  {
+   "text": "create a survey instance for Mckenzie Mendez linked to the new verification task",
+   "kind": "create",
+   "table": "survey_instance",
+   "anchor": {
+    "survey_instance_id": 26
+   },
+   "cells": {
+    "survey_id": 1,
+    "case_task_id": 150,
+    "assigned_to": 5,
+    "org_id": 1,
+    "answer_1": "IS NULL",
+    "answer_2": "IS NULL",
+    "answer_3": "IS NULL",
+    "answer_4": "IS NULL",
+    "answer_5": "IS NULL"
+   },
+   "sql": "SELECT COUNT(*) FROM survey_instance WHERE survey_instance_id = 26 AND survey_id = 1 AND case_task_id = 150 AND assigned_to = 5 AND org_id = 1 AND answer_1 IS NULL AND answer_2 IS NULL AND answer_3 IS NULL AND answer_4 IS NULL AND answer_5 IS NULL",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "survey_instance_creation_verification",
+    "combined_end_to_end_state_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (26 after 25)",
+    "Mckenzie Mendez is user_id 5 (org 1), the only user of that name",
+    "the instance is of the survey just updated (survey_id 1)",
+    "empty answers kept from the benchmark check; a new instance has not been answered"
+   ]
+  },
+  {
+   "text": "retrieve the satisfaction survey for how easy was it to create your HR request",
+   "kind": "stay",
+   "table": "survey",
+   "anchor": {
+    "survey_id": 3
+   },
+   "cells": {
+    "question_4": "Did you understand the difference between the plans?"
+   },
+   "sql": "SELECT COUNT(*) FROM survey WHERE survey_id = 3 AND question_4 = 'Did you understand the difference between the plans?'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 1,
+   "assumptions": [
+    "survey 3 opens with 'How easy was it to navigate the benefits portal?', the near match a loose reading of the description would pick; its fourth question must not change",
+    "disagreement: form: A selector survey_id <> 1 with question_4 = 'How helpful was the Global Service Desk?' (expected 0), B survey 3's question_4 held at its seed value (expected 1); chose B's because survey 3 is the only near match of the description, and holding its fourth question fails any write to it, including the new wording in another case or spelling, which the exact-text test would miss"
+   ]
+  }
+ ],
+ "original_checks": {
+  "hr_case_update_verification": {
+   "disposition": "kept"
+  },
+  "hr_case_task_creation_verification": {
+   "disposition": "kept"
+  },
+  "checklist_item_creation_verification": {
+   "disposition": "kept"
+  },
+  "survey_update_verification": {
+   "disposition": "kept"
+  },
+  "survey_instance_creation_verification": {
+   "disposition": "kept"
+  },
+  "combined_end_to_end_state_verification": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "disagreement: value: org_id = 1 on the four case requirements and the survey requirement: one pass tests it, the other leaves it to the anchor; kept, the tighter predicate, because the benchmark checks test it and it holds for both rows (resolved on those requirements).\ndisagreement: value: the form of the stay guarding the survey selector: one pass forbids the new fourth question on any other survey, the other holds survey 3's fourth question at its seed value; kept the second (resolved on that requirement).\nThe two passes otherwise agree on every row, id, cell and disposition. The case update is split into one requirement per thing asked (group, state, priority, short description); together they carry hr_case_update_verification, whose number predicate is server-kept and names the same row as the id anchor.\ncombined_end_to_end_state_verification is a conjunction of the five other checks' cells and is carried jointly by the requirements that carry them.\nThe benchmark checks join user_group to test the group name 'Global Service Desk' with group_id 3; the requirements test assignment_group = 3 directly, since group 3 is that group in the seed.\nThe case's assignee (user 11) is already an active member of Global Service Desk, so the policy rule that a case be assigned to a member of its group needs no further change. The new task's assignee is not stated, and the policy only requires an active member of the group without fixing which one, so it is not tested.",
+ "minutes": 31
+}

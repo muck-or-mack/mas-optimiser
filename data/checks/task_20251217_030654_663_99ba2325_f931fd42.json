@@ -1,0 +1,38 @@
+{
+  "task_id": "task_20251217_030654_663_99ba2325_f931fd42",
+  "policy_sha1": "4372668d",
+  "requirements": [
+    {
+      "text": "create a new incident for Elena Petrov ... Set the caller as Elena Petrov, associate the knowledge article “Desktop Boot Failure Troubleshooting” with the incident, and assign the ticket to the Service Desk Operations work group",
+      "kind": "stay",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_101"
+      },
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_101'",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "what the policy forbids: no user named Elena Petrov, no offering named Dev Server Access, no group named Service Desk Operations and no article titled 'Desktop Boot Failure Troubleshooting' exist on this seed (searched by name, email and title); policy 1 says never assume or fabricate IDs and do not let a request proceed when it requires data that is missing, so no incident may be created with substituted values and the correct outcome is a halt with no new incident row",
+        "INC_101 is the id the next incident would take (highest is INC_100); an agent that fabricates the caller, offering or group creates it, and this count then fails",
+        "no tool creates users, offerings, groups or articles, so the agent cannot make the request's named rows exist",
+        "disagreement: this stay is in B only; kept because the policy's halt rule is the only outcome the request, policy and seed together support on this seed"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify Incident Creation": {
+      "disposition": "excluded",
+      "evidence": "its ids belong to a different seed database: INC_024 is an existing incident here ('Mixer Hum', caller USER_063, in_progress) and the next id is INC_101; USER_006 is Stephanie Todd, and no Elena Petrov exists; SVCOFF_004 is 'Cafeteria Menu - Digital', and no 'Dev Server Access' offering exists; GROUP_002 is 'L2 IT Support', and no 'Service Desk Operations' group exists (the eight groups are L1/L2 IT Support, Service Desk, Field Support and Infra Team); the request's named rows are absent, so the check cannot be repaired by resolving names on this seed"
+    },
+    "Verify KB INC linking": {
+      "disposition": "excluded",
+      "evidence": "its ids belong to a different seed database: INC_024 is an existing unrelated incident here and KB_003 is 'VPN Error 412 Fix'; no article titled 'Desktop Boot Failure Troubleshooting' exists on this seed (no title contains 'Boot' or 'Desktop'), so the link the check tests cannot be made"
+    }
+  },
+  "notes": "The request and both benchmark checks were written against a different seed: this seed (100 users, 100 incidents, 60 offerings, 25 articles, 8 groups) holds none of Elena Petrov, 'Dev Server Access', 'Service Desk Operations' or 'Desktop Boot Failure Troubleshooting', and the checks' ids (INC_024, USER_006, SVCOFF_004, GROUP_002, KB_003) all point at unrelated rows; the ids fit a smaller seed with 23 incidents. Both passes marked both checks repaired, selecting the caller, offering, group and article by the request's names, with INC_101 and IKB_046 as the next ids; under the current rule (ids belonging to a different seed database are excluded with that evidence) both are excluded instead. disagreement: disposition changed by rule, not between the passes: Verify Incident Creation and Verify KB INC linking are repaired in A and in B; both excluded because every id and every named row belongs to another seed. The two create requirements both passes agreed on (incident INC_101 with caller IN users named Elena Petrov, service_offering IN offerings named 'Dev Server Access', assignment_group IN groups named 'Service Desk Operations', short_description LIKE '%boot%', status new, impact medium, urgency low, category hardware; link IKB_046 from INC_101 to the article titled 'Desktop Boot Failure Troubleshooting', used_as suggested) are dropped: their name subselects pick out nothing on this seed, so no agent can satisfy them, and they contradict the stay the policy requires; they restate the excluded checks and are recorded here so the reviewer can restore them if the task is scored against its intended seed. disagreement: missing requirement: the stay that INC_101 does not exist is in B only; kept because policy 1 (never fabricate IDs; do not proceed on missing data) makes a halt the required outcome on this seed, and an agent that fabricates the caller, offering or group creates INC_101. acting_user is empty in input.json, so the policy's first step (check the user's role) cannot be met; no requirement tests it. The seed's incident.status column is the policy's incident.state. The reviewer should score this task against its intended seed or drop it. Least sure: dropping the agreed create requirements rather than keeping them unsatisfiable alongside the stay.",
+  "minutes": 31
+}

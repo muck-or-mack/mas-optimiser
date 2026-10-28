@@ -1,0 +1,358 @@
+{
+  "task_id": "task_20260101_043715_660_a8eea1c0_7304e48e",
+  "policy_sha1": "88641769",
+  "requirements": [
+    {
+      "text": "Stark Industries' new London Lab",
+      "kind": "create",
+      "table": "location",
+      "anchor": {
+        "location_id": 907
+      },
+      "cells": {
+        "name": "Stark Industries - New Lab",
+        "city": "london",
+        "country": "uk",
+        "active": 1
+      },
+      "sql": "SELECT COUNT(*) FROM location WHERE location_id = 907 AND name = 'Stark Industries - New Lab' AND city = 'london' AND country = 'uk' AND active = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "add_location",
+        "add_location (2)"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence; it is the only row of this table the request creates",
+        "no London location of Stark Industries in the seed is a lab (only 'Hq - London' and 'Site A - London'), so the new lab is a new location",
+        "city = london and country = uk follow from 'London'",
+        "active = 1: a new site in use",
+        "name = 'Stark Industries - New Lab' kept from the benchmark check; not fixed by request or policy"
+      ]
+    },
+    {
+      "text": "their newly installed Juniper EX4300 Variant 7 with serial JEX-987654-NL",
+      "kind": "create",
+      "table": "installed_product",
+      "anchor": {
+        "installed_product_id": 301
+      },
+      "cells": {
+        "account_id": 8,
+        "product_id": 139,
+        "location_id": 907,
+        "serial_number": "JEX-987654-NL",
+        "status": "in_use"
+      },
+      "sql": "SELECT COUNT(*) FROM installed_product WHERE installed_product_id = 301 AND account_id = 8 AND product_id = 139 AND location_id = 907 AND serial_number = 'JEX-987654-NL' AND status = 'in_use'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "register_new_installed_product",
+        "register_new_installed_product (2)"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence; it is the only row of this table the request creates",
+        "no installed product in the seed has serial JEX-987654-NL, so the newly installed unit is registered",
+        "account_id = 8 (Stark Industries); product_id = 139 (Juniper EX4300 Variant 7)",
+        "location_id = 907, the new London Lab where the unit is installed",
+        "status = in_use: newly installed, and the policy lets only active / in_use installed products be attached to cases"
+      ]
+    },
+    {
+      "text": "procure and apply a 1-year contract extension and enterprise entitlement, effective 2025-11-27",
+      "kind": "create",
+      "table": "contract",
+      "anchor": {
+        "contract_id": 154
+      },
+      "cells": {
+        "account_id": 8,
+        "status": "active",
+        "start_date": "2025-11-27",
+        "end_date": "2026-11-27"
+      },
+      "sql": "SELECT COUNT(*) FROM contract WHERE contract_id = 154 AND account_id = 8 AND status = 'active' AND start_date = '2025-11-27' AND end_date = '2026-11-27'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "enlist_new_contract",
+        "enlist_new_contract (2)"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence; it is the only row of this table the request creates",
+        "the condition holds: Stark Industries has no entitlement for product 139 and its only enterprise 24x7 entitlement (75, account-wide) is inactive under contract 138, which is expired",
+        "no listed tool changes an existing contract, so the extension is a new contract for account 8",
+        "start_date = 2025-11-27 from 'effective 2025-11-27'; end_date = 2026-11-27, one year later",
+        "status = active: the extension is in force from its effective date"
+      ]
+    },
+    {
+      "text": "procure and apply a 1-year contract extension and enterprise entitlement, effective 2025-11-27",
+      "kind": "create",
+      "table": "entitlement",
+      "anchor": {
+        "entitlement_id": 432
+      },
+      "cells": {
+        "account_id": 8,
+        "product_id": 139,
+        "contract_id": 154,
+        "support_level": "enterprise",
+        "coverage_hours": "h24x7",
+        "active": 1
+      },
+      "sql": "SELECT COUNT(*) FROM entitlement WHERE entitlement_id = 432 AND account_id = 8 AND product_id = 139 AND contract_id = 154 AND support_level = 'enterprise' AND coverage_hours = 'h24x7' AND active = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "add_new_entitlement",
+        "add_new_entitlement (2)"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence; it is the only row of this table the request creates",
+        "support_level = enterprise and coverage_hours = h24x7 from '24x7 Enterprise support'",
+        "contract_id = 154, the new contract the entitlement is procured under",
+        "product_id = 139 kept from the benchmark check; the request ties the entitlement to the affected Juniper unit but does not say product-specific rather than account-wide",
+        "active = 1: the policy requires the product's entitlement to be actively running"
+      ]
+    },
+    {
+      "text": "A critical failure has been reported at Stark Industries' new London Lab via phone, affecting their newly installed Juniper EX4300 Variant 7",
+      "kind": "create",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 1233
+      },
+      "cells": {
+        "account_id": 8,
+        "contact_id": 10,
+        "installed_product_id": 301,
+        "channel": "phone",
+        "priority": "critical"
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1233 AND account_id = 8 AND contact_id = 10 AND installed_product_id = 301 AND channel = 'phone' AND priority = 'critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "create_new_case",
+        "create_new_case (2)"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence; it is the only row of this table the request creates",
+        "priority = critical from 'A critical failure'; channel = phone from 'via phone'",
+        "installed_product_id = 301, the newly registered unit with serial JEX-987654-NL",
+        "contact_id = 10 (Marc Henry, primary contact of Stark Industries and the person to be notified) kept from the benchmark check; the request does not name the reporter",
+        "product_id not tested: the policy asks for the product or the installed product"
+      ]
+    },
+    {
+      "text": "A critical failure has been reported at Stark Industries' new London Lab via phone",
+      "kind": "create",
+      "table": "interaction",
+      "anchor": {
+        "interaction_id": 1233
+      },
+      "cells": {
+        "case_id": 1233,
+        "account_id": 8,
+        "contact_id": 10,
+        "channel": "phone"
+      },
+      "sql": "SELECT COUNT(*) FROM interaction WHERE interaction_id = 1233 AND case_id = 1233 AND account_id = 8 AND contact_id = 10 AND channel = 'phone'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence; it is the only row of this table the request creates, and every interaction in the seed shares its case's id",
+        "the policy makes an interaction mandatory whenever a new case is registered",
+        "channel = phone from 'via phone'; account and contact as on the case",
+        "no tool writes this table",
+        "disagreement: row: A selected by case_id 1233, B anchored on interaction_id 1233; chose the anchor because the task registers exactly one interaction",
+        "disagreement: contact_id: A untested, B 10; chose 10 because the interaction records the case's reporting contact, which the case requirement fixes as 10"
+      ]
+    },
+    {
+      "text": "Assign case to Tier 2 for immediate troubleshooting",
+      "kind": "create",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 1233
+      },
+      "cells": {
+        "assignment_group_id": 2,
+        "state": "in_progress"
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1233 AND assignment_group_id = 2 AND state = 'in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "update_case",
+      "seed_count": 0,
+      "assumptions": [
+        "'Tier 2' read as group 2, CSM Tier 2 Support; groups 22, 42 and 62 are suffixed copies of the name",
+        "state = in_progress: the policy sets in_progress once a case is assigned to a group or user, and before an SLA is linked"
+      ]
+    },
+    {
+      "text": "Assign case to Tier 2 for immediate troubleshooting",
+      "kind": "create",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 1233
+      },
+      "cells": {
+        "assigned_to": 127
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1233 AND assigned_to = 127",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "assign_case_to_user",
+      "seed_count": 0,
+      "assumptions": [
+        "assigned_to = 127 (Lisa Carr, an active agent in group 2) kept from the benchmark check; not fixed by request or policy, as the request names only the group"
+      ]
+    },
+    {
+      "text": "Assign case to Tier 2 for immediate troubleshooting",
+      "kind": "create",
+      "table": "case_sla",
+      "selector": "case_id = 1233 AND sla_def_id = 6",
+      "cells": {
+        "stage": "in_progress"
+      },
+      "sql": "SELECT COUNT(*) FROM case_sla WHERE case_id = 1233 AND sla_def_id = 6 AND stage = 'in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "link_new_case_sla",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by the request, not stated: the policy aligns an SLA when a new case moves to in_progress, with stage in_progress so tracking begins",
+        "sla_def_id = 6 (SLA Resolution - Critical) kept from the benchmark check; SLA 1 (Response - Critical) also matches the priority",
+        "selected by case and SLA definition rather than id, since the request fixes no number of SLA links"
+      ]
+    },
+    {
+      "text": "Assign case to Tier 2 for immediate troubleshooting",
+      "kind": "create",
+      "table": "case_knowledge",
+      "anchor": {
+        "case_kb_id": 528
+      },
+      "cells": {
+        "case_id": 1233,
+        "knowledge_id": 209,
+        "used_as": "suggested"
+      },
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_kb_id = 528 AND case_id = 1233 AND knowledge_id = 209 AND used_as = 'suggested'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "link_case_knowledge (2)",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence; it is the only row of this table the request creates",
+        "implied by the request, not stated: the policy asks for a knowledge search when a new case is to be investigated",
+        "knowledge_id = 209, the only article for product 139, published and external",
+        "used_as = suggested: the policy links knowledge found by search as suggested",
+        "disagreement: row: A selected by case 1233 and article 209, B anchored on case_kb_id 528; chose the anchor because the task creates exactly one knowledge link"
+      ]
+    },
+    {
+      "text": "send a solution proposal notification to Marc Henry",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": 734
+      },
+      "cells": {
+        "case_id": 1233,
+        "email": "marc.henry@stark-industries.com",
+        "type": "solution_proposal",
+        "knowledge_id": 209
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 734 AND case_id = 1233 AND email = 'marc.henry@stark-industries.com' AND type = 'solution_proposal' AND knowledge_id = 209",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "send_notification",
+        "send_notification (2)"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence; it is the only row of this table the request creates",
+        "email = marc.henry@stark-industries.com, Marc Henry's address (user 20, contact 10)",
+        "knowledge_id = 209: the solution proposed is the troubleshooting article for the product",
+        "disagreement: row: A selected by case 1233 and Marc Henry's email, B anchored on notification_id 734; chose the anchor because the task sends exactly one notification"
+      ]
+    }
+  ],
+  "original_checks": {
+    "add_location": {
+      "disposition": "kept"
+    },
+    "link_case_knowledge": {
+      "disposition": "weak",
+      "evidence": "knowledge 209 is already published in the seed"
+    },
+    "register_new_installed_product": {
+      "disposition": "kept"
+    },
+    "add_location (2)": {
+      "disposition": "kept"
+    },
+    "register_new_installed_product (2)": {
+      "disposition": "kept"
+    },
+    "enlist_new_contract": {
+      "disposition": "kept"
+    },
+    "enlist_new_contract (2)": {
+      "disposition": "kept"
+    },
+    "add_new_entitlement": {
+      "disposition": "kept"
+    },
+    "add_new_entitlement (2)": {
+      "disposition": "kept"
+    },
+    "create_new_case": {
+      "disposition": "kept"
+    },
+    "create_new_case (2)": {
+      "disposition": "kept"
+    },
+    "assign_case_to_user": {
+      "disposition": "kept"
+    },
+    "assign_case_to_user (2)": {
+      "disposition": "weak",
+      "evidence": "user 127 is already a member of group 2 in the seed (member 93)"
+    },
+    "update_case": {
+      "disposition": "kept"
+    },
+    "link_new_case_sla": {
+      "disposition": "kept"
+    },
+    "link_new_case_sla (2)": {
+      "disposition": "weak",
+      "evidence": "SLA definition 6 already applies to critical priority in the seed"
+    },
+    "link_case_knowledge (2)": {
+      "disposition": "kept"
+    },
+    "send_notification": {
+      "disposition": "kept"
+    },
+    "send_notification (2)": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "The question 'Do they hold 24x7 Enterprise support?' changes nothing in the database; the seed answers it no (no entitlement for product 139; the account-wide enterprise 24x7 entitlement 75 is inactive and its contract 138 expired), so the conditional procurement applies.\nThe location name 'Stark Industries - New Lab' is an exact string the request does not fix; it is kept because the benchmark tests it, but an agent naming the site from the request's words (for example 'Stark Industries London Lab') fails that cell.\nThe contract's contract_type and price are not tested: the request calls it a contract extension for 24x7 Enterprise support but does not fix the type, and the expired contract it replaces is a warranty contract.\nThe case short_description follows a policy template the benchmark does not test, so it is not a cell.\nNo listed tool creates interactions, though the policy requires one per new case.\nGroup assignment (group 2) and user assignment (user 127) are separate requirements: the request names only the group, and the user is the benchmark's choice among the active members of group 2.\ndisagreement: missing requirement: one pass tests the case's group, assignee and state in one requirement, the other gives the assignee (user 127) a requirement of its own; kept the separate assignee requirement because the request names only the group and the assignee is the benchmark's choice, so the group assignment is scored on its own; the cells tested are the same either way.\ndisagreement: value: the interaction row: one pass selects it by case, the other anchors it on interaction_id 1233; chose the anchor because the task registers exactly one interaction.\ndisagreement: value: the interaction's contact_id: one pass leaves it untested, the other tests contact 10; kept it because the interaction records the case's reporting contact, which the case requirement fixes as 10.\ndisagreement: value: the knowledge link row: one pass selects it by case and article, the other anchors it on case_kb_id 528; chose the anchor because the task creates exactly one knowledge link.\ndisagreement: value: the notification row: one pass selects it by case and email, the other anchors it on notification_id 734; chose the anchor because the task sends exactly one notification.",
+  "minutes": 25
+}

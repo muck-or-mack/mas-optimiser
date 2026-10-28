@@ -1,0 +1,100 @@
+{
+  "task_id": "task_20251224_094258_495_c4ad7a70_42fbe372",
+  "policy_sha1": "20d1efe4",
+  "requirements": [
+    {
+      "text": "open a case for Tabitha Bullock using the New Hire Onboarding service ... assign the case to Eric Rodriguez and route it through the HR Service Desk",
+      "kind": "create",
+      "table": "hr_case",
+      "anchor": {"hr_case_id": 61},
+      "cells": {
+        "hr_service": 11,
+        "opened_for": 3,
+        "opened_by": 31,
+        "assigned_to": 24,
+        "assignment_group": 4,
+        "status": "work_in_progress",
+        "priority": "moderate",
+        "account_number": "NA",
+        "coe_type": "Talent Management",
+        "short_description": "LIKE '%Service: New Hire Onboarding, Subject: Tabitha Bullock, Detail:%'"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND hr_service = 11 AND opened_for = 3 AND opened_by = 31 AND assigned_to = 24 AND assignment_group = 4 AND status = 'work_in_progress' AND priority = 'moderate' AND account_number = 'NA' AND coe_type = 'Talent Management' AND short_description LIKE '%Service: New Hire Onboarding, Subject: Tabitha Bullock, Detail:%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Lifecycle Case Creation",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest hr_case_id in the seed is 60); the task creates exactly one case",
+        "New Hire Onboarding is hr_service 11 (active); Tabitha Bullock is user 3 with hr_profile 3; Eric Rodriguez is user 24; HR Service Desk is group 4",
+        "opened_by is the requester under the policy: the acting user Robin Monroe, hr_profile 31",
+        "status work_in_progress: the policy sets it upon assigning a case to a user, and ready to work_in_progress is a valid transition",
+        "priority not stated; the policy's default is moderate",
+        "account number not provided; the policy requires NA",
+        "coe_type Talent Management kept from the benchmark check; it matches the service's topic (topic_detail 24, whose category carries coe_type Talent Management)",
+        "short description follows the policy's 'Service: , Subject: , Detail: ' format; the Detail text is free, so only the prefix is tested, with Tabitha Bullock as the subject kept from the benchmark check",
+        "disagreement: opened_by: one pass 31, the other untested because every seed case has opened_by equal to opened_for; chose 31, the tighter predicate, because the policy names opened_by as the requester and the request comes from Robin Monroe on Tabitha's behalf; the seed's cases are all self-opened, which does not contradict this"
+      ]
+    },
+    {
+      "text": "assign the case to Eric Rodriguez and route it through the HR Service Desk",
+      "kind": "create",
+      "table": "user_group_member",
+      "anchor": {"member_id": 44},
+      "cells": {"group_id": 4, "user_id": 24},
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 44 AND group_id = 4 AND user_id = 24",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "HR Service Desk Membership",
+      "seed_count": 0,
+      "assumptions": [
+        "Eric Rodriguez (user 24) is a member of group 5 only, not of HR Service Desk (group 4); the policy requires adding the assignee to the assignment group when not a member",
+        "implied by the request, not stated",
+        "id assumed next in sequence (highest member_id in the seed is 43); the task creates exactly one membership"
+      ]
+    },
+    {
+      "text": "send Tabitha an update notification so she's informed of the current case status",
+      "kind": "create",
+      "table": "notification",
+      "selector": "hr_case_id = 61 AND email = 'tabitha.bullock@servicenow.com'",
+      "cells": {"type": "update", "status": "work_in_progress"},
+      "sql": "SELECT COUNT(*) FROM notification WHERE hr_case_id = 61 AND email = 'tabitha.bullock@servicenow.com' AND type = 'update' AND status = 'work_in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Notification to Tabitha",
+      "seed_count": 0,
+      "assumptions": [
+        "two notifications are created with no fixed order, so this one is selected by case and recipient rather than by id",
+        "the address is Tabitha's user email, kept from the benchmark check; not fixed by request or policy (her hr_profile also holds a personal email)",
+        "status work_in_progress is the case's current status after assignment, which the request asks the notification to carry"
+      ]
+    },
+    {
+      "text": "assign the case to Eric Rodriguez",
+      "kind": "create",
+      "table": "notification",
+      "selector": "hr_case_id = 61 AND email = 'eric.rodriguez54@servicenow.com'",
+      "cells": {"type": "update", "status": "work_in_progress"},
+      "sql": "SELECT COUNT(*) FROM notification WHERE hr_case_id = 61 AND email = 'eric.rodriguez54@servicenow.com' AND type = 'update' AND status = 'work_in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Notification to Assigned Agent",
+      "seed_count": 0,
+      "assumptions": [
+        "the policy requires an update notification with the current case status to the assigned agent when a case moves into work_in_progress",
+        "implied by the request, not stated",
+        "selected by case and recipient rather than by id, since two notifications are created",
+        "Eric Rodriguez's address is his user email, eric.rodriguez54@servicenow.com"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Lifecycle Case Creation": {"disposition": "kept"},
+    "HR Service Desk Membership": {"disposition": "kept"},
+    "Notification to Tabitha": {"disposition": "kept"},
+    "Notification to Assigned Agent": {"disposition": "kept"}
+  },
+  "notes": "disagreement: value: the case's opened_by: one pass tests 31, the other leaves it untested because every seed case has opened_by equal to opened_for; kept 31, the tighter predicate, because the policy names opened_by as the requester, here the acting user Robin Monroe (hr_profile 31), who opens the case on Tabitha's behalf.\nThe acting user is Robin Monroe (user 31, manager), who may create and assign cases.\nSource, request_status and the Detail part of the short description are not fixed by the request or policy and are not tested.\nService 11 has no service template, so moving the case to work_in_progress generates no fulfilment tasks.",
+  "minutes": 31
+}

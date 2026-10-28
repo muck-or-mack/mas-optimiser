@@ -1,0 +1,156 @@
+{
+  "task_id": "task_20260115_153041_899_d4a463c3_cab6d59b",
+  "policy_sha1": "4afd943b",
+  "original_checks": {
+    "verify_new_problem_created": {
+      "disposition": "kept"
+    },
+    "verify_incident_linked_to_new_problem": {
+      "disposition": "kept"
+    },
+    "verify_notification_sent_to_assigned_user": {
+      "disposition": "kept"
+    },
+    "verify_notification_sent_to_manager": {
+      "disposition": "kept"
+    },
+    "verify_incident_linked_to_new_problem (2)": {
+      "disposition": "kept"
+    },
+    "verify_incident_linked_to_new_problem (3)": {
+      "disposition": "kept"
+    },
+    "verify_incident_linked_to_new_problem (4)": {
+      "disposition": "kept"
+    }
+  },
+  "requirements": [
+    {
+      "text": "create a new comprehensive problem record, consistent with the previously documented problem approach, to properly capture root cause analysis and corrective actions",
+      "kind": "create",
+      "table": "problem",
+      "anchor": {
+        "problem_id": "PRB_011"
+      },
+      "cells": {
+        "problem_statement": "Recurring instability in SAP Oracle Database",
+        "short_description": "SAP DB Crash Analysis",
+        "opened_by": "USER_050",
+        "service": "SVC_017",
+        "service_offering": "SVCOFF_021",
+        "configuration_item": "CI_001",
+        "assigned_to": "USER_059",
+        "assignment_group": "GROUP_008",
+        "original_task": "INC_001",
+        "status": "new",
+        "category": "database",
+        "impact": "high",
+        "urgency": "high",
+        "priority": "critical",
+        "worknotes": "LIKE '%Logs indicate ORA-04030 out of process memory error%'",
+        "workaround": "LIKE '%Restart the Oracle Service every 24 hours until patch applied%'",
+        "fix_notes": "LIKE '%Vendor patch 19.4.2 required%'"
+      },
+      "sql": "SELECT COUNT(*) FROM problem WHERE problem_id = 'PRB_011' AND problem_statement = 'Recurring instability in SAP Oracle Database' AND short_description = 'SAP DB Crash Analysis' AND opened_by = 'USER_050' AND service = 'SVC_017' AND service_offering = 'SVCOFF_021' AND configuration_item = 'CI_001' AND assigned_to = 'USER_059' AND assignment_group = 'GROUP_008' AND original_task = 'INC_001' AND status = 'new' AND category = 'database' AND impact = 'high' AND urgency = 'high' AND priority = 'critical' AND worknotes LIKE '%Logs indicate ORA-04030 out of process memory error%' AND workaround LIKE '%Restart the Oracle Service every 24 hours until patch applied%' AND fix_notes LIKE '%Vendor patch 19.4.2 required%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_new_problem_created",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (PRB_010 is the highest problem id in the seed)",
+        "the previously documented problem is PRB_001, the only problem on the SAP database (original_task INC_001); its statement, description, service, offering, CI, assignment, category, impact, urgency and notes are carried over",
+        "opened_by is the acting user, Sara Clark (USER_050)",
+        "status = new: the policy sets all new Problems to status new (PRB_001's fix_in_progress is not copied)",
+        "priority = critical: the policy's matrix gives critical for impact high and urgency high",
+        "worknotes, workaround and fix_notes kept from the benchmark check as containment tests; not fixed word for word by request or policy"
+      ]
+    },
+    {
+      "text": "Ensure the relevant parent incident is correctly linked to the new problem record",
+      "kind": "change",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_001"
+      },
+      "cells": {
+        "problem": "PRB_011"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_001' AND problem = 'PRB_011'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_incident_linked_to_new_problem",
+      "seed_count": 0,
+      "assumptions": [
+        "the parent incident is INC_001 (MAJOR:SAP Database Unreachable), parent of INC_044, INC_069 and INC_082 and the original task of PRB_001"
+      ]
+    },
+    {
+      "text": "Multiple incidents have been reported related to SAP database performance issues",
+      "kind": "change",
+      "table": "incident",
+      "selector": "incident_id IN ('INC_044', 'INC_069', 'INC_082')",
+      "cells": {
+        "problem": "PRB_011"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id IN ('INC_044', 'INC_069', 'INC_082') AND problem = 'PRB_011'",
+      "expected": 3,
+      "comparison": "equals",
+      "source": [
+        "verify_incident_linked_to_new_problem (2)",
+        "verify_incident_linked_to_new_problem (3)",
+        "verify_incident_linked_to_new_problem (4)"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "implied by the request, not stated: the policy requires a Problem to link all affected Incidents, and INC_044, INC_069 and INC_082 are the child incidents of INC_001 (list_child_incidents is available)",
+        "disagreement: selector: A incident_id IN ('INC_044', 'INC_069', 'INC_082'), B parent_incident = 'INC_001'; chose the id list because both pick the same three rows on the seed, the benchmark's three checks name exactly these ids, and an id list cannot drift if the agent edits parent links"
+      ]
+    },
+    {
+      "text": "notifying both the assigned user ... with appropriate context about the newly created Problem record",
+      "kind": "create",
+      "table": "notification",
+      "selector": "incident_id = 'INC_001' AND email = 'gregory.richards36@servicenow.com'",
+      "cells": {
+        "type": "update",
+        "message": "IS NOT NULL"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_001' AND email = 'gregory.richards36@servicenow.com' AND type = 'update' AND message IS NOT NULL",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_notification_sent_to_assigned_user",
+      "seed_count": 0,
+      "assumptions": [
+        "the assigned user is Gregory Richards (USER_059), assigned to both INC_001 and the new problem",
+        "the notification is filed against INC_001, the problem's original task, since a notification row must name an incident",
+        "type = update kept from the benchmark check; the request calls the message 'this update'",
+        "two notifications are created, so each is selected by incident and recipient rather than by id",
+        "disagreement: message: A LIKE '%problem%', B IS NOT NULL; chose IS NOT NULL because the request fixes the message's subject but not its wording, and a message naming PRB_011 without the word 'problem' would satisfy the request yet fail the tighter predicate"
+      ]
+    },
+    {
+      "text": "notifying both ... the assigned group manager with appropriate context about the newly created Problem record",
+      "kind": "create",
+      "table": "notification",
+      "selector": "incident_id = 'INC_001' AND email = 'christina.oliver@carsonllc.com'",
+      "cells": {
+        "type": "update",
+        "message": "IS NOT NULL"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_001' AND email = 'christina.oliver@carsonllc.com' AND type = 'update' AND message IS NOT NULL",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_notification_sent_to_manager",
+      "seed_count": 0,
+      "assumptions": [
+        "the assigned group is GROUP_008 (L2 Infra Team), whose manager_id is USER_002 (Christina Oliver)",
+        "the notification is filed against INC_001, the problem's original task, since a notification row must name an incident",
+        "type = update kept from the benchmark check; the request calls the message 'this update'",
+        "two notifications are created, so each is selected by incident and recipient rather than by id",
+        "disagreement: message: A LIKE '%problem%', B IS NOT NULL; chose IS NOT NULL because the request fixes the message's subject but not its wording, and a message naming PRB_011 without the word 'problem' would satisfy the request yet fail the tighter predicate"
+      ]
+    }
+  ],
+  "notes": "The request places the SAP database issues in 'the development environment', but every SAP database incident in the seed is on SAP ERP (SVC_017), whose used_for is production; the phrase is read as loose wording and the incidents are INC_001 and its three children. The new problem's org_id is not tested: the request and policy do not fix it, though ORG_001 (the acting user's, INC_001's and PRB_001's organisation) is the likely value. The copied workaround could suggest status fix_in_progress under the policy's workaround rule, but the request reports no workaround found by this investigation and the policy's default for a new Problem is new, which the benchmark also tests; publishing a workaround to the linked incidents is therefore not required. USER_059 is not a member of GROUP_008 on the seed; the policy's membership rule applies to incident assignment, and the pairing is copied from PRB_001, so it is kept. The seed already holds notifications to both recipients on INC_001, but of type alert and solution_proposal, so the update notifications are new rows. The acting user USER_050 holds the admin role, so every write is permitted. disagreement: stay that INC_052 keeps problem NULL: A has it, B does not; dropped because INC_052 (High CPU, database category, on SAP ERP, resolved) can be read as one of the SAP database performance incidents and the policy requires a problem to link all affected incidents, so neither the request nor the policy forbids linking it and a stay would penalise a defensible reading. disagreement: selector of the child-incident link: A the id list INC_044, INC_069, INC_082, B parent_incident = 'INC_001'; chose the id list (logged in the requirement). disagreement: message cell of both notifications: A LIKE '%problem%', B IS NOT NULL; chose IS NOT NULL, the benchmark's form (logged in both requirements).",
+  "minutes": 34
+}

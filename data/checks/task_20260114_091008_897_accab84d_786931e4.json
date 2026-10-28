@@ -1,0 +1,166 @@
+{
+ "task_id": "task_20260114_091008_897_accab84d_786931e4",
+ "policy_sha1": "80431b61",
+ "requirements": [
+  {
+   "text": "controlled by a single case-visibility HR criterion 'HR Data Access Review' that grants working access only to the existing Secure Case Access group",
+   "kind": "create",
+   "table": "hr_criteria",
+   "anchor": {
+    "hr_criteria_id": 8
+   },
+   "cells": {
+    "name": "HR Data Access Review",
+    "type": "case_visibility",
+    "user_group": 12,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_criteria WHERE hr_criteria_id = 8 AND name = 'HR Data Access Review' AND type = 'case_visibility' AND user_group = 12 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify the HR Criteria 'HR Data Access Review' is created correctly",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (8 after 7)",
+    "Secure Case Access is group_id 12, the only group of that name in the seed",
+    "active = 1 kept from the benchmark check; not fixed by request or policy"
+   ]
+  },
+  {
+   "text": "Employee Profile Update cases ... should be controlled by a single case-visibility HR criterion 'HR Data Access Review'",
+   "kind": "change",
+   "table": "hr_service",
+   "anchor": {
+    "hr_service_id": 35
+   },
+   "cells": {
+    "service_name": "Employee Profile Update",
+    "hr_criteria": 8,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 35 AND service_name = 'Employee Profile Update' AND hr_criteria = 8 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify the 'Employee Profile Update' service is updated",
+   "seed_count": 0,
+   "assumptions": [
+    "Employee Profile Update is hr_service_id 35 in the seed, with no criterion set",
+    "hr_criteria 8 is the new HR Data Access Review criterion, id assumed next in sequence",
+    "service_name kept from the benchmark check; the request renames nothing",
+    "active = 1 kept from the benchmark check; not fixed by request or policy",
+    "disagreement: service_name: A untested (the anchor names the row), B 'Employee Profile Update'; chose to test it because the benchmark check tests it and nothing contradicts it, so a rename of the service is caught"
+   ]
+  },
+  {
+   "text": "an assignment rule sensitive profile cases secure path that automatically routes UK employee profile cases requiring those skills into that same Secure Case Access group",
+   "kind": "create",
+   "table": "assignment_rules",
+   "anchor": {
+    "assignment_rule_id": 9
+   },
+   "cells": {
+    "name": "LIKE 'sensitive profile cases secure path'",
+    "based_on_country": "GB",
+    "based_on_skills": [
+     "LIKE '%\"Payroll\"%'",
+     "LIKE '%\"Time Tracking\"%'"
+    ],
+    "user_group": 12,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM assignment_rules WHERE assignment_rule_id = 9 AND name LIKE 'sensitive profile cases secure path' AND based_on_country = 'GB' AND based_on_skills LIKE '%\"Payroll\"%' AND based_on_skills LIKE '%\"Time Tracking\"%' AND user_group = 12 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify the Assignment Rule 'Sensitive Profile Cases Secure Path' exists",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (9 after 8)",
+    "the name is matched without regard to letter case, since the request writes it in lower case inside a sentence",
+    "skills Payroll and Time Tracking are the request's 'those skills'; the seed stores rule skills as a JSON array of quoted names",
+    "country GB is the request's country code for UK employees",
+    "active = 1 kept from the benchmark check; not fixed by request or policy",
+    "based_on_priority not stated; not tested",
+    "disagreement: based_on_skills: A LIKE '%Payroll%' and LIKE '%Time Tracking%', B the same names in double quotes; chose the quoted form because the seed stores each skill as a quoted string, so it matches the exact skill name and not a longer one containing it"
+   ]
+  },
+  {
+   "text": "a published internal knowledge article showing the steps for sensitive data access",
+   "kind": "create",
+   "table": "knowledge",
+   "anchor": {
+    "knowledge_id": 7
+   },
+   "cells": {
+    "visibility": "internal",
+    "state": "published"
+   },
+   "sql": "SELECT COUNT(*) FROM knowledge WHERE knowledge_id = 7 AND visibility = 'internal' AND state = 'published'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify the Knowledge Article is created",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (7 after 6)"
+   ]
+  },
+  {
+   "text": "all other HR services keep their existing group targeting and criteria unchanged",
+   "kind": "stay",
+   "table": "hr_service",
+   "selector": "hr_service_id <> 35",
+   "cells": {
+    "hr_criteria": "IS NOT NULL"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id <> 35 AND hr_criteria IS NOT NULL",
+   "expected": 0,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 0,
+   "assumptions": [
+    "no service other than Employee Profile Update has a criterion in the seed, and the request forbids giving one any",
+    "disagreement: form: A the other services with no criterion stay at 53, B the other services with a criterion stay at 0; chose B's because it counts exactly the forbidden change and is not moved by rows the request does not touch"
+   ]
+  },
+  {
+   "text": "without altering routing for any other HR service",
+   "kind": "stay",
+   "table": "assignment_rules",
+   "anchor": {
+    "assignment_rule_id": 4
+   },
+   "cells": {
+    "name": "HR Payroll Case",
+    "based_on_country": "GB",
+    "based_on_skills": "= '[\"Payroll\", \"Time Tracking\"]'",
+    "user_group": 4,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM assignment_rules WHERE assignment_rule_id = 4 AND name = 'HR Payroll Case' AND based_on_country = 'GB' AND based_on_skills = '[\"Payroll\", \"Time Tracking\"]' AND user_group = 4 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 1,
+   "assumptions": [
+    "the existing rule HR Payroll Case already routes GB cases with Payroll and Time Tracking skills to HR Service Desk (group 4); repointing or editing it instead of adding a new rule would alter routing for payroll cases",
+    "disagreement: cells: A user_group and active, B also name, based_on_country and based_on_skills; chose B's, the tighter form, because editing the rule's country or skills would also alter routing, and every cell holds on the seed"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Verify the HR Criteria 'HR Data Access Review' is created correctly": {
+   "disposition": "kept"
+  },
+  "Verify the 'Employee Profile Update' service is updated": {
+   "disposition": "kept"
+  },
+  "Verify the Assignment Rule 'Sensitive Profile Cases Secure Path' exists": {
+   "disposition": "repaired",
+   "evidence": "the request names the rule 'sensitive profile cases secure path' in lower case within running text, while the check requires the title-case 'Sensitive Profile Cases Secure Path' with a case-sensitive comparison; the request fixes the words, not the letter case, so the name is matched without regard to case"
+  },
+  "Verify the Knowledge Article is created": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "disagreement: value: the service update's service_name cell: one pass tests it as the benchmark does, the other relies on the anchor alone; kept it, since the benchmark check tests it and nothing contradicts it (resolved on that requirement).\ndisagreement: value: the new rule's skill predicates: one pass matches 'Payroll' and 'Time Tracking' anywhere in based_on_skills, the other matches them as quoted names; chose the quoted form, since the seed stores the skills as a JSON array of quoted names (resolved on that requirement).\ndisagreement: value: the stay on the other services' criteria: one pass holds the count of other services with no criterion at 53, the other the count with a criterion at 0; chose the count at 0, since it measures exactly the change the request forbids (resolved on that requirement).\ndisagreement: value: the stay on rule 4 (HR Payroll Case): one pass tests its group and active flag, the other also its name, country and skills; chose the tighter form, since a change to its country or skills would also alter routing, and all its cells hold on the seed (resolved on that requirement).\nThe passes otherwise agree on every requirement, id, cell and disposition (three checks kept, one repaired); their texts and assumptions differ in wording only.\nSecure Case Access (group 12) belongs to organisation 2 while the acting user belongs to organisation 1; the request names that group and the seed already holds criteria pointing at groups of other organisations, so group 12 is required as written.\n'Only' the Secure Case Access group having access could also mean the criterion's users list is empty, but users is JSON and every seed row holds NULL, so the stored form of an empty list is unknown; it is left untested.\nThe article's title and body are not tested: the request quotes no title, the policy's title template is a format rule the benchmark does not test, and the body's required explanations (when to apply the criterion, how the skill and country routing works) have no fixed wording.\nhr_service has no group column, so other services' group targeting is covered by the stay on rule 4, the existing rule for GB cases needing Payroll and Time Tracking. The closing instruction to verify the configuration by checking the updated service is a read and changes no row.",
+ "minutes": 35
+}

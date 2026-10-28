@@ -1,0 +1,236 @@
+{
+  "task_id": "task_20251223_132605_091_764e5ead_dd00cc8f",
+  "policy_sha1": "4afd943b",
+  "requirements": [
+    {
+      "text": "Randy Martinez from the L2 Field Support Team no longer requires system access",
+      "kind": "change",
+      "table": "users",
+      "anchor": {
+        "user_id": "USER_037"
+      },
+      "cells": {
+        "active": 0
+      },
+      "sql": "SELECT COUNT(*) FROM users WHERE user_id = 'USER_037' AND active = 0",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "user_account_deactivation",
+      "seed_count": 0,
+      "assumptions": [
+        "Randy Martinez resolves to USER_037 (the only Randy Martinez; manager, active, member of GROUP_006 L2 Field Support); Randy Summers USER_030 is a reporter in another org with no incidents and one CI, and is not meant",
+        "'no longer requires system access' is read as deactivating the account (active = 0), as the benchmark check does; his role and GROUP_006 membership are not asked about and not tested",
+        "acting user USER_089 is an active admin, so may update users (policy section 2)"
+      ]
+    },
+    {
+      "text": "Randy Martinez ... no longer requires system access (boundary: the near-match users stay active)",
+      "kind": "stay",
+      "table": "users",
+      "selector": "user_id IN ('USER_013', 'USER_030', 'USER_093') AND active = 1",
+      "cells": {
+        "active": 1
+      },
+      "sql": "SELECT COUNT(*) FROM users WHERE user_id IN ('USER_013', 'USER_030', 'USER_093') AND active = 1",
+      "expected": 3,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 3,
+      "assumptions": [
+        "boundary of the name lookup: the two other users surnamed Martinez (USER_013 Jonathan, USER_093 Zachary) and the other Randy (USER_030 Randy Summers) must stay active",
+        "USER_030 added to B's pair at merge: A names him as the first-name near match (its CI stay keeps his CI_060 from moving), so the same lookup risk applies to his account"
+      ]
+    },
+    {
+      "text": "ensure her account is updated accordingly to support full ownership and assignment capabilities",
+      "kind": "create",
+      "table": "user_group_member",
+      "anchor": {
+        "member_id": "MEM_029"
+      },
+      "cells": {
+        "group_id": "GROUP_006",
+        "user_id": "USER_049"
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 'MEM_029' AND group_id = 'GROUP_006' AND user_id = 'USER_049'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "user_added_to_group",
+      "seed_count": 0,
+      "assumptions": [
+        "Cheryl Osborne resolves to USER_049 (manager, active, member of GROUP_008 only); policy 3.2 requires an assignee to be a member of the incident's assignment_group, and Randy's incidents are all in GROUP_006, so the update her account needs is membership of GROUP_006 (add_new_group_member is among the tools)",
+        "'L2 Field Support Team' resolves to GROUP_006 'L2 Field Support'",
+        "id assumed next in sequence (MEM_029 after MEM_028; the only row created in this table); the benchmark check selects the same row by user and group",
+        "her role is already manager and she is active, which policy 3.2 accepts for assignment, so no role change is required or tested"
+      ]
+    },
+    {
+      "text": "ensure her account is updated accordingly to support full ownership and assignment capabilities (policy 3.2: an assignee is an active agent or manager)",
+      "kind": "stay",
+      "table": "users",
+      "anchor": {
+        "user_id": "USER_049"
+      },
+      "cells": {
+        "active": 1,
+        "role": "IN ('agent', 'manager')"
+      },
+      "sql": "SELECT COUNT(*) FROM users WHERE user_id = 'USER_049' AND active = 1 AND role IN ('agent', 'manager')",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "policy 3.2 forbids assigning incidents to a user who is not active with the agent or manager role; Cheryl already qualifies (manager, active) and must still qualify after the account update the request asks for"
+      ]
+    },
+    {
+      "text": "Randy Martinez from the L2 Field Support Team (boundary: Cheryl joins no near-matching group)",
+      "kind": "stay",
+      "table": "user_group_member",
+      "selector": "user_id = 'USER_049' AND group_id IN ('GROUP_002', 'GROUP_005')",
+      "cells": {
+        "group_id": "IN ('GROUP_002', 'GROUP_005')"
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE user_id = 'USER_049' AND group_id IN ('GROUP_002', 'GROUP_005')",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of the group lookup: GROUP_005 'L1 Field Support' and GROUP_002 'L2 IT Support' nearly match 'L2 Field Support Team' and are not it; Cheryl must not be added to them"
+      ]
+    },
+    {
+      "text": "Transfer ownership of all configuration items currently assigned to Randy to Cheryl",
+      "kind": "change",
+      "table": "configuration_item",
+      "anchor": {
+        "configuration_item_id": "CI_039"
+      },
+      "cells": {
+        "owner_id": "USER_049"
+      },
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE configuration_item_id = 'CI_039' AND owner_id = 'USER_049'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "ci_ownership_verification",
+      "seed_count": 0,
+      "assumptions": [
+        "CI_039 (Manager Laptop - Randy Martinez, LNV-RM-002) is the only configuration item with owner_id USER_037 on the seed, so the set is one row, anchored by id"
+      ]
+    },
+    {
+      "text": "all configuration items currently assigned to Randy (boundary: no other item moves to Cheryl)",
+      "kind": "stay",
+      "table": "configuration_item",
+      "selector": "owner_id = 'USER_049' AND configuration_item_id <> 'CI_039'",
+      "cells": {
+        "owner_id": "USER_049"
+      },
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE owner_id = 'USER_049' AND configuration_item_id <> 'CI_039'",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "Cheryl owns no configuration item on the seed; a loose reading must not transfer CI_060 ('Lab Equipment Controller - Randy', owned by Randy Summers USER_030), items at Randy's location LOC_004, or items of other Martinez users"
+      ]
+    },
+    {
+      "text": "review Randy's open and in-progress incidents and reassign them to Cheryl",
+      "kind": "change",
+      "table": "incident",
+      "selector": "incident_id IN ('INC_016', 'INC_025', 'INC_036', 'INC_068', 'INC_099')",
+      "cells": {
+        "assigned_to": "USER_049"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id IN ('INC_016', 'INC_025', 'INC_036', 'INC_068', 'INC_099') AND assigned_to = 'USER_049'",
+      "expected": 5,
+      "comparison": "equals",
+      "source": "incidents_assigned_correctly",
+      "seed_count": 0,
+      "assumptions": [
+        "'open and in-progress' is read as every status other than resolved and closed: of Randy's six incidents, INC_025 (new), INC_016 and INC_099 (in_progress), INC_036 and INC_068 (on_hold) qualify; INC_032 (resolved) does not. This matches the benchmark's set",
+        "all five are in assignment_group GROUP_006, which Cheryl joins under the membership requirement, so the reassignment satisfies policy 3.2; assignment_group is not changed by the request and not tested"
+      ]
+    },
+    {
+      "text": "Randy's open and in-progress incidents (boundary: the resolved incident stays with Randy)",
+      "kind": "stay",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_032"
+      },
+      "cells": {
+        "assigned_to": "USER_037"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_032' AND assigned_to = 'USER_037'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "INC_032 is Randy's only resolved incident, so it is outside 'open and in-progress'; a loose reading ('all of Randy's incidents') would reassign it"
+      ]
+    },
+    {
+      "text": "reassign them to Cheryl (boundary: Cheryl gains no incident outside the set)",
+      "kind": "stay",
+      "table": "incident",
+      "selector": "assigned_to = 'USER_049' AND incident_id NOT IN ('INC_016', 'INC_025', 'INC_036', 'INC_068', 'INC_099')",
+      "cells": {
+        "assigned_to": "USER_049"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE assigned_to = 'USER_049' AND incident_id NOT IN ('INC_016', 'INC_025', 'INC_036', 'INC_068', 'INC_099')",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "Cheryl is assigned no incident on the seed; a loose reading (the whole L2 Field Support queue, or incidents assigned to other Martinez users) must not reach her"
+      ]
+    },
+    {
+      "text": "notify Cheryl with details of the incidents and responsibilities she will be managing",
+      "kind": "create",
+      "table": "notification",
+      "selector": "email = 'cheryl.osborne@servicenow.com' AND incident_id IN ('INC_016', 'INC_025', 'INC_036', 'INC_068', 'INC_099')",
+      "cells": {
+        "status": "sent",
+        "type": "update",
+        "message": "IS NOT NULL"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE email = 'cheryl.osborne@servicenow.com' AND incident_id IN ('INC_016', 'INC_025', 'INC_036', 'INC_068', 'INC_099') AND status = 'sent' AND type = 'update' AND message IS NOT NULL",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "notification_sent",
+      "seed_count": 0,
+      "assumptions": [
+        "the schema requires an incident_id on every notification and the request fixes none, so the row is selected by recipient and any of the five reassigned incidents rather than by id (NOTIF_031); the count of one is itself the test",
+        "'notify Cheryl' is one notification, as the benchmark expects; one notification per incident would give five and fail this count",
+        "status = sent and type = update kept from the benchmark check; not fixed by request or policy",
+        "'details of the incidents and responsibilities' is not tested beyond message IS NOT NULL: the request fixes no wording or number format"
+      ]
+    }
+  ],
+  "original_checks": {
+    "user_account_deactivation": {
+      "disposition": "kept"
+    },
+    "user_added_to_group": {
+      "disposition": "kept"
+    },
+    "ci_ownership_verification": {
+      "disposition": "kept"
+    },
+    "incidents_assigned_correctly": {
+      "disposition": "kept"
+    },
+    "notification_sent": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on all five carried requirements (USER_037 deactivated, MEM_029 in GROUP_006, CI_039 to USER_049, the five incidents to USER_049, one notification to Cheryl selected by recipient and incident), on all five dispositions (kept), and on two boundary stays (INC_032 stays with Randy; no other CI moves to Cheryl), with identical sql.\ndisagreement: missing requirement: A adds a stay that Cheryl is assigned no incident outside the five (expected 0); B has none; kept because it is the boundary of 'Randy's open and in-progress incidents': a loose reading (the whole L2 Field Support queue) would sweep other incidents to her.\ndisagreement: missing requirement: B adds a stay that USER_049 stays active with role agent or manager (expected 1); A has none; kept because the request asks for an account update whose content it leaves open, and policy 3.2 forbids assigning incidents to a user outside that state (a role set to admin, for instance, would break it).\ndisagreement: missing requirement: B adds a stay that the other Martinez users (USER_013, USER_093) stay active (expected 2); A has none; kept as the boundary of the name lookup, widened to USER_030 Randy Summers (expected 3), the first-name near match A names in its CI stay.\ndisagreement: missing requirement: B adds a stay that Cheryl is not added to GROUP_002 'L2 IT Support' or GROUP_005 'L1 Field Support' (expected 0); A has none; kept as the boundary of the group lookup for 'L2 Field Support Team'.\ndisagreement: form: the incident set is listed in a different order (A ascending, B the benchmark's order), the INC_032 stay is an anchor in B and a selector in A, and A repeats selector columns as cells; identical sql; kept the ascending list, the anchor form, and cells without selector columns.\nActing user USER_089 (Rebecca Foster) is admin with full CRUD, so no policy block applies. Cheryl's account update is read through policy 3.2: she is already an active manager, so the only change needed is GROUP_006 membership, which the benchmark also tests. The notification requirement keeps the benchmark's exactly-one count; a reviewer who reads 'notify Cheryl with details of the incidents' as one message per incident would change expected to 5 or the comparison to greater_than 0. Not tested because not asked: removing Randy from GROUP_006, the notification's org_id and subject, and the incidents' assignment_group.",
+  "minutes": 30
+}

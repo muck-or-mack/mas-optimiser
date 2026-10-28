@@ -1,0 +1,131 @@
+{
+ "task_id": "task_20251127_070938_325_b393a327_a40b1f4e",
+ "policy_sha1": "10503d62",
+ "requirements": [
+  {
+   "text": "pull CS-0001213 out of closed immediately ... move it straight to pending",
+   "kind": "stay",
+   "table": "customer_case",
+   "anchor": {
+    "case_id": 1213
+   },
+   "cells": {
+    "state": "closed"
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1213 AND state = 'closed'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify case closed",
+   "seed_count": 1,
+   "assumptions": [
+    "CS-0001213 is case 1213 by number",
+    "the policy's valid transitions give no move out of closed (the reopen path is resolved to new), and a request that violates policy is not acted on, so the case stays closed"
+   ]
+  },
+  {
+   "text": "bump the reopen_count by 1",
+   "kind": "stay",
+   "table": "customer_case",
+   "anchor": {
+    "case_id": 1213
+   },
+   "cells": {
+    "reopen_count": 0
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1213 AND reopen_count = 0",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify case closed",
+   "seed_count": 1,
+   "assumptions": [
+    "the count is bumped only as part of the reopening, which the policy forbids, so it stays at its seed value 0"
+   ]
+  },
+  {
+   "text": "set priority to critical",
+   "kind": "stay",
+   "table": "customer_case",
+   "anchor": {
+    "case_id": 1213
+   },
+   "cells": {
+    "priority": "moderate"
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1213 AND priority = 'moderate'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify case closed",
+   "seed_count": 1,
+   "assumptions": [
+    "part of the same refused request on a closed case, so the priority stays at its seed value moderate"
+   ]
+  },
+  {
+   "text": "assign it to me (Sheri Trujillo)",
+   "kind": "stay",
+   "table": "customer_case",
+   "anchor": {
+    "case_id": 1213
+   },
+   "cells": {
+    "assigned_to": "IS NULL"
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1213 AND assigned_to IS NULL",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify case closed",
+   "seed_count": 1,
+   "assumptions": [
+    "Sheri Trujillo is user 312 by name and email",
+    "part of the same refused request on a closed case, so the case stays unassigned as in the seed"
+   ]
+  },
+  {
+   "text": "keep the channel as alert",
+   "kind": "stay",
+   "table": "customer_case",
+   "anchor": {
+    "case_id": 1213
+   },
+   "cells": {
+    "channel": "alert"
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1213 AND channel = 'alert'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 1,
+   "assumptions": [
+    "the request itself asks for the channel to be left as alert, its seed value"
+   ]
+  },
+  {
+   "text": "send an alert-type notification to my email the second it's live again",
+   "kind": "stay",
+   "table": "notification",
+   "selector": "case_id = 1213 AND email = 'sheri.trujillo60@servicenow.com'",
+   "cells": {
+    "type": "alert"
+   },
+   "sql": "SELECT COUNT(*) FROM notification WHERE case_id = 1213 AND email = 'sheri.trujillo60@servicenow.com' AND type = 'alert'",
+   "expected": 0,
+   "comparison": "equals",
+   "source": "Verify Notification",
+   "seed_count": 0,
+   "assumptions": [
+    "sheri.trujillo60@servicenow.com is user 312, Sheri Trujillo",
+    "the notification is conditional on the case being live again, which the policy does not allow, so none is sent"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Verify case closed": {
+   "disposition": "kept"
+  },
+  "Verify Notification": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "The two passes agree on every requirement (six stays on case 1213 and its notification), every cell and value, and both dispositions (kept); they differ only in the order of two requirements and the wording of assumptions, so there is no disagreement to log.\nEvery requirement is a stay because the request cannot be carried out under the policy: case 1213 is closed in the seed, the lifecycle lists no transition out of closed (the only reopen path is resolved to new), and a request that violates the policy is not acted on. The reopen_count bump, the priority change, the assignment and the notification belong to the same reopening and are held at their seed values.\nThis is not a request naming a reachable final state that the benchmark tests differently: no sequence of valid transitions leads from closed to pending, and both benchmark checks test that nothing changed, so both are kept, carried by the stays, rather than repaired to pending. They hold on the seed by design, because the correct outcome is that nothing changes; they are kept rather than weak, as they test exactly that. 'Verify case closed' tests four cells of one row, each a separate request item, so it is carried jointly by the stays on state, reopen_count, priority and assigned_to.\nTwo further points weigh the same way: the request describes a PostgreSQL OOM crash, but case 1213 is for product 223 (Installation & Commissioning Variant 31); and the message is signed by Sheri Trujillo (user 312, an active agent) while the acting user is Jose Roberson (user 32, an admin, inactive in the seed).\nIf a reviewer instead reads the request as authorised, every stay inverts: state pending, reopen_count 1, priority critical, assigned_to 312, channel alert, and one alert notification to Sheri Trujillo on case 1213.",
+ "minutes": 31
+}

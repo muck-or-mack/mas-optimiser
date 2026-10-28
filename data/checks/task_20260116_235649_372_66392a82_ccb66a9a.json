@@ -1,0 +1,88 @@
+{
+  "task_id": "task_20260116_235649_372_66392a82_ccb66a9a",
+  "policy_sha1": "a13cd9e7",
+  "requirements": [
+    {
+      "text": "please log a high-impact, high-urgency Problem record linked to this offering with the statement 'Outlook connectivity failure'",
+      "kind": "create",
+      "table": "problem",
+      "anchor": {
+        "problem_id": "PRB_003"
+      },
+      "cells": {
+        "problem_statement": "Outlook connectivity failure",
+        "opened_by": "USER_001",
+        "service_offering": "SVCOFF_001",
+        "status": "new",
+        "impact": "high",
+        "urgency": "high",
+        "priority": "critical"
+      },
+      "sql": "SELECT COUNT(*) FROM problem WHERE problem_id = 'PRB_003' AND problem_statement = 'Outlook connectivity failure' AND opened_by = 'USER_001' AND service_offering = 'SVCOFF_001' AND status = 'new' AND impact = 'high' AND urgency = 'high' AND priority = 'critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Creating problem",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (PRB_003 after PRB_002)",
+        "'this offering' is the 'Outlook' email access service: SVCOFF_001 (Outlook Email Access), the only offering naming Outlook and the offering of the 'Cannot access email account' incident INC_001",
+        "impact high and urgency high as stated; priority critical from the policy's impact x urgency matrix for problems",
+        "status new is the policy's default for new problems",
+        "opened_by is the requester, Marcus Thompson (USER_001), who submits the record; the column is mandatory on problem",
+        "disagreement: opened_by: A leaves it untested, B USER_001; chose B's because both are right and B's is tighter: the acting user is the one logging the problem, and the policy defines opened_by as the user submitting a record"
+      ]
+    },
+    {
+      "text": "If so, send a notification to Priya Sharma('priya.sharma@techcorp.com') alerting her about the issue and instructing her to 'Please ask your team to try the steps in '[insert found document title]' for resolving the issue'",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": "NOTIF_008"
+      },
+      "cells": {
+        "incident_id": "INC_001",
+        "email": "priya.sharma@techcorp.com",
+        "type": "alert",
+        "message": "Please ask your team to try the steps in 'Email Client Configuration Guide' for resolving the issue"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 'NOTIF_008' AND incident_id = 'INC_001' AND email = 'priya.sharma@techcorp.com' AND type = 'alert' AND message = 'Please ask your team to try the steps in ''Email Client Configuration Guide'' for resolving the issue'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Sending notification",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (NOTIF_008 after NOTIF_007); the task creates one notification",
+        "the condition holds: KB_002 'Email Client Configuration Guide' (how to configure the Outlook email client, including troubleshooting connection issues) is published and internal in the requester's organisation; KB_003 is troubleshooting for desktop boot, not Outlook",
+        "the found document title 'Email Client Configuration Guide' is inserted into the quoted instruction as the message, matched exactly as the benchmark check does",
+        "type alert: the request asks that she be alerted; kept from the benchmark check",
+        "incident_id INC_001, the existing 'Cannot access email account' incident the request names; a notification must belong to an incident; implied by the request, not stated"
+      ]
+    },
+    {
+      "text": "Furthermore, if not, create a new internal knowledge article titled 'Outlook Access Troubleshooting' to fill the gap.",
+      "kind": "stay",
+      "table": "knowledge",
+      "selector": "title LIKE '%Outlook Access Troubleshooting%'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM knowledge WHERE title LIKE '%Outlook Access Troubleshooting%'",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "the article is asked for only if no Outlook troubleshooting or configuring documentation exists; KB_002 exists, so no article with this title may be created",
+        "disagreement: selector: A title = 'Outlook Access Troubleshooting', B title LIKE '%Outlook Access Troubleshooting%'; chose B's because both are right and B's is tighter for a count that must stay at zero (it also catches a prefixed, suffixed or differently cased title)"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Creating problem": {
+      "disposition": "kept"
+    },
+    "Sending notification": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on the problem PRB_003 (statement, SVCOFF_001, new, high/high/critical), the notification NOTIF_008 to priya.sharma@techcorp.com on INC_001 as an alert with the found title KB_002 in the message, the stay that no 'Outlook Access Troubleshooting' article is created, and both dispositions (kept).\ndisagreement: value: problem opened_by: A leaves it untested, B tests USER_001; chose B's because both are right and B's is tighter, the acting user being the one who logs the record and the policy defining opened_by as the user submitting.\ndisagreement: value: knowledge stay selector: A title = 'Outlook Access Troubleshooting', B title LIKE '%Outlook Access Troubleshooting%'; chose B's because both are right and B's is tighter for a count that must stay at zero.\nThe acting user USER_001 (Marcus Thompson, admin, ORG_001) may create problems and send notifications.\nKB_005 'Corporate Email Access Guide' is a troubleshooting guide for email access, but it belongs to the other organisation (ORG_002) and does not concern Outlook, so it is not the found document.\nThe problem's service (SVC_001, the offering's business service), org_id and short_description are not fixed by the request and are not tested. The policy asks a problem to link its affected incidents through an incident_to_problem list; the schema has no such table, the request links the problem to the offering only, and no listed tool updates incidents, so no incident link is tested.\nThe notification's subject and status are not fixed by the request and are not tested. No listed tool writes the knowledge table, which is consistent with the article branch not being taken.",
+  "minutes": 31
+}

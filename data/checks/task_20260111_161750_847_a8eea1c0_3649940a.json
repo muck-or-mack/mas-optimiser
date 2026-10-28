@@ -1,0 +1,254 @@
+{
+ "task_id": "task_20260111_161750_847_a8eea1c0_3649940a",
+ "policy_sha1": "b2da3f42",
+ "requirements": [
+  {
+   "text": "She will need Retirement Compliance skill",
+   "kind": "create",
+   "table": "skill",
+   "anchor": {
+    "skill_id": 20
+   },
+   "cells": {
+    "name": "Retirement Compliance",
+    "active": true,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM skill WHERE skill_id = 20 AND name = 'Retirement Compliance' AND active = true AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "retirement_compliance_skill_creation",
+    "combined_multi_table_state_verifier"
+   ],
+   "assumptions": [
+    "implied by the request, not stated: no skill named Retirement Compliance exists on the seed, so it must be created before it can be given to April Knight",
+    "id assumed next in sequence (highest skill_id on the seed is 19)",
+    "active true and org_id 1 (the organisation of every seed skill and of the acting user) kept from the benchmark check; not fixed by request or policy"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "She will need Retirement Compliance skill",
+   "kind": "create",
+   "table": "user_skill",
+   "anchor": {
+    "user_skill_id": 336
+   },
+   "cells": {
+    "skill": 20,
+    "user": 46,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM user_skill WHERE user_skill_id = 336 AND skill = 20 AND user = 46 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "retirement_compliance_user_skill_assignment",
+    "combined_multi_table_state_verifier"
+   ],
+   "assumptions": [
+    "April Knight is user 46, the only user of that name (an active agent in org 1)",
+    "id assumed next in sequence (highest user_skill_id on the seed is 335)",
+    "skill 20 is the Retirement Compliance skill this task creates",
+    "org_id 1 kept from the benchmark check; April Knight's own organisation"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "It should be handled as high priority by April Knight",
+   "kind": "create",
+   "table": "user_group_member",
+   "anchor": {
+    "member_id": 44
+   },
+   "cells": {
+    "group_id": 4,
+    "user_id": 46,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 44 AND group_id = 4 AND user_id = 46 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_service_desk_group_membership_addition",
+    "combined_multi_table_state_verifier"
+   ],
+   "assumptions": [
+    "implied by the request, not stated: the policy requires a case's assignee to be an active member of its assignment group; the case's group is HR Service Desk (group 4) and April Knight belongs to no group on the seed",
+    "id assumed next in sequence (highest member_id on the seed is 43)",
+    "org_id 1 kept from the benchmark check; the group's organisation"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "create an assignment rule titled High Priority Retirement Routing to send any high-priority cases requiring that specific compliance skill to the HR Service Desk Group",
+   "kind": "create",
+   "table": "assignment_rules",
+   "anchor": {
+    "assignment_rule_id": 9
+   },
+   "cells": {
+    "name": "High Priority Retirement Routing",
+    "based_on_priority": "high",
+    "based_on_skills": "LIKE '%Retirement Compliance%'",
+    "user_group": 4,
+    "active": true,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM assignment_rules WHERE assignment_rule_id = 9 AND name = 'High Priority Retirement Routing' AND based_on_priority = 'high' AND based_on_skills LIKE '%Retirement Compliance%' AND user_group = 4 AND active = true AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "high_priority_retirement_routing_assignment_rule_creation",
+    "combined_multi_table_state_verifier"
+   ],
+   "assumptions": [
+    "id assumed next in sequence (highest assignment_rule_id on the seed is 8)",
+    "HR Service Desk Group is group 4",
+    "based_on_skills added: the rule routes cases 'requiring that specific compliance skill', and every seed rule stores its skills as a JSON list of skill names, so the name must appear in it",
+    "active true and org_id 1 kept from the benchmark check; not fixed by request or policy",
+    "based_on_country left out: the request names no country"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "It should be handled as high priority",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 21
+   },
+   "cells": {
+    "priority": "high",
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 21 AND priority = 'high' AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_case_priority_update_verification",
+    "combined_multi_table_state_verifier"
+   ],
+   "assumptions": [
+    "case HRC0000731 is hr_case 21; its number is fixed by the anchor",
+    "the seed priority is critical; the acting user is a manager, whom the policy allows to override priority",
+    "org_id 1 is the row's seed value, kept from the benchmark check"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "It should be handled as high priority by April Knight",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 21
+   },
+   "cells": {
+    "assigned_to": 46,
+    "assignment_group": 4,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 21 AND assigned_to = 46 AND assignment_group = 4 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_case_assignment_update_verification",
+    "combined_multi_table_state_verifier"
+   ],
+   "assumptions": [
+    "April Knight is user 46",
+    "assignment_group 4 (HR Service Desk) is the seed value and the group the request's routing rule targets; kept from the benchmark check",
+    "org_id 1 is the row's seed value, kept from the benchmark check"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "Update the case short description for Steven Manning",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 21
+   },
+   "cells": {
+    "short_description": [
+     "LIKE '%Retirement Plan%'",
+     "LIKE '%Steven Manning%'",
+     "LIKE '%Retirement Compliance%'"
+    ],
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 21 AND short_description LIKE '%Retirement Plan%' AND short_description LIKE '%Steven Manning%' AND short_description LIKE '%Retirement Compliance%' AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_case_short_description_update_verification",
+    "combined_multi_table_state_verifier"
+   ],
+   "assumptions": [
+    "Steven Manning is the case's opened_for (profile and user 51); the request calls it the retirement plan case, and its service is 401(k) Retirement Plan Enrollment/Modification",
+    "the three terms kept from the benchmark check; the request fixes only Steven Manning, and the other two follow from the case's service and the new skill",
+    "org_id 1 is the row's seed value, kept from the benchmark check"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "make sure the associated notification is ready",
+   "kind": "change",
+   "table": "notification",
+   "anchor": {
+    "notification_id": 21
+   },
+   "cells": {
+    "hr_case_id": 21,
+    "status": "ready",
+    "email": "steven.manning.51@personal.example.com",
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 21 AND hr_case_id = 21 AND status = 'ready' AND email = 'steven.manning.51@personal.example.com' AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "notification_status_ready_verification",
+    "combined_multi_table_state_verifier"
+   ],
+   "assumptions": [
+    "notification 21 is the only notification for case 21",
+    "weak: its status is already ready on the seed, so the request is met if the agent leaves it as it is; kept so the final state is still tested",
+    "email and org_id are the row's seed values, kept from the benchmark check; not fixed by request or policy"
+   ],
+   "seed_count": 1
+  }
+ ],
+ "original_checks": {
+  "retirement_compliance_skill_creation": {
+   "disposition": "kept"
+  },
+  "retirement_compliance_user_skill_assignment": {
+   "disposition": "kept"
+  },
+  "hr_service_desk_group_membership_addition": {
+   "disposition": "kept"
+  },
+  "high_priority_retirement_routing_assignment_rule_creation": {
+   "disposition": "kept"
+  },
+  "hr_case_priority_update_verification": {
+   "disposition": "kept"
+  },
+  "hr_case_assignment_update_verification": {
+   "disposition": "kept"
+  },
+  "hr_case_short_description_update_verification": {
+   "disposition": "kept"
+  },
+  "notification_status_ready_verification": {
+   "disposition": "weak"
+  },
+  "combined_multi_table_state_verifier": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "The two passes agree on every requirement, row, id, cell and disposition (eight checks kept, the notification check weak); their texts and assumptions differ in wording only. One wrote the active cells on the skill and the rule as the predicate '= true', the other as the plain value true; the two are the same test, and the plain value is kept.\nThe acting user, Joanne Simpson, holds the manager role; the policy says managers cannot modify system configuration and lists assignment rules among the administrator's tables, so creating the skill and the rule could be refused under a strict reading. The file follows the request and the benchmark, which both expect every step done; a strict reading would turn the skill and assignment-rule requirements into stays. The case is awaiting_approval on the seed; the request asks for no status change, so status is not tested. The case's skills column (JSON) is null on every seed case, so its storage format is not shown and no cell is written for it. The policy's short-description format (Service, Subject, Detail) and its 30-120 character limit are not tested by the benchmark and are left out. The case checks' number predicate is dropped because the anchor hr_case_id 21 names the same row. The combined check is a conjunction of the other checks and is carried jointly by every requirement; its notification part holds on the seed, but the whole does not.",
+ "minutes": 30
+}

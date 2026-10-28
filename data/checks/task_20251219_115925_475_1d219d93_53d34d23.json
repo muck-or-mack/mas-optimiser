@@ -1,0 +1,181 @@
+{
+  "task_id": "task_20251219_115925_475_1d219d93_53d34d23",
+  "policy_sha1": "a13cd9e7",
+  "requirements": [
+    {
+      "text": "verify if 'm.bolt@techcorp.com' exists; otherwise, register him as an 'agent' with phone '+91-987-654-3210' ... for the Bangalore office",
+      "kind": "create",
+      "table": "users",
+      "anchor": {
+        "user_id": "USER_101"
+      },
+      "cells": {
+        "first_name": "Michael",
+        "last_name": "Bolt",
+        "email": "m.bolt@techcorp.com",
+        "phone": "+91-987-654-3210",
+        "role": "agent",
+        "location_id": "LOC_004"
+      },
+      "sql": "SELECT COUNT(*) FROM users WHERE user_id = 'USER_101' AND first_name = 'Michael' AND last_name = 'Bolt' AND email = 'm.bolt@techcorp.com' AND phone = '+91-987-654-3210' AND role = 'agent' AND location_id = 'LOC_004'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Adding new user",
+      "seed_count": 0,
+      "assumptions": [
+        "no user with email m.bolt@techcorp.com, phone +91-987-654-3210 or name Michael Bolt exists on the seed, so the 'otherwise, register him' branch applies and the row must be created",
+        "id assumed next in sequence (USER_101 after USER_100); the only user the task creates",
+        "role = agent added from the request's words ('register him as an agent'); the benchmark check does not test it",
+        "Bangalore office resolved to LOC_004 (Bangalore Support Center, the only location with city Bangalore), as the benchmark check has it",
+        "org_id, active and user_name not fixed by request or policy; not tested"
+      ]
+    },
+    {
+      "text": "add him to the 'L2 Service Desk' group",
+      "kind": "create",
+      "table": "user_group_member",
+      "anchor": {
+        "member_id": "MEM_029"
+      },
+      "cells": {
+        "group_id": "GROUP_004",
+        "user_id": "USER_101"
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 'MEM_029' AND group_id = 'GROUP_004' AND user_id = 'USER_101'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Adding to user group",
+      "seed_count": 0,
+      "assumptions": [
+        "L2 Service Desk resolved to GROUP_004 by exact name (L1 Service Desk is GROUP_003)",
+        "id assumed next in sequence (MEM_029 after MEM_028); the only membership the task creates; user_id follows from the new user's assumed id USER_101"
+      ]
+    },
+    {
+      "text": "assign him any available Laptop",
+      "kind": "change",
+      "table": "configuration_item",
+      "selector": "configuration_item_id IN ('CI_035', 'CI_041', 'CI_042')",
+      "cells": {
+        "owner_id": "USER_101",
+        "status": "in_use"
+      },
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE configuration_item_id IN ('CI_035', 'CI_041', 'CI_042') AND owner_id = 'USER_101' AND status = 'in_use'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Assigning item",
+      "seed_count": 0,
+      "assumptions": [
+        "'available' read as status = in_stock; the seed's in-stock laptops are CI_035 (Dell Latitude, LOC_004), CI_041 and CI_042 (Spare Agent Laptops, LOC_001), all ORG_001, and CI_081 (Backup Laptop, LOC_006, ORG_002)",
+        "'any' fixes no single item, so the requirement is one of the set, not the benchmark's CI_035 alone; CI_035 is one valid choice of the three",
+        "exactly one laptop assigned ('any available Laptop', singular)",
+        "status = in_use kept from the benchmark check; the request says 'assign', the policy fixes no status change",
+        "disagreement: selector set: A three laptops (CI_035, CI_041, CI_042), B four (adds CI_081); chose A's three because CI_081 belongs to ORG_002 (Globex) while every row the request ties Michael to (Bangalore LOC_004, L2 Service Desk GROUP_004, Joanne USER_004, the acting user USER_039) is ORG_001, so the seed contradicts giving him Globex's laptop"
+      ]
+    },
+    {
+      "text": "assign him any available Laptop (boundary: the in-stock laptop of another organisation)",
+      "kind": "stay",
+      "table": "configuration_item",
+      "selector": "configuration_item_id = 'CI_081'",
+      "cells": {
+        "owner_id": "USER_077",
+        "status": "in_stock"
+      },
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE configuration_item_id = 'CI_081' AND owner_id = 'USER_077' AND status = 'in_stock'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "CI_081 is the only other in-stock laptop on the seed and belongs to ORG_002 (Globex), not ORG_001; a loose reading of 'any available Laptop' would sweep it in",
+        "disagreement: A has this stay, B does not (B's selector included CI_081 instead); kept because it is the boundary of the laptop selector once CI_081 is outside the set"
+      ]
+    },
+    {
+      "text": "assign him any available Laptop (no other item)",
+      "kind": "stay",
+      "table": "configuration_item",
+      "selector": "owner_id = 'USER_101' AND configuration_item_id NOT IN ('CI_035', 'CI_041', 'CI_042')",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE owner_id = 'USER_101' AND configuration_item_id NOT IN ('CI_035', 'CI_041', 'CI_042')",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of the laptop selector: an in-use laptop taken from another owner, an in-stock non-laptop (CI_078, CI_088) or the other organisation's CI_081 must not be given to him",
+        "disagreement: B has this stay, A does not; kept because it is the other side of the selector's boundary (the rows a loose reading of 'any available Laptop' would sweep in); the NOT IN list rewritten from B's four ids to the chosen three"
+      ]
+    },
+    {
+      "text": "create a new incident with low urgency and impact with the description 'New Hire Setup Complete- Michael Bolt'",
+      "kind": "create",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_101"
+      },
+      "cells": {
+        "description": "New Hire Setup Complete- Michael Bolt",
+        "impact": "low",
+        "urgency": "low",
+        "priority": "planning",
+        "status": "new"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_101' AND description = 'New Hire Setup Complete- Michael Bolt' AND impact = 'low' AND urgency = 'low' AND priority = 'planning' AND status = 'new'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Creating incident",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (INC_101 after INC_100); the only incident the task creates",
+        "priority = planning from the policy matrix (impact low x urgency low); status = new from the policy's default for new incidents",
+        "caller_id, opened_by, short_description and category are mandatory by policy or schema but not fixed by the request; not tested"
+      ]
+    },
+    {
+      "text": "send a notification to the regional manager, Joanne, that: \"Onboarding process initiated for Michael Bolt.\"",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": "NOTIF_031"
+      },
+      "cells": {
+        "email": "joanne.simpson@servicenow.com",
+        "message": "Onboarding process initiated for Michael Bolt.",
+        "incident_id": "INC_101"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 'NOTIF_031' AND email = 'joanne.simpson@servicenow.com' AND message = 'Onboarding process initiated for Michael Bolt.' AND incident_id = 'INC_101'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "sending notification",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (NOTIF_031 after NOTIF_030); the only notification the task creates",
+        "Joanne resolved to USER_004 Joanne Simpson (joanne.simpson@servicenow.com), the only Joanne on the seed; a manager at LOC_004 (Bangalore), fitting 'regional manager'",
+        "incident_id = the new incident INC_101, as the benchmark check ties it ('finally' follows the incident's creation); notification.incident_id is NOT NULL",
+        "subject and type not fixed by request or policy; not tested"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Assigning item": {
+      "disposition": "repaired",
+      "evidence": "the request says 'any available Laptop', not a particular one; the seed holds three in-stock laptops in the organisation every other row of the task belongs to (CI_035, CI_041, CI_042, all ORG_001), so the check's CI_035 is one valid choice of three; the requirement selects over the three and keeps the check's owner and status cells; CI_081 (in stock, ORG_002 Globex) is left outside the set"
+    },
+    "Adding new user": {
+      "disposition": "kept"
+    },
+    "Adding to user group": {
+      "disposition": "kept"
+    },
+    "Creating incident": {
+      "disposition": "kept"
+    },
+    "sending notification": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on the five benchmark checks (four kept, 'Assigning item' repaired to a set), the new user (USER_101, role agent added), the membership (MEM_029), the incident (INC_101, planning, new) and the notification (NOTIF_031 to Joanne Simpson, tied to INC_101).\ndisagreement: laptop selector set: A three in-stock laptops of ORG_001 (CI_035, CI_041, CI_042), B four (adds CI_081, ORG_002 Globex); chose A's three because every row the request ties Michael to is ORG_001 and the seed contradicts assigning another organisation's asset (logged on the requirement).\ndisagreement: stay that CI_081 keeps owner USER_077 and status in_stock: A has it, B does not; kept as the boundary of the laptop selector (logged on the requirement).\ndisagreement: stay that no configuration item outside the selector set is owned by USER_101: B has it, A does not; kept as the other side of the selector's boundary, its NOT IN list rewritten to the chosen three ids (logged on the requirement).\ndisagreement: stay that no user other than USER_101 carries the email m.bolt@techcorp.com (expected 0): A has it, B does not; dropped because on the seed the email does not exist, so the 'verify ... otherwise register' instruction reduces to a plain create, and a duplicate registration would be a collateral change measured separately rather than something the request or policy forbids.\nThe users table carries role directly; a user_role row (ROLE_002) may also be written by add_new_user but the request fixes only the role column, so it is not tested. No knowledge-search link requirement was added: the policy's 'search for relevant knowledge' rule has no tool here that writes incident_knowledge and the request does not ask for it. The benchmark's own checks find the user by name; the requirements use ids that assume next-in-sequence creation.",
+  "minutes": 30
+}

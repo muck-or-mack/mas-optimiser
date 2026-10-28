@@ -1,0 +1,166 @@
+{
+  "task_id": "task_20260113_031046_703_99ba2325_54f35603",
+  "policy_sha1": "4afd943b",
+  "requirements": [
+    {
+      "text": "If there are more than three ongoing incidents, do not proceed with retirement and instead update the service status to non-operational",
+      "kind": "change",
+      "table": "service",
+      "anchor": {
+        "service_id": "SVC_017"
+      },
+      "cells": {
+        "status": "non-operational"
+      },
+      "sql": "SELECT COUNT(*) FROM service WHERE service_id = 'SVC_017' AND status = 'non-operational'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Service Status",
+      "seed_count": 0,
+      "assumptions": [
+        "the SAP ERP service is SVC_017 (name 'SAP ERP', status operational on the seed); SVC_018 'SAP QA' is the near match, covered by a stay",
+        "active / ongoing means status not in (resolved, closed) under the policy 3.3 lifecycle; SVC_017 has four such incidents on the seed (INC_001 in_progress; INC_044, INC_069, INC_082 on_hold; INC_052 resolved is excluded), so 4 > 3 takes the non-operational branch",
+        "'non-operational' is a seed value of service.status (6 rows); the policy lists no service enumeration",
+        "the check on the incidents is a read and leaves no state, so no incident row changes"
+      ]
+    },
+    {
+      "text": "ensure all related service offerings are updated to reflect the same status",
+      "kind": "change",
+      "table": "service_offering",
+      "anchor": {
+        "service_offering_id": "SVCOFF_021"
+      },
+      "cells": {
+        "status": "non-operational"
+      },
+      "sql": "SELECT COUNT(*) FROM service_offering WHERE service_offering_id = 'SVCOFF_021' AND status = 'non-operational'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Service Offering Status 1",
+      "seed_count": 0,
+      "assumptions": [
+        "SVCOFF_021 ('SAP ERP - Financials') is one of the three offerings with business_service = 'SVC_017' on the seed (SVCOFF_021, SVCOFF_022, SVCOFF_038), all operational",
+        "'the same status' is the service's new status, non-operational (the seed's spelling, with a hyphen)",
+        "disagreement: business_service: A adds business_service = 'SVC_017' to the sql, B does not; chose to leave it out because the anchor already names the row and the request does not change an offering's parent service, so the predicate would test an unrequested invariant"
+      ]
+    },
+    {
+      "text": "ensure all related service offerings are updated to reflect the same status",
+      "kind": "change",
+      "table": "service_offering",
+      "anchor": {
+        "service_offering_id": "SVCOFF_022"
+      },
+      "cells": {
+        "status": "non-operational"
+      },
+      "sql": "SELECT COUNT(*) FROM service_offering WHERE service_offering_id = 'SVCOFF_022' AND status = 'non-operational'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Service Offering Status 2",
+      "seed_count": 0,
+      "assumptions": [
+        "SVCOFF_022 ('SAP ERP - HR') is one of the three offerings with business_service = 'SVC_017' on the seed (SVCOFF_021, SVCOFF_022, SVCOFF_038), all operational",
+        "'the same status' is the service's new status, non-operational (the seed's spelling, with a hyphen)",
+        "disagreement: business_service: A adds business_service = 'SVC_017' to the sql, B does not; chose to leave it out because the anchor already names the row and the request does not change an offering's parent service, so the predicate would test an unrequested invariant"
+      ]
+    },
+    {
+      "text": "ensure all related service offerings are updated to reflect the same status",
+      "kind": "change",
+      "table": "service_offering",
+      "anchor": {
+        "service_offering_id": "SVCOFF_038"
+      },
+      "cells": {
+        "status": "non-operational"
+      },
+      "sql": "SELECT COUNT(*) FROM service_offering WHERE service_offering_id = 'SVCOFF_038' AND status = 'non-operational'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Service Offering Status 3",
+      "seed_count": 0,
+      "assumptions": [
+        "SVCOFF_038 ('SAP ERP - Logistics') is one of the three offerings with business_service = 'SVC_017' on the seed (SVCOFF_021, SVCOFF_022, SVCOFF_038), all operational",
+        "'the same status' is the service's new status, non-operational (the seed's spelling, with a hyphen)",
+        "disagreement: business_service: A adds business_service = 'SVC_017' to the sql, B does not; chose to leave it out because the anchor already names the row and the request does not change an offering's parent service, so the predicate would test an unrequested invariant"
+      ]
+    },
+    {
+      "text": "do not proceed with retirement",
+      "kind": "stay",
+      "table": "service",
+      "anchor": {
+        "service_id": "SVC_017"
+      },
+      "cells": {
+        "status": "retired"
+      },
+      "sql": "SELECT COUNT(*) FROM service WHERE service_id = 'SVC_017' AND status = 'retired'",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "what the request forbids: with four ongoing incidents the service must not be retired; 'retired' is a seed value of service.status (6 rows)",
+        "overlaps the non-operational change, which also fails if the service is retired; it is the forbidden action named on its own"
+      ]
+    },
+    {
+      "text": "the SAP ERP service",
+      "kind": "stay",
+      "table": "service",
+      "anchor": {
+        "service_id": "SVC_018"
+      },
+      "cells": {
+        "status": "repair_in_progress"
+      },
+      "sql": "SELECT COUNT(*) FROM service WHERE service_id = 'SVC_018' AND status = 'repair_in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "boundary of 'the SAP ERP service': SVC_018 'SAP QA' (description 'ERP Quality Assurance') is the other SAP service on the seed, the row a loose reading would sweep in; it keeps its seed status"
+      ]
+    },
+    {
+      "text": "all related service offerings",
+      "kind": "stay",
+      "table": "service_offering",
+      "anchor": {
+        "service_offering_id": "SVCOFF_023"
+      },
+      "cells": {
+        "status": "repair_in_progress"
+      },
+      "sql": "SELECT COUNT(*) FROM service_offering WHERE service_offering_id = 'SVCOFF_023' AND status = 'repair_in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "boundary of 'related service offerings': SVCOFF_023 'SAP QA - Refresh' is the only other SAP offering on the seed (business_service SVC_018, not SVC_017) and keeps its status",
+        "disagreement: business_service: A adds business_service = 'SVC_018' to the sql, B does not; chose to leave it out because the anchor already names the row and the request does not change an offering's parent service, so the predicate would test an unrequested invariant"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify Service Status": {
+      "disposition": "kept"
+    },
+    "Verify Service Offering Status 1": {
+      "disposition": "kept"
+    },
+    "Verify Service Offering Status 2": {
+      "disposition": "kept"
+    },
+    "Verify Service Offering Status 3": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "disagreement: missing requirement: a stay that SVC_017 is not retired (status = 'retired', expected 0); B has it, A does not, reading the non-operational change as already excluding retirement; kept because 'do not proceed with retirement' is an action the request forbids in its own words, and the stay names that action even though the non-operational change also fails if it is taken; its cell holds the counted value retired, matching its sql.\ndisagreement: value: business_service in the offering requirements: A's sql for SVCOFF_021, SVCOFF_022 and SVCOFF_038 adds business_service = 'SVC_017', and for the SVCOFF_023 stay business_service = 'SVC_018', B's does not; chose to leave it out because each row is anchored by id and the request does not change an offering's parent service, so the predicate would test an unrequested invariant; the parent service is stated in the assumptions.\nThe branch depends on how 'active' / 'ongoing' is read: counting new, in_progress and on_hold gives four incidents on SVC_017 and the non-operational branch the benchmark's checks expect; counting only in_progress would give one and no change, which the benchmark does not expect, so the wider reading is taken.\nThe benchmark's queries use double-quoted string literals, which SQLite reads as strings here; the requirements use single quotes.",
+  "minutes": 25
+}

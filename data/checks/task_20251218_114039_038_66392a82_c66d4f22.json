@@ -1,0 +1,141 @@
+{
+  "task_id": "task_20251218_114039_038_66392a82_c66d4f22",
+  "policy_sha1": "4afd943b",
+  "requirements": [
+    {
+      "text": "wants this recurring VPN issue to be formally tracked as a high impact network Problem ... created with status new, urgency medium, and a short description summarising the recurring VPN connection failures for remote users",
+      "kind": "create",
+      "table": "problem",
+      "anchor": {
+        "problem_id": "PRB_003"
+      },
+      "cells": {
+        "impact": "high",
+        "urgency": "medium",
+        "priority": "high",
+        "category": "network",
+        "original_task": "INC_011",
+        "short_description": "LIKE '%VPN%'"
+      },
+      "sql": "SELECT COUNT(*) FROM problem WHERE problem_id = 'PRB_003' AND impact = 'high' AND urgency = 'medium' AND priority = 'high' AND category = 'network' AND original_task = 'INC_011' AND short_description LIKE '%VPN%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "VPN Problem created and updated correctly",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (PRB_003 after PRB_002); the only problem the task creates",
+        "priority high from policy 4.2's impact x urgency matrix (high, medium -> high); the benchmark check tests the same",
+        "original_task INC_011: the only VPN incident on the seed ('VPN connection failure'), assigned to Kenji Tanaka (USER_009) as the request describes; kept from the benchmark check",
+        "status not a cell here: created new, then set to fix_in_progress by the workaround update (next requirement); only the final state is testable",
+        "short_description is free text; tested only as containing 'VPN'",
+        "opened_by and org_id not cells: Raj Patel (USER_007, ORG_002) asks and Marcus Thompson (USER_001, ORG_001) acts, and nothing fixes which the tool records"
+      ]
+    },
+    {
+      "text": "As the fix is in progress the Problem should be updated with a workaround that notes a temporary mitigation for users",
+      "kind": "change",
+      "table": "problem",
+      "anchor": {
+        "problem_id": "PRB_003"
+      },
+      "cells": {
+        "status": "fix_in_progress",
+        "workaround": [
+          "IS NOT NULL",
+          "<> ''"
+        ]
+      },
+      "sql": "SELECT COUNT(*) FROM problem WHERE problem_id = 'PRB_003' AND status = 'fix_in_progress' AND workaround IS NOT NULL AND workaround <> ''",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "VPN Problem created and updated correctly",
+      "seed_count": 0,
+      "assumptions": [
+        "policy 4.2: a workaround found sets the workaround field and status = fix_in_progress; the benchmark check tests the same final status",
+        "workaround text not fixed by the request; tested as present and non-empty",
+        "the row does not exist on the seed (seed_count 0); the change applies to the problem created by the previous requirement"
+      ]
+    },
+    {
+      "text": "a high impact new Change raised ... short description \"VPN gateway firmware upgrade and configuration hardening\", priority high, and risk medium",
+      "kind": "create",
+      "table": "change",
+      "anchor": {
+        "change_id": "CHG_004"
+      },
+      "cells": {
+        "short_description": "VPN gateway firmware upgrade and configuration hardening",
+        "status": "new",
+        "impact": "high",
+        "priority": "high",
+        "risk": "medium"
+      },
+      "sql": "SELECT COUNT(*) FROM change WHERE change_id = 'CHG_004' AND short_description = 'VPN gateway firmware upgrade and configuration hardening' AND status = 'new' AND impact = 'high' AND priority = 'high' AND risk = 'medium'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Change created for VPN gateway upgrade",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (CHG_004 after CHG_003); the only change the task creates",
+        "status new: the request says 'new Change' and policy 4.1 defaults new changes to status = new",
+        "category, type, requested_by and org_id not cells: mandatory columns the request does not fix"
+      ]
+    },
+    {
+      "text": "This change must be mapped to the new Problem",
+      "kind": "create",
+      "table": "change_request_mapping",
+      "anchor": {
+        "change_request_mapping_id": "CRM_006"
+      },
+      "cells": {
+        "change_id": "CHG_004",
+        "problem_id": "PRB_003"
+      },
+      "sql": "SELECT COUNT(*) FROM change_request_mapping WHERE change_request_mapping_id = 'CRM_006' AND change_id = 'CHG_004' AND problem_id = 'PRB_003'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Change-Problem mapping exists",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (CRM_006 after CRM_005); the only mapping the task asks for",
+        "the benchmark check accepts a mapping to any problem; this one names the new problem PRB_003",
+        "incident_id and org_id on the mapping not stated; not tested"
+      ]
+    },
+    {
+      "text": "this recurring VPN issue to be formally tracked as a ... Problem (the incident was originally assigned to Kenji Tanaka)",
+      "kind": "change",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_011"
+      },
+      "cells": {
+        "problem": "PRB_003"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_011' AND problem = 'PRB_003'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "policy 4.2: the Problem must link all affected incidents via the incident_to_problem related list; this schema has no such table, and the incident's problem column is taken as that link",
+        "INC_011 is the one VPN incident in the seed (its problem column is null there)",
+        "no tool writes this table (the tools list has no incident update); kept because the policy requires it"
+      ]
+    }
+  ],
+  "original_checks": {
+    "VPN Problem created and updated correctly": {
+      "disposition": "kept"
+    },
+    "Change created for VPN gateway upgrade": {
+      "disposition": "kept"
+    },
+    "Change-Problem mapping exists": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on every requirement (the same five: the problem at PRB_003, its workaround update, the change at CHG_004, the mapping at CRM_006, and the policy-driven link INC_011.problem = PRB_003), every cell and value, and all three dispositions (kept); they differ only in requirement order and assumption wording, so there is no disagreement to log. Seed facts re-checked at merge: INC_011 ('VPN connection failure', assigned to USER_009 Kenji Tanaka, problem null) is the only VPN incident; Raj Patel is USER_007 of ORG_002 and the acting user USER_001 of ORG_001; PRB_002, CHG_003 and CRM_005 are the highest ids. The benchmark's problem check is carried by two requirements with the same source: the creation cells and the workaround update (status fix_in_progress follows from policy 4.2). Requirement 5 comes from policy 4.2's linking rule, not the request's words; no listed tool can write the incident table, so every run fails it, and the reviewer may prefer to drop it. Policy 4.2 also says the workaround notes must be published to the linked incidents and relevant knowledge articles; neither pass wrote a requirement for that, because the schema names no column for it and no tool writes those tables. The mapping is anchored by id because the task asks for one mapping; a run that first maps the change to INC_011 would put the problem mapping at CRM_007 and fail requirement 4 though the task was done.",
+  "minutes": 24
+}

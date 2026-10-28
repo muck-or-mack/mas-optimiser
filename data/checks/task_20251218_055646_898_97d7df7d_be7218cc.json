@@ -1,0 +1,131 @@
+{
+  "task_id": "task_20251218_055646_898_97d7df7d_be7218cc",
+  "policy_sha1": "9698a42f",
+  "requirements": [
+    {
+      "text": "For the user who reported the incident, use the subject Incident Resolved - Service and Device Ready for Use, and a message clearly stating that their incident has been fully resolved, naming the associated service and item, and confirming that everything is now ready for proper use so they can continue their normal tasks",
+      "kind": "create",
+      "table": "notification",
+      "selector": "incident_id = 'INC_017' AND email = 'aisha.williams@techcorp.com'",
+      "cells": {
+        "type": "report",
+        "subject": "Incident Resolved - Service and Device Ready for Use",
+        "message": [
+          "LIKE '%email service%'",
+          "LIKE '%carlos laptop%'",
+          "LIKE '%resolved%'",
+          "LIKE '%ready%'",
+          "LIKE '%continue%'",
+          "LIKE '%tasks%'"
+        ]
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_017' AND email = 'aisha.williams@techcorp.com' AND type = 'report' AND subject = 'Incident Resolved - Service and Device Ready for Use' AND LOWER(message) LIKE '%email service%' AND LOWER(message) LIKE '%carlos laptop%' AND LOWER(message) LIKE '%resolved%' AND LOWER(message) LIKE '%ready%' AND LOWER(message) LIKE '%continue%' AND LOWER(message) LIKE '%tasks%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "reporter_resolution_notification_sent",
+      "seed_count": 0,
+      "assumptions": [
+        "the incident is INC_017: the latest resolved (resolved 2024-02-26 14:45) of the three resolved incidents with assignment_group = GROUP_001 'Level 1 Support Team' (INC_017, INC_007, INC_001)",
+        "'the user who reported the incident' is the caller (the incident table has no opened_by column): caller_id USER_004 Aisha Williams, aisha.williams@techcorp.com",
+        "'send reports' fixes type = report",
+        "the associated service is INC_017.service = SVC_001 'Email Service' and the item is INC_017.configuration_item = CI_001 'Carlos Laptop'; the message must name both (the service offering is not tested, as in the benchmark check)",
+        "message predicates are case-insensitive (LOWER(message) in the sql), as in the benchmark check",
+        "two notifications are created, so the row is selected by incident and recipient, not by id",
+        "disagreement: message cell form: A 'LOWER(message) LIKE ...' (column repeated in the predicate), B 'LIKE ...'; chose B's form because the README writes a predicate as SQL on the column and the repository's check files write case-insensitive LIKE so, with LOWER() in the sql; same meaning in both passes"
+      ]
+    },
+    {
+      "text": "For the user who resolved the incident, use the subject Thank You for Resolving Recent Service Desk Incident, thanking them for their work, briefly restating what the incident summary described, and referencing the impact, urgency, and priority that were recorded, and noting that now that this case is closed they can expect to be assigned another incident within the next few hours",
+      "kind": "create",
+      "table": "notification",
+      "selector": "incident_id = 'INC_017' AND email = 'carlos.rodriguez@techcorp.com'",
+      "cells": {
+        "type": "report",
+        "subject": "Thank You for Resolving Recent Service Desk Incident",
+        "message": [
+          "LIKE '%thank%'",
+          "LIKE '%keyboard keys not responding%'",
+          "LIKE '%impact%'",
+          "LIKE '%urgency%'",
+          "LIKE '%priority%'",
+          "LIKE '%low%'",
+          "LIKE '%close%'",
+          "LIKE '%assigned%'",
+          "LIKE '%incident%'",
+          "LIKE '%few hours%'"
+        ]
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_017' AND email = 'carlos.rodriguez@techcorp.com' AND type = 'report' AND subject = 'Thank You for Resolving Recent Service Desk Incident' AND LOWER(message) LIKE '%thank%' AND LOWER(message) LIKE '%keyboard keys not responding%' AND LOWER(message) LIKE '%impact%' AND LOWER(message) LIKE '%urgency%' AND LOWER(message) LIKE '%priority%' AND LOWER(message) LIKE '%low%' AND LOWER(message) LIKE '%close%' AND LOWER(message) LIKE '%assigned%' AND LOWER(message) LIKE '%incident%' AND LOWER(message) LIKE '%few hours%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "resolver_thankyou_notification_sent",
+      "seed_count": 0,
+      "assumptions": [
+        "the resolver is INC_017.resolved_by = USER_003 Carlos Rodriguez, carlos.rodriguez@techcorp.com",
+        "'send reports' fixes type = report",
+        "the incident summary is INC_017.short_description 'Keyboard keys not responding'; impact, urgency and priority are all 'low' on the seed, so one '%low%' predicate covers the three values, as in the benchmark check",
+        "message predicates are case-insensitive (LOWER(message) in the sql), as in the benchmark check",
+        "two notifications are created, so the row is selected by incident and recipient, not by id",
+        "disagreement: message cell form: A 'LOWER(message) LIKE ...', B 'LIKE ...'; chose B's form for the reason given on the first requirement; same meaning in both passes"
+      ]
+    },
+    {
+      "text": "the most recently resolved incident handled by a group named Level 1 Support Team (boundary: neither report goes out on another incident)",
+      "kind": "stay",
+      "table": "notification",
+      "selector": "incident_id <> 'INC_017' AND subject IN ('Incident Resolved - Service and Device Ready for Use', 'Thank You for Resolving Recent Service Desk Incident')",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM notification WHERE incident_id <> 'INC_017' AND subject IN ('Incident Resolved - Service and Device Ready for Use', 'Thank You for Resolving Recent Service Desk Incident')",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of the selector: neither report may go out on another incident, such as INC_022 (most recently resolved overall but assigned to GROUP_003) or INC_007 and INC_001 (older Level 1 resolutions)",
+        "disagreement: A has this stay, B does not (B guards the same boundary by incident instead); kept because it catches either subject sent on any other incident, which B's row-specific stays do not"
+      ]
+    },
+    {
+      "text": "the most recently resolved incident handled by a group named Level 1 Support Team (boundary: no reports on the most recently resolved incident of another group)",
+      "kind": "stay",
+      "table": "notification",
+      "selector": "incident_id = 'INC_022'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_022'",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "INC_022 (GROUP_003, resolved 2024-02-26 15:20) is the most recently resolved incident overall; a reading that drops the group filter would report on it",
+        "disagreement: B has this stay, A does not; kept because it catches any notification on the nearest wrong incident, whatever its subject, which A's subject-based stay does not"
+      ]
+    },
+    {
+      "text": "the most recently resolved incident handled by a group named Level 1 Support Team (boundary: no reports on the group's other resolved incidents)",
+      "kind": "stay",
+      "table": "notification",
+      "selector": "incident_id IN ('INC_001', 'INC_007')",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM notification WHERE incident_id IN ('INC_001', 'INC_007')",
+      "expected": 2,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 2,
+      "assumptions": [
+        "INC_001 and INC_007 are the group's other resolved incidents; a reading that drops 'most recently' would report on them; INC_001 already has two notifications on the seed (NOTIF_001, NOTIF_002) and INC_007 none",
+        "disagreement: B has this stay, A does not; kept for the same reason as the INC_022 stay: any notification on the group's older resolved incidents, whatever its subject, breaks it"
+      ]
+    }
+  ],
+  "original_checks": {
+    "reporter_resolution_notification_sent": {
+      "disposition": "kept"
+    },
+    "resolver_thankyou_notification_sent": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on both benchmark checks (kept), the incident (INC_017, the latest resolved of GROUP_001's three), the two recipients (caller Aisha Williams, resolver Carlos Rodriguez), the service and item names, the summary and the all-low impact, urgency and priority; the two create requirements are identical in selector, cells and sql. disagreement: the form of the message cells: A writes 'LOWER(message) LIKE ...', B 'LIKE ...'; chose B's form (the README writes a predicate as SQL on the column, and the repository's check files write case-insensitive LIKE so, with LOWER() in the sql); the meaning is identical, so no value changed (logged on both requirements). disagreement: stay that neither subject goes out on any incident other than INC_017: A has it, B does not; kept as the boundary of the selector across all incidents (logged in the requirement). disagreement: stay that INC_022 (the most recently resolved incident overall, GROUP_003) gets no notification: B has it, A does not; kept as the boundary of the group filter (logged in the requirement). disagreement: stay that INC_001 and INC_007 (the group's older resolved incidents) keep their seed count of two notifications: B has it, A does not; kept as the boundary of 'most recently' (logged in the requirement). The three stays overlap but none subsumes another: A's catches the request's subjects on any incident, B's catch any notification on the three nearest wrong incidents. Both passes read the request as asking only for two report notifications: no incident cell changes (INC_017 stays resolved; 'this case is closed' is the message's wording), and the only writing tool is send_notification. The notification's org_id and status are not fixed by the request or policy and are not tested.",
+  "minutes": 22
+}

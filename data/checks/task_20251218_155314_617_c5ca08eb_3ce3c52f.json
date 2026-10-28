@@ -1,0 +1,116 @@
+{
+  "task_id": "task_20251218_155314_617_c5ca08eb_3ce3c52f",
+  "policy_sha1": "4afd943b",
+  "requirements": [
+    {
+      "text": "David Ramirez has raised a critical incident to address a severe network issue ... high urgency due to the high business impact",
+      "kind": "create",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_101"
+      },
+      "cells": {
+        "caller_id": "USER_018",
+        "status": "new",
+        "impact": "high",
+        "urgency": "high",
+        "priority": "critical"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_101' AND caller_id = 'USER_018' AND status = 'new' AND impact = 'high' AND urgency = 'high' AND priority = 'critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Incident",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest on the seed is INC_100); the only incident the task creates",
+        "caller_id added to the benchmark check: David Ramirez is USER_018 on the seed (the only David Ramirez; active, a reporter)",
+        "status = new from policy 3.1 (default status for new incidents)",
+        "priority = critical from the policy matrix (impact high x urgency high); the request also calls it critical",
+        "disagreement: cells: B adds LOWER(short_description) LIKE '%switch%', A does not; chose A's cells because the request fixes no wording for the description (the issue is the connectivity drops; the switch is the CI, handled by the link and the work note) and the benchmark tests no short_description",
+        "category not tested: 'network issue' on a 'lab switch' could be read as network or hardware, and the request does not fix it",
+        "the incident table has no opened_by column; org_id is mandatory but unstated and not tested"
+      ]
+    },
+    {
+      "text": "the CI with serial number: NET-LAB-001 ... link this CI to the incident only if valid",
+      "kind": "create",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_101"
+      },
+      "cells": {
+        "configuration_item": "IS NULL"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_101' AND configuration_item IS NULL",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Retired CI is not linked",
+      "seed_count": 0,
+      "assumptions": [
+        "NET-LAB-001 is CI_045 (IT Lab Switch), status = retired on the seed; policy 5.1 forbids linking retired CIs, so the link is not valid and must be absent",
+        "seed_count is 0 only because INC_101 does not exist on the seed; once created its configuration_item must be NULL",
+        "no other CI may be linked either: the request names only this serial (CI_004, the in-use Core-Switch-HQ, is a switch but not the lab switch), and no other serial on the seed is near NET-LAB-001",
+        "kind create: the cell is tested on the incident the task creates, which is absent on the seed, so the count goes from 0 to 1 once INC_101 exists with no CI; a stay would have to hold before the agent acts"
+      ]
+    },
+    {
+      "text": "link this CI to the incident only if valid",
+      "kind": "stay",
+      "table": "incident_affected_cis",
+      "selector": "incident_id = 'INC_101'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM incident_affected_cis WHERE incident_id = 'INC_101'",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "the affected-CI related list is the other way to link a CI to an incident; the retired CI_045 may not be linked there either (policy 5.1)",
+        "disagreement: selector: A incident_id = 'INC_101' (no CI on the new incident), B configuration_item = 'CI_045' (CI_045 on no incident); chose A's because the request's object is the incident and it names one serial only, so any affected-CI row on INC_101 is unasked and the forbidden link (CI_045 to INC_101) falls inside it; CI_045 has no affected-CI row on the seed either way",
+        "no tool writes this table"
+      ]
+    },
+    {
+      "text": "Also audit the same in work notes",
+      "kind": "change",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_101"
+      },
+      "cells": {
+        "worknotes": [
+          "LIKE '%net-lab-001%'",
+          "LIKE '%retired%'",
+          "LIKE '%status%'",
+          "LIKE '%not%'",
+          "LIKE '%linked%'"
+        ]
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_101' AND LOWER(worknotes) LIKE '%net-lab-001%' AND LOWER(worknotes) LIKE '%retired%' AND LOWER(worknotes) LIKE '%status%' AND LOWER(worknotes) LIKE '%not%' AND LOWER(worknotes) LIKE '%linked%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Incident work note",
+      "seed_count": 0,
+      "assumptions": [
+        "'the same' read as the CI validation outcome: NET-LAB-001 is retired and was not linked",
+        "the five words (serial, retired, status, not, linked) are kept from the benchmark check; the request fixes no wording; case-insensitive as the check reads it",
+        "disagreement: kind: A create, B change; chose change because the cell is set by a later tool call on the created row (the audit follows the CI validation; update_incident is listed); seed_count is 0 because INC_101 does not exist yet",
+        "disagreement: cell form: A 'LIKE ...' on the column, B 'LOWER(worknotes) LIKE ...'; chose A's (a cell is a predicate on its column; the sql keeps LOWER() as the benchmark check writes it); same meaning",
+        "worknotes lives on the incident row (VARCHAR(120)); there is no separate work-note table in this schema"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify Incident": {
+      "disposition": "kept"
+    },
+    "Retired CI is not linked": {
+      "disposition": "kept"
+    },
+    "Incident work note": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on the four requirements (INC_101 for David Ramirez at critical, its configuration_item left NULL, no affected-CI row, the work note with the benchmark's five words) and on all three dispositions; the differences are cells and forms, each logged in its requirement.\ndisagreement: incident cells: B adds short_description LIKE '%switch%', A does not; chose A's because the request fixes no wording and the benchmark tests no short_description.\ndisagreement: selector of the affected-CIs stay: A by the new incident, B by CI_045; chose A's because the request's object is the incident and it names one serial only.\ndisagreement: kind of the work-note requirement: A create, B change; chose change because the work note is set by a later update_incident call on the created row, after the CI is validated.\ndisagreement: cell form: B writes LOWER(worknotes) LIKE in the cells; chose the plain LIKE form on the column, the sql keeping LOWER() as the benchmark writes it.\nThe acting user Karen Watkins (USER_039) is an admin, so she may create the incident for the reporter David Ramirez (USER_018).\nThe CI check is the crux: NET-LAB-001 resolves to CI_045, status retired, which policy 5.1 says must not be linked; the incident is still created, with the refusal recorded in the work note.\nINC_028 (closed) already links CI_045 on the seed through incident.configuration_item; that predates the task and is left to the collateral measurement.\nPolicy 7 asks for a knowledge search on incident creation; which articles match is undecidable and no listed tool searches or links knowledge, so neither pass wrote a requirement for it.\nNo requirement is a remove: nothing on the seed must be gone.\nrevised: the requirement that INC_101 has configuration_item NULL is a create, not a stay: INC_101 is absent on the seed (count 0) and the requirement needs the created row with no CI (count 1), whereas a stay must already hold before the agent acts; its sql and the benchmark check it carries are unchanged.\nrevised: the reason the work-note requirement is a change now stands on its own: the work note is written by a later update_incident call on the created row, after the CI is validated.\nrevised: notes set out one point per line, each disagreement on its own line.",
+  "minutes": 34
+}

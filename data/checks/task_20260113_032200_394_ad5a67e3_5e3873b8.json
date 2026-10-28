@@ -1,0 +1,259 @@
+{
+ "task_id": "task_20260113_032200_394_ad5a67e3_5e3873b8",
+ "policy_sha1": "9ffbbf7e",
+ "requirements": [
+  {
+   "text": "adding a topic category named International Mobility using the Talent Management COE",
+   "kind": "create",
+   "table": "topic_category",
+   "anchor": {
+    "topic_category_id": 13
+   },
+   "cells": {
+    "name": "International Mobility",
+    "coe_type": "Talent Management",
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM topic_category WHERE topic_category_id = 13 AND name = 'International Mobility' AND coe_type = 'Talent Management' AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify topic category International Mobility exists under Talent Management COE",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (13 after 12)",
+    "active = 1 kept from the benchmark check; not fixed by request or policy"
+   ]
+  },
+  {
+   "text": "create three topic details beneath it: Assignment Initiation",
+   "kind": "create",
+   "table": "topic_detail",
+   "selector": "name = 'Assignment Initiation'",
+   "cells": {
+    "topic_category": 13,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM topic_detail WHERE name = 'Assignment Initiation' AND topic_category = 13 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Topic details created under International Mobility",
+   "seed_count": 0,
+   "assumptions": [
+    "three topic details are created in no stated order, so each row is selected by its name, not by id",
+    "the parent is the new International Mobility category, topic_category_id 13, id assumed next in sequence",
+    "active = 1 kept from the benchmark check; not fixed by request or policy"
+   ]
+  },
+  {
+   "text": "create three topic details beneath it: Visa & Compliance Prep",
+   "kind": "create",
+   "table": "topic_detail",
+   "selector": "name = 'Visa & Compliance Prep'",
+   "cells": {
+    "topic_category": 13,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM topic_detail WHERE name = 'Visa & Compliance Prep' AND topic_category = 13 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Topic details created under International Mobility",
+   "seed_count": 0,
+   "assumptions": [
+    "three topic details are created in no stated order, so each row is selected by its name, not by id",
+    "the parent is the new International Mobility category, topic_category_id 13, id assumed next in sequence",
+    "active = 1 kept from the benchmark check; not fixed by request or policy"
+   ]
+  },
+  {
+   "text": "create three topic details beneath it: Assignment Wind-Down",
+   "kind": "create",
+   "table": "topic_detail",
+   "selector": "name = 'Assignment Wind-Down'",
+   "cells": {
+    "topic_category": 13,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM topic_detail WHERE name = 'Assignment Wind-Down' AND topic_category = 13 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Topic details created under International Mobility",
+   "seed_count": 0,
+   "assumptions": [
+    "three topic details are created in no stated order, so each row is selected by its name, not by id",
+    "the parent is the new International Mobility category, topic_category_id 13, id assumed next in sequence",
+    "active = 1 kept from the benchmark check; not fixed by request or policy"
+   ]
+  },
+  {
+   "text": "a new service template called Mobility Transition Template",
+   "kind": "create",
+   "table": "service_template",
+   "anchor": {
+    "service_template_id": 7
+   },
+   "cells": {
+    "name": "Mobility Transition Template",
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM service_template WHERE service_template_id = 7 AND name = 'Mobility Transition Template' AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Service template: Mobility Transition Template exists",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (7 after 6)",
+    "active = 1 kept from the benchmark check; not fixed by request or policy",
+    "disagreement: cells: A one requirement testing the name, active flag and three change request values, with the path $.config_xml; B two requirements, one per benchmark check, with the path $.\"config_xml\"; chose two with the quoted path because the conjunction is the same test, each requirement then carries one check, and the two paths read the same key, spelt here as the benchmark spells it"
+   ]
+  },
+  {
+   "text": "short description is Coordinate all phases of a global assignment transition, category is mobility, and config xml is <mobility><stage>full-cycle</stage><requiresTracking>true</requiresTracking></mobility>",
+   "kind": "create",
+   "table": "service_template",
+   "anchor": {
+    "service_template_id": 7
+   },
+   "cells": {
+    "json_extract(change_request_values, '$.short_description')": "Coordinate all phases of a global assignment transition",
+    "json_extract(change_request_values, '$.category')": "mobility",
+    "json_extract(change_request_values, '$.\"config_xml\"')": "<mobility><stage>full-cycle</stage><requiresTracking>true</requiresTracking></mobility>"
+   },
+   "sql": "SELECT COUNT(*) FROM service_template WHERE service_template_id = 7 AND json_extract(change_request_values, '$.short_description') = 'Coordinate all phases of a global assignment transition' AND json_extract(change_request_values, '$.category') = 'mobility' AND json_extract(change_request_values, '$.\"config_xml\"') = '<mobility><stage>full-cycle</stage><requiresTracking>true</requiresTracking></mobility>'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Service template has the exact required change request values",
+   "seed_count": 0,
+   "assumptions": [
+    "change_request_values is stored as a JSON object with snake_case keys in every seed template, so the request's 'short description', 'category' and 'config xml' are the keys short_description, category and config_xml",
+    "values are compared exactly, as the request asks for the exact words",
+    "disagreement: cells: A one requirement testing the name, active flag and three change request values, with the path $.config_xml; B two requirements, one per benchmark check, with the path $.\"config_xml\"; chose two with the quoted path because the conjunction is the same test, each requirement then carries one check, and the two paths read the same key, spelt here as the benchmark spells it"
+   ]
+  },
+  {
+   "text": "only the Infrastructure Problem Team type group, International Mobility Approval Team group",
+   "kind": "create",
+   "table": "user_group",
+   "anchor": {
+    "group_id": 19
+   },
+   "cells": {
+    "name": "International Mobility Approval Team",
+    "type": "Infrastructure Problem Team",
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM user_group WHERE group_id = 19 AND name = 'International Mobility Approval Team' AND type = 'Infrastructure Problem Team' AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "HR criteria approval visibility restricted to Infrastructure Problem Team",
+   "seed_count": 0,
+   "assumptions": [
+    "implied by the request, not stated: no group of that name exists in the seed, so it must be created before the criteria can point to it",
+    "id assumed next in sequence (19 after 18)",
+    "active = 1 kept from the benchmark check; not fixed by request or policy"
+   ]
+  },
+  {
+   "text": "Create an approval-type HR criteria record titled Mobility Tier Approval and configure it so that only the Infrastructure Problem Team type group, International Mobility Approval Team group has approval visibility",
+   "kind": "create",
+   "table": "hr_criteria",
+   "anchor": {
+    "hr_criteria_id": 8
+   },
+   "cells": {
+    "name": "Mobility Tier Approval",
+    "type": "approval",
+    "active": 1,
+    "user_group": 19
+   },
+   "sql": "SELECT COUNT(*) FROM hr_criteria WHERE hr_criteria_id = 8 AND name = 'Mobility Tier Approval' AND type = 'approval' AND active = 1 AND user_group = 19",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "HR criteria: Mobility Tier Approval exists and is approval-type",
+    "HR criteria approval visibility restricted to Infrastructure Problem Team"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (8 after 7)",
+    "approval visibility is held in user_group, which points to the new group 19 (id assumed next in sequence)",
+    "active = 1 kept from the benchmark check; not fixed by request or policy"
+   ]
+  },
+  {
+   "text": "register a lifecycle event HR service named Global Assignment Transition, linking it to the Assignment Initiation topic detail, the new template, and the criteria",
+   "kind": "create",
+   "table": "hr_service",
+   "anchor": {
+    "hr_service_id": 55
+   },
+   "cells": {
+    "service_name": "Global Assignment Transition",
+    "fulfillment_type": "lifecycle event",
+    "active": 1,
+    "topic_detail": "IN (SELECT topic_detail_id FROM topic_detail WHERE name = 'Assignment Initiation')",
+    "service_template": 7,
+    "hr_criteria": 8
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 55 AND service_name = 'Global Assignment Transition' AND fulfillment_type = 'lifecycle event' AND active = 1 AND topic_detail IN (SELECT topic_detail_id FROM topic_detail WHERE name = 'Assignment Initiation') AND service_template = 7 AND hr_criteria = 8",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Lifecycle event HR service: Global Assignment Transition linked to detail/template/criteria",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (55 after 54)",
+    "fulfillment_type 'lifecycle event' from the request's words, as the benchmark check tests it",
+    "the topic detail is matched by name, since the order in which the three details receive ids is not fixed",
+    "service_template 7 and hr_criteria 8 are the new template and criteria, ids assumed next in sequence",
+    "active = 1 kept from the benchmark check; not fixed by request or policy"
+   ]
+  },
+  {
+   "text": "rename the existing service Work Visa Transfer Request to Legacy Mobility Support and deactivate it",
+   "kind": "change",
+   "table": "hr_service",
+   "anchor": {
+    "hr_service_id": 54
+   },
+   "cells": {
+    "service_name": "Legacy Mobility Support",
+    "active": 0
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 54 AND service_name = 'Legacy Mobility Support' AND active = 0",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Catalog cleanup: service renamed + deactivated",
+   "seed_count": 0,
+   "assumptions": [
+    "Work Visa Transfer Request is hr_service_id 54 in the seed, the only service of that name"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Verify topic category International Mobility exists under Talent Management COE": {
+   "disposition": "kept"
+  },
+  "Topic details created under International Mobility": {
+   "disposition": "kept"
+  },
+  "Service template: Mobility Transition Template exists": {
+   "disposition": "kept"
+  },
+  "Service template has the exact required change request values": {
+   "disposition": "kept"
+  },
+  "HR criteria: Mobility Tier Approval exists and is approval-type": {
+   "disposition": "kept"
+  },
+  "HR criteria approval visibility restricted to Infrastructure Problem Team": {
+   "disposition": "kept"
+  },
+  "Lifecycle event HR service: Global Assignment Transition linked to detail/template/criteria": {
+   "disposition": "kept"
+  },
+  "Catalog cleanup: service renamed + deactivated": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "disagreement: value: the service template's cells: one pass tests the name, active flag and three change request values in one requirement carrying both template checks, the other splits them into two requirements, one per check, and quotes the config_xml key in the JSON path as the benchmark does; kept two requirements with the quoted path, since the conjunction is the same test, each requirement then carries one check, and both paths read the same key (resolved on those requirements).\nThe passes otherwise agree on every requirement, id, cell and disposition (all eight checks kept); their texts and assumptions differ in wording only.\nThe policy's list of fulfillment_type values (workflow, approval, manual, integration) does not include 'lifecycle event'; the request names the service a lifecycle event HR service, the benchmark check tests that value, and the column holds it (15 characters, within its 16), so 'lifecycle event' is required, although a server enforcing the policy list would reject it.\nThe topic-detail check is split into one requirement per detail, each tested against the new category's id rather than joined on the category name.\nThe visibility check joins the criteria to its group, so its parts are carried by the group requirement (name, type, active) and the criteria requirement (user_group).\n'Only' that group having approval visibility could also mean the criteria's users list is empty, but users is JSON and every seed row holds NULL, so the stored form of an empty list is unknown; it is left untested.\nThe template's coe_type and the organisation of the new rows ('under ServiceNow') are not stated as cells and are not tested; the server sets the organisation from the acting user.",
+ "minutes": 36
+}

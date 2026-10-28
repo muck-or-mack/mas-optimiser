@@ -1,0 +1,110 @@
+{
+ "task_id": "task_20260116_095609_650_c5cac200_741831a8",
+ "policy_sha1": "fee2d241",
+ "requirements": [
+  {
+   "text": "Joanne Simpson ... has submitted a self-service request to modify her dental coverage plan. Create a moderate priority benefits case for her as total rewards",
+   "kind": "create",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 61
+   },
+   "cells": {
+    "opened_for": 4,
+    "coe_type": "Total Rewards",
+    "priority": "moderate",
+    "short_description": "LIKE '%dental%'",
+    "source": "self-service",
+    "status": "draft"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND opened_for = 4 AND coe_type = 'Total Rewards' AND priority = 'moderate' AND short_description LIKE '%dental%' AND source = 'self-service' AND status = 'draft'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Valid Priority Value Verification",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (highest hr_case_id in the seed is 60); the only case the task creates",
+    "Joanne Simpson is user 4 with hr_profile 4; she has no case in the seed",
+    "source self-service from the request's 'submitted a self-service request'; the seed uses self-service as a source value",
+    "status draft from the policy: all new cases are set to draft",
+    "short description containing 'dental' kept from the benchmark check; the request is about her dental coverage plan"
+   ]
+  },
+  {
+   "text": "create a survey instance assigned to Joanne to collect her new dental plan preferences",
+   "kind": "create",
+   "table": "survey_instance",
+   "anchor": {
+    "survey_instance_id": 26
+   },
+   "cells": {
+    "survey_id": 3,
+    "assigned_to": 4
+   },
+   "sql": "SELECT COUNT(*) FROM survey_instance WHERE survey_instance_id = 26 AND survey_id = 3 AND assigned_to = 4",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Survey instance verification",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (highest survey_instance_id in the seed is 25); the only survey instance the task creates",
+    "survey 3 is the benefits survey (benefits package, plans, enrolment), the only survey about benefit plan preferences",
+    "case_task_id and org_id are not stated and are not tested"
+   ]
+  },
+  {
+   "text": "draft Joanne an alert notification to her work email reminding her that the survey is available for her to complete",
+   "kind": "create",
+   "table": "notification",
+   "anchor": {
+    "notification_id": 61
+   },
+   "cells": {
+    "hr_case_id": 61,
+    "email": "joanne.simpson@servicenow.com",
+    "type": "alert",
+    "status": "draft"
+   },
+   "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 61 AND hr_case_id = 61 AND email = 'joanne.simpson@servicenow.com' AND type = 'alert' AND status = 'draft'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Employee Notification Verification",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (highest notification_id in the seed is 60); the only notification the task creates",
+    "a notification needs a case; Joanne has no case in the seed, so it belongs to the new case 61",
+    "work email is her user email, not the personal email on her HR profile",
+    "status draft from the request's 'draft', as the benchmark check tests"
+   ]
+  },
+  {
+   "text": "draft Joanne an alert notification to her work email",
+   "kind": "stay",
+   "table": "notification",
+   "selector": "email = 'joanne.simpson.4@personal.example.com'",
+   "cells": {},
+   "sql": "SELECT COUNT(*) FROM notification WHERE email = 'joanne.simpson.4@personal.example.com'",
+   "expected": 0,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 0,
+   "assumptions": [
+    "boundary of the recipient: her HR profile's personal email, the kind of address every seed notification uses, must not receive it",
+    "disagreement: missing requirement: A has this stay, B does not; kept because the request names her work email, every one of the 60 seed notifications goes to a personal address, and her profile (readable with a listed tool) holds this personal one, so it is the near match a loose reading would pick"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Valid Priority Value Verification": {
+   "disposition": "kept"
+  },
+  "Employee Notification Verification": {
+   "disposition": "kept"
+  },
+  "Survey instance verification": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "disagreement: missing requirement: a stay that no notification goes to Joanne Simpson's personal address (joanne.simpson.4@personal.example.com, on her HR profile); one pass has it, the other does not; kept because the request names her work email, all 60 seed notifications go to personal addresses, and her profile is readable with a listed tool, so the personal address is the near match a loose reading would pick, the boundary of the recipient.\nThe two passes otherwise agree on every requirement, id, cell and disposition (all three checks kept); their texts and assumptions differ in wording only.\nThe benchmark's checks count rows greater than zero by Joanne's id; the requirements anchor each created row by its next id, which is stricter.\nhr_service is not tested: the request says only 'benefits case', and no listed tool looks up a service, although Dental Benefits Enrollment/Modification (hr_service 30) would fit; the policy forbids assuming ids, so the agent may leave it empty.\nopened_by is not tested: the policy names the requester, which could be Joanne (who submitted the self-service request) or the acting HR user who registers the case.\nThe policy's channel list (web_portal and others) names a column the schema does not have; the case's source column uses 'self-service' in the seed, which matches the request's words.\nThe policy's 30 to 120 character limit on the short description is not tested, as the benchmark does not test it.\nThe descriptions of two benchmark checks mention a requested 'routine' priority and a case completion that the request does not contain; their queries match the request and are kept.",
+ "minutes": 29
+}

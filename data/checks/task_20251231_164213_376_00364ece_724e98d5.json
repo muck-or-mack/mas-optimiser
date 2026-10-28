@@ -1,0 +1,116 @@
+{
+  "task_id": "task_20251231_164213_376_00364ece_724e98d5",
+  "policy_sha1": "dc7f48ae",
+  "requirements": [
+    {
+      "text": "Diana Johnson left the company and won't be working anymore",
+      "kind": "change",
+      "table": "user",
+      "anchor": {"user_id": 15},
+      "cells": {"active": 0},
+      "sql": "SELECT COUNT(*) FROM user WHERE user_id = 15 AND active = 0",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Validating user deactivation.",
+      "seed_count": 0,
+      "assumptions": [
+        "Diana Johnson is user 15 (diana.johnson@servicenow.com), the only user of that name; active on the seed",
+        "implied by the request, not stated: a user who has left is deactivated (active = 0), and the user-update tool is offered"
+      ]
+    },
+    {
+      "text": "Let Casey Green take over all the active cases (cases not cancelled or Closed) of Diana",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {"case_id": 179},
+      "cells": {"assigned_to": 52, "state": "NOT IN ('canceled', 'closed', 'resolved')"},
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 179 AND assigned_to = 52 AND state NOT IN ('canceled', 'closed', 'resolved')",
+      "expected": 1,
+      "comparison": "equals",
+      "source": ["Validate case reassignment.", "Validating latest case assignment."],
+      "seed_count": 0,
+      "assumptions": [
+        "Casey Green is user 52, an active agent",
+        "Diana has two cases assigned: CS-0000115 (case 115, canceled) and CS-0000179 (case 179, new); only 179 is active, so the set is case 179 alone",
+        "state predicate kept from the benchmark check; not fixed by request or policy (nothing asks the case to be resolved or closed)",
+        "disagreement: state: A NOT IN ('canceled', 'closed', 'resolved'), B NOT IN ('canceled', 'closed'); chose the former because the request's definition of active picks the same set on the seed (Diana has no resolved case), and as a final-state cell the benchmark's exclusion of resolved is not contradicted by the request, which asks for a reassignment and no state change, so the tighter predicate holds"
+      ]
+    },
+    {
+      "text": "Make sure the group Case Assignment_3 is also looking after the latest active case of Diana",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {"case_id": 179},
+      "cells": {"assignment_group_id": 44},
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 179 AND assignment_group_id = 44",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Validating latest case assignment.",
+      "seed_count": 0,
+      "assumptions": [
+        "the latest active case is CS-0000179, Diana's only active case",
+        "Case Assignment_3 is group 44; a case holds one assignment group, so it replaces CSM Tier 2 Support_4 (group 62)"
+      ]
+    },
+    {
+      "text": "Make sure the group Case Assignment_3 is also looking after the latest active case of Diana",
+      "kind": "create",
+      "table": "user_group_member",
+      "anchor": {"member_id": 960},
+      "cells": {"group_id": 44, "user_id": 52},
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 960 AND group_id = 44 AND user_id = 52",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Validating group membership. ",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by the request, not stated: the policy requires the assignee to be a member of the case's assignment group",
+        "id assumed next in sequence",
+        "Casey Green is not a member of group 44 on the seed (he is in groups 40 and 47), so he must be added for the case to carry both"
+      ]
+    },
+    {
+      "text": "send report to the customer of the latest ongoing case of Diana",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {"notification_id": 734},
+      "cells": {"case_id": 179, "email": "marc.henry@stark-industries.com", "type": "report", "status": "success"},
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 734 AND case_id = 179 AND email = 'marc.henry@stark-industries.com' AND type = 'report' AND status = 'success'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Validating notification.",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence",
+        "the customer of CS-0000179 is contact 10, portal user 20 Marc Henry of Stark Industries (marc.henry@stark-industries.com)",
+        "type report from the request's words",
+        "status success kept from the benchmark check; not fixed by request or policy"
+      ]
+    },
+    {
+      "text": "all the active cases (cases not cancelled or Closed) of Diana",
+      "kind": "stay",
+      "table": "customer_case",
+      "anchor": {"case_id": 115},
+      "cells": {"assigned_to": 15, "assignment_group_id": 62},
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 115 AND assigned_to = 15 AND assignment_group_id = 62",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "boundary of the selector: CS-0000115 is Diana's canceled case, which the request excludes from the takeover and which is not her latest active case",
+        "disagreement: cells: A assigned_to 15 and assignment_group_id 62, B assigned_to 15 only; chose both because both hold on the seed and case 115 is Diana's most recently updated case, so a loose reading of 'the latest ... case of Diana' would move it to Case Assignment_3"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Validating user deactivation.": {"disposition": "kept"},
+    "Validate case reassignment.": {"disposition": "kept", "evidence": "disagreement: disposition: A kept, B repaired (resolved dropped from the state filter, following the request's definition of active); kept because on the seed the set is the same (CS-0000179 alone, state new) and the request does not ask the case to be resolved, so the check's state filter does not contradict it; the check's number list is carried by the anchor on case 179, since CS-0000115 is canceled"},
+    "Validating latest case assignment.": {"disposition": "kept"},
+    "Validating group membership. ": {"disposition": "kept"},
+    "Validating notification.": {"disposition": "kept"}
+  },
+  "notes": "The benchmark's reassignment check lists cases 115 and 179 but expects a count of 1 because 115 is canceled; the requirement anchors case 179 directly.\nDiana Johnson's only active case is CS-0000179, so it is both the case Casey Green takes over and the latest active case Case Assignment_3 must look after; the benchmark's check on the latest case is a conjunction of Casey's assignment and the group on case 179, so it is carried jointly by both case requirements.\nThe benchmark's notification check joins the case's contact and portal user but never compares the notification email with that user's email; the requirement adds the email of the case's customer, Marc Henry.\n'Effective immediately' and 'once done' fix timing only and are not tested. Removing Diana's group memberships is not asked for and is not tested. The acting user, Scott Mitchell, is an admin, who may deactivate users and change group memberships.\ndisagreement: value: the state filter on the reassignment of case 179: one pass excludes canceled, closed and resolved, the other canceled and closed only; kept the exclusion of resolved, as recorded on the requirement.\ndisagreement: value: the cells of the stay on case 115: one pass tests its assignee and its group, the other its assignee only; kept both, as recorded on the requirement.\ndisagreement: disposition: 'Validate case reassignment.': kept in one pass, repaired in the other; kept, following the state resolution (recorded in its evidence).",
+  "minutes": 34
+}
