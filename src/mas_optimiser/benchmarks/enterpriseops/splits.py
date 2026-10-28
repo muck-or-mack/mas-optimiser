@@ -38,11 +38,13 @@ from typing import NamedTuple
 import yaml
 
 import mas_optimiser
+from mas_optimiser.benchmarks.enterpriseops import REPO_ROOT
 
 SETS = ("training", "validation", "test")
 DEFAULT_PROPORTIONS = (0.2, 0.4, 0.4)
-SPLITS_DIR = Path("configs") / "splits"
+SPLITS_DIR = REPO_ROOT / "configs" / "splits"
 FORCED_FILE = SPLITS_DIR / "forced-training.yaml"
+RUNS = REPO_ROOT / "runs"
 STRATA_RULE = "domain x outcome (all, some or none of the baseline attempts passed)"
 DESCRIPTION = __doc__.split("\n\n")[0]
 
@@ -265,7 +267,7 @@ def run(args: argparse.Namespace) -> None:
     forced = yaml.safe_load(args.forced.read_text()) if args.forced.exists() else {}
     split = build_split(
         args.name,
-        Path("runs") / args.experiment,
+        RUNS / args.experiment,
         tuple(args.proportions),
         args.seed,
         forced or {},

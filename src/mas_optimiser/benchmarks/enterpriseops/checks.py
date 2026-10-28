@@ -16,7 +16,9 @@ The runner keeps scoring the benchmark's checks until the files are complete;
 import json
 from pathlib import Path
 
-CHECKS_DIR = Path("data") / "checks"
+from mas_optimiser.benchmarks.enterpriseops import REPO_ROOT
+
+CHECKS_DIR = REPO_ROOT / "data" / "checks"
 KINDS = ("create", "change", "remove", "stay")
 COMPARISONS = ("equals", "greater_than", "less_than")
 DISPOSITIONS = ("kept", "repaired", "excluded", "weak")
@@ -142,8 +144,12 @@ def load_checks(directory: Path = CHECKS_DIR) -> dict[str, dict]:
     """Read every check file in ``directory``, keyed by task id.
 
     Raises:
+        FileNotFoundError: If ``directory`` does not exist, so a wrong path
+            is not mistaken for a folder with no check files.
         ValueError: If any file fails ``validate`` or its name and ``task_id`` differ.
     """
+    if not directory.is_dir():
+        raise FileNotFoundError(f"no check files folder at {directory}")
     checks = {}
     for path in sorted(directory.glob("task_*.json")):
         document = json.loads(path.read_text())

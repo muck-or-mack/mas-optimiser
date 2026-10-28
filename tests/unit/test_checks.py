@@ -129,3 +129,17 @@ def test_load_checks_reads_valid_files_and_rejects_a_mismatched_name(tmp_path):
     (tmp_path / "task_y.json").write_text(json.dumps(document()))
     with pytest.raises(ValueError, match="task_id"):
         checks.load_checks(tmp_path)
+
+
+def test_load_checks_reads_the_repository_files_from_any_working_directory(
+    tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+    loaded = checks.load_checks()
+    assert len(loaded) == 308
+    assert all(task_id.startswith("task_") for task_id in loaded)
+
+
+def test_load_checks_refuses_a_missing_folder(tmp_path):
+    with pytest.raises(FileNotFoundError, match="no check files folder"):
+        checks.load_checks(tmp_path / "nowhere")

@@ -158,7 +158,8 @@ draw. `--proportions` sets the shares (default `0.2 0.4 0.4`). The file
 records the seed, proportions, evaluations read and code version, so the
 same command regenerates it. The proposer reads training traces only, the
 acceptance gate decides on validation and returns its verdict alone, and the
-test set is opened once for the reported number.
+test set is opened once for the reported number. Paths here are inside the
+repository, whatever the working directory.
 
 ## Local copies of the seed databases
 
@@ -174,7 +175,8 @@ builds a local SQLite copy of any task's starting database, so new checks
 can be tested without the servers. The
 project's own check files, one per task under `data/checks/`, are
 described in `data/checks/README.md`; the runner scores the benchmark's
-checks until they are complete.
+checks until they are complete. Both folders are found from the repository,
+whatever the working directory.
 
 ## Watching a run in Langfuse
 

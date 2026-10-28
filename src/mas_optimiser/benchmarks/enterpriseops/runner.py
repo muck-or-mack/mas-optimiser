@@ -64,7 +64,12 @@ from dotenv import load_dotenv
 
 import mas_optimiser
 from mas_optimiser import tracing
-from mas_optimiser.benchmarks.enterpriseops import GYM_ROOT, diagnosis, verifiers
+from mas_optimiser.benchmarks.enterpriseops import (
+    GYM_ROOT,
+    REPO_ROOT,
+    diagnosis,
+    verifiers,
+)
 
 from benchmark.executor import BenchmarkExecutor
 from benchmark.models import BenchmarkConfig, LLMConfig
@@ -79,7 +84,6 @@ HF_REVISION = "c8e538eae8a6205294f0a86675fefdc1fac408f6"
 JSON_COLUMNS = {"gym_servers_config", "verifiers"}
 ID_COLUMNS = {"task_id", "domain"}
 
-REPO_ROOT = GYM_ROOT.parents[1]
 CONFIGS = REPO_ROOT / "configs"
 RUNS = REPO_ROOT / "runs"
 DESCRIPTION = __doc__.split("\n\n")[0]

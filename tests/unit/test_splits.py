@@ -130,14 +130,14 @@ def test_build_split_rejects_unknown_forced_tasks_and_bad_proportions(tmp_path):
 def test_split_command_writes_the_file_and_prints_the_sizes(
     tmp_path, monkeypatch, capsys
 ):
-    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(splits, "RUNS", tmp_path / "runs")
+    monkeypatch.setattr(splits, "SPLITS_DIR", tmp_path / "configs" / "splits")
+    monkeypatch.setattr(splits, "FORCED_FILE", tmp_path / "configs" / "forced.yaml")
     write_experiment(tmp_path / "runs" / "exp", {"itsm": many("itsm", 2, 2, 6)})
     cli.main(["split", "--experiment", "exp", "--name", "trial", "--seed", "3"])
     out = capsys.readouterr().out
-    written = json.loads((tmp_path / "configs" / "splits" / "trial.json").read_text())
-    assert (
-        "wrote configs/splits/trial.json" in out
-        and "training: 1 task (itsm/none 1)" in out
-    )
+    path = tmp_path / "configs" / "splits" / "trial.json"
+    written = json.loads(path.read_text())
+    assert f"wrote {path}" in out and "training: 1 task (itsm/none 1)" in out
     assert written["proportions"] == {"training": 0.2, "validation": 0.4, "test": 0.4}
     assert splits.load_split("trial") == written

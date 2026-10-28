@@ -26,11 +26,11 @@ from pathlib import Path
 
 import httpx
 
-from mas_optimiser.benchmarks.enterpriseops import runner
+from mas_optimiser.benchmarks.enterpriseops import REPO_ROOT, runner
 
 from benchmark.mcp_client import create_database_from_file, delete_database
 
-SCHEMAS_DIR = Path("data") / "schemas"
+SCHEMAS_DIR = REPO_ROOT / "data" / "schemas"
 # SQLite keeps AUTOINCREMENT counters in its own sqlite_sequence table, which
 # a database creates for itself and refuses to have created by a script.
 SCHEMA_QUERY = (
