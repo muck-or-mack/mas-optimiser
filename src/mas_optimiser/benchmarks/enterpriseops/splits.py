@@ -8,18 +8,25 @@ paired on the same tasks.
 
 The strata are domain crossed with the task's baseline outcome: whether all,
 some or none of its attempts passed in the experiment the split is drawn
-from (``runs/<experiment>/``, the latest full evaluation of each domain in its
-``index.csv``). Within each stratum the tasks named in a forced list go into
-training first: tasks already inspected by hand, with dataset defects, or
-otherwise unfit for a sealed set. The rest are shuffled by the seed and
-filled into training, then validation, then test, in the proportions given,
-rounded by largest remainder so that every task lands in exactly one set. If
-the forced tasks exceed a stratum's training quota, training grows and
-validation and test share what is left in their own ratio.
+from (``runs/<experiment>/``). For each domain the draw reads the latest full
+evaluation in the experiment's ``index.csv`` that has no label and no
+command-line overrides, and refuses if those evaluations differ in model,
+mode, harness or attempts. Within each stratum the tasks named in the forced
+list go into training first: tasks already inspected by hand, with dataset
+defects, or otherwise unfit for a sealed set. The rest are shuffled by the
+seed and filled into training, then validation, then test, in the proportions
+given, rounded by largest remainder so that every task lands in exactly one
+set. If the forced tasks exceed a stratum's training quota, training grows
+and validation and test share what is left in their own ratio.
 
 The draw is written to ``configs/splits/<name>.json`` with everything that
 produced it: seed, proportions, the strata rule, the evaluations read, the
-code version and the forced list, so it can be regenerated or audited. Usage::
+code version, the forced list and every task's stratum. A split is drawn
+once and never redrawn: the command refuses a name that already has a file,
+since redrawing could move tasks someone has read into a sealed set. The
+file is the record, and the draw can be checked from it alone, since each
+task's stratum and forced flag, the seed and the proportions determine the
+assignment. Usage::
 
     mas-optimiser split --experiment baseline-haiku --name haiku-20-40-40 --seed 0
     mas-optimiser split --experiment baseline-haiku --name trial --proportions 0.6 0.2 0.2
@@ -30,8 +37,11 @@ code version and the forced list, so it can be regenerated or audited. Usage::
 import argparse
 import csv
 import json
+import math
 import random
+import re
 from collections import defaultdict
+from fractions import Fraction
 from pathlib import Path
 from typing import NamedTuple
 
@@ -45,6 +55,7 @@ DEFAULT_PROPORTIONS = (0.2, 0.4, 0.4)
 SPLITS_DIR = REPO_ROOT / "configs" / "splits"
 FORCED_FILE = SPLITS_DIR / "forced-training.yaml"
 RUNS = REPO_ROOT / "runs"
+NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
 STRATA_RULE = "domain x outcome (all, some or none of the baseline attempts passed)"
 DESCRIPTION = __doc__.split("\n\n")[0]
 
@@ -63,7 +74,11 @@ class Baseline(NamedTuple):
 
 
 def read_baseline(experiment_dir: Path) -> Baseline:
-    """Read each domain's latest full evaluation and classify every task's outcome.
+    """Read each domain's baseline evaluation and classify every task's outcome.
+
+    The baseline of a domain is its latest full evaluation (one run without a
+    task limit) with no label and no command-line overrides, so a rerun with
+    another model or a labelled trial never defines the strata by accident.
 
     Args:
         experiment_dir: The ``runs/<experiment>`` folder holding ``index.csv``.
@@ -73,15 +88,31 @@ def read_baseline(experiment_dir: Path) -> Baseline:
 
     Raises:
         FileNotFoundError: If the experiment has no index.
-        ValueError: If no domain has a full evaluation (one run without a task limit).
+        ValueError: If no evaluation qualifies, or the chosen evaluations
+            differ in model, mode, harness or attempts.
     """
-    with (experiment_dir / "index.csv").open(newline="") as f:
-        rows = [row for row in csv.DictReader(f) if not row["limit"]]
+    index = experiment_dir / "index.csv"
+    with index.open(newline="") as f:
+        rows = [
+            row
+            for row in csv.DictReader(f)
+            if not row["limit"] and not row["label"] and not row["overrides"]
+        ]
     if not rows:
-        raise ValueError(f"no full evaluation in {experiment_dir / 'index.csv'}")
-    evaluations = {}
+        raise ValueError(f"no full evaluation without a label or overrides in {index}")
+    latest = {}
     for row in sorted(rows, key=lambda row: row["started"]):
-        evaluations[row["domain"]] = row["evaluation"]
+        latest[row["domain"]] = row
+    settings = {
+        (row["model"], row["mode"], row["harness"], row["attempts"])
+        for row in latest.values()
+    }
+    if len(settings) > 1:
+        raise ValueError(
+            "the latest full evaluations differ in model, mode, harness or "
+            f"attempts: {sorted(settings)}"
+        )
+    evaluations = {domain: row["evaluation"] for domain, row in latest.items()}
     tasks = {}
     for domain, evaluation in evaluations.items():
         passed: dict[str, list[bool]] = defaultdict(list)
@@ -98,9 +129,10 @@ def quotas(n: int, proportions: tuple[float, ...]) -> list[int]:
     """Share ``n`` items in the given proportions, rounding by largest remainder.
 
     The shares sum to ``n`` exactly; ties in the remainders go to the
-    earlier proportion.
+    earlier proportion. Each proportion is read as the decimal it is written
+    as (0.1 is exactly one tenth), so floating-point error cannot break a tie.
     """
-    exact = [n * p for p in proportions]
+    exact = [n * Fraction(str(p)) for p in proportions]
     shares = [int(x) for x in exact]
     remainders = sorted(
         range(len(exact)), key=lambda i: (exact[i] - shares[i], -i), reverse=True
@@ -138,14 +170,15 @@ def draw(
         fixed = [task_id for task_id in ids if task_id in forced]
         free = [task_id for task_id in ids if task_id not in forced]
         rng.shuffle(free)
-        training_quota, validation_quota, test_quota = quotas(len(ids), proportions)
+        training_quota, validation_quota, _ = quotas(len(ids), proportions)
         drawn = max(0, training_quota - len(fixed))
         training = fixed + free[:drawn]
         rest = free[drawn:]
         if len(fixed) > training_quota:
-            share = proportions[1] + proportions[2]
-            validation_quota, test_quota = quotas(
-                len(rest), (proportions[1] / share, proportions[2] / share)
+            validation, test = (Fraction(str(p)) for p in proportions[1:])
+            validation_quota, _ = quotas(
+                len(rest),
+                (validation / (validation + test), test / (validation + test)),
             )
         for task_id in training:
             assignment[task_id] = "training"
@@ -177,12 +210,18 @@ def build_split(
         stratum, and every task's domain, outcome, set and whether it was forced.
 
     Raises:
-        ValueError: If the proportions do not sum to one or a forced task is
-            not in the experiment.
+        ValueError: If the proportions are not three shares between 0 and 1
+            summing to one, a forced task is not in the experiment, or
+            ``read_baseline`` refuses the experiment.
     """
-    if abs(sum(proportions) - 1) > 1e-9 or len(proportions) != 3:
+    if (
+        len(proportions) != 3
+        or not all(math.isfinite(p) and 0 <= p <= 1 for p in proportions)
+        or not math.isclose(sum(proportions), 1, abs_tol=1e-9)
+    ):
         raise ValueError(
-            f"proportions must be three shares summing to one: {proportions}"
+            "proportions must be three shares between 0 and 1 summing to one: "
+            f"{proportions}"
         )
     baseline = read_baseline(experiment_dir)
     unknown = sorted(set(forced) - set(baseline.tasks))
@@ -257,23 +296,52 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--forced",
         type=Path,
-        default=FORCED_FILE,
-        help="YAML of task id to reason, forced into training",
+        help="YAML of task id to reason, forced into training "
+        "(default: configs/splits/forced-training.yaml)",
     )
 
 
 def run(args: argparse.Namespace) -> None:
-    """Draw the split named by the parsed arguments and write it."""
-    forced = yaml.safe_load(args.forced.read_text()) if args.forced.exists() else {}
-    split = build_split(
-        args.name,
-        RUNS / args.experiment,
-        tuple(args.proportions),
-        args.seed,
-        forced or {},
-    )
-    SPLITS_DIR.mkdir(parents=True, exist_ok=True)
+    """Draw the split named by the parsed arguments and write it.
+
+    Raises:
+        SystemExit: For a malformed name, a name that already has a split, a
+            missing or malformed forced list, or an experiment the draw refuses.
+    """
+    if not NAME.fullmatch(args.name) or args.name.endswith(".json"):
+        raise SystemExit(
+            f"error: split name {args.name!r} must be letters, digits, '.', '_' "
+            "or '-', without .json"
+        )
     path = SPLITS_DIR / f"{args.name}.json"
+    if path.exists():
+        raise SystemExit(
+            f"error: {path} exists; a split is never redrawn, so give a new one "
+            "another name"
+        )
+    forced_file = args.forced or FORCED_FILE
+    if not forced_file.is_file():
+        raise SystemExit(f"error: no forced-training file at {forced_file}")
+    forced = yaml.safe_load(forced_file.read_text()) or {}
+    if not isinstance(forced, dict) or not all(
+        isinstance(task_id, str) and isinstance(reason, str)
+        for task_id, reason in forced.items()
+    ):
+        raise SystemExit(
+            f"error: {forced_file} must map each task id to the reason it is "
+            "forced into training"
+        )
+    try:
+        split = build_split(
+            args.name,
+            RUNS / args.experiment,
+            tuple(args.proportions),
+            args.seed,
+            forced,
+        )
+    except (ValueError, FileNotFoundError) as error:
+        raise SystemExit(f"error: {error}") from error
+    SPLITS_DIR.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(split, indent=2) + "\n")
     print(f"wrote {path}")
     print(summary(split))

@@ -148,15 +148,23 @@ mas-optimiser replay runs/<experiment>/<evaluation>/tasks/<task_id>/attempt-1.js
 mas-optimiser split --experiment baseline-haiku --name haiku-20-40-40 --seed 0
 ```
 
-Draws the training, validation and test sets from an experiment's latest
-full evaluation of each domain and writes `configs/splits/<name>.json`. The
+Draws the training, validation and test sets and writes
+`configs/splits/<name>.json`. For each domain it reads the experiment's
+latest full evaluation that has no label and no command-line overrides, and
+stops if those evaluations differ in model, mode, harness or attempts. The
 strata are domain crossed with baseline outcome (all, some or none of the
 task's attempts passed), so each set has the same mix of domains and
 difficulty. Tasks listed in `configs/splits/forced-training.yaml` (read or
 inspected by hand, dataset defects, crashes) go into training before the
-draw. `--proportions` sets the shares (default `0.2 0.4 0.4`). The file
-records the seed, proportions, evaluations read and code version, so the
-same command regenerates it. The proposer reads training traces only, the
+draw; the file must exist, and `--forced` names another one.
+`--proportions` sets the shares (default `0.2 0.4 0.4`).
+
+A split is drawn once. The command refuses a name that already has a file,
+since a redraw could move tasks someone has read into a sealed set. The file
+records the seed, proportions, evaluations read, code version, forced list
+and every task's stratum; those fix the draw, and a unit test checks that
+the committed split follows from its own record, so a clean clone can verify
+it without the local runs. The proposer reads training traces only, the
 acceptance gate decides on validation and returns its verdict alone, and the
 test set is opened once for the reported number. Paths here are inside the
 repository, whatever the working directory.

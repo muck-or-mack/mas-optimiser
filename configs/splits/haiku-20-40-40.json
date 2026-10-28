@@ -14,7 +14,7 @@
       "csm": "20261027-055013-csm",
       "hr": "20261027-061153-hr"
     },
-    "code_version": "0.5.0"
+    "code_version": "v0.5.0-1-gfdde1f5"
   },
   "forced_training": {
     "task_20251201_164641_724_109c89c0_1b29acb9": "contradicting \"Transition Case Created\" verifiers (state)",
