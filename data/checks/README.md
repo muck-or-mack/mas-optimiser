@@ -115,6 +115,8 @@ Fields of a requirement:
   contain commas.
 - `seed_count`: what `sql` returns on the seed database, before the agent
   acts; a `create` or `change` requirement already satisfied there is weak.
+  `tests/integration/test_checks.py` runs every query on a database the
+  domain server seeded itself and checks it gives this count there too.
 - `assumptions`: one line per judgement the request left open.
 
 `original_checks` maps each benchmark check, by its unique name, to its
