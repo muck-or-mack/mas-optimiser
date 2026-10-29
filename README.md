@@ -84,6 +84,7 @@ runs/<experiment>/
     verifiers.csv                one row per verifier per run
     run.log                      the benchmark's log of every request
     tasks/<task_id>/attempt-<n>.json  the executor's complete record of one run
+    checks.csv, requirements.csv  the check files' verdicts, from `rescore`
 ```
 
 `attempts` in the experiment file (or `--attempts`) runs every task that many
@@ -193,6 +194,35 @@ project's own check files, one per task under `data/checks/`, are
 described in `data/checks/README.md`; the runner scores the benchmark's
 checks until they are complete. Both folders are found from the repository,
 whatever the working directory.
+
+## Scoring with the check files
+
+```
+mas-optimiser rescore runs/<experiment>/<evaluation> [...]
+```
+
+Scores every attempt of an evaluation against the check files, without
+running the agent again. The server deletes an attempt's database when the
+attempt ends, so the command rebuilds it: it seeds a fresh database, issues
+the attempt's recorded tool calls again in order, and requires every result
+to match the recorded one with timestamps masked. An attempt where one
+differs is reported as `not reproduced` and left unscored; one that raised
+before finishing has no final state and counts as failed. The final state is
+read back and compared with the local seed copy, and the difference (rows
+inserted, deleted and updated, a few kilobytes) is saved as
+`attempt-<n>.changes.json`, so a later run of the command applies it to the
+seed copy instead of asking the server. Every requirement's query also runs
+on the server's copy, and `server_agrees` says whether its count matched the
+local one.
+
+Each attempt gets `attempt-<n>.checks.json`: the verdict, every
+requirement's count, an audit of each failed one (the rows it names and
+which cells are wrong, a row that is missing, rows that match although they
+should not, or the changed rows that break a requirement to leave things
+as they were), the changes no requirement asked for, and a short
+explanation in plain text. The evaluation gets `checks.csv`, one row per
+attempt beside the benchmark's two verdicts, and `requirements.csv`, one row
+per requirement per attempt.
 
 ## Watching a run in Langfuse
 
