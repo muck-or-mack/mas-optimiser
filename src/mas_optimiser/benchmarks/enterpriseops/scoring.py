@@ -143,8 +143,10 @@ def audit(
         the number of rows the stay names before or after that the attempt
         changed, with sample ``rows``), ``extra_rows`` (sample ``rows``, each
         a ``key`` and the cell ``values``, that match although the count is
-        too high), ``missing`` (no row matches
-        ``where``), ``wrong_cells`` (``named`` rows, of which ``wrong`` fail
+        too high), ``missing`` (no row matches ``where``; ``inserted``
+        counts the rows the attempt did insert into the table, with sample
+        ``rows`` giving the values of the columns the requirement names),
+        ``wrong_cells`` (``named`` rows, of which ``wrong`` fail
         a cell, with sample ``rows`` and their failing cells),
         ``too_few_rows`` (the rows are there and hold every cell, but fewer
         than expected), or ``unstructured`` (the parts do not reproduce the
@@ -190,7 +192,28 @@ def audit(
         }
     named = final.execute(f'SELECT COUNT(*) FROM "{table}" WHERE {rows}').fetchone()[0]
     if not named:
-        return {"kind": "missing", "where": rows}
+        # A row created with the wrong values, or under another key, is
+        # among the rows the attempt inserted; show what it holds where
+        # the requirement looks.
+        inserted = changes.get(table, {}).get("inserted", [])
+        tested = rows + " " + " ".join(condition for _, condition in cells)
+        named_columns = [
+            c
+            for c in states.columns_of(final, table)
+            if c not in key and re.search(rf"\b{re.escape(c)}\b", tested)
+        ]
+        return {
+            "kind": "missing",
+            "where": rows,
+            "inserted": len(inserted),
+            "rows": [
+                {
+                    "key": {k: row[k] for k in key},
+                    "values": {c: row[c] for c in named_columns},
+                }
+                for row in inserted[:SAMPLE_ROWS]
+            ],
+        }
     if not cells:
         return {"kind": "too_few_rows", "named": named}
     # "(c) IS 1" is 0 rather than NULL when a NULL cell leaves c unknown, so
@@ -358,11 +381,16 @@ def shown(value: object) -> str:
     return "NULL" if value is None else literal(value)
 
 
+def key_text(key: dict) -> str:
+    """A row's key, e.g. ``400``, or ``user_id 1, role_id 2`` for a composite key."""
+    if len(key) == 1:
+        return str(next(iter(key.values())))
+    return ", ".join(f"{k} {v}" for k, v in key.items())
+
+
 def row_name(table: str, key: dict) -> str:
     """A row by its table and key, e.g. ``customer_case 400``."""
-    if len(key) == 1:
-        return f"{table} {next(iter(key.values()))}"
-    return f"{table} " + ", ".join(f"{k} {v}" for k, v in key.items())
+    return f"{table} {key_text(key)}"
 
 
 def change_text(table: str, row: dict) -> str:
@@ -392,7 +420,20 @@ def failure(entry: dict) -> str:
             f"{first(found['touched'], found['rows'])}: {rows}"
         )
     if found["kind"] == "missing":
-        return f"no {table} row where {found['where']}"
+        if not found["inserted"]:
+            return f"no {table} row where {found['where']}; the attempt inserted none"
+        rows = "; ".join(
+            key_text(row["key"])
+            + (" with " if row["values"] else "")
+            + ", ".join(f"{c} {shown(v)}" for c, v in row["values"].items())
+            for row in found["rows"]
+        )
+        plural = "s" if found["inserted"] > 1 else ""
+        return (
+            f"no {table} row where {found['where']}; the attempt inserted "
+            f"{found['inserted']} {table} row{plural}"
+            f"{first(found['inserted'], found['rows'])}: {rows}"
+        )
     if found["kind"] == "extra_rows":
         rows = "; ".join(
             row_name(table, row["key"])

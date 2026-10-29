@@ -148,10 +148,43 @@ def test_a_missing_row_is_reported_as_missing(seed):
             kind="create", anchor={"incident_id": "INC_004"}, cells={"priority": "low"}
         ),
     )
-    assert result["requirements"][0]["audit"] == {
+    entry = result["requirements"][0]
+    assert entry["audit"] == {
         "kind": "missing",
         "where": "incident_id = 'INC_004'",
+        "inserted": 0,
+        "rows": [],
     }
+    assert scoring.failure(entry) == (
+        "no incident row where incident_id = 'INC_004'; the attempt inserted none"
+    )
+
+
+def test_a_missing_row_shows_what_the_attempt_inserted_where_it_looks(seed):
+    result, _, _ = attempt(
+        seed,
+        [
+            "INSERT INTO incident VALUES "
+            "('INC_007', 'N7', 'USER_1', 'low', NULL, 'queued', NULL)"
+        ],
+        requirement(
+            kind="create",
+            selector="caller_id = 'USER_1' AND state = 'sent'",
+            cells={"priority": "low"},
+        ),
+    )
+    entry = result["requirements"][0]
+    assert entry["audit"]["rows"] == [
+        {
+            "key": {"incident_id": "INC_007"},
+            "values": {"caller_id": "USER_1", "priority": "low", "state": "queued"},
+        }
+    ]
+    assert scoring.failure(entry) == (
+        "no incident row where (caller_id = 'USER_1' AND state = 'sent'); the "
+        "attempt inserted 1 incident row: INC_007 with caller_id 'USER_1', "
+        "priority 'low', state 'queued'"
+    )
 
 
 def test_too_many_rows_are_listed_by_key(seed):
