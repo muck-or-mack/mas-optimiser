@@ -185,7 +185,17 @@ async def rescore_attempt(
     stem = f"attempt-{row['attempt']}"
     saved = folder / f"{stem}.changes.json"
     run = json.loads((folder / f"{stem}.json").read_text())["runs"][0]
-    benchmark = row["success"] == "True"
+    # The benchmark's verdict as the runner recounted it, with each check it
+    # failed and what the check file did with that check.
+    benchmark = {
+        "passed": row["success"] == "True",
+        "failed": [
+            {"name": name}
+            | document["original_checks"].get(name, {"disposition": "not listed"})
+            for name, verdict in run.get("verification_results", {}).items()
+            if not verdict["passed"]
+        ],
+    }
     out = {"task_id": row["task_id"], "attempt": int(row["attempt"])}
     server_counts = None
     if saved.exists():
@@ -246,7 +256,7 @@ async def rescore_attempt(
             else all(e["count"] == e["server_count"] for e in result["requirements"]),
             "result": result,
             "unasked": other,
-            "explanation": scoring.explain(result, other, benchmark_passed=benchmark),
+            "explanation": scoring.explain(result, other, benchmark),
         }
     (folder / f"{stem}.checks.json").write_text(json.dumps(out, indent=2, default=str))
     return out
@@ -265,7 +275,7 @@ def checks_row(out: dict, row: dict) -> dict:
         "requirements_total": result.get("total", ""),
         "stays_broken": result.get("stays_broken", ""),
         "other_rows": len(unasked["other_rows"]) if unasked else "",
-        "other_cells": unasked.get("other_cells", ""),
+        "other_cells": len(unasked["other_cells"]) if unasked else "",
         "server_agrees": out.get("server_agrees", ""),
         "success": row["success"],
         "upstream_success": row["upstream_success"],
@@ -281,7 +291,7 @@ def requirement_rows(out: dict) -> list[dict]:
             "requirement": entry["requirement"],
             "kind": entry["kind"],
             "table": entry["table"],
-            "source": "; ".join(checks.source_names(entry["source"]) or []),
+            "source": "; ".join(checks.source_names(entry["source"]) or ["new"]),
             "met": entry["met"],
             "count": entry["count"],
             "expected": entry["expected"],

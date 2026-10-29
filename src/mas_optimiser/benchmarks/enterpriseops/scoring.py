@@ -26,8 +26,9 @@ reading the results and for the proposer.
 
 import re
 import sqlite3
+from collections import Counter
 
-from mas_optimiser.benchmarks.enterpriseops import diagnosis, states
+from mas_optimiser.benchmarks.enterpriseops import checks, diagnosis, states
 
 # A predicate starts with an operator, in capitals if a word, and a space;
 # a value such as "<rotation>" is plain text.
@@ -318,8 +319,9 @@ def unasked(
     Returns:
         ``other_rows``, the changed rows no requirement names (as
         ``changed_rows`` gives them, with ``table`` added), and
-        ``other_cells``, the number of changed cells of named rows that no
-        requirement tests.
+        ``other_cells``, the changed cells of named rows that no requirement
+        tests, each a ``table``, ``key``, ``column`` and ``change`` (before
+        and after).
     """
     named, asked = set(), set()
     for requirement in document["requirements"]:
@@ -337,15 +339,17 @@ def unasked(
         for row in state.execute(f'SELECT {names} FROM "{table}" WHERE {rows}'):
             named.add((table, tuple(row)))
             asked.update((table, tuple(row), column) for column in tested)
-    other_rows, other_cells = [], 0
+    other_rows, other_cells = [], []
     for table in changes:
         for row_key, row in changed_rows(changes, table, keys).items():
             if (table, row_key) not in named:
                 other_rows.append({"table": table} | row)
             elif "cells" in row:
-                other_cells += sum(
-                    (table, row_key, c) not in asked for c in row["cells"]
-                )
+                other_cells += [
+                    {"table": table, "key": row["key"], "column": c, "change": change}
+                    for c, change in row["cells"].items()
+                    if (table, row_key, c) not in asked
+                ]
     return {"other_rows": other_rows, "other_cells": other_cells}
 
 
@@ -421,14 +425,28 @@ def failure(entry: dict) -> str:
     )
 
 
-def explain(result: dict, other: dict, benchmark_passed: bool | None = None) -> str:
+def origin(source: object) -> str:
+    """Where a requirement came from: ``new``, or the benchmark checks it carries."""
+    names = checks.source_names(source) or []
+    return "from " + " and ".join(f'"{name}"' for name in names) if names else "new"
+
+
+def explain(result: dict, other: dict, benchmark: dict | None = None) -> str:
     """The attempt's verdict and what went wrong, in a few lines, for a reader or the proposer.
+
+    Each failed requirement gets a line saying where it came from and what
+    its audit found. Changed rows no requirement names are listed; other
+    changed cells of named rows are counted by column, since most are
+    timestamps a tool sets itself. Where the benchmark's own verdict differs,
+    a last line says so and, if the benchmark failed the attempt, names the
+    checks it failed with what the check file did with each.
 
     Args:
         result: As ``score`` returns it.
         other: As ``unasked`` returns it.
-        benchmark_passed: The benchmark's own verdict, mentioned where it
-            differs from this one.
+        benchmark: The benchmark's own verdict: ``passed``, and ``failed``,
+            the checks it failed, each a ``name`` with the check file's
+            ``disposition`` and any ``evidence``.
     """
     if result["passed"]:
         lines = [f"PASS: all {result['total']} requirements met."]
@@ -439,7 +457,8 @@ def explain(result: dict, other: dict, benchmark_passed: bool | None = None) -> 
     for entry in result["requirements"]:
         if not entry["met"]:
             lines.append(
-                f"R{entry['requirement']} ({entry['kind']}, {entry['table']}) "
+                f"R{entry['requirement']} ({entry['kind']}, {entry['table']}, "
+                f"{origin(entry['source'])}) "
                 f'"{entry["text"]}": {failure(entry)}'
             )
     rows = other["other_rows"]
@@ -451,11 +470,22 @@ def explain(result: dict, other: dict, benchmark_passed: bool | None = None) -> 
             f"Rows changed that no requirement names ({len(rows)})"
             f"{first(len(rows), rows[:SAMPLE_CHANGES])}: {listed}."
         )
-    if other["other_cells"]:
+    cells = Counter(f"{c['table']}.{c['column']}" for c in other["other_cells"])
+    if cells:
+        listed = ", ".join(f"{name} {n}" for name, n in cells.most_common())
         lines.append(
-            f"Other cells changed in rows the request names: {other['other_cells']}."
+            f"Other cells changed in rows the request names ({cells.total()}): "
+            f"{listed}."
         )
-    if benchmark_passed is not None and benchmark_passed != result["passed"]:
-        verdict = "pass" if benchmark_passed else "fail"
-        lines.append(f"The benchmark's own checks {verdict} this attempt.")
+    if benchmark is not None and benchmark["passed"] != result["passed"]:
+        if benchmark["passed"]:
+            lines.append("The benchmark's own checks pass this attempt.")
+        else:
+            failed = "; ".join(
+                f'"{check["name"]}" ({check["disposition"]} here'
+                + (f": {check['evidence']}" if check.get("evidence") else "")
+                + ")"
+                for check in benchmark["failed"]
+            )
+            lines.append(f"The benchmark's own checks fail this attempt, on {failed}.")
     return "\n".join(lines)

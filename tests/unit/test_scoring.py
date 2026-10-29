@@ -233,7 +233,14 @@ def test_unasked_changes_split_other_rows_from_other_cells_of_asked_rows(seed):
         requirement(anchor={"incident_id": "INC_001"}, cells={"priority": "high"}),
     )
     assert result["passed"]
-    assert other["other_cells"] == 1
+    assert other["other_cells"] == [
+        {
+            "table": "incident",
+            "key": {"incident_id": "INC_001"},
+            "column": "state",
+            "change": ["new", "open"],
+        }
+    ]
     assert sorted((row["table"], row.get("change")) for row in other["other_rows"]) == [
         ("incident", "inserted"),
         ("user_role", "deleted"),
@@ -251,18 +258,50 @@ def test_explain_gives_the_verdict_each_failure_and_the_benchmark_where_it_diffe
             kind="stay", selector="caller_id = 'USER_2'", cells={"assigned_to": 4}
         ),
     )
-    text = scoring.explain(result, other, benchmark_passed=True)
+    text = scoring.explain(result, other, {"passed": True, "failed": []})
     lines = text.splitlines()
     assert lines[0] == "FAIL: 0 of 2 requirements met, 1 stay broken."
     assert lines[1].startswith(
-        'R1 (change, incident) "request words": 1 of 1 rows wrong'
+        'R1 (change, incident, new) "request words": 1 of 1 rows wrong'
     )
     assert "incident INC_001: priority is 'low', wanted priority = 'high'" in lines[1]
     assert "incident INC_002: assigned_to from 7 to 4" in lines[2]
     assert lines[-1] == "The benchmark's own checks pass this attempt."
-    assert (
-        scoring.explain(result, other, benchmark_passed=False).count("benchmark") == 0
+    agreeing = {"passed": False, "failed": [{"name": "x", "disposition": "kept"}]}
+    assert scoring.explain(result, other, agreeing).count("benchmark") == 0
+
+
+def test_explain_names_the_benchmark_checks_that_fail_a_passing_attempt(seed):
+    result, other, _ = attempt(
+        seed,
+        [
+            "UPDATE incident SET priority = 'high', notes = 'x' "
+            "WHERE incident_id = 'INC_001'",
+            "UPDATE incident SET notes = 'y' WHERE incident_id = 'INC_002'",
+        ],
+        requirement(anchor={"incident_id": "INC_001"}, cells={"priority": "high"}),
     )
+    benchmark = {
+        "passed": False,
+        "failed": [
+            {"name": "Set state", "disposition": "excluded", "evidence": "not asked"},
+            {"name": "Set priority", "disposition": "kept"},
+        ],
+    }
+    assert scoring.explain(result, other, benchmark).splitlines() == [
+        "PASS: all 1 requirements met.",
+        "Rows changed that no requirement names (1): incident INC_002: notes "
+        "from NULL to 'y'.",
+        "Other cells changed in rows the request names (1): incident.notes 1.",
+        'The benchmark\'s own checks fail this attempt, on "Set state" '
+        '(excluded here: not asked); "Set priority" (kept here).',
+    ]
+
+
+def test_origin_names_the_benchmark_checks_a_requirement_carries():
+    assert scoring.origin("new") == "new"
+    assert scoring.origin("Add CI") == 'from "Add CI"'
+    assert scoring.origin(["A, b", "C"]) == 'from "A, b" and "C"'
 
 
 def test_rows_that_hold_every_cell_but_are_too_few_are_reported_as_too_few(seed):
@@ -287,4 +326,4 @@ def test_a_removed_row_is_asked_for_and_not_listed_as_unasked(seed):
         seed, ["DELETE FROM incident WHERE incident_id = 'INC_003'"], remove
     )
     assert result["passed"]
-    assert other == {"other_rows": [], "other_cells": 0}
+    assert other == {"other_rows": [], "other_cells": []}

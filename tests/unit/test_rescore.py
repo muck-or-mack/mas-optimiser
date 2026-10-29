@@ -71,7 +71,17 @@ def evaluation(tmp_path, monkeypatch):
     monkeypatch.setattr(
         checks,
         "load_checks",
-        lambda: {TASK: {"task_id": TASK, "requirements": REQUIREMENTS}},
+        lambda: {
+            TASK: {
+                "task_id": TASK,
+                "requirements": REQUIREMENTS,
+                "original_checks": {
+                    "Check one": {"disposition": "kept"},
+                    "Check, two": {"disposition": "kept"},
+                    "Check three": {"disposition": "excluded", "evidence": "a copy"},
+                },
+            }
+        },
     )
     folder = tmp_path / "eval"
     (folder / "tasks" / TASK).mkdir(parents=True)
@@ -195,6 +205,7 @@ def test_a_reissued_attempt_is_scored_saved_and_checked_against_the_server(
         ("True", "", "1"),
         ("False", "stay_broken", "0"),
     ]
+    assert requirements[0]["source"] == "new"
     assert requirements[1]["source"] == "Check one; Check, two"
 
 
@@ -203,7 +214,13 @@ def test_saved_changes_are_used_without_the_server(evaluation, monkeypatch):
         raise AssertionError("the server should not be asked")
 
     monkeypatch.setattr(rescore, "server_final_state", server_final_state)
-    add_attempt(evaluation, 1, {"tool_results": CALLS}, "False")
+    verdicts = {"Check one": {"passed": True}, "Check three": {"passed": False}}
+    add_attempt(
+        evaluation,
+        1,
+        {"tool_results": CALLS, "verification_results": verdicts},
+        "False",
+    )
     change = {
         "key": {"incident_id": "INC_001"},
         "changes": {"priority": ["low", "high"]},
@@ -224,7 +241,8 @@ def test_saved_changes_are_used_without_the_server(evaluation, monkeypatch):
     )
     assert out["server_agrees"] is None
     assert out["explanation"] == (
-        "PASS: all 2 requirements met.\nThe benchmark's own checks fail this attempt."
+        "PASS: all 2 requirements met.\nThe benchmark's own checks fail this "
+        'attempt, on "Check three" (excluded here: a copy).'
     )
 
 
