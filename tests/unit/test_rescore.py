@@ -186,6 +186,7 @@ def test_a_reissued_attempt_is_scored_saved_and_checked_against_the_server(
         (evaluation / "tasks" / TASK / "attempt-1.changes.json").read_text()
     )
     assert saved["tool_calls"] == 1
+    assert list(saved["server_counts"].values()) == [1, 0]
     assert saved["changes"]["incident"]["updated"][1] == {
         "key": {"incident_id": "INC_002"},
         "changes": {"state": ["new", "closed"]},
@@ -244,6 +245,18 @@ def test_saved_changes_are_used_without_the_server(evaluation, monkeypatch):
         "PASS: all 2 requirements met.\nThe benchmark's own checks fail this "
         'attempt, on "Check three" (excluded here: a copy).'
     )
+    # Saved with the server's count for the first query only, as if the
+    # second had been edited since: the first is still checked.
+    saved = evaluation / "tasks" / TASK / "attempt-1.changes.json"
+    document = json.loads(saved.read_text())
+    document["server_counts"] = {REQUIREMENTS[0]["sql"]: 0}
+    saved.write_text(json.dumps(document))
+    asyncio.run(rescore.rescore(evaluation, concurrency=1))
+    out = json.loads(
+        (evaluation / "tasks" / TASK / "attempt-1.checks.json").read_text()
+    )
+    assert out["server_agrees"] is False
+    assert [e.get("server_count") for e in out["result"]["requirements"]] == [0, None]
 
 
 def test_an_attempt_that_raised_fails_and_one_not_reproduced_is_unscored(

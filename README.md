@@ -213,7 +213,8 @@ inserted, deleted and updated, a few kilobytes) is saved as
 `attempt-<n>.changes.json`, so a later run of the command applies it to the
 seed copy instead of asking the server. Every requirement's query also runs
 on the server's copy, and `server_agrees` says whether its count matched the
-local one.
+local one. Those counts are saved with the changes, so a later rescore still
+checks every requirement whose query has not changed since.
 
 Each attempt gets `attempt-<n>.checks.json`: the verdict, every
 requirement's count, an audit of each failed one (the rows it names and

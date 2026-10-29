@@ -11,7 +11,9 @@ result must match the recorded one with timestamps masked; an attempt where
 one differs is reported as not reproduced and left unscored. A reproduced
 attempt's final state is read back and saved as its changes, and every
 requirement's query is also run on the server's copy, so that each local
-count is checked against the server's.
+count is checked against the server's; those counts are saved with the
+changes, by query text, so a later rescore still checks every requirement
+whose query has not changed since.
 
 A timestamp the server sets itself takes the time of the reissue, not of the
 attempt. A check comparing such a column with a fixed time could score a
@@ -197,10 +199,15 @@ async def rescore_attempt(
         ],
     }
     out = {"task_id": row["task_id"], "attempt": int(row["attempt"])}
-    server_counts = None
+    # The server's count for each requirement query, by query text, taken
+    # when the attempt was rebuilt; a requirement whose query has changed
+    # since has none.
+    server_counts = {}
     if saved.exists():
         out["state"] = "saved"
-        changes = json.loads(saved.read_text())["changes"]
+        rebuilt = json.loads(saved.read_text())
+        changes = rebuilt["changes"]
+        server_counts = rebuilt.get("server_counts", {})
     elif "tool_results" not in run:
         out |= {
             "state": "raised",
@@ -230,13 +237,15 @@ async def rescore_attempt(
             out["state"] = "reissued"
             skip = states.STAMPED.get(domain, frozenset())
             changes = states.diff(seed, found["state"], layout["keys"], skip)
-            server_counts = found["server_counts"]
+            queries = [r["sql"] for r in document["requirements"]]
+            server_counts = dict(zip(queries, found["server_counts"], strict=True))
             saved.write_text(
                 json.dumps(
                     {
                         "rebuilt_from": "reissued tool calls",
                         "tool_calls": len(run["tool_results"]),
                         "changes": changes,
+                        "server_counts": server_counts,
                     },
                     indent=2,
                     default=str,
@@ -246,14 +255,16 @@ async def rescore_attempt(
         final = states.rebuild(seed, changes, layout["keys"])
         result = await scoring.score(document, final, seed, changes, layout["keys"])
         other = scoring.unasked(document, changes, final, seed, layout["keys"])
-        if server_counts is not None:
-            for entry, count in zip(result["requirements"], server_counts, strict=True):
-                entry["server_count"] = count
+        compared = []
+        for entry, requirement in zip(
+            result["requirements"], document["requirements"], strict=True
+        ):
+            if requirement["sql"] in server_counts:
+                entry["server_count"] = server_counts[requirement["sql"]]
+                compared.append(entry["count"] == entry["server_count"])
         out |= {
             "checks_passed": result["passed"],
-            "server_agrees": None
-            if server_counts is None
-            else all(e["count"] == e["server_count"] for e in result["requirements"]),
+            "server_agrees": all(compared) if compared else None,
             "result": result,
             "unasked": other,
             "explanation": scoring.explain(result, other, benchmark),
