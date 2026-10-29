@@ -1,0 +1,123 @@
+{
+  "task_id": "task_20251212_191815_314_391f1eff_c23d76df",
+  "policy_sha1": "c56705c3",
+  "requirements": [
+    {
+      "text": "Record a new incident to be carried out for her situation",
+      "kind": "create",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_024"
+      },
+      "cells": {
+        "caller_id": "USER_010",
+        "service": "SVC_003",
+        "configuration_item": "CI_004",
+        "channel": "chat",
+        "status": "new",
+        "category": "software",
+        "impact": "high",
+        "urgency": "high",
+        "priority": "critical"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_024' AND caller_id = 'USER_010' AND service = 'SVC_003' AND configuration_item = 'CI_004' AND channel = 'chat' AND status = 'new' AND category = 'software' AND impact = 'high' AND urgency = 'high' AND priority = 'critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Record Incident",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (INC_024 after INC_023)",
+        "caller is Isabella Rossi, isabella.rossi@acme.com = USER_010 (reporter, ORG_002)",
+        "configuration item is the CI with serial SERVER-SF-SRV01 = CI_004 (status in_use, so policy 5.1 allows the link)",
+        "channel not stated ('wrote to us' names no channel); policy 3.1 defaults it to chat",
+        "category software from the request's 'her software Acme Email Server'",
+        "impact high from 'highly impacting her work routines'; urgency high from 'a high urgency is required'; policy 3.1 matrix gives priority critical",
+        "state new from policy 3.1's default; the column is named status in the schema",
+        "disagreement: cells: A left service to the service-association requirement, B tested it here too; chose B's full cell set because it is tighter and equals the original check cell for cell"
+      ]
+    },
+    {
+      "text": "Check for any services linked with her server and associate the same if applicable",
+      "kind": "create",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_024"
+      },
+      "cells": {
+        "service": "SVC_003"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_024' AND service = 'SVC_003'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Record Incident",
+      "seed_count": 0,
+      "assumptions": [
+        "the schema has no CI-to-service link table; SVC_003 Acme Email Service is the only ORG_002 service matching the server's name and owner (USER_007), so it is 'applicable', as the original check also holds",
+        "SVC_001 Email Service belongs to ORG_001 and SVC_004 Development Environment is not an email server's service",
+        "overlaps the service cell of the incident requirement; kept separate because the association is a separately asked step",
+        "disagreement: cells: A {service}, B {service, configuration_item}; chose {service} because the sentence asks for the service association and the CI link is already tested by the incident requirement",
+        "disagreement: source: A 'Record Incident', B 'new'; chose 'Record Incident' because the value SVC_003 comes from that check's service cell"
+      ]
+    },
+    {
+      "text": "send out a report to let her know that the issue is now registered",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": "NOTIF_008"
+      },
+      "cells": {
+        "incident_id": "INC_024",
+        "email": "isabella.rossi@acme.com",
+        "type": "report"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 'NOTIF_008' AND incident_id = 'INC_024' AND email = 'isabella.rossi@acme.com' AND type = 'report'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Send notification",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (NOTIF_008 after NOTIF_007)",
+        "type report from the request's 'send out a report'; the seed already uses type = report for such notifications (NOTIF_007)",
+        "recipient is her email as given in the request; notification status is not stated and not tested"
+      ]
+    },
+    {
+      "text": "Record a new incident (policy 6: SLAs are automatically aligned based on priority linked to the incident)",
+      "kind": "create",
+      "table": "incident_sla",
+      "anchor": {
+        "incident_sla_id": "TSLA_011"
+      },
+      "cells": {
+        "incident_id": "INC_024",
+        "sla_def_id": "SLA_007",
+        "stage": "in_progress"
+      },
+      "sql": "SELECT COUNT(*) FROM incident_sla WHERE incident_sla_id = 'TSLA_011' AND incident_id = 'INC_024' AND sla_def_id = 'SLA_007' AND stage = 'in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Link SLA",
+      "seed_count": 0,
+      "assumptions": [
+        "the request never names an SLA; policy 6 aligns one to the incident's priority and the tools find_sla_definitions and link_new_incident_sla exist for it",
+        "SLA_007 is the only active ORG_002 definition with applies_to_priority = critical (SLA_001 is ORG_001's)",
+        "id assumed next in sequence (TSLA_011 after TSLA_010)",
+        "stage in_progress assumed as a fresh timer's stage; the policy does not state the initial stage"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Link SLA": {
+      "disposition": "kept"
+    },
+    "Send notification": {
+      "disposition": "kept"
+    },
+    "Record Incident": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on all four requirements (tables, anchors, ids and values) and on all three dispositions. disagreement: incident cells: A left service out of the incident requirement and tested it only in the service-association requirement, B tested it in both; kept B's full cell set for the incident requirement because it is tighter and equals the original check (logged in the requirement). disagreement: service-association requirement: A cells {service} with source 'Record Incident', B cells {service, configuration_item} with source 'new'; kept {service} and 'Record Incident' (logged in the requirement). disagreement: SLA requirement text: A ties it to incident creation under policy 6, B to the request's urgency sentence; kept A's wording because policy 6 aligns the SLA to the incident's priority, not to urgency alone (same cells and anchor in both). No stay requirement: the serial and the email each match exactly one row, CI_004 is in_use so policy 5.1 forbids nothing, and no second CI or service nearly matches. Policy 7's knowledge search is left out: no tool searches or links knowledge, and the ORG_002 articles (KB_004, KB_005, on email account access) do not clearly match a malfunctioning server. 'wrote to us' could be read as channel = email; the policy default chat is applied because the request names no channel. org_id is a server-derived column and is not a cell.",
+  "minutes": 11
+}

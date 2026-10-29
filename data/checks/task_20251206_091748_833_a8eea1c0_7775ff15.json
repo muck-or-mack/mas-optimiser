@@ -1,0 +1,223 @@
+{
+  "task_id": "task_20251206_091748_833_a8eea1c0_7775ff15",
+  "policy_sha1": "10503d62",
+  "requirements": [
+    {
+      "text": "this should have been marked as critical from the start due to urgency. Immediately re-prioritize",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 7
+      },
+      "cells": {
+        "priority": "critical"
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 7 AND priority = 'critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "update_case (2)",
+      "seed_count": 0,
+      "assumptions": [
+        "Case CS-0000007 is case_id 7 (contact 123 Elizabeth Chase, product 55 Docker Enterprise Variant 35, reopen_count 5, priority low on the seed), matching every detail in the request",
+        "acting_user is empty; the policy says to assume the admin role, so re-prioritising and reassigning are permitted (a manager may in any case override priority and escalate)"
+      ]
+    },
+    {
+      "text": "should have been marked as critical from the start due to urgency ... assign it to Curtis Mccoy in the Escalation Management group",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 7
+      },
+      "cells": {
+        "escalation": 1,
+        "escalation_reason": "urgency"
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 7 AND escalation = 1 AND escalation_reason = 'urgency'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "update_case (3)",
+        "update_case (4)"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "the request never says 'escalate', but a priority override 'due to urgency' handed to the Escalation Management group is an escalation; the policy's steps are escalation = true and a captured escalation_reason, and 'urgency' is the enum value that matches the request's word; both originals carry the cells",
+        "the policy also wants the justification logged in case notes; the schema has no case-notes table and no tool writes one, so nothing is tested for it"
+      ]
+    },
+    {
+      "text": "assign it to Curtis Mccoy in the Escalation Management group",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 7
+      },
+      "cells": {
+        "assigned_to": 177,
+        "assignment_group_id": 18
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 7 AND assigned_to = 177 AND assignment_group_id = 18",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "update_case",
+        "update_case (5)"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "Curtis Mccoy is user 177 (manager, active), the only user of that name (Tony Mccoy, 169, is another user); he is a member of group 18, so the policy's assignment constraints hold",
+        "the exact name 'Escalation Management' is group 18 (support, active); groups 38, 58 and 78 are the suffixed namesakes _2, _3, _4, and Curtis is in none of them"
+      ]
+    },
+    {
+      "text": "Mark the issue as resolved",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 7
+      },
+      "cells": {
+        "state": "resolved"
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 7 AND state = 'resolved'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "update_case (6)",
+      "seed_count": 0,
+      "assumptions": [
+        "seed state is pending; the policy allows pending -> resolved directly; resolved, not closed, is what the request says"
+      ]
+    },
+    {
+      "text": "all outstanding SLAs related to this case flagged as completed without breach on 2025-09-01",
+      "kind": "change",
+      "table": "case_sla",
+      "anchor": {
+        "case_sla_id": 13
+      },
+      "cells": {
+        "stage": "completed",
+        "has_breached": 0,
+        "completed_time": "LIKE '2025-09-01%'"
+      },
+      "sql": "SELECT COUNT(*) FROM case_sla WHERE case_sla_id = 13 AND stage = 'completed' AND has_breached = 0 AND completed_time LIKE '2025-09-01%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "update_case_sla_details",
+        "update_case_sla_details (3)"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "case 7 has exactly two case_sla rows, 13 (response, SLA Response - Low) and 14 (resolution, SLA Resolution - Low), both in_progress with no completed_time, so both are 'outstanding'; this is the response SLA",
+        "'on 2025-09-01' fixes the date but not the time of day, and the seed stores completed_time as 'YYYY-MM-DD HH:MM:SS', so the date prefix is tested",
+        "'without breach' is has_breached = 0, already 0 on the seed (that cell alone is weak); stage and date carry the change",
+        "disagreement: cells: B adds case_id = 7, A does not; dropped because the anchor fixes the row and case_id is an identity column the request does not change"
+      ]
+    },
+    {
+      "text": "all outstanding SLAs related to this case flagged as completed without breach on 2025-09-01",
+      "kind": "change",
+      "table": "case_sla",
+      "anchor": {
+        "case_sla_id": 14
+      },
+      "cells": {
+        "stage": "completed",
+        "has_breached": 0,
+        "completed_time": "LIKE '2025-09-01%'"
+      },
+      "sql": "SELECT COUNT(*) FROM case_sla WHERE case_sla_id = 14 AND stage = 'completed' AND has_breached = 0 AND completed_time LIKE '2025-09-01%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "update_case_sla_details (2)",
+        "update_case_sla_details (4)"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "case 7 has exactly two case_sla rows, 13 (response, SLA Response - Low) and 14 (resolution, SLA Resolution - Low), both in_progress with no completed_time, so both are 'outstanding'; this is the resolution SLA",
+        "'on 2025-09-01' fixes the date but not the time of day, and the seed stores completed_time as 'YYYY-MM-DD HH:MM:SS', so the date prefix is tested",
+        "'without breach' is has_breached = 0, already 0 on the seed (that cell alone is weak); stage and date carry the change",
+        "disagreement: cells: B adds case_id = 7, A does not; dropped because the anchor fixes the row and case_id is an identity column the request does not change",
+        "the original only tests that a completed_time is recorded; the request fixes the date, so the date prefix is tested"
+      ]
+    },
+    {
+      "text": "all outstanding SLAs related to this case (boundary: the customer's other outstanding SLAs are not related to this case)",
+      "kind": "stay",
+      "table": "case_sla",
+      "selector": "stage = 'in_progress' AND case_id IN (SELECT case_id FROM customer_case WHERE contact_id = 123 AND case_id <> 7)",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM case_sla WHERE stage = 'in_progress' AND case_id IN (SELECT case_id FROM customer_case WHERE contact_id = 123 AND case_id <> 7)",
+      "expected": 10,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 10,
+      "assumptions": [
+        "boundary of the 'outstanding SLAs related to this case' selector: a loose reading (related to this customer) would sweep in the ten in_progress SLAs on Elizabeth Chase's other cases; the request reaches only case 7's two, so the ten stay in_progress",
+        "disagreement: missing requirement: B has this stay, A has none; kept because it is the boundary of the request's SLA selector, not a generic invariant"
+      ]
+    },
+    {
+      "text": "which has been reopened multiple times ... The customer is Elizabeth Chase (boundary: her other multiply-reopened case is not the one named)",
+      "kind": "stay",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 14
+      },
+      "cells": {
+        "priority": "moderate",
+        "state": "closed",
+        "escalation": 0
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 14 AND priority = 'moderate' AND state = 'closed' AND escalation = 0",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "boundary of the case description: CS-0000014 is Elizabeth Chase's other multiply-reopened case (reopen_count 6, more than case 7's 5, product 128); a search by customer and reopen count instead of the case number would hit it, and it keeps its priority, state and escalation flag",
+        "disagreement: missing requirement: B has this stay, A has none; kept because case 14 is a near match of the request's description, like a second serial that nearly matches"
+      ]
+    }
+  ],
+  "original_checks": {
+    "update_case": {
+      "disposition": "kept"
+    },
+    "update_case (2)": {
+      "disposition": "kept"
+    },
+    "update_case (3)": {
+      "disposition": "kept",
+      "evidence": "the request never says 'escalate', but the policy's escalation steps (escalation = true, capture the reason) apply once the case is moved to the Escalation Management group for urgency"
+    },
+    "update_case (4)": {
+      "disposition": "kept"
+    },
+    "update_case (5)": {
+      "disposition": "kept"
+    },
+    "update_case (6)": {
+      "disposition": "kept"
+    },
+    "update_case_sla_details": {
+      "disposition": "kept"
+    },
+    "update_case_sla_details (2)": {
+      "disposition": "kept"
+    },
+    "update_case_sla_details (3)": {
+      "disposition": "weak",
+      "evidence": "case_sla 13 already has has_breached = 0 on the seed; the cell is still carried by the SLA 13 requirement, where it bites only together with stage and completed_time"
+    },
+    "update_case_sla_details (4)": {
+      "disposition": "repaired",
+      "evidence": "COUNT(completed_time) = 1 only tests that a time was recorded for SLA 14; the request says 'on 2025-09-01', so the SLA 14 requirement tests completed_time LIKE '2025-09-01%'"
+    }
+  },
+  "notes": "Merged from two passes that agree on every value (case 7, priority critical, escalation 1 with reason urgency, assigned_to 177 in group 18, state resolved, SLAs 13 and 14 completed without breach on 2025-09-01) and on all ten dispositions (eight kept, (3) weak, (4) repaired). disagreement: shape: A one requirement per cell (nine requirements), B grouped by request sentence with two originals named in source where one requirement carries both; chose B's grouping, because one requirement per request sentence keeps each thing asked together, and source lists the originals' exact names where one requirement carries two of them. disagreement: SLA cells: B adds case_id = 7 to both SLA requirements, A does not; dropped because the anchor fixes the row. disagreement: missing requirement: B's stay on the ten outstanding SLAs of Elizabeth Chase's other cases, absent in A; kept as the boundary of the SLA selector. disagreement: missing requirement: B's stay on case 14, her other multiply-reopened case, absent in A; kept as the boundary of the case description. The originals are value queries (SELECT column ...), not counts; each is carried as a COUNT requirement on the same anchor and cell. The originals never test has_breached on SLA 14 or completed_time on SLA 13; both are covered by the merged SLA requirements. Nothing tests the policy's 'justification logged in case notes' because the schema has no such table. Server-kept sys_updated_on is not a cell. revised: the shape disagreement line no longer cites an outside rule and states the reason for the grouping itself. revised: the stay on the customer's other outstanding SLAs no longer repeats stage = 'in_progress' in cells; its selector already fixes that column, so its cells are empty and its count is unchanged.",
+  "minutes": 11
+}

@@ -1,0 +1,143 @@
+{
+  "task_id": "task_20260117_000130_134_2aa6b0ad_a20f3a61",
+  "policy_sha1": "4afd943b",
+  "requirements": [
+    {
+      "text": "record a new incident for Sophie",
+      "kind": "create",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_024"
+      },
+      "cells": {
+        "caller_id": "USER_008",
+        "service": "SVC_004",
+        "configuration_item": "CI_001",
+        "channel": "phone",
+        "impact": "low",
+        "urgency": "low",
+        "priority": "planning",
+        "status": "new",
+        "short_description": [
+          "LIKE '%laptop%'",
+          "LIKE '%failures%'",
+          "LIKE '%backend%'",
+          "LIKE '%connectivity%'",
+          "LIKE '%intermittent%'"
+        ]
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_024' AND caller_id = 'USER_008' AND service = 'SVC_004' AND configuration_item = 'CI_001' AND channel = 'phone' AND impact = 'low' AND urgency = 'low' AND priority = 'planning' AND status = 'new' AND short_description LIKE '%laptop%' AND short_description LIKE '%failures%' AND short_description LIKE '%backend%' AND short_description LIKE '%connectivity%' AND short_description LIKE '%intermittent%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Incident Creation",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence: INC_023 is the highest incident id",
+        "caller is Sophie Mueller, USER_008 (sophie.mueller@acme.com, active), the only user of that name",
+        "service is Development Environment, SVC_004, the only service of that name",
+        "device is Carlos Laptop, CI_001 (serial LAPTOP-NYC-001), the only configuration item of that name; its status in_use allows linking to an active incident",
+        "channel phone: the new report was received by phone",
+        "impact and urgency low: the lowest values in the incident.impact and incident.urgency enumerations, as the request asks",
+        "priority planning: low impact with low urgency in the policy's priority matrix",
+        "status new: the policy's default for all new incidents",
+        "short_description terms laptop, backend and intermittent follow the request's words (Carlos Laptop, backend services, intermittently)",
+        "short_description terms failures and connectivity kept from the benchmark check; not fixed by request or policy"
+      ]
+    },
+    {
+      "text": "associate it appropriately to maintain continuity",
+      "kind": "create",
+      "table": "child_incident",
+      "anchor": {
+        "child_incident_mapping_id": "CINC_008"
+      },
+      "cells": {
+        "parent_incident": "INC_023",
+        "child_incident": "INC_024"
+      },
+      "sql": "SELECT COUNT(*) FROM child_incident WHERE child_incident_mapping_id = 'CINC_008' AND parent_incident = 'INC_023' AND child_incident = 'INC_024'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Incident Link to Parent Incident",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence: CINC_007 is the highest mapping id",
+        "parent is INC_023: the only on_hold incident with caller USER_008, service SVC_004 and assignment group GROUP_004 (Infrastructure Team)",
+        "a related incident exists, so the new incident is recorded as its child rather than as a standalone incident",
+        "this on-hold record will serve as the parent context, so INC_023 is the parent and INC_024 the child"
+      ]
+    },
+    {
+      "text": "remind Sophie that the issue has been recorded and is under investigation, and advise her to report any further degradation or additional symptoms",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": "NOTIF_008"
+      },
+      "cells": {
+        "incident_id": "INC_024",
+        "email": "sophie.mueller@acme.com",
+        "type": "reminder",
+        "subject": [
+          "LIKE '%update%'",
+          "LIKE '%development%'",
+          "LIKE '%issue%'"
+        ],
+        "message": [
+          "LIKE '%issue%'",
+          "LIKE '%application connectivity%'",
+          "LIKE '%development environment%'",
+          "LIKE '%logged%'",
+          "LIKE '%currently%'",
+          "LIKE '%investigation%'",
+          "LIKE '%additional symptoms%'"
+        ]
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 'NOTIF_008' AND incident_id = 'INC_024' AND email = 'sophie.mueller@acme.com' AND type = 'reminder' AND subject LIKE '%update%' AND subject LIKE '%development%' AND subject LIKE '%issue%' AND message LIKE '%issue%' AND message LIKE '%application connectivity%' AND message LIKE '%development environment%' AND message LIKE '%logged%' AND message LIKE '%currently%' AND message LIKE '%investigation%' AND message LIKE '%additional symptoms%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Incident Reminder Notification Sent",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence: NOTIF_007 is the highest notification id",
+        "recipient is Sophie Mueller's address on her user record, sophie.mueller@acme.com",
+        "notification belongs to the new incident INC_024, the record she is told about",
+        "type reminder: the request asks to remind Sophie",
+        "message terms issue, investigation and additional symptoms follow the request's words",
+        "message terms logged, currently, application connectivity and development environment kept from the benchmark check; not fixed by request or policy",
+        "subject terms update, development and issue kept from the benchmark check; the request fixes the reminder's content but not its subject"
+      ]
+    },
+    {
+      "text": "this on-hold record will serve as the parent context",
+      "kind": "stay",
+      "table": "child_incident",
+      "selector": "child_incident = 'INC_024'",
+      "cells": {
+        "parent_incident": "<> 'INC_023'"
+      },
+      "sql": "SELECT COUNT(*) FROM child_incident WHERE child_incident = 'INC_024' AND parent_incident <> 'INC_023'",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of the parent selector: the new incident gets no parent other than INC_023",
+        "near matches a loose reading would sweep in: INC_009, INC_012 and INC_020 (Sophie's, SVC_004, GROUP_004, in progress), INC_021 (SVC_004, GROUP_004, new, called in by USER_007) and INC_010 (on hold, GROUP_004, SVC_003); none is the parent the request names"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify Incident Creation": {
+      "disposition": "kept"
+    },
+    "Verify Incident Link to Parent Incident": {
+      "disposition": "kept"
+    },
+    "Verify Incident Reminder Notification Sent": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "The two independent passes agreed on every requirement, cell and disposition, so no disagreement is recorded. The verification steps (Sophie's user details; the service, location and device; whether a related open incident exists) are reads and change no rows. The incident table has no location column: the New York office resolves to LOC_001 (TechCorp NYC Headquarters, the only New York location), which is also Carlos Laptop's location, so the location is confirmed by lookup and not tested. Sophie, the Development Environment and INC_023 belong to ORG_002, whereas the acting user, Carlos Laptop and LOC_001 belong to ORG_001; the request names this device and office and the policy restricts CI links only by status, so the configuration item stays CI_001, and the org_id of the new incident and of the notification is fixed by neither request nor policy and is not tested. The request asks for assignment details only for a standalone incident; since a related incident exists, the new incident's assignment_group and assigned_to are fixed by neither request nor benchmark and are not tested. contact_type is not tested: the request fixes only the channel, and in every seed row contact_type follows channel by a fixed mapping (phone to phone, email to email, self-service to portal), so it is derived. Linked children in the seed (INC_009 under INC_012) keep incident.parent_incident empty, so the link is tested in child_incident only. The policy's knowledge search on creation yields no requirement: no seed article covers backend connectivity or the Development Environment (the articles cover passwords, email and desktop boot), and no listed tool searches or links knowledge. SLA alignment is automatic by priority under the policy, and the policy's mandatory opened_by has no incident column, so neither is a requirement. The seed's older incidents do not follow the priority matrix consistently (four low/low rows carry low, INC_008 carries planning); the policy's matrix decides the new incident's priority. LIKE in this database ignores ASCII case, so the text patterns are written in lower case without LOWER() and match the same rows as the benchmark's forms (including the notification check's '%Update%', '%Development%' and '%Issue%'); the benchmark's join of notification to incident is dropped because the incident requirement already tests that INC_024 exists. The acting user, Marcus Thompson (USER_001), holds the admin role, which has full CRUD under the policy.",
+  "minutes": 41
+}

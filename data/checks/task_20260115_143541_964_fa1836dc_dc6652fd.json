@@ -1,0 +1,272 @@
+{
+  "task_id": "task_20260115_143541_964_fa1836dc_dc6652fd",
+  "policy_sha1": "4372668d",
+  "requirements": [
+    {
+      "text": "the 'Online Card Payments' service is registered as a production, operational, critical business service",
+      "kind": "create",
+      "table": "service",
+      "anchor": {
+        "service_id": "SVC_005"
+      },
+      "cells": {
+        "name": "Online Card Payments",
+        "used_for": "production",
+        "status": "operational",
+        "service_classification": "business",
+        "business_criticality": "critical"
+      },
+      "sql": "SELECT COUNT(*) FROM service WHERE service_id = 'SVC_005' AND name = 'Online Card Payments' AND used_for = 'production' AND status = 'operational' AND service_classification = 'business' AND business_criticality = 'critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Check if \"Online Card Payments\" service exists with correct properties",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (SVC_005 after SVC_004); the only service the task creates",
+        "owned_by and org_id are NOT NULL but not stated, so not tested; the acting user is an admin with full CRUD"
+      ]
+    },
+    {
+      "text": "Its core offerings ... must be registered under the same service classification and usage context",
+      "kind": "create",
+      "table": "service_offering",
+      "selector": "business_service = 'SVC_005' AND name IN ('Credit Card Authorization', 'Fraud Screening', 'Payment Settlement')",
+      "cells": {
+        "used_for": "production",
+        "status": "operational",
+        "service_classification": "business"
+      },
+      "sql": "SELECT COUNT(*) FROM service_offering WHERE business_service = 'SVC_005' AND name IN ('Credit Card Authorization', 'Fraud Screening', 'Payment Settlement') AND used_for = 'production' AND status = 'operational' AND service_classification = 'business'",
+      "expected": 3,
+      "comparison": "equals",
+      "source": "Count the core service offerings that exist under \"Online Card Payments\" with correct properties",
+      "seed_count": 0,
+      "assumptions": [
+        "'same service classification and usage context' means service_classification = business and used_for = production, as the parent service",
+        "status = operational is not in the sentence; kept from the original check and from 'only the Online Card Payments service remains active' and 'real operational readiness'",
+        "short_description, owned_by and org_id are NOT NULL but not stated, so not tested"
+      ]
+    },
+    {
+      "text": "business criticality set in ascending order of their names (A-Z): 'Credit Card Authorization'",
+      "kind": "create",
+      "table": "service_offering",
+      "selector": "business_service = 'SVC_005' AND name = 'Credit Card Authorization'",
+      "cells": {
+        "business_criticality": "less-critical"
+      },
+      "sql": "SELECT COUNT(*) FROM service_offering WHERE business_service = 'SVC_005' AND name = 'Credit Card Authorization' AND business_criticality = 'less-critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Check if criticality of \"Credit Card Authorization\" is \"less-critical\"",
+      "seed_count": 0,
+      "assumptions": [
+        "selected by natural key (parent service SVC_005 and name), not by id: the task creates three offerings in this table and fixes no order; both passes had anchored it by sequence position (SVCOFF_005, 006, 007), rewritten here",
+        "SVC_005 is the new parent's id, assumed next in sequence; the original check tests the name alone, without the parent",
+        "first name A-Z takes the lowest of the three tiers",
+        "the criticality ladder is less-critical < somewhat-critical < critical: the policy lists no enumeration, 'less-critical' is named in the request, 'somewhat-critical' comes from the original check (it fills the column's VARCHAR(17) exactly and is not in the seed), and the original checks use these three values"
+      ]
+    },
+    {
+      "text": "business criticality set in ascending order of their names (A-Z): 'Fraud Screening'",
+      "kind": "create",
+      "table": "service_offering",
+      "selector": "business_service = 'SVC_005' AND name = 'Fraud Screening'",
+      "cells": {
+        "business_criticality": "somewhat-critical"
+      },
+      "sql": "SELECT COUNT(*) FROM service_offering WHERE business_service = 'SVC_005' AND name = 'Fraud Screening' AND business_criticality = 'somewhat-critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Check if criticality of \"Fraud Screening is \"somewhat-critical\"",
+      "seed_count": 0,
+      "assumptions": [
+        "selected by natural key (parent service SVC_005 and name), not by id: the task creates three offerings in this table and fixes no order; both passes had anchored it by sequence position (SVCOFF_005, 006, 007), rewritten here",
+        "SVC_005 is the new parent's id, assumed next in sequence; the original check tests the name alone, without the parent",
+        "middle name A-Z takes the middle tier; see the Credit Card Authorization requirement for the ladder"
+      ]
+    },
+    {
+      "text": "business criticality set in ascending order of their names (A-Z), with the highest set to critical: 'Payment Settlement'",
+      "kind": "create",
+      "table": "service_offering",
+      "selector": "business_service = 'SVC_005' AND name = 'Payment Settlement'",
+      "cells": {
+        "business_criticality": "critical"
+      },
+      "sql": "SELECT COUNT(*) FROM service_offering WHERE business_service = 'SVC_005' AND name = 'Payment Settlement' AND business_criticality = 'critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Check if criticality of \"Payment Settlement is \"critical\"",
+      "seed_count": 0,
+      "assumptions": [
+        "selected by natural key (parent service SVC_005 and name), not by id: the task creates three offerings in this table and fixes no order; both passes had anchored it by sequence position (SVCOFF_005, 006, 007), rewritten here",
+        "SVC_005 is the new parent's id, assumed next in sequence; the original check tests the name alone, without the parent",
+        "last name A-Z takes the highest value, critical, as the request states"
+      ]
+    },
+    {
+      "text": "any existing services ... under \"business\" classification ... must be downgraded to non-operational status and marked as less-critical",
+      "kind": "change",
+      "table": "service",
+      "anchor": {
+        "service_id": "SVC_002"
+      },
+      "cells": {
+        "service_classification": "business",
+        "status": "non-operational",
+        "business_criticality": "less-critical"
+      },
+      "sql": "SELECT COUNT(*) FROM service WHERE service_id = 'SVC_002' AND service_classification = 'business' AND status = 'non-operational' AND business_criticality = 'less-critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Count conflicting legacy services that are downgraded",
+      "seed_count": 0,
+      "assumptions": [
+        "SVC_002 'Customer Portal' is the only service with service_classification = business on the seed; 'existing' excludes the new SVC_005, which the request keeps active",
+        "'non-operational' is the status value the original check uses; the policy lists no service enumeration",
+        "used_for is not asked to change, so not tested",
+        "disagreement: sql predicate: A tests service_classification = 'business' as well, B tests only status and criticality; chose A's tighter form because the original check tests the classification and nothing asks it to change; added to cells so cells and sql match"
+      ]
+    },
+    {
+      "text": "any existing ... service offerings under \"business\" classification ... must be downgraded to non-operational status and marked as less-critical",
+      "kind": "change",
+      "table": "service_offering",
+      "anchor": {
+        "service_offering_id": "SVCOFF_002"
+      },
+      "cells": {
+        "service_classification": "business",
+        "status": "non-operational",
+        "business_criticality": "less-critical"
+      },
+      "sql": "SELECT COUNT(*) FROM service_offering WHERE service_offering_id = 'SVCOFF_002' AND service_classification = 'business' AND status = 'non-operational' AND business_criticality = 'less-critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Count conflicting legacy service offerings that are downgraded",
+      "seed_count": 0,
+      "assumptions": [
+        "SVCOFF_002 'Web Portal Login' is the only offering with service_classification = business on the seed; the three new offerings under SVC_005 are not 'existing'",
+        "'non-operational' is the status value the original check uses; the policy lists no service enumeration",
+        "used_for is not asked to change, so not tested",
+        "disagreement: sql predicate: A tests service_classification = 'business' as well, B tests only status and criticality; chose A's tighter form because the original check tests the classification and nothing asks it to change; added to cells so cells and sql match"
+      ]
+    },
+    {
+      "text": "any services ... currently in development must be promoted to production readiness and the highest criticality set",
+      "kind": "change",
+      "table": "service",
+      "anchor": {
+        "service_id": "SVC_004"
+      },
+      "cells": {
+        "used_for": "production",
+        "status": "operational",
+        "business_criticality": "critical"
+      },
+      "sql": "SELECT COUNT(*) FROM service WHERE service_id = 'SVC_004' AND used_for = 'production' AND status = 'operational' AND business_criticality = 'critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Count the development services that are promoted",
+      "seed_count": 0,
+      "assumptions": [
+        "SVC_004 'Development Environment' is the only service with used_for = development on the seed",
+        "'production readiness' is used_for = production; status = operational already holds on the seed and is kept from the original check; 'highest criticality' is critical",
+        "'so that they directly support the new card payment flow' is read as purpose, not as re-classifying or re-parenting; the row is in ORG_002, which the admin acting user may update and the request does not limit by organisation"
+      ]
+    },
+    {
+      "text": "any ... offerings currently in development must be promoted to production readiness and the highest criticality set",
+      "kind": "change",
+      "table": "service_offering",
+      "anchor": {
+        "service_offering_id": "SVCOFF_004"
+      },
+      "cells": {
+        "used_for": "production",
+        "status": "operational",
+        "business_criticality": "critical"
+      },
+      "sql": "SELECT COUNT(*) FROM service_offering WHERE service_offering_id = 'SVCOFF_004' AND used_for = 'production' AND status = 'operational' AND business_criticality = 'critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Count the development service offerings that are promoted",
+      "seed_count": 0,
+      "assumptions": [
+        "SVCOFF_004 'Dev Server Access' is the only offering with used_for = development on the seed",
+        "business_service stays SVC_004: the request does not say to move it under Online Card Payments"
+      ]
+    },
+    {
+      "text": "any existing services ... under \"business\" classification (boundary: the technology-management services are not downgraded)",
+      "kind": "stay",
+      "table": "service",
+      "selector": "service_id IN ('SVC_001', 'SVC_003')",
+      "cells": {
+        "status": "operational",
+        "business_criticality": "critical"
+      },
+      "sql": "SELECT COUNT(*) FROM service WHERE service_id IN ('SVC_001', 'SVC_003') AND status = 'operational' AND business_criticality = 'critical'",
+      "expected": 2,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 2,
+      "assumptions": [
+        "boundary of the selector: a loose reading of 'legacy' or 'potentially conflicting' could sweep in the two technology-management services; the request limits the downgrade to the business classification"
+      ]
+    },
+    {
+      "text": "any existing ... service offerings under \"business\" classification (boundary: the technology-management offerings are not downgraded)",
+      "kind": "stay",
+      "table": "service_offering",
+      "selector": "service_offering_id IN ('SVCOFF_001', 'SVCOFF_003')",
+      "cells": {
+        "status": "operational",
+        "business_criticality": "critical"
+      },
+      "sql": "SELECT COUNT(*) FROM service_offering WHERE service_offering_id IN ('SVCOFF_001', 'SVCOFF_003') AND status = 'operational' AND business_criticality = 'critical'",
+      "expected": 2,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 2,
+      "assumptions": [
+        "same boundary as the services: only the business-classified offering is downgraded"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Check if \"Online Card Payments\" service exists with correct properties": {
+      "disposition": "kept"
+    },
+    "Count the core service offerings that exist under \"Online Card Payments\" with correct properties": {
+      "disposition": "kept"
+    },
+    "Check if criticality of \"Credit Card Authorization\" is \"less-critical\"": {
+      "disposition": "kept",
+      "evidence": "carried with the parent service added to the selector; its cell is unchanged"
+    },
+    "Check if criticality of \"Fraud Screening is \"somewhat-critical\"": {
+      "disposition": "kept",
+      "evidence": "carried with the parent service added to the selector; its cell is unchanged"
+    },
+    "Check if criticality of \"Payment Settlement is \"critical\"": {
+      "disposition": "kept",
+      "evidence": "carried with the parent service added to the selector; its cell is unchanged"
+    },
+    "Count conflicting legacy services that are downgraded": {
+      "disposition": "kept"
+    },
+    "Count conflicting legacy service offerings that are downgraded": {
+      "disposition": "kept"
+    },
+    "Count the development services that are promoted": {
+      "disposition": "kept"
+    },
+    "Count the development service offerings that are promoted": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on every requirement's substance (the new service, the three offerings' shared properties and criticalities, the two downgrades, the two promotions, the two boundary stays) and on all nine dispositions (kept). disagreement: the downgrade requirements' sql (A also tests service_classification = 'business', B does not); kept A's tighter form because the original checks test the classification and nothing asks it to change, and the cell was added so cells and sql match. Both passes anchored the three new offerings by sequence position (SVCOFF_005, 006, 007); rewritten as selectors on the natural key (business_service = SVC_005 and name), since the task creates three rows in that table and fixes no order. The one judgement a reviewer should look at, flagged by both passes: the criticality ladder less-critical < somewhat-critical < critical is stated nowhere in the request or policy ('somewhat-critical' is absent from the seed and comes from the original check); if the enumeration has a fourth tier, the lowest two could be read differently, though 'ascending' with the top fixed at critical makes the consecutive reading the natural one. The policy (sha 4372668d) has no rules or enumerations for service or service_offering fields. 'Northbridge Retail Systems' matches no organisation on the seed; the admin acting user has full CRUD so org is not tested.\nrevised: the note on the three new offerings' selectors now gives only its reason (three rows created in one table with no order fixed) and no longer appeals to an outside rule.",
+  "minutes": 9
+}

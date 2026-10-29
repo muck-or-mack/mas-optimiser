@@ -1,0 +1,127 @@
+{
+  "task_id": "task_20251218_164829_676_97d7df7d_893f6b2c",
+  "policy_sha1": "9698a42f",
+  "requirements": [
+    {
+      "text": "The same user has now reported a new incident involving the service owned by me, describing intermittent screen freezing on the item valued at more than 1000 and located in the city of New York. His report came in by phone ... lowest available levels of impact and urgency",
+      "kind": "create",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_024"
+      },
+      "cells": {
+        "caller_id": "USER_005",
+        "service": "SVC_001",
+        "configuration_item": "CI_001",
+        "channel": "phone",
+        "impact": "low",
+        "urgency": "low",
+        "priority": "planning",
+        "status": "new",
+        "short_description": [
+          "LIKE '%screen%'",
+          "LIKE '%freez%'",
+          "LIKE '%intermittent%'"
+        ]
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_024' AND caller_id = 'USER_005' AND service = 'SVC_001' AND configuration_item = 'CI_001' AND channel = 'phone' AND impact = 'low' AND urgency = 'low' AND priority = 'planning' AND status = 'new' AND LOWER(short_description) LIKE '%screen%' AND LOWER(short_description) LIKE '%freez%' AND LOWER(short_description) LIKE '%intermittent%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_child_incident_created",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest on the seed is INC_023); the only incident the task creates",
+        "'the same user' is Benjamin Chen, USER_005, the only Benjamin on the seed (active)",
+        "'the service owned by me': the acting user Marcus Thompson (USER_001) owns exactly one service, SVC_001 Email Service",
+        "'item valued at more than 1000 ... in New York': CI_001 (cost 1200, LOC_001 New York); CI_002 is in New York but costs 800, CI_003 and CI_004 cost more than 1000 but sit in San Francisco",
+        "'lowest available levels': impact = low and urgency = low from the policy enumerations",
+        "priority = planning from the policy matrix (low x low), added to the benchmark check; the seed's own rows are inconsistent for low x low (four say low, one planning), so the policy decides",
+        "status = new from policy 3.1 (default status for new incidents), added to the benchmark check",
+        "short_description words (screen, freez, intermittent) kept from the benchmark check; the request says 'intermittent screen freezing'",
+        "disagreement: cell form: A 'LIKE ...' on the column, B 'LOWER(short_description) LIKE ...'; chose A's (a cell is a predicate on its column; the sql keeps LOWER() as the benchmark check writes it); same meaning",
+        "'normal standalone incident record' read as the incident being created in its own right; parent_incident on the row is not tested because the later sentence makes it a child through the child_incident table (add_child_incident is listed)",
+        "contact_type, category and org_id are not tested: the benchmark check maps 'by phone' to channel only, and the request fixes none of them"
+      ]
+    },
+    {
+      "text": "it needs to be associated under the earlier resolved case as its child incident",
+      "kind": "create",
+      "table": "child_incident",
+      "selector": "parent_incident = 'INC_001' AND child_incident = 'INC_024'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM child_incident WHERE parent_incident = 'INC_001' AND child_incident = 'INC_024'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_child_relationship",
+      "seed_count": 0,
+      "assumptions": [
+        "the parent is INC_001: the only resolved incident with caller USER_005 (Benjamin) and assignment_group GROUP_001 (Level 1 Support Team) on the seed; INC_003 and INC_014 are GROUP_001 but status new",
+        "selected by the natural key (parent, child), which the schema holds unique (uq_parent_child_incident), as the benchmark check does; the mapping id CINC_008 would be next in sequence but is not relied on",
+        "disagreement: form: A a selector on the natural key with both columns repeated as cells, B an anchor on the natural key with empty cells; chose a selector on the natural key with empty cells (a row found by its natural key rather than by a sequence id is written as a selector; the key sits in the selector and nothing beyond existence is tested); the sql is the same in both passes"
+      ]
+    },
+    {
+      "text": "Please work with the previously resolved incident that Benjamin reported, the one that was handled by the group named Level 1 Support Team, as this case will serve as the parent record",
+      "kind": "stay",
+      "table": "child_incident",
+      "selector": "child_incident = 'INC_024'",
+      "cells": {
+        "parent_incident": "<> 'INC_001'"
+      },
+      "sql": "SELECT COUNT(*) FROM child_incident WHERE child_incident = 'INC_024' AND parent_incident <> 'INC_001'",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of the parent selector: INC_003 and INC_014 are also Benjamin's Level 1 Support Team incidents but are new, not resolved, and INC_002 is in progress under another group; none may be the parent",
+        "disagreement: form: A puts both conditions in the selector with empty cells, B repeats parent_incident <> 'INC_001' as a cell; chose the row key (child_incident = 'INC_024') as the selector and the tested predicate as the cell, since the selector names the rows and the cells carry every further predicate; the sql is the same in both passes"
+      ]
+    },
+    {
+      "text": "send a report to the user that reported it regarding this update. Use the subject Update on Your Service Performance Report ...",
+      "kind": "create",
+      "table": "notification",
+      "selector": "incident_id = 'INC_024' AND email = 'benjamin.chen@techcorp.com'",
+      "cells": {
+        "type": "report",
+        "subject": "Update on Your Service Performance Report",
+        "message": [
+          "LIKE '%previous%'",
+          "LIKE '%screen%'",
+          "LIKE '%freez%'",
+          "LIKE '%symptom%'",
+          "LIKE '%logged%'",
+          "LIKE '%appear%'"
+        ]
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_024' AND email = 'benjamin.chen@techcorp.com' AND type = 'report' AND subject = 'Update on Your Service Performance Report' AND LOWER(message) LIKE '%previous%' AND LOWER(message) LIKE '%screen%' AND LOWER(message) LIKE '%freez%' AND LOWER(message) LIKE '%symptom%' AND LOWER(message) LIKE '%logged%' AND LOWER(message) LIKE '%appear%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_notification_sent",
+      "seed_count": 0,
+      "assumptions": [
+        "recipient is the reporter Benjamin Chen, email benjamin.chen@techcorp.com on the seed",
+        "type = report from 'send a report'; the seed uses 'report' as a notification type",
+        "subject taken exactly as the request gives it",
+        "message words (previous, screen, freez, symptom, logged, appear) kept from the benchmark check; all six are in the request's wording of the message",
+        "selected by incident and recipient as the benchmark check does; the join to incident in the original is dropped because the foreign key and the incident requirement already cover it; the row's id would be NOTIF_008 but is not relied on",
+        "disagreement: cell form: A 'LIKE ...' on the column, B 'LOWER(message) LIKE ...'; chose A's, as on the incident requirement; same meaning",
+        "notification status not tested: nothing in the request or policy fixes it"
+      ]
+    }
+  ],
+  "original_checks": {
+    "verify_child_incident_created": {
+      "disposition": "kept"
+    },
+    "verify_child_relationship": {
+      "disposition": "kept"
+    },
+    "verify_notification_sent": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on the four requirements (INC_024 for Benjamin on SVC_001 and CI_001 at planning, the child link to INC_001, a boundary stay on any other parent, the report notification with the benchmark's six words), on every value and on all three dispositions; the only differences are forms, each logged in its requirement. disagreement: cell form on the incident and notification requirements: B writes LOWER(column) LIKE in the cells, A the plain LIKE on the column; chose A's form, the sql keeping LOWER() as the benchmark writes it. disagreement: form of the child-link requirement: A a selector on the natural key with the two columns repeated as cells, B an anchor on it with empty cells; chose the selector with empty cells. disagreement: form of the boundary stay: A both conditions in the selector, B the parent predicate repeated as a cell; chose the row key as the selector and the predicate as the cell, since the selector names the rows and the cells carry the tested predicate. The acting user Marcus Thompson (USER_001) is an admin and owns SVC_001, which resolves 'the service owned by me'. Every id in the benchmark checks agrees with the seed (USER_005, SVC_001, CI_001, INC_001, INC_024 next in sequence). Priority = planning and status = new are added from the policy; the seed's existing rows do not follow the matrix consistently for low x low, so if the create tool derives priority differently from the matrix this cell is the one to revisit. Policy 7 asks for a knowledge search on incident creation; which articles match is undecidable and no listed tool searches or links knowledge, so neither pass wrote a requirement for it. No requirement is a remove: nothing on the seed must be gone. revised: the child-link requirement's form is justified by the rule itself (a row found by its natural key is written as a selector), and the boundary stay's form by the selector naming the rows and the cells carrying the predicate, instead of by reference to outside practice. revised: the notification requirement's text is cut to the request's sentence on the report and its subject, the message words being listed in its cells.",
+  "minutes": 27
+}

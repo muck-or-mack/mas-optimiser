@@ -1,0 +1,77 @@
+{
+  "task_id": "task_20260114_081229_036_78a5b71e_a4fb07a9",
+  "policy_sha1": "4afd943b",
+  "requirements": [
+    {
+      "text": "Update the existing change record to reflect all affected configuration items",
+      "kind": "change",
+      "table": "change",
+      "anchor": {"change_id": "CHG_001"},
+      "cells": {"short_description": "LIKE '%SRV-LNX-4421%'"},
+      "sql": "SELECT COUNT(*) FROM change WHERE change_id = 'CHG_001' AND short_description LIKE '%SRV-LNX-4421%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Existing Change Updated with Additional CI",
+      "seed_count": 0,
+      "assumptions": [
+        "CHG0000001 is CHG_001 in the seed (status scheduled, configuration_item CI_001 = SAP-DB-01, serial SRV-ORC-9981)",
+        "the serial SRV-LNX-4421 is CI_002, SAP-APP-01 (Application Server), status in_use",
+        "the change table has one configuration_item column and no change-to-CI link table, so the added CI is recorded by naming its serial in short_description, as the benchmark check tests",
+        "which field names the added CI is not fixed by request or policy; kept from the benchmark check, and the request names the server by its serial"
+      ]
+    },
+    {
+      "text": "reflect all affected configuration items",
+      "kind": "stay",
+      "table": "change",
+      "anchor": {"change_id": "CHG_001"},
+      "cells": {"configuration_item": "CI_001"},
+      "sql": "SELECT COUNT(*) FROM change WHERE change_id = 'CHG_001' AND configuration_item = 'CI_001'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "'all affected configuration items' includes the originally listed CI_001 (SAP-DB-01); overwriting the single configuration_item column with CI_002 would drop it, so the seed value must stay"
+      ]
+    },
+    {
+      "text": "progress it to the appropriate post-implementation state so it can be finalized without delays",
+      "kind": "change",
+      "table": "change",
+      "anchor": {"change_id": "CHG_001"},
+      "cells": {"status": "review"},
+      "sql": "SELECT COUNT(*) FROM change WHERE change_id = 'CHG_001' AND status = 'review'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Change Moved Out of Implementation Phase",
+      "seed_count": 0,
+      "assumptions": [
+        "the policy's change_request.status enumeration runs implement -> review -> closed; the post-implementation state that leaves finalisation still to do is review",
+        "closed would finalise the record, which the request leaves for later ('so it can be finalized'), so closed is not accepted",
+        "seed status is scheduled; the request says the implementation completed, so the record lands on review"
+      ]
+    },
+    {
+      "text": "Do not create any new change records",
+      "kind": "stay",
+      "table": "change",
+      "selector": "1 = 1",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM change WHERE 1 = 1",
+      "expected": 25,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 25,
+      "assumptions": [
+        "the request forbids new change records; the seed holds 25 change rows (highest CHG_025) and the count must not grow"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Existing Change Updated with Additional CI": {"disposition": "kept"},
+    "Change Moved Out of Implementation Phase": {"disposition": "kept"}
+  },
+  "notes": "Merged from two passes that agree on every requirement (the serial SRV-LNX-4421 named in CHG_001's short_description, CHG_001 moved to review, CI_001 kept in its configuration_item column, no new change rows), every value and both dispositions (kept). disagreement: selector of the no-new-change stay: one pass writes it in words ('every row of change'), the other as the WHERE clause 1 = 1; chose 1 = 1 because a selector is a WHERE clause and the count is the same (25). disagreement: texts: one pass adds parentheticals to the request's words on the two configuration-item requirements; kept the request's own words. The acting user USER_039 (Karen Watkins) is an active admin in the seed, which the policy grants full CRUD on all tables, so no role gate applies. The change table carries a single configuration_item column, so the extra CI can only be reflected in text; the benchmark's LIKE on the serial is kept as the test. close_code and close_notes are not required: the request stops short of finalising the change.",
+  "minutes": 22
+}

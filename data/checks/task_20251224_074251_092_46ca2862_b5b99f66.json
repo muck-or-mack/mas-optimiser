@@ -1,0 +1,50 @@
+{
+  "task_id": "task_20251224_074251_092_46ca2862_b5b99f66",
+  "policy_sha1": "9d88b8bc",
+  "requirements": [
+    {
+      "text": "move the case to someone within the group who currently has the lightest workload or had lightest workload in past",
+      "kind": "change",
+      "table": "hr_case",
+      "anchor": {"hr_case_id": 4},
+      "cells": {"assigned_to": 33, "assignment_group": 7, "status": "awaiting_acceptance", "request_status": "requested"},
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 4 AND assigned_to = 33 AND assignment_group = 7 AND status = 'awaiting_acceptance' AND request_status = 'requested'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "update_hr_case",
+      "seed_count": 0,
+      "assumptions": [
+        "HRC0000714 is hr_case_id 4, in work_in_progress, assigned to user 6 (Stephanie Todd) and group 7 (Network Infrastructure); user 6 belongs to group 2 only, so the current assignee is outside the case's group",
+        "group 7 has two members, user 29 (Anne Medina) and user 33 (Zachary Mcintosh); neither has an open case or open task, so current workload ties at zero",
+        "past workload breaks the tie: user 29 has one closed case and two closed tasks, user 33 none, so the case goes to user 33",
+        "the case stays in its group: the request moves it to someone within the group, so assignment_group remains 7",
+        "status awaiting_acceptance and request_status requested: the policy requires both when a case is assigned to a user, and work_in_progress to awaiting_acceptance is an allowed transition",
+        "user 33 is already a member of group 7, so the policy's add-to-group step does not apply",
+        "disagreement: assignment_group: one pass tests 7, the other leaves it untested; chose 7, the tighter predicate, because the request keeps the case within its group and group 7 is the case's group on the seed"
+      ]
+    },
+    {
+      "text": "update him about this",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {"notification_id": 61},
+      "cells": {"hr_case_id": 4, "email": "zachary.mcintosh3@servicenow.com", "type": "update"},
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 61 AND hr_case_id = 4 AND email = 'zachary.mcintosh3@servicenow.com' AND type = 'update'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "send_notification",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest notification_id in the seed is 60); the task creates exactly one notification",
+        "him is the new assignee, user 33, whose email is zachary.mcintosh3@servicenow.com",
+        "type update kept from the benchmark check; the request does not name a type, and 'update him' matches it"
+      ]
+    }
+  ],
+  "original_checks": {
+    "update_hr_case": {"disposition": "kept"},
+    "send_notification": {"disposition": "kept"}
+  },
+  "notes": "disagreement: value: the case's assignment_group: one pass tests 7, the other leaves it untested; kept 7, the tighter predicate, because the request moves the case to someone within its group and the case is in group 7 on the seed.\nThe acting user is Karen Watkins (user 39, admin), who may reassign cases.\nThe case row carries org_id 4 while group 7 and its members carry org_id 1; the request and the benchmark both treat group 7 as the case's team, so the file does too.\nThe notification's status is not fixed by the request or the policy and is not tested.",
+  "minutes": 25
+}

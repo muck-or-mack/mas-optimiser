@@ -1,0 +1,84 @@
+{
+  "task_id": "task_20251206_114027_879_5c0cd3a2_904991cc",
+  "policy_sha1": "10503d62",
+  "requirements": [
+    {
+      "text": "I’ve now debugged escalated case CS-0000009 using Juniper EX4300 guidelines but issue is not resolved yet",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 9
+      },
+      "cells": {
+        "state": "in_progress",
+        "escalation": 1,
+        "product_id": 163,
+        "short_description": "LIKE 'Product: Juniper EX4300 Variant 31,%'"
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 9 AND state = 'in_progress' AND escalation = 1 AND product_id = 163 AND short_description LIKE 'Product: Juniper EX4300 Variant 31,%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Updated Escalated Case for Juniper EX4300 Issue",
+      "seed_count": 0,
+      "assumptions": [
+        "CS-0000009 is case 9, assigned to the acting user Anthony Peterson (user 724), so he may update it",
+        "state in_progress implied by the request, not stated: the case is being worked and is not resolved; it is pending on the seed and pending to in_progress is a valid lifecycle transition",
+        "escalation = 1 from 'escalated case'; it holds on the seed and must remain",
+        "product_id 163 is Juniper EX4300 Variant 31, the only product of that name; it stands for the benchmark's join on the product name and holds on the seed",
+        "short_description pattern kept from the benchmark check; not fixed by request or policy (the seed already matches)"
+      ]
+    },
+    {
+      "text": "Please link the appropriate guidelines article.",
+      "kind": "create",
+      "table": "case_knowledge",
+      "anchor": {
+        "case_kb_id": 528
+      },
+      "cells": {
+        "case_id": 9,
+        "knowledge_id": 243,
+        "used_as": "applied"
+      },
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_kb_id = 528 AND case_id = 9 AND knowledge_id = 243 AND used_as = 'applied'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Knowledge Article Linked to Case",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (527 is the highest case_kb_id on the seed); the task creates exactly one link",
+        "the appropriate article is KB-0000243 (knowledge 243), the published step-by-step guide for Juniper EX4300 Variant 31 (product 163), the only published article for the case's product",
+        "used_as applied: the guide was used to debug but did not resolve the issue and was not found by automated search, so the policy gives neither suggested nor resolution",
+        "knowledge 243 is internal, visible to agents, so linking it for an agent is permitted"
+      ]
+    },
+    {
+      "text": "link the appropriate guidelines article",
+      "kind": "stay",
+      "table": "case_knowledge",
+      "selector": "case_id = 9",
+      "cells": {
+        "knowledge_id": "IN (194, 209, 226, 261, 262)"
+      },
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_id = 9 AND knowledge_id IN (194, 209, 226, 261, 262)",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of 'Juniper EX4300 guidelines': KB-0000194 (base Juniper EX4300) and the Variant 7, 19 and 43 guides (209, 226, 261) match a loose reading but do not cover the case's Variant 31; 262 is also a draft, which the policy forbids linking"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify Updated Escalated Case for Juniper EX4300 Issue": {
+      "disposition": "kept"
+    },
+    "Knowledge Article Linked to Case": {
+      "disposition": "repaired",
+      "evidence": "the query joins knowledge on the constant knowledge_id = 243 without tying it to the link's knowledge_id, so any applied link on CS-0000009 would pass; the request asks for the appropriate article, which for the case's product (163) is knowledge 243, so the link itself must carry knowledge_id 243. The title and published-state predicates test seed facts of knowledge 243 (published, titled for Juniper EX4300 Variant 31), which no listed tool edits"
+    }
+  },
+  "notes": "Merged from two independent passes that agree on every requirement (same tables, anchors, cells and queries) and every disposition; no disagreements to log. The stay on the other Juniper EX4300 guides was written with the same query by both; it is kept with the case as the selector and the excluded articles as a cell. Case 9 is already assigned to the acting user (user 724, an active agent) on the seed, so 'I have been given responsibility for this case' is a statement of fact and sets no requirement; it also gives the acting user the right to update the case under the policy's security rule. The benchmark's case check reads the case by number and the product by name; the requirement reads case_id 9 and product_id 163, the same rows on this seed. The case's response SLA (case_sla 17) is paused because the case is pending; the policy pauses SLAs while a case is pending but does not say to resume them when it leaves pending, and no listed tool writes case_sla, so no SLA requirement is set. Another escalated case on the same product (case 1093) exists, but the request names CS-0000009 by number, so no boundary on it is needed.",
+  "minutes": 28
+}

@@ -1,0 +1,88 @@
+{
+  "task_id": "task_20251217_211242_026_391f1eff_27934d6b",
+  "policy_sha1": "c56705c3",
+  "requirements": [
+    {
+      "text": "she creates a new internal knowledge article. The article, titled \"Dell Laptop Battery Replacement\", includes the following body: \"If a Dell laptop battery is not charging, ...\"",
+      "kind": "create",
+      "table": "knowledge",
+      "anchor": {
+        "knowledge_id": "KB_026"
+      },
+      "cells": {
+        "title": "Dell Laptop Battery Replacement",
+        "body": "LIKE '%If a Dell laptop battery is not charging, perform battery health diagnostics. Replace the faulty battery and run post-replacement tests to confirm proper charging and normal operation.%'",
+        "state": "draft",
+        "visibility": "internal",
+        "owner_id": "USER_029"
+      },
+      "sql": "SELECT COUNT(*) FROM knowledge WHERE knowledge_id = 'KB_026' AND title = 'Dell Laptop Battery Replacement' AND body LIKE '%If a Dell laptop battery is not charging, perform battery health diagnostics. Replace the faulty battery and run post-replacement tests to confirm proper charging and normal operation.%' AND state = 'draft' AND visibility = 'internal' AND owner_id = 'USER_029'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "New KB",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (KB_026 after KB_025), as the benchmark check also assumes; the only knowledge row this task creates",
+        "state = draft from policy 7 (Knowledge Creation Policy: 'create and link a new knowledge draft'), agreeing with the benchmark check",
+        "visibility = internal from the request ('a new internal knowledge article')",
+        "owner_id = USER_029 kept from the benchmark check: Anne Medina is the acting user who creates it; not stated as a field by the request",
+        "'includes the following body' read as the body containing the quoted text verbatim (LIKE), not necessarily equal to it; the benchmark does not test body",
+        "org_id not fixed and not tested: Anne is in ORG_001 while INC_014 is in ORG_003; short_description not stated",
+        "disagreement: body: A LIKE '%<quoted text>%', B = '<quoted text>'; chose A because the request's word is 'includes', which fixes containment, and a tool that adds a heading or trims whitespace would fail equality while meeting the request"
+      ]
+    },
+    {
+      "text": "After resolving the incident INC-000014, Anne Medina identified that no existing knowledge article was referenced during the incident resolution ... she creates a new internal knowledge article",
+      "kind": "create",
+      "table": "incident_knowledge",
+      "anchor": {
+        "incident_kb_id": "IKB_046"
+      },
+      "cells": {
+        "incident_id": "INC_014",
+        "knowledge_id": "KB_026",
+        "used_as": "resolution"
+      },
+      "sql": "SELECT COUNT(*) FROM incident_knowledge WHERE incident_kb_id = 'IKB_046' AND incident_id = 'INC_014' AND knowledge_id = 'KB_026' AND used_as = 'resolution'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "KB link",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by the request, not stated: the request gives the article's purpose (the unreferenced resolution of INC-000014), policy 7 requires an article created after resolution with no prior link to be created and linked, and link_knowledge_to_incident is in the tool list",
+        "used_as = resolution from policy 7 ('created after incident resolution ... used as type to resolution in linking')",
+        "INC-000014 is incident_id INC_014 (seed: number 'INC-000014', status resolved, resolved_by USER_029, no incident_knowledge rows)",
+        "id assumed next in sequence (IKB_046 after IKB_045), as the benchmark check also assumes; the only link this task creates",
+        "org_id not fixed and not tested (incident ORG_003, owner ORG_001)"
+      ]
+    },
+    {
+      "text": "no existing knowledge article was referenced during the incident resolution",
+      "kind": "stay",
+      "table": "incident_knowledge",
+      "selector": "incident_id = 'INC_014'",
+      "cells": {
+        "knowledge_id": "<> 'KB_026'"
+      },
+      "sql": "SELECT COUNT(*) FROM incident_knowledge WHERE incident_id = 'INC_014' AND knowledge_id <> 'KB_026'",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of the selector: the seed holds a near-match published article KB_016 'Battery Swelling Policy'; the request says no existing article applied, so only the new article may be linked to INC_014",
+        "disagreement: selector: A knowledge_id <> 'KB_026' (no other article linked), B knowledge_id = 'KB_016' (the near-match only); chose A because it is tighter and contains B's case"
+      ]
+    }
+  ],
+  "original_checks": {
+    "KB link": {
+      "disposition": "kept"
+    },
+    "New KB": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "The request narrates what Anne does rather than instructing; the two creates follow from it and policy 7. Both benchmark checks anchor by the next ids in sequence (KB_026, IKB_046), which the seed's id_conventions confirm. The incident is already resolved on the seed and the request asks nothing of it, so no incident requirement is written. The article's org_id is left open: the acting user (ORG_001) and the incident (ORG_003) differ, and neither request, policy nor benchmark fixes it. Both creates have a tool (create_knowledge_article, link_knowledge_to_incident). Both passes found the same three requirements and kept both original checks. disagreement: body predicate: A containment (LIKE), B equality; kept A on the request's word 'includes'. disagreement: link stay selector: A any article other than KB_026, B KB_016 only; kept A as the tighter form. revised: the link stay named knowledge_id <> 'KB_026' in both its selector and its cells; the selector now names INC_014's links and the cell carries the condition that no article other than KB_026 is linked.",
+  "minutes": 17
+}

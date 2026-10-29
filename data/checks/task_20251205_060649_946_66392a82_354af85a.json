@@ -1,0 +1,210 @@
+{
+  "task_id": "task_20251205_060649_946_66392a82_354af85a",
+  "policy_sha1": "10503d62",
+  "requirements": [
+    {
+      "text": "identify these active contracts and extend their termination dates by approximately sixty days(2 calendar month)",
+      "kind": "change",
+      "table": "contract",
+      "anchor": {
+        "contract_id": 100
+      },
+      "cells": {
+        "contract_type": "warranty",
+        "status": "active",
+        "end_date": "2027-02-07"
+      },
+      "sql": "SELECT COUNT(*) FROM contract WHERE contract_id = 100 AND contract_type = 'warranty' AND status = 'active' AND end_date = '2027-02-07'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "December 2026 contract extended correctly(first)",
+      "seed_count": 0,
+      "assumptions": [
+        "seed end_date 2026-12-07; two calendar months gives 2027-02-07 (the '2 calendar month' gloss wins over 'approximately sixty days')",
+        "contract_type and status stay as the request implies (extend, not alter)"
+      ]
+    },
+    {
+      "text": "identify these active contracts and extend their termination dates by approximately sixty days(2 calendar month)",
+      "kind": "change",
+      "table": "contract",
+      "anchor": {
+        "contract_id": 115
+      },
+      "cells": {
+        "contract_type": "warranty",
+        "status": "active",
+        "end_date": "2027-02-28"
+      },
+      "sql": "SELECT COUNT(*) FROM contract WHERE contract_id = 115 AND contract_type = 'warranty' AND status = 'active' AND end_date = '2027-02-28'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "December 2026 contract extended correctly(Second)",
+      "seed_count": 0,
+      "assumptions": [
+        "seed end_date 2026-12-31; 31 February does not exist, so two calendar months clamps to the month's last day, 2027-02-28, as the original check expects; sixty days (2027-03-01) and SQLite's month rollover (2027-03-03) rejected because the request says 'calendar month'",
+        "contract_type and status stay as the request implies (extend, not alter)"
+      ]
+    },
+    {
+      "text": "identify these active contracts and extend their termination dates by approximately sixty days(2 calendar month)",
+      "kind": "change",
+      "table": "contract",
+      "anchor": {
+        "contract_id": 60
+      },
+      "cells": {
+        "contract_type": "warranty",
+        "status": "active",
+        "end_date": "2028-02-04"
+      },
+      "sql": "SELECT COUNT(*) FROM contract WHERE contract_id = 60 AND contract_type = 'warranty' AND status = 'active' AND end_date = '2028-02-04'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "December 2026 contract extended correctly(third)",
+      "seed_count": 0,
+      "assumptions": [
+        "seed end_date 2027-12-04 (a December 2027 contract; the original check's name says 2026 but its query is right); two calendar months gives 2028-02-04",
+        "contract_type and status stay as the request implies (extend, not alter)"
+      ]
+    },
+    {
+      "text": "identify these active contracts and extend their termination dates by approximately sixty days(2 calendar month)",
+      "kind": "change",
+      "table": "contract",
+      "anchor": {
+        "contract_id": 117
+      },
+      "cells": {
+        "contract_type": "warranty",
+        "status": "active",
+        "end_date": "2028-02-12"
+      },
+      "sql": "SELECT COUNT(*) FROM contract WHERE contract_id = 117 AND contract_type = 'warranty' AND status = 'active' AND end_date = '2028-02-12'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "December 2026 contract extended correctly(fourth )",
+      "seed_count": 0,
+      "assumptions": [
+        "seed end_date 2027-12-12 (a December 2027 contract; the original check's name says 2026 but its query is right); two calendar months gives 2028-02-12",
+        "contract_type and status stay as the request implies (extend, not alter)"
+      ]
+    },
+    {
+      "text": "identify these active contracts and extend their termination dates by approximately sixty days(2 calendar month)",
+      "kind": "change",
+      "table": "contract",
+      "anchor": {
+        "contract_id": 33
+      },
+      "cells": {
+        "contract_type": "warranty",
+        "status": "active",
+        "end_date": "2028-02-24"
+      },
+      "sql": "SELECT COUNT(*) FROM contract WHERE contract_id = 33 AND contract_type = 'warranty' AND status = 'active' AND end_date = '2028-02-24'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "December 2027 contract extended correctly(first)",
+      "seed_count": 0,
+      "assumptions": [
+        "seed end_date 2027-12-24; two calendar months gives 2028-02-24",
+        "contract_type and status stay as the request implies (extend, not alter)"
+      ]
+    },
+    {
+      "text": "identify these active contracts and extend their termination dates by approximately sixty days(2 calendar month)",
+      "kind": "change",
+      "table": "contract",
+      "anchor": {
+        "contract_id": 56
+      },
+      "cells": {
+        "contract_type": "warranty",
+        "status": "active",
+        "end_date": "2028-02-26"
+      },
+      "sql": "SELECT COUNT(*) FROM contract WHERE contract_id = 56 AND contract_type = 'warranty' AND status = 'active' AND end_date = '2028-02-26'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "December 2027 contract extended correctly(second)",
+      "seed_count": 0,
+      "assumptions": [
+        "seed end_date 2027-12-26; two calendar months gives 2028-02-26",
+        "contract_type and status stay as the request implies (extend, not alter)"
+      ]
+    },
+    {
+      "text": "several active warranty contracts ... specifically those expiring in the last month of those years (boundary: the December contracts that are not active warranties stay as they are)",
+      "kind": "stay",
+      "table": "contract",
+      "selector": "end_date GLOB '202[67]-12-*' AND NOT (contract_type = 'warranty' AND status = 'active')",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM contract WHERE end_date GLOB '202[67]-12-*' AND NOT (contract_type = 'warranty' AND status = 'active')",
+      "expected": 7,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 7,
+      "assumptions": [
+        "boundary of the warranty-and-active selector: the six active support or subscription contracts (58, 18, 38, 54, 84, 46) and the draft subscription 25 end in December 2026 or 2027 and keep those end dates",
+        "disagreement: selector: A contract_type <> 'warranty' AND status = 'active' (6 rows), B NOT (contract_type = 'warranty' AND status = 'active') (7 rows); chose B's because it is the tighter boundary of the same selector (it also guards the draft contract 25)"
+      ]
+    },
+    {
+      "text": "specifically those expiring in the last month of those years (boundary: active warranties expiring in November 2026 or November 2027 are not in the set)",
+      "kind": "stay",
+      "table": "contract",
+      "selector": "contract_type = 'warranty' AND status = 'active' AND end_date GLOB '202[67]-11-*'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM contract WHERE contract_type = 'warranty' AND status = 'active' AND end_date GLOB '202[67]-11-*'",
+      "expected": 6,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 6,
+      "assumptions": [
+        "a loose reading of 'the holiday months at the end of year' could sweep in November; contracts 87, 72, 73, 130, 127, 7 keep their end dates (an extension moves them out of November)",
+        "disagreement: shape: A two stays (November, January) with OR-lists of LIKE predicates in cells, B one stay over all four adjacent months with cells {contract_type, status}; chose two stays over the same nine rows, each selecting by an end_date GLOB, because a list of predicates means every predicate holds"
+      ]
+    },
+    {
+      "text": "specifically those expiring in the last month of those years (boundary: active warranties expiring in January 2027 or January 2028 are not in the set)",
+      "kind": "stay",
+      "table": "contract",
+      "selector": "contract_type = 'warranty' AND status = 'active' AND end_date GLOB '202[78]-01-*'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM contract WHERE contract_type = 'warranty' AND status = 'active' AND end_date GLOB '202[78]-01-*'",
+      "expected": 3,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 3,
+      "assumptions": [
+        "a loose reading of 'the Q4/Q1 bottleneck' could sweep in January; contracts 12, 119, 85 keep their end dates (no active warranty ends in January 2027)",
+        "same shape disagreement as the November stay above"
+      ]
+    }
+  ],
+  "original_checks": {
+    "December 2026 contract extended correctly(first)": {
+      "disposition": "kept"
+    },
+    "December 2026 contract extended correctly(Second)": {
+      "disposition": "kept"
+    },
+    "December 2027 contract extended correctly(first)": {
+      "disposition": "kept"
+    },
+    "December 2027 contract extended correctly(second)": {
+      "disposition": "kept"
+    },
+    "December 2026 contract extended correctly(third)": {
+      "disposition": "kept",
+      "evidence": "the name says December 2026 but contract 60 ends 2027-12-04 on the seed; the query and target date are right, only the label is off"
+    },
+    "December 2026 contract extended correctly(fourth )": {
+      "disposition": "kept",
+      "evidence": "the name says December 2026 but contract 117 ends 2027-12-12 on the seed; the query and target date are right, only the label is off"
+    }
+  },
+  "notes": "Merged from two passes that agree on the six change requirements (anchors, target dates, cells) and on all six dispositions (kept). disagreement: December boundary stay: A selects the active non-warranty contracts ending in December 2026 or 2027 (6 rows), B every contract ending in those Decembers that is not an active warranty (7 rows, adding the draft subscription 25); kept B's because it is the tighter boundary of the same selector. disagreement: adjacent-month boundary stay: A two requirements (November, January) whose cells hold OR-lists of LIKE predicates, B one requirement over all four months with cells {contract_type, status}; kept two requirements over the same nine rows, each selecting by an end_date GLOB, because a list of predicates means every predicate holds. The seed holds exactly six active warranty contracts ending in December 2026 or 2027 (100, 115; 60, 117, 33, 56), the six the originals name, so the originals cover the whole set. 'Approximately sixty days (2 calendar month)' is read as calendar-month arithmetic with end-of-month clamping, which every original target date uses; the only row where the two readings differ is 115 (28 Feb 2027 against 1 Mar 2027). Two original check names call December 2027 contracts 'December 2026'; the queries are right. No warranty contract with a non-active status ends in those Decembers and no active warranty ends in December of another year. Server-kept sys_updated_on is not a cell. revised: the three stays no longer repeat their selector's end_date GLOB in cells; the selector already fixes that column, so their cells are empty and their counts are unchanged.",
+  "minutes": 9
+}

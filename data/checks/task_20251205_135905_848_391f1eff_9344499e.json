@@ -1,0 +1,93 @@
+{
+  "task_id": "task_20251205_135905_848_391f1eff_9344499e",
+  "policy_sha1": "0d203073",
+  "requirements": [
+    {
+      "text": "assign it to the agent Lisa Brown (lisa.brown@servicenow.com), who is a member of the same group",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {"case_id": 379},
+      "cells": {"assigned_to": 656, "assignment_group_id": 9},
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 379 AND assigned_to = 656 AND assignment_group_id = 9",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Update case",
+      "seed_count": 0,
+      "assumptions": [
+        "CS-0000379 is case 379: critical, pending, in Contact Center L2 (group 9) and assigned to no user on the seed",
+        "lisa.brown@servicenow.com is user 656, an active agent and a member of group 9",
+        "assignment_group_id stays 9: the request assigns within the same group, and the policy requires the assignee to be a member of the assigned group"
+      ]
+    },
+    {
+      "text": "Progress the case forward to work on investigation",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {"case_id": 379},
+      "cells": {"state": "in_progress"},
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 379 AND state = 'in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Update case",
+      "seed_count": 0,
+      "assumptions": [
+        "working on the investigation is state in_progress; the policy allows pending to in_progress"
+      ]
+    },
+    {
+      "text": "Progress the case forward to work on investigation",
+      "kind": "change",
+      "table": "case_sla",
+      "anchor": {"case_sla_id": 757},
+      "cells": {"stage": "in_progress"},
+      "sql": "SELECT COUNT(*) FROM case_sla WHERE case_sla_id = 757 AND stage = 'in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Update sla",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by the request, not stated: the policy pauses SLAs while a case is pending and aligns the SLA when the case moves to work in progress",
+        "case SLA 757 (SLA Response - Critical, pause_on_pending 1) on case 379 is paused on the seed; the case's other SLA, 758, is already in_progress and needs no change"
+      ]
+    },
+    {
+      "text": "attach a relevant knowledge article for resolving",
+      "kind": "create",
+      "table": "case_knowledge",
+      "anchor": {"case_kb_id": 528},
+      "cells": {"case_id": 379, "knowledge_id": 57, "used_as": "suggested"},
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_kb_id = 528 AND case_id = 379 AND knowledge_id = 57 AND used_as = 'suggested'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Link Kb",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest case_kb_id is 527)",
+        "knowledge 57 (KB-0000057) is the only article for the case's product 38 and is published",
+        "used_as suggested kept from the benchmark check: the article is found by a knowledge search while the case is investigated, which the policy links as suggested"
+      ]
+    },
+    {
+      "text": "attach a relevant knowledge article",
+      "kind": "stay",
+      "table": "case_knowledge",
+      "selector": "case_id = 379 AND knowledge_id IN (SELECT knowledge_id FROM knowledge WHERE state <> 'published')",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_id = 379 AND knowledge_id IN (SELECT knowledge_id FROM knowledge WHERE state <> 'published')",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "the policy allows only published articles to be linked to a case; 70 draft or retired articles exist on the seed"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Update case": {"disposition": "kept"},
+    "Update sla": {"disposition": "kept"},
+    "Link Kb": {"disposition": "kept"}
+  },
+  "notes": "The check 'Update case' tests the assignment and the state together; it is carried by two requirements, one for each thing the request asks.\nThe link's used_as is open to a second reading: 'for resolving' could mean the policy's resolution type (knowledge found useful to resolve the case), but the case is only moving to investigation and nothing is resolved yet, so the benchmark's suggested is kept; a reviewer preferring the other reading would change used_as to resolution.\nThe case's assignment group is held at Contact Center L2 (group 9) inside the assignment requirement rather than as a separate stay.\ndisagreement: a stay that no unpublished article is linked to case 379: one pass wrote it, the other did not; kept because the policy forbids linking articles not in state published, a prohibition of the kind a stay records, and 70 draft or retired articles exist on the seed.",
+  "minutes": 29
+}

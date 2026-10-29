@@ -1,0 +1,105 @@
+{
+  "task_id": "task_20260102_162857_012_391f1eff_39478d55",
+  "policy_sha1": "0d203073",
+  "requirements": [
+    {
+      "text": "Marc Henry reached out to report about his software SUSE Linux Enterprise Server 15 Variant 5 ... Create a case for investigation",
+      "kind": "create",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 1233
+      },
+      "cells": {
+        "account_id": 8,
+        "contact_id": 10,
+        "product_id": 25,
+        "channel": "web",
+        "priority": "moderate",
+        "state": "new"
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1233 AND account_id = 8 AND contact_id = 10 AND product_id = 25 AND channel = 'web' AND priority = 'moderate' AND state = 'new'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "New case",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (1233 after 1232); the only case the task creates",
+        "Marc Henry is the only user of that name (user 20, customer); his contact is 10 on account 8 (Stark Industries), active and primary",
+        "product 25 is 'SUSE Linux Enterprise Server 15 Variant 5' (active); the base product 5 and variants 25 and 45 are the near-names",
+        "channel not stated; this policy variant's default is web ('if not provided -> default = web')",
+        "priority not stated; the policy's default is moderate ('affecting his production work' names no priority and does not ask for escalation)",
+        "state = new is the policy's default",
+        "installed_product_id not tested: the request names the software, not a unit, and the benchmark check does not fix it (unit 40 is the account's only unit for product 25)",
+        "short_description not tested: the policy gives only an example form",
+        "the policy's entitlement check is a read: entitlements 74 (premium) and 69 (enterprise) for account 8, product 25 are active on the seed, so nothing in the database changes"
+      ]
+    },
+    {
+      "text": "link knowledge article for resolving the case",
+      "kind": "create",
+      "table": "case_knowledge",
+      "anchor": {
+        "case_kb_id": 528
+      },
+      "cells": {
+        "case_id": 1233,
+        "knowledge_id": 38,
+        "used_as": "suggested"
+      },
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_kb_id = 528 AND case_id = 1233 AND knowledge_id = 38 AND used_as = 'suggested'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Link kb",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (528 after 527); the only link the task creates",
+        "knowledge 38 is the only article for product 25 on the seed (published, internal; body: crash under load); articles 7 and 8 are for the base product 5; no article mentions shutdowns",
+        "used_as = suggested kept from the benchmark check: the article is found by search when the case is registered for investigation and the policy links that as suggested; 'for resolving the case' names the link's purpose, and the policy reserves resolution for an article found useful to resolve the case or created after resolution, which a new case has not reached"
+      ]
+    },
+    {
+      "text": "link knowledge article (boundary: the base product's articles)",
+      "kind": "stay",
+      "table": "case_knowledge",
+      "selector": "case_id = 1233",
+      "cells": {
+        "knowledge_id": "IN (7, 8)"
+      },
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_id = 1233 AND knowledge_id IN (7, 8)",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "articles 7 and 8 belong to the base product 'SUSE Linux Enterprise Server 15' (product 5) and share the title stem; a title search without the variant would sweep them in"
+      ]
+    },
+    {
+      "text": "link knowledge article for resolving the case (boundary: Marc Henry's existing cases)",
+      "kind": "stay",
+      "table": "case_knowledge",
+      "selector": "case_id IN (SELECT case_id FROM customer_case WHERE contact_id = 10)",
+      "cells": {
+        "knowledge_id": 38
+      },
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE knowledge_id = 38 AND case_id IN (SELECT case_id FROM customer_case WHERE contact_id = 10)",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "none of contact 10's fourteen existing cases links article 38; a reading of 'the case' that links the article to one of his existing cases instead of the new one would raise this"
+      ]
+    }
+  ],
+  "original_checks": {
+    "New case": {
+      "disposition": "kept"
+    },
+    "Link kb": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on the case (1233: account 8, contact 10, product 25, web, moderate, new), the link (528: article 38, suggested) and both dispositions (kept). disagreement: stay on no link from case 1233 to the base product's articles 7 and 8 (A only); kept because it is the boundary of the article selector: a title search without the variant sweeps them in. disagreement: stay on no link of article 38 to contact 10's existing cases (B only); kept because it is the boundary of 'the case': linking to one of his existing cases instead of the new one is what a loose reading would do. This policy variant (0d203073) adds the channel default web, which fixes the channel cell the request leaves open. The acting user (user 3) is an agent, who may create cases and link knowledge. The one judgement is used_as: 'for resolving the case' could be read as the policy's resolution value, but the case is new and the article is found by search, so the benchmark's suggested is kept.\nrevised: the stay on the base product's articles 7 and 8 selects the new case's links (case_id = 1233) and tests knowledge_id IN (7, 8) only in its cells, since a column is not fixed by both; the query is unchanged.",
+  "minutes": 7
+}

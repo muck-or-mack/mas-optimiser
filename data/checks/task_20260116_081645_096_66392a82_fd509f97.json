@@ -1,0 +1,159 @@
+{
+  "task_id": "task_20260116_081645_096_66392a82_fd509f97",
+  "policy_sha1": "a13cd9e7",
+  "requirements": [
+    {
+      "text": "Travis Wood has left the organization. Please deactivate his account immediately",
+      "kind": "change",
+      "table": "users",
+      "anchor": {
+        "user_id": "USER_011"
+      },
+      "cells": {
+        "active": 0
+      },
+      "sql": "SELECT COUNT(*) FROM users WHERE user_id = 'USER_011' AND active = 0",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Deactivating user",
+      "seed_count": 0,
+      "assumptions": [
+        "USER_011 (travis.wood@servicenow.com, agent, LOC_001) is the only user named Travis Wood on the seed, active before the change as policy 8.1 requires of an updated user",
+        "disagreement: active cell: A 'false' (string, SQL active = false), B 0 (SQL active = 0); chose 0 because the seed stores active as an integer and both forms count the same rows"
+      ]
+    },
+    {
+      "text": "For every asset found, change the status to 'in_stock' and remove him as the owner and assign to Karen Watkins",
+      "kind": "change",
+      "table": "configuration_item",
+      "anchor": {
+        "configuration_item_id": "CI_027"
+      },
+      "cells": {
+        "status": "in_stock",
+        "owner_id": "USER_039"
+      },
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE configuration_item_id = 'CI_027' AND status = 'in_stock' AND owner_id = 'USER_039'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Updating the configuration item",
+      "seed_count": 0,
+      "assumptions": [
+        "CI_027 'MacBook Pro 14 - Travis Wood' is the only CI with owner_id = USER_011 on the seed",
+        "Karen Watkins is USER_039 (the acting user; the only user of that full name, though an inactive admin Karen Graham USER_076 shares the first name)",
+        "'remove him as the owner and assign to Karen' is one cell, owner_id = USER_039, since policy 5.1 requires every CI to have an owner_id and the column is NOT NULL"
+      ]
+    },
+    {
+      "text": "create a new incident assigned to the 'L1 IT Support' group with the description 'Asset Reclamation: Travis Wood' ... Set the incident to medium urgency and low impact",
+      "kind": "create",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_101"
+      },
+      "cells": {
+        "description": "Asset Reclamation: Travis Wood",
+        "assignment_group": "GROUP_001",
+        "urgency": "medium",
+        "impact": "low",
+        "priority": "low",
+        "status": "new"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_101' AND description = 'Asset Reclamation: Travis Wood' AND assignment_group = 'GROUP_001' AND urgency = 'medium' AND impact = 'low' AND priority = 'low' AND status = 'new'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Creating incident",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (INC_101 after INC_100); the only incident the task creates",
+        "'L1 IT Support' is GROUP_001 (GROUP_002 is 'L2 IT Support')",
+        "the request says 'description', so the description column is tested, as the original check does; short_description is mandatory but its value is not given, so not tested",
+        "priority low from the policy 3.1 matrix (impact low x urgency medium); status new is the policy default",
+        "caller_id is mandatory by policy but the request names no affected user (Travis or the acting user are both defensible), so not tested; assigned_to is not asked; opened_by has no column"
+      ]
+    },
+    {
+      "text": "link all the reclaimed assets to it",
+      "kind": "create",
+      "table": "incident_affected_cis",
+      "anchor": {
+        "incident_affected_cis_id": "TASKCI_015"
+      },
+      "cells": {
+        "configuration_item": "CI_027",
+        "incident_id": "INC_101"
+      },
+      "sql": "SELECT COUNT(*) FROM incident_affected_cis WHERE incident_affected_cis_id = 'TASKCI_015' AND configuration_item = 'CI_027' AND incident_id = 'INC_101'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Linking the device to the incident",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (TASKCI_015 after TASKCI_014); one reclaimed asset, so one link, the only row the task creates in this table",
+        "policy 5.1 says only in_use or maintenance CIs can be linked and names only retired and disposed as forbidden; the request asks for the link in words and the original check expects it, so the link is kept; the final state is reachable by linking before the status change, against the request's 'Once the assets are updated' ordering",
+        "org_id is NOT NULL but not stated, so not tested"
+      ]
+    },
+    {
+      "text": "find the manager at Travis's office and send them an update notification email with the message 'The following assets have been successfully reclaimed from Travis Wood and returned to stock: [The device names separated by a comma]'",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": "NOTIF_031"
+      },
+      "cells": {
+        "incident_id": "INC_101",
+        "email": "robin.monroe83@servicenow.com",
+        "type": "update",
+        "message": "The following assets have been successfully reclaimed from Travis Wood and returned to stock: MacBook Pro 14 - Travis Wood"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 'NOTIF_031' AND incident_id = 'INC_101' AND email = 'robin.monroe83@servicenow.com' AND type = 'update' AND message = 'The following assets have been successfully reclaimed from Travis Wood and returned to stock: MacBook Pro 14 - Travis Wood'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Checking notification",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (NOTIF_031 after NOTIF_030); the only notification the task creates",
+        "Travis's office is users.location_id = LOC_001 (ACME HQ); Robin Monroe USER_031 is the only user there with role = manager (users.role and user_role agree; the two admins there are not managers, and one is inactive)",
+        "'update notification' is type = update, a value in use on the seed; subject is not stated, so not tested",
+        "one device only, so the list is its name with no comma",
+        "notification.incident_id is NOT NULL and the only incident in the task is the new one, so it is tested as INC_101; the original check did not test it"
+      ]
+    },
+    {
+      "text": "identify any configuration items (assets) currently owned by him (boundary: no other CI is reassigned to Karen Watkins)",
+      "kind": "stay",
+      "table": "configuration_item",
+      "selector": "owner_id = 'USER_039' AND configuration_item_id != 'CI_027'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE owner_id = 'USER_039' AND configuration_item_id != 'CI_027'",
+      "expected": 6,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 6,
+      "assumptions": [
+        "boundary of the selector: a loose reading of 'assets owned by him' (by Travis's location or name) must not sweep other CIs into the reclamation; the six CIs Karen already owns stay six",
+        "disagreement: selector and expected: A counts Karen's other CIs with status = in_stock (expected 0), B counts all her other CIs (expected 6); chose B because it is the tighter predicate (a seventh CI reassigned to her fails it whether or not its status changed) and both are right on the seed"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Deactivating user": {
+      "disposition": "kept"
+    },
+    "Updating the configuration item": {
+      "disposition": "kept"
+    },
+    "Creating incident": {
+      "disposition": "kept"
+    },
+    "Linking the device to the incident": {
+      "disposition": "kept"
+    },
+    "Checking notification": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on the deactivation, the CI reclamation, the incident, the CI link and the notification, and on all five dispositions (kept). disagreement: active cell format (A string 'false' with SQL active = false, B integer 0 with SQL active = 0); chose the integer because the seed stores active as an integer and both forms count the same rows. disagreement: the boundary stay (A: none of Karen's other CIs becomes in_stock, expected 0; B: Karen's other CIs stay six, expected 6); chose B as the tighter predicate, since it also fails when a CI is reassigned to her without a status change; it will also fail if the agent moves one of her own six CIs away, which is collateral rather than the boundary, so a reviewer may prefer A's narrower form. The one tension both passes flag: policy 5.1 permits linking only in_use or maintenance CIs, and the request sets the CI to in_stock before asking for the link; the link is kept because the request asks for it in words, the policy's explicit 'Do not link' list names only retired and disposed, and the benchmark expects it; a strict reading of 5.1 would exclude the link check. The notification's incident_id and the incident's status = new are the only cells beyond the original checks. An inactive admin Karen Graham (USER_076) is a first-name near-miss for Karen Watkins; the request's full name leaves no ambiguity, so no stay is written for it.",
+  "minutes": 9
+}

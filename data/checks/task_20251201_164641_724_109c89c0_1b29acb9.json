@@ -1,0 +1,242 @@
+{
+  "task_id": "task_20251201_164641_724_109c89c0_1b29acb9",
+  "policy_sha1": "10503d62",
+  "requirements": [
+    {
+      "text": "ensure that this user is completely removed from all open cases by reassigning any open cases to the most recent secondary contact on the account",
+      "kind": "change",
+      "table": "customer_case",
+      "selector": "account_id = 4 AND case_id IN (77, 78, 82, 83, 93, 97, 98)",
+      "cells": {
+        "contact_id": 3
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE account_id = 4 AND case_id IN (77, 78, 82, 83, 93, 97, 98) AND contact_id = 3",
+      "expected": 7,
+      "comparison": "equals",
+      "source": "Move all open cases",
+      "seed_count": 0,
+      "assumptions": [
+        "Globex is account 4; its primary contact on the seed is contact 2 (portal user 347, Joshua Morgan)",
+        "open means state in new, in_progress, pending, as the original check reads it; contact 2 has seven such cases on the seed",
+        "the most recent secondary contact is the one created last: contact 3 (2025-08-27 15:43:07, portal user 622, Derek Blake), not contact 4 (15:40:50); by sys_updated_on it would be contact 4, but creation order is the natural reading and the original checks agree",
+        "anchored on the seven case ids and tested for contact_id = 3, which is stricter than the original's count of contact 2's open cases = 0 (that would also pass if the cases were closed or cancelled)",
+        "disagreement: selector: A adds account_id = 4, B does not; same seven rows on the seed; chose A's because it names the account the request is about"
+      ]
+    },
+    {
+      "text": "promote that secondary contact to become the new primary contact",
+      "kind": "change",
+      "table": "contact",
+      "anchor": {
+        "contact_id": 3
+      },
+      "cells": {
+        "is_primary": 1
+      },
+      "sql": "SELECT COUNT(*) FROM contact WHERE contact_id = 3 AND is_primary = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "Update Primary Contact",
+        "Update Primary Contact (2)"
+      ],
+      "seed_count": 0,
+      "assumptions": []
+    },
+    {
+      "text": "promote that secondary contact to become the new primary contact [the former primary is no longer primary]",
+      "kind": "change",
+      "table": "contact",
+      "anchor": {
+        "contact_id": 2
+      },
+      "cells": {
+        "is_primary": 0
+      },
+      "sql": "SELECT COUNT(*) FROM contact WHERE contact_id = 2 AND is_primary = 0",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "the request calls contact 2 the former primary and contact 3 the new primary; no account on the seed has two primary contacts, so the flag moves with the promotion rather than being duplicated",
+        "inferred from 'new primary' and 'former primary': the seed keeps one primary contact per account, so promoting contact 3 demotes contact 2; implied by the request, not stated",
+        "disagreement: form: A tests is_primary = 0 as its own requirement, B folds it into the deactivation requirement's cells; chose A's split because the demotion is inferred, not stated, and a separate requirement keeps that judgement visible and scored on its own"
+      ]
+    },
+    {
+      "text": "deactivate the former primary contact",
+      "kind": "change",
+      "table": "contact",
+      "anchor": {
+        "contact_id": 2
+      },
+      "cells": {
+        "active": 0
+      },
+      "sql": "SELECT COUNT(*) FROM contact WHERE contact_id = 2 AND active = 0",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "stated in the request: contact 2 is the former primary contact (portal user 347); deactivating it means contact.active = 0"
+      ]
+    },
+    {
+      "text": "deactivate the former primary contact and their portal profile",
+      "kind": "change",
+      "table": "user",
+      "anchor": {
+        "user_id": 347
+      },
+      "cells": {
+        "active": 0
+      },
+      "sql": "SELECT COUNT(*) FROM user WHERE user_id = 347 AND active = 0",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "the portal profile is contact 2's portal_user_id, user 347 (Joshua Morgan, role customer, active on the seed)"
+      ]
+    },
+    {
+      "text": "log a moderate-priority case under Globex detailing the handover and all updates performed",
+      "kind": "create",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 1233
+      },
+      "cells": {
+        "account_id": 4,
+        "contact_id": 3,
+        "priority": "moderate",
+        "state": "new",
+        "channel": "web"
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1233 AND account_id = 4 AND contact_id = 3 AND priority = 'moderate' AND state = 'new' AND channel = 'web'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Transition Case Created",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (1233 after 1232)",
+        "the reporting contact is the new primary, contact 3: the former primary is deactivated in the same request, and the original check agrees",
+        "state not stated; the policy's default state is new and the request does not ask to resolve the case",
+        "channel not stated by request or policy; the schema default for customer_case.channel is web, as the original check has",
+        "the short_description is free text (policy: 30-120 chars) and is not tested"
+      ]
+    },
+    {
+      "text": "notify the newly assigned primary contact once the entire restructuring is complete",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": 734
+      },
+      "cells": {
+        "case_id": 1233,
+        "email": "derek.blake7@globex.com",
+        "type": "update"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 734 AND case_id = 1233 AND email = 'derek.blake7@globex.com' AND type = 'update'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Notification Sent to New Primary",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (734 after 733); the task creates one notification, so it is anchored by id",
+        "the notification hangs off the handover case 1233, replacing the original's latest-matching-case subquery",
+        "the email is the new primary's portal user (622, derek.blake7@globex.com)",
+        "type update is carried from the original check; the request and policy do not fix the notification type",
+        "disagreement: sql: A finds the row by case and email without the anchor, B includes notification_id = 734; chose B's because the task creates exactly one notification, so the anchor holds and the sql carries it"
+      ]
+    },
+    {
+      "text": "promote that secondary contact to become the new primary contact",
+      "kind": "stay",
+      "table": "contact",
+      "anchor": {
+        "contact_id": 4
+      },
+      "cells": {
+        "is_primary": 0
+      },
+      "sql": "SELECT COUNT(*) FROM contact WHERE contact_id = 4 AND is_primary = 0",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "boundary of the most-recent-secondary selector: contact 4 is the other secondary (most recently updated, but created earlier) and must not be promoted"
+      ]
+    },
+    {
+      "text": "reassigning any open cases [of the former primary contact]",
+      "kind": "stay",
+      "table": "customer_case",
+      "selector": "account_id = 4 AND case_id IN (75, 76, 79, 94, 95, 96)",
+      "cells": {
+        "contact_id": 4
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE account_id = 4 AND case_id IN (75, 76, 79, 94, 95, 96) AND contact_id = 4",
+      "expected": 6,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 6,
+      "assumptions": [
+        "boundary of the open-case selector: 'reassigning any open cases' read loosely sweeps in every open Globex case; contact 4's six open cases are not the former primary's and stay with contact 4",
+        "disagreement: A only; kept because it is the boundary of the open-case selector (the rows a loose reading of 'any open cases' would reassign)"
+      ]
+    },
+    {
+      "text": "removed from all open cases",
+      "kind": "stay",
+      "table": "customer_case",
+      "selector": "account_id = 4 AND case_id IN (85, 87, 91)",
+      "cells": {
+        "contact_id": 2
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE account_id = 4 AND case_id IN (85, 87, 91) AND contact_id = 2",
+      "expected": 3,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 3,
+      "assumptions": [
+        "boundary of the open-case selector: contact 2's resolved (85), closed (87) and canceled (91) cases are not open and keep their contact; resolved is treated as not open, following the original check",
+        "disagreement: selector: A fixes the three case ids, B selects contact_id = 2 AND state IN ('resolved', 'closed', 'canceled'); same rows on the seed; chose A's because the ids fix the rows, while B's count would also move if an open case were resolved and left with contact 2, a failure the open-case requirement already catches"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Move all open cases": {
+      "disposition": "kept",
+      "evidence": "disagreement: A kept, B repaired; chose kept because the original's value (no open case keeps contact 2) is not wrong, only weaker than the requirement that carries it as source and tests contact_id = 3 on the seven open cases; repaired is for a wrong value"
+    },
+    "Update Primary Contact": {
+      "disposition": "kept"
+    },
+    "Transition Case Created": {
+      "disposition": "kept"
+    },
+    "Notification Sent to New Primary": {
+      "disposition": "kept"
+    },
+    "Transition Case Created (2)": {
+      "disposition": "excluded",
+      "evidence": "the copy with state = resolved: the policy's default state for a new case is new and the request does not ask to resolve the handover case; one created case cannot satisfy both copies, so this one is excluded and the state = new copy kept"
+    },
+    "Notification Sent to New Primary (2)": {
+      "disposition": "excluded",
+      "evidence": "the duplicate of Notification Sent to New Primary whose subquery selects a resolved handover case, which the request does not ask for"
+    },
+    "Update Primary Contact (2)": {
+      "disposition": "kept",
+      "evidence": "a SELECT is_primary query on contact 3 expecting 1; it tests the same cell as Update Primary Contact and is carried jointly by the promotion requirement"
+    }
+  },
+  "notes": "Merged from two passes that agree on the seven changed or created rows (ids, cells, values) and on six of seven dispositions. disagreement: Move all open cases: A kept, B repaired; kept (logged on the check). disagreement: the former primary's demotion: A a separate requirement, B folded into the deactivation's cells; kept A's split (logged in the requirement). disagreement: the stay on contact 4's six open cases is A only; kept as the boundary of the open-case selector (logged in the requirement). disagreement: notification sql: A without the anchor id, B with it; kept B's (logged in the requirement). disagreement: open-case selector: A with account_id = 4, B without; kept A's (logged in the requirement). disagreement: stay on contact 2's non-open cases: A by case ids, B by state selector; kept A's (logged in the requirement). disagreement: text of the contact 4 stay: A quotes the reassignment sentence, B the promotion sentence; kept B's because the boundary is of the most-recent-secondary selector in the promotion sentence. The 'most recent secondary contact' reading is by creation date (contact 3); by last update it would be contact 4. The notification's type = update is the benchmark's value, not fixed by the request or policy. The deactivation of the contact and of the portal user, and the demotion, have no original check. No tool writes case work notes, and the request asks for the handover detail in the case itself. Acting user 32 is an admin (active = 0 on the seed); the policy's default admin role is applied.\nrevised: Update Primary Contact (2) was excluded as a duplicate, but it tests the same is_primary cell of contact 3 as Update Primary Contact and contradicts nothing, so it is kept and named with it in the promotion requirement's source.\nrevised: the line saying the demotion is inferred, not stated, sat on the deactivation requirement, which the request states outright; it now sits on the demotion requirement, and the deactivation requirement says it is stated.",
+  "minutes": 12
+}

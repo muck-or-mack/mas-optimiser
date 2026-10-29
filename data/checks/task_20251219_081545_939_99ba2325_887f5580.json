@@ -1,0 +1,90 @@
+{
+  "task_id": "task_20251219_081545_939_99ba2325_887f5580",
+  "policy_sha1": "4afd943b",
+  "requirements": [
+    {
+      "text": "mark serial number \"SPR-AGT-01\" as retired in the CMDB since it is no longer planned for reuse",
+      "kind": "change",
+      "table": "configuration_item",
+      "anchor": {
+        "configuration_item_id": "CI_041"
+      },
+      "cells": {
+        "status": "retired"
+      },
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE configuration_item_id = 'CI_041' AND status = 'retired'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Asset 1 retired",
+      "seed_count": 0,
+      "assumptions": [
+        "serial SPR-AGT-01 resolves to CI_041 (Spare Agent Laptop 01), in_stock on the seed; retired is an allowed configuration_item.status value (policy 9)",
+        "the acting user USER_039 is an admin with full CRUD, so the CMDB update is permitted"
+      ]
+    },
+    {
+      "text": "link ... the currently active \"PRT-ACME-01\" to the ongoing \"MacBook Kernel Panic\" incident as affected CIs",
+      "kind": "create",
+      "table": "incident_affected_cis",
+      "selector": "incident_id = 'INC_026' AND configuration_item = 'CI_096'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM incident_affected_cis WHERE incident_id = 'INC_026' AND configuration_item = 'CI_096'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Link Asset 2 to Incident",
+      "seed_count": 0,
+      "assumptions": [
+        "'MacBook Kernel Panic' resolves to INC_026, the only incident with that short_description; it is in_progress, so it is an active incident",
+        "serial PRT-ACME-01 resolves to CI_096 (Main Printer - ACME HQ), in_use on the seed, which policy 5.1 allows to be linked",
+        "the row is selected by its natural key (incident, CI, unique under uq_org_incident_ci) rather than anchored to TASKCI_015: the sequence position depends on whether a refused link for CI_041 consumed an id",
+        "org_id is not tested: it is not stated and both the incident and the CI are ORG_001"
+      ]
+    },
+    {
+      "text": "link both configuration items ... \"SPR-AGT-01\" and ... \"PRT-ACME-01\"",
+      "kind": "stay",
+      "table": "incident_affected_cis",
+      "selector": "incident_id = 'INC_026' AND configuration_item = 'CI_041'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM incident_affected_cis WHERE incident_id = 'INC_026' AND configuration_item = 'CI_041'",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "Avoid Linking Asset 1 to incident",
+      "seed_count": 0,
+      "assumptions": [
+        "the request asks for this link, but policy 5.1 forbids linking a CI in status retired to an active incident, and the request orders the retirement first; the policy wins and the link must not exist",
+        "policy 1 (halt on a violation) is read as halting the forbidden link only, not the whole request: the benchmark's own check still expects the PRT-ACME-01 link",
+        "the seed has no link either, so this stays at zero whether the agent refuses or never attempts it"
+      ]
+    },
+    {
+      "text": "mark serial number \"SPR-AGT-01\" as retired",
+      "kind": "stay",
+      "table": "configuration_item",
+      "selector": "status = 'retired' AND configuration_item_id <> 'CI_041'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE status = 'retired' AND configuration_item_id <> 'CI_041'",
+      "expected": 3,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 3,
+      "assumptions": [
+        "only SPR-AGT-01 is to be retired; the seed also holds SPR-AGT-02 (CI_042), which a loose serial match could retire by mistake, so the count of other retired CIs must stay at its seed value of 3",
+        "this count also catches an accidental retirement of PRT-ACME-01 (CI_096), the other CI the request names"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify Asset 1 retired": {
+      "disposition": "kept"
+    },
+    "Link Asset 2 to Incident": {
+      "disposition": "kept"
+    },
+    "Avoid Linking Asset 1 to incident": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two independent passes. disagreement: A's stay that the count of retired CIs other than CI_041 stays at 3 (B had no such requirement); kept because it is the boundary of the serial selector: SPR-AGT-02 (CI_042) nearly matches SPR-AGT-01 and a loose match could retire it too. disagreement: A's stay that CI_096 (PRT-ACME-01) keeps status in_use (B had no such requirement); dropped by the stay rule: nothing in the request or policy forbids changing it, so it is a generic invariant, and an accidental retirement of CI_096 is already caught by the other-retired-CIs stay. The request's two steps conflict: retiring SPR-AGT-01 first and then linking it to INC_026 breaks policy 5.1 (do not link retired CIs to active incidents), so the correct final state has CI_041 retired, CI_096 linked and CI_041 not linked, as the benchmark's three checks already say; the request's audit-trail rationale does not override the policy. No organisation named ACME exists in the seed, but the CI name Main Printer - ACME HQ ties PRT-ACME-01 to the request's ACME headquarters, so the serial lookup is unambiguous. No stay requirement is written for INC_026 itself: the request asks for no change to it, nothing forbids one, and the link tool writes a separate table. revised: the two link requirements (CI_096 and CI_041 on INC_026) no longer repeat incident_id and configuration_item in cells, and the other-retired-CIs stay no longer repeats status in cells: each of those columns is already fixed by the requirement's selector with the same condition, so cells is empty and the count query is unchanged.",
+  "minutes": 8
+}

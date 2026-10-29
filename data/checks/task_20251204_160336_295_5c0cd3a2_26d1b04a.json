@@ -1,0 +1,131 @@
+{
+  "task_id": "task_20251204_160336_295_5c0cd3a2_26d1b04a",
+  "policy_sha1": "ae2fb5c7",
+  "requirements": [
+    {
+      "text": "Make our Sydney HQ site name consistent ('Globex HQ - Sydney') and update the plot to 114B",
+      "kind": "change",
+      "table": "location",
+      "anchor": {"location_id": 809},
+      "cells": {"name": "Globex HQ - Sydney", "plot_no": "114B"},
+      "sql": "SELECT COUNT(*) FROM location WHERE location_id = 809 AND name = 'Globex HQ - Sydney' AND plot_no = '114B'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Location was renamed and plot updated for Globex Sydney HQ.",
+      "seed_count": 0,
+      "assumptions": [
+        "the Sydney HQ site is location 809, 'Globex Hq - Sydney' with plot_no 'Plot 114' on the seed: Globex's only Sydney location and the site of all four Globex installed products; Globex's only other site is 810 in Tokyo",
+        "the existing row is renamed rather than a new location added; no tool in the task creates locations",
+        "plot_no '114B' is the request's value as written, as the benchmark check tests it"
+      ]
+    },
+    {
+      "text": "The London app server with serial P47-622334-4396 is at the repair center reflect that, and push its warranty by 1.5 years",
+      "kind": "change",
+      "table": "installed_product",
+      "anchor": {"installed_product_id": 20},
+      "cells": {"status": "repair", "warranty_end": "2029-09-14"},
+      "sql": "SELECT COUNT(*) FROM installed_product WHERE installed_product_id = 20 AND status = 'repair' AND warranty_end = '2029-09-14'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Installed product moved to repair and warranty extended",
+      "seed_count": 0,
+      "assumptions": [
+        "serial P47-622334-4396 is installed product 20 (Globex, product 47 Microsoft SQL Server 2019 Patchset 27), the only row with that serial; the seed places it at Sydney HQ location 809, not in London, and the serial decides",
+        "'at the repair center' gives status repair, a value in the policy's list (in_use on the seed); no repair-centre location exists",
+        "warranty_end 2028-03-14 on the seed plus 1.5 years gives 2029-09-14"
+      ]
+    },
+    {
+      "text": "Move that server's coverage under our active enterprise support and switch it to 24x7 premium",
+      "kind": "change",
+      "table": "entitlement",
+      "anchor": {"entitlement_id": 31},
+      "cells": {"contract_id": 10, "support_level": "premium", "coverage_hours": "h24x7"},
+      "sql": "SELECT COUNT(*) FROM entitlement WHERE entitlement_id = 31 AND contract_id = 10 AND support_level = 'premium' AND coverage_hours = 'h24x7'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Entitlement for product 47 under the active support contract upgraded to premium with 24x7 coverage and monthly cap set",
+      "seed_count": 0,
+      "assumptions": [
+        "'our active enterprise support' is contract 10, Globex's only active support contract, whose account-wide entitlement 30 is enterprise h24x7",
+        "the server's coverage is entitlement 31, the active product 47 entitlement already on contract 10 (standard, h8x5 on the seed), as the benchmark check names it; updating it keeps the coverage aligned to the existing record instead of adding a second product 47 entitlement to contract 10",
+        "contract_id 10 is the 'under our active enterprise support' part; it already holds on the seed, and the requirement is unmet there because the level and hours are standard and h8x5",
+        "'24x7 premium' gives support_level premium and coverage_hours h24x7"
+      ]
+    },
+    {
+      "text": "extend our active support contract by six months",
+      "kind": "change",
+      "table": "contract",
+      "anchor": {"contract_id": 10},
+      "cells": {"end_date": "2028-08-15"},
+      "sql": "SELECT COUNT(*) FROM contract WHERE contract_id = 10 AND end_date = '2028-08-15'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Active support contract extended by 6 months with updated price",
+      "seed_count": 0,
+      "assumptions": [
+        "contract 10 is Globex's only active support contract; contract 134 is the expired one, contract 9 an active subscription and contract 11 a draft warranty",
+        "end_date 2028-02-15 on the seed plus six months gives 2028-08-15",
+        "the acting user's role is agent, which is read-only on contracts and entitlements, but the policy has the assistant take admin rights by default"
+      ]
+    },
+    {
+      "text": "Move that server's coverage under our active enterprise support and switch it to 24x7 premium",
+      "kind": "stay",
+      "table": "entitlement",
+      "anchor": {"entitlement_id": 29},
+      "cells": {"contract_id": 9, "support_level": "premium", "coverage_hours": "h12x6"},
+      "sql": "SELECT COUNT(*) FROM entitlement WHERE entitlement_id = 29 AND contract_id = 9 AND support_level = 'premium' AND coverage_hours = 'h12x6'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "boundary of 'that server's coverage': entitlement 29 is Globex's other active product 47 entitlement, under subscription contract 9; the coverage to switch is 31, which already sits under the support contract, so 29 is neither moved nor switched",
+        "disagreement: missing requirement: one pass has this anchored stay, the other guards entitlement 29 only by its contract; kept because it also catches 29 being switched to premium h24x7 without being moved"
+      ]
+    },
+    {
+      "text": "Move that server's coverage under our active enterprise support and switch it to 24x7 premium",
+      "kind": "stay",
+      "table": "entitlement",
+      "selector": "account_id = 4 AND product_id = 47 AND entitlement_id <> 31",
+      "cells": {"contract_id": 10},
+      "sql": "SELECT COUNT(*) FROM entitlement WHERE account_id = 4 AND product_id = 47 AND entitlement_id <> 31 AND contract_id = 10",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of the server's coverage: Globex's other product 47 entitlements, 29 (premium h12x6 on subscription contract 9) and 36 (enterprise h24x7, inactive, on expired support contract 134), are not moved onto contract 10, which would give the server two entitlements there",
+        "disagreement: missing requirement: one pass has this set stay, the other guards only entitlement 29; kept because it also catches entitlement 36, the inactive enterprise coverage a loose reading of 'move ... under our active enterprise support' could move onto contract 10"
+      ]
+    },
+    {
+      "text": "extend our active support contract by six months",
+      "kind": "stay",
+      "table": "contract",
+      "anchor": {"contract_id": 134},
+      "cells": {"status": "expired", "end_date": "2025-06-05"},
+      "sql": "SELECT COUNT(*) FROM contract WHERE contract_id = 134 AND status = 'expired' AND end_date = '2025-06-05'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "boundary of 'our active support contract': contract 134 is Globex's other support contract, expired, so it is not the one to extend",
+        "disagreement: missing requirement: one pass has this stay, the other does not; kept because 134 is the near match of the request's description (same account and contract type, differing only in status), the rows a loose reading would sweep in"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Location was renamed and plot updated for Globex Sydney HQ.": {"disposition": "kept"},
+    "Installed product moved to repair and warranty extended": {"disposition": "kept"},
+    "Entitlement for product 47 under the active support contract upgraded to premium with 24x7 coverage and monthly cap set": {"disposition": "kept"},
+    "Active support contract extended by 6 months with updated price": {"disposition": "kept"}
+  },
+  "notes": "disagreement: missing requirement: the anchored stay on entitlement 29 (contract 9, premium, h12x6) is in one pass only, the other guarding the same boundary by contract alone; kept because it also catches a switch of 29's level or hours.\ndisagreement: missing requirement: the set stay that no other Globex product 47 entitlement (29, 36) moves onto contract 10 is in one pass only; kept because it also covers entitlement 36, the inactive enterprise coverage on the expired support contract, which the anchored stay on 29 does not.\ndisagreement: missing requirement: the stay that contract 134 stays expired with end_date 2025-06-05 is in one pass only; kept because 134 is Globex's other support contract, the near match of 'our active support contract', so it is the boundary of that description, not a generic invariant.\nThe request calls the serial's server 'the London app server', but installed product 20 sits at location 809 in Sydney and Globex has no London location; the serial is unique, so it decides the row, and the location is not tested.\nEvery plot_no on the seed has the form 'Plot N'; the requirement holds the request's literal '114B', as the benchmark check does, so a value written as 'Plot 114B' fails it.\nThe benchmark's location check counts rows with the new name and plot; the requirement anchors on location 809, so the existing site must be the one renamed.\nTwo benchmark check names promise more than their queries test: 'monthly cap set' on the entitlement and 'updated price' on the contract. The request gives no cap and no price and the policy fixes neither, so neither is tested.\n'Move that server's coverage under our active enterprise support' could be read as moving entitlement 29 (subscription contract 9) or 36 (expired contract 134) onto contract 10; the benchmark updates entitlement 31, which is already on contract 10, and the requirement follows it, with boundaries that keep the other two off contract 10.\nThe acting user, Anthony Peterson (user 724), is an agent, whose role is read-only on contracts and entitlements; the policy has the assistant act with admin rights by default, so the role does not block the request.",
+  "minutes": 34
+}

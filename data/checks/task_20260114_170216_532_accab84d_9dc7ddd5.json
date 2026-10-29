@@ -1,0 +1,147 @@
+{
+  "task_id": "task_20260114_170216_532_accab84d_9dc7ddd5",
+  "policy_sha1": "80431b61",
+  "requirements": [
+    {
+      "text": "add casey.green@servicenow.com as a member of the group",
+      "kind": "create",
+      "table": "user_group_member",
+      "anchor": {
+        "member_id": 44
+      },
+      "cells": {
+        "group_id": 3,
+        "user_id": 52
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 44 AND group_id = 3 AND user_id = 52",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Casey Green added to the group",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest member_id on the seed is 43); the only membership the task creates",
+        "the benchmark check selects by group and user only; (org_id, group_id, user_id) is unique, so that natural key is carried as cells",
+        "Global Service Desk resolves to group_id 3 on the seed; casey.green@servicenow.com to user_id 52 (active agent)",
+        "org_id not fixed by request or policy and not tested by the benchmark check; left out"
+      ]
+    },
+    {
+      "text": "The HR case \"Inquiry about HR account permissions\" that is currently assigned to the Global Service Desk group can then be reassigned to Casey Green within the same assignment group",
+      "kind": "change",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 58
+      },
+      "cells": {
+        "assigned_to": 52,
+        "assignment_group": 3
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 58 AND assigned_to = 52 AND assignment_group = 3",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify case is assigned to Casey Green",
+      "seed_count": 0,
+      "assumptions": [
+        "the one case with that short description in group 3 on the seed is hr_case_id 58 (assigned_to 23); hr_case 4 shares the description but sits in group 7",
+        "the benchmark check's joins on user and user_group names are replaced by the resolved ids 52 and 3, which the seed fixes",
+        "'within the same assignment group' fixes assignment_group = 3; status not asked to change, not tested",
+        "policy 3.2 requires the assignee to be an active member of the group; the membership requirement supplies it",
+        "the acting user Karen Watkins is an admin, whom the policy bars from routine HR case work; the request asks for the reassignment and the benchmark expects it, so it is required (see notes)"
+      ]
+    },
+    {
+      "text": "Send a notification to Casey Green once the reassignment is complete",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": 61
+      },
+      "cells": {
+        "hr_case_id": 58,
+        "email": "casey.green@servicenow.com",
+        "type": "update"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 61 AND hr_case_id = 58 AND email = 'casey.green@servicenow.com' AND type = 'update'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify notification send to Casey Green",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest notification_id on the seed is 60), as the benchmark check also anchors; the only notification the task creates",
+        "type = update kept from the benchmark check; not fixed by request or policy (the seed's other notice on this case also uses type update)",
+        "the recipient is Casey Green's email on the user table; the notification is tied to the reassigned case 58",
+        "status not tested; not fixed by request or policy"
+      ]
+    },
+    {
+      "text": "The HR case \"Inquiry about HR account permissions\" that is currently assigned to the Global Service Desk group",
+      "kind": "stay",
+      "table": "hr_case",
+      "selector": "assignment_group = 3 AND hr_case_id != 58",
+      "cells": {
+        "assigned_to": 52
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE assignment_group = 3 AND hr_case_id != 58 AND assigned_to = 52",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of the case selector on the group side: a reading that drops the description sweeps in the four other Global Service Desk cases (3, 13, 18, 23); none is reassigned to Casey",
+        "disagreement: A has this stay, B does not; kept because it is the boundary of the request's selector (the second kind of stay), not a generic invariant"
+      ]
+    },
+    {
+      "text": "The HR case \"Inquiry about HR account permissions\" that is currently assigned to the Global Service Desk group",
+      "kind": "stay",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 4
+      },
+      "cells": {
+        "assigned_to": 6,
+        "assignment_group": 7
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 4 AND assigned_to = 6 AND assignment_group = 7",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "boundary of the case selector on the description side: a reading that drops the group sweeps in hr_case 4, which shares the short description but sits in group 7; it keeps its assignment",
+        "disagreement: B has this stay, A does not; kept because it is the boundary of the request's selector, the near-miss a search by description alone returns"
+      ]
+    },
+    {
+      "text": "add casey.green@servicenow.com as a member of the group",
+      "kind": "stay",
+      "table": "user_group_member",
+      "selector": "user_id = 52",
+      "cells": {
+        "group_id": "!= 3"
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE user_id = 52 AND group_id != 3",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of the group selector: a partial name search also returns HR Service Desk (group 4); Casey is in no group on the seed and is added to no group but 3",
+        "disagreement: selector: A group_id != 3 (any other group), B group_id = 4 (HR Service Desk only); chose A's because both are right and it is tighter, covering group 4 and every other group"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify Casey Green added to the group": {
+      "disposition": "kept"
+    },
+    "Verify case is assigned to Casey Green": {
+      "disposition": "kept"
+    },
+    "Verify notification send to Casey Green": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on the three benchmark checks (all kept), the new membership (44), the reassignment of case 58 and the notification (61). disagreement: stay that no other Global Service Desk case is reassigned to Casey: A has it, B does not; kept as the boundary of the request's selector on the group side (logged in the requirement). disagreement: stay that hr_case 4 (same short description, group 7) keeps its assignment: B has it, A does not; kept as the boundary of the selector on the description side (logged in the requirement). disagreement: the membership stay's selector: A any group but 3, B group 4 only; chose A's as the tighter of two right predicates (logged in the requirement). The acting user (Karen Watkins, user 39) has role admin: policy section 2 lets an admin manage groups but says an admin must not perform routine HR case work, and reassigning cases is listed as an HR Manager capability; the request asks for the reassignment and the notification and the benchmark expects them, so the file requires them, and a strict reading of the policy could instead halt at the reassignment step. Thomas Green (user 1, inactive) is a near-miss on the surname, but the request gives the email, so the recipient is unambiguous. The case's org_id (18) differs from the group's and user's (1); nothing in the request or policy fixes org_id on the new rows, so it is not tested.",
+  "minutes": 8
+}

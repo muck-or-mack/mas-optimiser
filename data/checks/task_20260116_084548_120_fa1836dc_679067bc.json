@@ -1,0 +1,211 @@
+{
+  "task_id": "task_20260116_084548_120_fa1836dc_679067bc",
+  "policy_sha1": "b2da3f42",
+  "requirements": [
+    {
+      "text": "a dedicated us payroll confidential group that did not exist before this instruction but ... must exist exactly once",
+      "kind": "create",
+      "table": "user_group",
+      "selector": "LOWER(name) = LOWER('US Payroll Confidential')",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM user_group WHERE LOWER(name) = LOWER('US Payroll Confidential')",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify the confidential payroll group exists, is unique, and active in the organization",
+      "seed_count": 0,
+      "assumptions": [
+        "name 'US Payroll Confidential' kept from the benchmark check; the request writes it in lower case and the match ignores case",
+        "no such group exists in the seed; a second copy differing only in case also counts against 'exactly once'",
+        "disagreement: name matching: A matches names with LIKE and no wildcards and writes the rule's name as the benchmark check capitalises it, B uses LOWER(name) = LOWER(...) in the selectors and the request's capitalisation for the rule; both ignore case and pick the same rows, so chose LOWER(...) = LOWER(...) in selectors and subqueries, the benchmark checks' own form, and the request's wording for the rule's name"
+      ]
+    },
+    {
+      "text": "one active US payroll confidential user group dedicated to these cases",
+      "kind": "create",
+      "table": "user_group",
+      "anchor": {
+        "group_id": 19
+      },
+      "cells": {
+        "name": "LIKE 'US Payroll Confidential'",
+        "active": 1,
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM user_group WHERE group_id = 19 AND name LIKE 'US Payroll Confidential' AND active = 1 AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest group_id in the seed is 18)",
+        "org_id 1, the acting user's organisation, which holds most of the seed's groups",
+        "the group's type is not fixed by request or policy and is not tested",
+        "disagreement: org_id: A tests org_id 1 on the group, both criteria, the rule and the case, B on none; chose 1 on the group, criteria and rule, the tighter predicate, because the acting user is in organisation 1 and every seed criterion and assignment rule and 11 of 18 groups are there; dropped it on the case because seed cases are spread three to each of 20 organisations with no tie to the subject's profile, so the request and policy fix no value"
+      ]
+    },
+    {
+      "text": "two distinct but related active HR criteria, which names begin with the group name, that together enforce who can see (case visibility)",
+      "kind": "create",
+      "table": "hr_criteria",
+      "selector": "LOWER(name) = LOWER('US Payroll Confidential Case Visibility')",
+      "cells": {
+        "type": "case_visibility",
+        "active": 1,
+        "user_group": 19,
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM hr_criteria WHERE LOWER(name) = LOWER('US Payroll Confidential Case Visibility') AND type = 'case_visibility' AND active = 1 AND user_group = 19 AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify the visibility criterion is correctly registered and tied to the confidential group",
+      "seed_count": 0,
+      "assumptions": [
+        "two criteria are created, so each is selected by name, not by id",
+        "name 'US Payroll Confidential Case Visibility' kept from the benchmark check; the request fixes only that it begins with the group name",
+        "user_group 19 is the new confidential group, id assumed next in sequence",
+        "org_id 1: every seed criterion is in the acting user's organisation 1",
+        "disagreement: org_id: A tests org_id 1 on the group, both criteria, the rule and the case, B on none; chose 1 on the group, criteria and rule, the tighter predicate, because the acting user is in organisation 1 and every seed criterion and assignment rule and 11 of 18 groups are there; dropped it on the case because seed cases are spread three to each of 20 organisations with no tie to the subject's profile, so the request and policy fix no value"
+      ]
+    },
+    {
+      "text": "two distinct but related active HR criteria, which names begin with the group name, that together enforce ... who must approve (approval)",
+      "kind": "create",
+      "table": "hr_criteria",
+      "selector": "LOWER(name) = LOWER('US Payroll Confidential Approval')",
+      "cells": {
+        "type": "approval",
+        "active": 1,
+        "user_group": 19,
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM hr_criteria WHERE LOWER(name) = LOWER('US Payroll Confidential Approval') AND type = 'approval' AND active = 1 AND user_group = 19 AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify the approval criterion is correctly registered and tied to the confidential group",
+      "seed_count": 0,
+      "assumptions": [
+        "two criteria are created, so each is selected by name, not by id",
+        "name 'US Payroll Confidential Approval' kept from the benchmark check; the request fixes only that it begins with the group name",
+        "user_group 19 is the new confidential group; specific approver users are not fixed by request or policy and are not tested",
+        "org_id 1: every seed criterion is in the acting user's organisation 1",
+        "disagreement: org_id: A tests org_id 1 on the group, both criteria, the rule and the case, B on none; chose 1 on the group, criteria and rule, the tighter predicate, because the acting user is in organisation 1 and every seed criterion and assignment rule and 11 of 18 groups are there; dropped it on the case because seed cases are spread three to each of 20 organisations with no tie to the subject's profile, so the request and policy fix no value"
+      ]
+    },
+    {
+      "text": "at least one active assignment rule, US Payroll Case - confidential US tax, that, for new high-priority US payroll correction cases, ensures they are automatically assigned to the payroll confidential group",
+      "kind": "create",
+      "table": "assignment_rules",
+      "anchor": {
+        "assignment_rule_id": 9
+      },
+      "cells": {
+        "name": "LIKE 'US Payroll Case - confidential US tax'",
+        "based_on_country": "US",
+        "based_on_priority": "high",
+        "active": 1,
+        "user_group": 19,
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM assignment_rules WHERE assignment_rule_id = 9 AND name LIKE 'US Payroll Case - confidential US tax' AND based_on_country = 'US' AND based_on_priority = 'high' AND active = 1 AND user_group = 19 AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify the assignment rule routes high‑priority US payroll cases to the confidential group",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest assignment_rule_id in the seed is 8)",
+        "name matched without regard to case: the request writes 'confidential US tax', the benchmark check 'Confidential US Tax'",
+        "based_on_country 'US', the two-letter code the seed's rules use (GB, BR)",
+        "user_group 19 is the new confidential group, not service desk groups 3 or 4",
+        "org_id 1: every seed assignment rule is in the acting user's organisation 1",
+        "based_on_skills not fixed by request or policy and not tested",
+        "disagreement: name matching: A matches names with LIKE and no wildcards and writes the rule's name as the benchmark check capitalises it, B uses LOWER(name) = LOWER(...) in the selectors and the request's capitalisation for the rule; both ignore case and pick the same rows, so chose LOWER(...) = LOWER(...) in selectors and subqueries, the benchmark checks' own form, and the request's wording for the rule's name",
+        "disagreement: org_id: A tests org_id 1 on the group, both criteria, the rule and the case, B on none; chose 1 on the group, criteria and rule, the tighter predicate, because the acting user is in organisation 1 and every seed criterion and assignment rule and 11 of 18 groups are there; dropped it on the case because seed cases are spread three to each of 20 organisations with no tie to the subject's profile, so the request and policy fix no value"
+      ]
+    },
+    {
+      "text": "For any new US payroll correction case you create to validate this configuration, start it in a non-final status ... clearly described as a confidential US payroll correction ... requires approval via the new approval HR criterion ... Use ACC-74-33 as approval case account number",
+      "kind": "create",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 61
+      },
+      "cells": {
+        "approval_criteria": "IN (SELECT hr_criteria_id FROM hr_criteria WHERE LOWER(name) = LOWER('US Payroll Confidential Approval'))",
+        "assignment_group": 19,
+        "opened_by": 39,
+        "priority": "high",
+        "coe_type": "Payroll",
+        "request_status": "requested",
+        "status": "IN ('draft', 'ready', 'awaiting_approval', 'work_in_progress', 'awaiting_acceptance', 'suspended')",
+        "short_description": [
+          "LIKE 'Service: %'",
+          "LIKE '%confidential%'",
+          "LIKE '%payroll%'",
+          "LIKE '%correction%'"
+        ],
+        "account_number": "ACC-74-33"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND approval_criteria IN (SELECT hr_criteria_id FROM hr_criteria WHERE LOWER(name) = LOWER('US Payroll Confidential Approval')) AND assignment_group = 19 AND opened_by = 39 AND priority = 'high' AND coe_type = 'Payroll' AND request_status = 'requested' AND status IN ('draft', 'ready', 'awaiting_approval', 'work_in_progress', 'awaiting_acceptance', 'suspended') AND short_description LIKE 'Service: %' AND short_description LIKE '%confidential%' AND short_description LIKE '%payroll%' AND short_description LIKE '%correction%' AND account_number = 'ACC-74-33'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify at least one new high‑priority confidential US payroll case exists using the new approval criterion and assigned to the confidential group",
+      "seed_count": 0,
+      "assumptions": [
+        "one case is created to validate the configuration, as the single account number implies; id assumed next in sequence (highest hr_case_id in the seed is 60)",
+        "approval_criteria is the new approval criterion, selected by name because the two criteria's ids are not ordered by the request",
+        "assignment_group 19 is the new group's id, assumed next in sequence",
+        "opened_by is the requester (policy 3.1): the acting user Karen Watkins, hr_profile 39",
+        "priority high: the case validates the high-priority routing; kept from the benchmark check",
+        "coe_type Payroll kept from the benchmark check; the request forbids reconfiguring COEs, and Payroll is the existing payroll COE",
+        "request_status 'requested' kept from the benchmark check; the policy starts approval requests at requested",
+        "status: any non-final status, as the request says (not closed or cancelled)",
+        "short description begins 'Service: ' per the policy's format, which the benchmark check tests, and names a confidential payroll correction in the request's words",
+        "account_number ACC-74-33 as the request states",
+        "org_id not tested: seed cases are spread over 20 organisations with no tie to the subject, so no value is fixed",
+        "disagreement: opened_by: A untested, B 39; chose 39, the tighter predicate, because policy 3.1 makes opened_by the requester, the acting user Karen Watkins (hr_profile 39) asks for the validation case, and the seed's habit of opened_by = opened_for comes from self-opened cases, which does not contradict the policy",
+        "disagreement: org_id: A tests org_id 1 on the group, both criteria, the rule and the case, B on none; chose 1 on the group, criteria and rule, the tighter predicate, because the acting user is in organisation 1 and every seed criterion and assignment rule and 11 of 18 groups are there; dropped it on the case because seed cases are spread three to each of 20 organisations with no tie to the subject's profile, so the request and policy fix no value",
+        "disagreement: name matching: A matches names with LIKE and no wildcards and writes the rule's name as the benchmark check capitalises it, B uses LOWER(name) = LOWER(...) in the selectors and the request's capitalisation for the rule; both ignore case and pick the same rows, so chose LOWER(...) = LOWER(...) in selectors and subqueries, the benchmark checks' own form, and the request's wording for the rule's name"
+      ]
+    },
+    {
+      "text": "there should not exist any new high-priority US payroll correction case whose visibility or assignment contradicts the intent that only the US confidential group ... can see and work on it",
+      "kind": "stay",
+      "table": "hr_case",
+      "selector": "approval_criteria IN (SELECT hr_criteria_id FROM hr_criteria WHERE LOWER(name) = LOWER('US Payroll Confidential Approval')) AND priority = 'high' AND coe_type = 'Payroll'",
+      "cells": {
+        "assignment_group": "<> 19"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE approval_criteria IN (SELECT hr_criteria_id FROM hr_criteria WHERE LOWER(name) = LOWER('US Payroll Confidential Approval')) AND priority = 'high' AND coe_type = 'Payroll' AND assignment_group <> 19",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "Negative check: ensure there are no high‑priority US payroll correction cases using the new approval criterion that are assigned to any other group",
+      "seed_count": 0,
+      "assumptions": [
+        "forbidden by the request: no high-priority payroll case under the new approval criterion may be assigned to any group other than the confidential group 19",
+        "disagreement: name matching: A matches names with LIKE and no wildcards and writes the rule's name as the benchmark check capitalises it, B uses LOWER(name) = LOWER(...) in the selectors and the request's capitalisation for the rule; both ignore case and pick the same rows, so chose LOWER(...) = LOWER(...) in selectors and subqueries, the benchmark checks' own form, and the request's wording for the rule's name"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify the visibility criterion is correctly registered and tied to the confidential group": {
+      "disposition": "kept"
+    },
+    "Verify the confidential payroll group exists, is unique, and active in the organization": {
+      "disposition": "kept"
+    },
+    "Verify the approval criterion is correctly registered and tied to the confidential group": {
+      "disposition": "kept"
+    },
+    "Verify the assignment rule routes high‑priority US payroll cases to the confidential group": {
+      "disposition": "kept"
+    },
+    "Verify at least one new high‑priority confidential US payroll case exists using the new approval criterion and assigned to the confidential group": {
+      "disposition": "kept"
+    },
+    "Negative check: ensure there are no high‑priority US payroll correction cases using the new approval criterion that are assigned to any other group": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "disagreement: name matching: A matches names with LIKE and no wildcards and writes the rule's name as the benchmark check capitalises it, B uses LOWER(name) = LOWER(...) in the selectors and the request's capitalisation for the rule; both ignore case and pick the same rows, so chose LOWER(...) = LOWER(...) in selectors and subqueries, the benchmark checks' own form, and the request's wording for the rule's name\ndisagreement: org_id: A tests org_id 1 on the group, both criteria, the rule and the case, B on none; chose 1 on the group, criteria and rule, the tighter predicate, because the acting user is in organisation 1 and every seed criterion and assignment rule and 11 of 18 groups are there; dropped it on the case because seed cases are spread three to each of 20 organisations with no tie to the subject's profile, so the request and policy fix no value\ndisagreement: opened_by: A untested, B 39; chose 39, the tighter predicate, because policy 3.1 makes opened_by the requester, the acting user Karen Watkins (hr_profile 39) asks for the validation case, and the seed's habit of opened_by = opened_for comes from self-opened cases, which does not contradict the policy\nThe two passes otherwise agree on every requirement, anchor, cell and on all six dispositions (kept); their texts and assumptions differ in wording only.\nThe group check's description says the group is active but its query tests only that the name occurs once; activeness is tested by a separate requirement.\nThe case's hr_service, opened_for and approver are not tested: the request says only 'a US employee', the seed has several US-national profiles (40, 50 and 80 in organisation 1 among them), and hr_profile holds nationality but no work country. ACC-74-33 is also the account number of seed case 34, opened for profile 74 (nationality DE), so it does not identify the employee. 'US' is left out of the description terms because a case-insensitive match on 'us' hits ordinary words.\nThe request forbids reconfiguring topics, COEs and roles; no available tool writes those tables, so no requirement tests them. Existing payroll rules (4 for GB, 8 for BR) and existing high-priority payroll cases are background the request says to ignore, and no available tool can change them.\nThe request asks for exactly two criteria whose names begin with the group name; each is tested by its full name, and no count of the prefix is tested.\nThe negative check holds on the seed by design, since the approval criterion does not exist yet; it guards against misrouting and earns nothing on its own. Like the benchmark's join, it does not count a matching case with no assignment group; the case requirement requires group 19 on the one case created.\nThe acting user is an admin, whom the policy allows to configure groups, criteria and assignment rules; section 2 of the policy says administrators must not perform routine HR case work, but the validation case serves the configuration the request asks for, so it stands.",
+  "minutes": 44
+}

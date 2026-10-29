@@ -1,0 +1,299 @@
+{
+ "task_id": "task_20251218_234518_453_d9bcd1e5_72c94403",
+ "policy_sha1": "b2da3f42",
+ "requirements": [
+  {
+   "text": "a clearly separated Employee Relations & Investigations area that belongs to the same COE as other Workforce Administration work ... has its own topic category",
+   "kind": "create",
+   "table": "topic_category",
+   "anchor": {
+    "topic_category_id": 13
+   },
+   "cells": {
+    "name": "Employee Relations & Investigations",
+    "coe_type": "Workforce Administration",
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM topic_category WHERE topic_category_id = 13 AND name = 'Employee Relations & Investigations' AND coe_type = 'Workforce Administration' AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify the new topic category",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (topic_category 12 is the highest in the seed)",
+    "a new row, so the area is not mixed into General (5), HR Operations (6) or HR System Support (7)",
+    "org_id 1 is ServiceNow, the acting user's organisation"
+   ]
+  },
+  {
+   "text": "a specific topic detail called Workplace Misconduct Investigation",
+   "kind": "create",
+   "table": "topic_detail",
+   "anchor": {
+    "topic_detail_id": 36
+   },
+   "cells": {
+    "name": "Workplace Misconduct Investigation",
+    "topic_category": 13,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM topic_detail WHERE topic_detail_id = 36 AND name = 'Workplace Misconduct Investigation' AND topic_category = 13 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify the topic detail under that category",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (topic_detail 35 is the highest in the seed)",
+    "topic_category 13 is the Employee Relations & Investigations category this task creates",
+    "org_id 1 is ServiceNow, the acting user's organisation"
+   ]
+  },
+  {
+   "text": "a dedicated Employee Relations Investigation Team ... a standalone group, separate from existing groups",
+   "kind": "create",
+   "table": "user_group",
+   "anchor": {
+    "group_id": 19
+   },
+   "cells": {
+    "name": "Employee Relations Investigation Team",
+    "type": "Service Desk",
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM user_group WHERE group_id = 19 AND name = 'Employee Relations Investigation Team' AND type = 'Service Desk' AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify the Employee Relations Investigation Team group",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (user_group 18 is the highest in the seed)",
+    "type kept from the benchmark check; not fixed by request or policy",
+    "a new row, so HR Service Desk, HR Case Readers and HR Leadership Approval are not reused",
+    "org_id 1 is ServiceNow, the acting user's organisation"
+   ]
+  },
+  {
+   "text": "a case visibility rule called Employee Relations Confidential Visibility ... associated with the Employee Relations Investigation Team",
+   "kind": "create",
+   "table": "hr_criteria",
+   "anchor": {
+    "hr_criteria_id": 8
+   },
+   "cells": {
+    "name": "Employee Relations Confidential Visibility",
+    "type": "case_visibility",
+    "user_group": 19
+   },
+   "sql": "SELECT COUNT(*) FROM hr_criteria WHERE hr_criteria_id = 8 AND name = 'Employee Relations Confidential Visibility' AND type = 'case_visibility' AND user_group = 19",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify the HR criteria is case_visibility and bound to that group",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (hr_criteria 7 is the highest in the seed)",
+    "type case_visibility is the seed's value for a case visibility rule",
+    "user_group 19 is the investigation team this task creates, not a general HR group",
+    "org_id not tested: the benchmark checks the organisation through the group, which the user_group cell fixes"
+   ]
+  },
+  {
+   "text": "a dedicated investigation service template Employee Relations Confidential Investigation ... Service template should be labelled with template At the end",
+   "kind": "create",
+   "table": "service_template",
+   "anchor": {
+    "service_template_id": 7
+   },
+   "cells": {
+    "name": "Employee Relations Confidential Investigation template",
+    "coe_type": "Workforce Administration",
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM service_template WHERE service_template_id = 7 AND name = 'Employee Relations Confidential Investigation template' AND coe_type = 'Workforce Administration' AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify the service template",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (service_template 6 is the highest in the seed)",
+    "name is the stated label with the word 'template' at the end, as the request asks",
+    "coe_type Workforce Administration, the COE the request gives the investigation area",
+    "org_id 1 is ServiceNow, the acting user's organisation"
+   ]
+  },
+  {
+   "text": "a single, clearly named service ... Report Workplace Misconduct (Confidential) ... under the Workplace Misconduct Investigation topic detail ... uses a dedicated investigation service template ... restricted by the Employee Relations Confidential Visibility criteria",
+   "kind": "create",
+   "table": "hr_service",
+   "anchor": {
+    "hr_service_id": 55
+   },
+   "cells": {
+    "service_name": "Report Workplace Misconduct (Confidential)",
+    "topic_detail": 36,
+    "service_template": 7,
+    "hr_criteria": 8,
+    "active": 1,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 55 AND service_name = 'Report Workplace Misconduct (Confidential)' AND topic_detail = 36 AND service_template = 7 AND hr_criteria = 8 AND active = 1 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify the HR service wiring (topic, template, criteria)",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (hr_service 54 is the highest in the seed)",
+    "topic_detail 36, service_template 7 and hr_criteria 8 are the rows this task creates",
+    "active implied by the request ('a single, clearly named service that employees use'; the policy lets a case reference only an active service), not stated",
+    "org_id 1 is ServiceNow, the acting user's organisation",
+    "fulfillment_type not stated; not tested"
+   ]
+  },
+  {
+   "text": "the HR Portal Support Request service ... should keep working exactly as it does today, under the same topic ... still visible to broad HR groups",
+   "kind": "stay",
+   "table": "hr_service",
+   "anchor": {
+    "hr_service_id": 5
+   },
+   "cells": {
+    "service_name": "HR Portal Support Request",
+    "fulfillment_type": "manual",
+    "topic_detail": 14,
+    "service_template": "IS NULL",
+    "hr_criteria": "IS NULL",
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 5 AND service_name = 'HR Portal Support Request' AND fulfillment_type = 'manual' AND topic_detail = 14 AND service_template IS NULL AND hr_criteria IS NULL AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 1,
+   "assumptions": [
+    "HR Portal Support Request resolved by name to hr_service 5, topic detail 14 (HR Portal); the request forbids reusing, renaming or re-pointing it",
+    "no criteria on the seed row is what keeps it visible broadly, so hr_criteria stays empty",
+    "disagreement: fulfillment_type: one pass leaves it out, the other holds it at its seed value manual; chose to hold it, since the request says the path keeps working exactly as it does today"
+   ]
+  },
+  {
+   "text": "That investigation service does not reuse the HR Portal Support Request service or its topic",
+   "kind": "stay",
+   "table": "topic_detail",
+   "anchor": {
+    "topic_detail_id": 14
+   },
+   "cells": {
+    "name": "HR Portal",
+    "topic_category": 7,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM topic_detail WHERE topic_detail_id = 14 AND name = 'HR Portal' AND topic_category = 7 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 1,
+   "assumptions": [
+    "the HR Portal topic keeps its name and stays under HR System Support (7, HRIT), the same topic and COE as today"
+   ]
+  },
+  {
+   "text": "under the same topic and COE ... it is not added to any of the HRIT-centric categories like HR System Support",
+   "kind": "stay",
+   "table": "topic_category",
+   "anchor": {
+    "topic_category_id": 7
+   },
+   "cells": {
+    "name": "HR System Support",
+    "coe_type": "HRIT",
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM topic_category WHERE topic_category_id = 7 AND name = 'HR System Support' AND coe_type = 'HRIT' AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 1,
+   "assumptions": [
+    "the portal path's category is HR System Support (7), COE HRIT; the request keeps the portal path under the same COE and forbids adding the investigation area to the HRIT categories"
+   ]
+  },
+  {
+   "text": "Any approvals that are already configured ... are still used for their original purposes and do not suddenly become part of the investigation process",
+   "kind": "stay",
+   "table": "hr_criteria",
+   "selector": "hr_criteria_id IN (2, 3, 4)",
+   "cells": {
+    "type": "approval",
+    "active": 1,
+    "user_group": "= CASE hr_criteria_id WHEN 2 THEN 17 WHEN 3 THEN 14 WHEN 4 THEN 15 END"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_criteria WHERE hr_criteria_id IN (2, 3, 4) AND type = 'approval' AND active = 1 AND user_group = CASE hr_criteria_id WHEN 2 THEN 17 WHEN 3 THEN 14 WHEN 4 THEN 15 END",
+   "expected": 3,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 3,
+   "assumptions": [
+    "the existing approval criteria are 2 (Needs Corporate Credit Card), 3 (Needs Relocation) and 4 (Needs visa transfer); 'like' makes the two named ones examples",
+    "each keeps its type and its own seed group, so none is moved to the investigation team",
+    "disagreement: user_group: one pass allows any of groups 14, 15 and 17 across the three rows, the other holds each row to its own seed group; chose the per-row form, which is tighter and also catches two criteria swapping groups"
+   ]
+  },
+  {
+   "text": "No existing visibility rules, such as Employees Only or New Hire, change their meaning or routing",
+   "kind": "stay",
+   "table": "hr_criteria",
+   "selector": "hr_criteria_id IN (1, 5, 6, 7)",
+   "cells": {
+    "type": "case_visibility",
+    "active": 1,
+    "user_group": "= CASE hr_criteria_id WHEN 7 THEN 16 ELSE 13 END"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_criteria WHERE hr_criteria_id IN (1, 5, 6, 7) AND type = 'case_visibility' AND active = 1 AND user_group = CASE hr_criteria_id WHEN 7 THEN 16 ELSE 13 END",
+   "expected": 4,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 4,
+   "assumptions": [
+    "the existing visibility rules are 1 (Employees Only), 5 (New Hire), 6 (Office Based Employees) and 7 (US Employees - Tax forms Collection); meaning read as type and active, routing as user_group",
+    "disagreement: user_group: one pass allows group 13 or 16 on any of the four rows, the other holds each row to its own seed group (16 for rule 7, 13 for the rest); chose the per-row form, which is tighter and also catches a rule re-routed between the two groups"
+   ]
+  },
+  {
+   "text": "The only new gate that needs to exist for the investigation path is a case visibility rule called Employee Relations Confidential Visibility",
+   "kind": "stay",
+   "table": "hr_criteria",
+   "selector": "name <> 'Employee Relations Confidential Visibility'",
+   "cells": {},
+   "sql": "SELECT COUNT(*) FROM hr_criteria WHERE name <> 'Employee Relations Confidential Visibility'",
+   "expected": 7,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 7,
+   "assumptions": [
+    "no criteria other than the new visibility rule is added or removed; the seed holds 7",
+    "the request makes the visibility rule the only new gate and calls investigation work 'not approval-heavy', so an extra approval criteria for the investigation path is forbidden"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Verify the new topic category": {
+   "disposition": "kept"
+  },
+  "Verify the topic detail under that category": {
+   "disposition": "kept"
+  },
+  "Verify the Employee Relations Investigation Team group": {
+   "disposition": "kept"
+  },
+  "Verify the HR criteria is case_visibility and bound to that group": {
+   "disposition": "kept"
+  },
+  "Verify the service template": {
+   "disposition": "kept"
+  },
+  "Verify the HR service wiring (topic, template, criteria)": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "disagreement: missing requirement: the stay that HR System Support (category 7) keeps its name, COE HRIT and active flag is in one pass only; kept because the request keeps the portal path 'under the same topic and COE' and says the investigation area is 'not added to any of the HRIT-centric categories like HR System Support'.\ndisagreement: missing requirement: the stay that no criteria other than Employee Relations Confidential Visibility is added or removed is in one pass only; kept because the request says 'the only new gate that needs to exist for the investigation path' is that visibility rule and that investigation work is 'not approval-heavy'.\ndisagreement: value: the stay on service 5: one pass tests name, topic, template, criteria and active, the other also fulfillment_type manual; kept the tighter form, since the request says the portal path keeps working exactly as it does today.\ndisagreement: value: the stay on approval criteria 2, 3 and 4: one pass allows any of their three seed groups on each row, the other holds each row to its own group; kept the per-row form, which is tighter.\ndisagreement: value: the stay on visibility rules 1, 5, 6 and 7: one pass allows group 13 or 16 on each row, the other holds each row to its own group; kept the per-row form, which is tighter.\nThe acting user, Karen Watkins (user 39), is an admin; the policy gives admins write access to configuration tables, so every step is in scope.\nThe benchmark's joins (topic detail to category, criteria to group, service to topic, template and criteria) are expressed as references to the ids of the rows this task creates: category 13, topic detail 36, group 19, criteria 8, template 7, service 55; each is the only row the task creates in its table.\nThe request says investigation cases start with 'the same default description and internal categorization' from the template but gives no values or keys, so the template's change_request_values (a JSON column) is not tested.\n'Service template should be labelled with template At the end' is read as the name 'Employee Relations Confidential Investigation template', as the benchmark also reads it.\nActive flags on the new category, detail, group, criteria and template are not stated and not tested; the service's active flag is required because employees raise cases through it.\nThe request names no members for the new team, so no membership is required.\nThe listed tools only create rows, so the stays record the request's explicit statements that existing rows are not repurposed; they hold on the seed and fail only if an existing row is overwritten or an extra criteria is added. No seed service links any criteria or template, so 'approvals already configured for other services' is read as the approval criteria rows themselves.\nThe request's prohibition on adding the area to General, HR Operations or HR System Support is enforced by the topic detail's topic_category = 13 and the service's topic_detail = 36; visibility of investigation cases to generalist groups is enforced through the criteria's user_group = 19, since the seed holds no other per-service visibility setting.",
+ "minutes": 54
+}

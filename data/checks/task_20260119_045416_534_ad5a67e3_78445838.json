@@ -1,0 +1,168 @@
+{
+  "task_id": "task_20260119_045416_534_ad5a67e3_78445838",
+  "policy_sha1": "9ffbbf7e",
+  "requirements": [
+    {
+      "text": "creating a new topic category named Employee Mobility under the Workforce Administration COE",
+      "kind": "create",
+      "table": "topic_category",
+      "anchor": {"topic_category_id": 6},
+      "cells": {"name": "Employee Mobility", "coe_type": "Workforce Administration", "active": 1},
+      "sql": "SELECT COUNT(*) FROM topic_category WHERE topic_category_id = 6 AND name = 'Employee Mobility' AND coe_type = 'Workforce Administration' AND active = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify topic category Employee Mobility",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest topic_category_id in the seed is 5)",
+        "active = 1 kept from the benchmark check; not fixed by request or policy, though 'fully operational' supports it"
+      ]
+    },
+    {
+      "text": "add a topic detail called Internal Department Transfer under that same new category",
+      "kind": "create",
+      "table": "topic_detail",
+      "anchor": {"topic_detail_id": 11},
+      "cells": {"name": "Internal Department Transfer", "topic_category": 6, "active": 1},
+      "sql": "SELECT COUNT(*) FROM topic_detail WHERE topic_detail_id = 11 AND name = 'Internal Department Transfer' AND topic_category = 6 AND active = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify topic detail Internal Department Transfer",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest topic_detail_id in the seed is 10)",
+        "topic_category 6 is the Employee Mobility category created above, whose requirement carries the benchmark's name and coe_type join conditions",
+        "active = 1 kept from the benchmark check; not fixed by request or policy"
+      ]
+    },
+    {
+      "text": "register an HR approval criteria record called Mobility Manager Approval, which should use the Service Desk group for its visibility and reference the users robert.taylor@techcorp.com and emily.watson@techcorp.com in the users list",
+      "kind": "create",
+      "table": "hr_criteria",
+      "anchor": {"hr_criteria_id": 4},
+      "cells": {
+        "name": "Mobility Manager Approval",
+        "type": "approval",
+        "active": 1,
+        "user_group": 2,
+        "users": [
+          "EXISTS (SELECT 1 FROM json_each(users) WHERE value = 8)",
+          "EXISTS (SELECT 1 FROM json_each(users) WHERE value = 3)",
+          "json_array_length(users) = 2"
+        ]
+      },
+      "sql": "SELECT COUNT(*) FROM hr_criteria WHERE hr_criteria_id = 4 AND name = 'Mobility Manager Approval' AND type = 'approval' AND active = 1 AND user_group = 2 AND EXISTS (SELECT 1 FROM json_each(users) WHERE value = 8) AND EXISTS (SELECT 1 FROM json_each(users) WHERE value = 3) AND json_array_length(users) = 2",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify HR criteria Mobility Manager Approval",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest hr_criteria_id in the seed is 3)",
+        "type = 'approval' from the request's 'HR approval criteria record'",
+        "Service Desk is group_id 2, the only group with that exact name; Service Desk Team (13) and Help Desk (18) are other groups",
+        "robert.taylor@techcorp.com is user_id 8 and emily.watson@techcorp.com is user_id 3",
+        "users is stored as a JSON array of integer ids, as in the seed's existing rows ('[9, 10]')",
+        "the request names the members of the users list, so the list holds exactly these two ids, in either order",
+        "active = 1 kept from the benchmark check; not fixed by request or policy",
+        "disagreement: users: A an exact match on the stored text ('[8, 3]' or '[3, 8]'), B JSON membership of 8 and 3 with array length 2; chose B because both require exactly these two users, and the JSON form also accepts a list stored without the space after the comma"
+      ]
+    },
+    {
+      "text": "a service template ... call it Mobility Transfer Template and set the change request to short description = Department transfer approval workflow, and category = mobility, without modification",
+      "kind": "create",
+      "table": "service_template",
+      "anchor": {"service_template_id": 6},
+      "cells": {
+        "name": "Mobility Transfer Template",
+        "coe_type": "Workforce Administration",
+        "active": 1,
+        "change_request_values": [
+          "json_extract(change_request_values, '$.short_description') = 'Department transfer approval workflow'",
+          "json_extract(change_request_values, '$.category') = 'mobility'",
+          "(SELECT COUNT(*) FROM json_each(change_request_values)) = 2"
+        ]
+      },
+      "sql": "SELECT COUNT(*) FROM service_template WHERE service_template_id = 6 AND name = 'Mobility Transfer Template' AND coe_type = 'Workforce Administration' AND active = 1 AND json_extract(change_request_values, '$.short_description') = 'Department transfer approval workflow' AND json_extract(change_request_values, '$.category') = 'mobility' AND (SELECT COUNT(*) FROM json_each(change_request_values)) = 2",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify service template Mobility Transfer Template with exact JSON values",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest service_template_id in the seed is 5)",
+        "change_request_values is stored as a JSON object with exactly the keys short_description and category, as in all five seed templates",
+        "'without modification' makes both values exact (case-sensitive equality instead of the benchmark's substring LIKE), and 'set the change request to' these two fields means the object holds only them",
+        "coe_type = 'Workforce Administration' kept from the benchmark check; not fixed by request or policy, though the template serves the Workforce Administration category",
+        "active = 1 kept from the benchmark check; not fixed by request or policy",
+        "disagreement: change_request_values: A substring matches on the description and on '\"mobility\"', B exact values under the short_description and category keys with exactly two keys; chose B because the seed's templates store exactly these two keys and 'without modification' asks for the values verbatim, so B is the tighter correct form"
+      ]
+    },
+    {
+      "text": "create a new lifecycle event service named \"Department Transfer: Manager Review\" and tie it to that topic detail, the newly registered approval criteria, and a service template",
+      "kind": "create",
+      "table": "hr_service",
+      "anchor": {"hr_service_id": 6},
+      "cells": {
+        "service_name": "Department Transfer: Manager Review",
+        "fulfillment_type": "workflow",
+        "active": 1,
+        "topic_detail": 11,
+        "hr_criteria": 4,
+        "service_template": 6
+      },
+      "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 6 AND service_name = 'Department Transfer: Manager Review' AND fulfillment_type = 'workflow' AND active = 1 AND topic_detail = 11 AND hr_criteria = 4 AND service_template = 6",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify lifecycle event service",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest hr_service_id in the seed is 5)",
+        "topic_detail 11, hr_criteria 4 and service_template 6 are the rows created above, which carry the benchmark's joined name conditions",
+        "fulfillment_type = 'workflow' kept from the benchmark check; the request calls the service a workflow, and workflow is in the policy's enumeration",
+        "active = 1 implied by 'fully operational'; also tested by the benchmark check"
+      ]
+    },
+    {
+      "text": "create an assignment rule called Mobility Assignment Rule and make it active",
+      "kind": "create",
+      "table": "assignment_rules",
+      "anchor": {"assignment_rule_id": 4},
+      "cells": {"name": "Mobility Assignment Rule", "active": 1},
+      "sql": "SELECT COUNT(*) FROM assignment_rules WHERE assignment_rule_id = 4 AND name = 'Mobility Assignment Rule' AND active = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify assignment rule Mobility Assignment Rule",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest assignment_rule_id in the seed is 3)",
+        "no priority, country, skills, group or users stated, so only name and active are tested"
+      ]
+    },
+    {
+      "text": "deactivate the older service named Benefits Enrollment so it no longer appears in the active catalog",
+      "kind": "change",
+      "table": "hr_service",
+      "anchor": {"hr_service_id": 2},
+      "cells": {"active": 0},
+      "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 2 AND active = 0",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Legacy Transfer Request service is deactivated",
+      "seed_count": 0,
+      "assumptions": [
+        "Benefits Enrollment is hr_service_id 2, the only service with that name (active on the seed)",
+        "'deactivate' means the row remains with active = 0, not that it is deleted"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify Legacy Transfer Request service is deactivated": {"disposition": "kept"},
+    "Verify topic category Employee Mobility": {"disposition": "kept"},
+    "Verify topic detail Internal Department Transfer": {"disposition": "kept"},
+    "Verify HR criteria Mobility Manager Approval": {"disposition": "kept"},
+    "Verify service template Mobility Transfer Template with exact JSON values": {"disposition": "kept"},
+    "Verify lifecycle event service": {"disposition": "kept"},
+    "Verify assignment rule Mobility Assignment Rule": {"disposition": "kept"}
+  },
+  "notes": "disagreement: users cell of the Mobility Manager Approval criteria: one pass matched the stored text exactly ('[8, 3]' or '[3, 8]'), the other tested JSON membership of users 8 and 3 with array length 2; chose the JSON form because both demand exactly these two users and it does not depend on spacing in the stored list.\ndisagreement: change_request_values cell of the Mobility Transfer Template: one pass used substring matches on the description and on '\"mobility\"', the other exact values under the short_description and category keys with exactly two keys; chose the exact form because every seed template stores exactly these two keys and 'without modification' asks for the values verbatim.\nThe two passes otherwise agree on every requirement, id, cell and disposition (all seven checks kept); their texts and assumptions differ in wording only.\nThe acting user (user_id 1) holds the admin role, which the policy allows to create and deactivate HR services, criteria and assignment rules.\nCreated rows are anchored by the next id in each table, since each table gets exactly one new row; links between them use those ids rather than the benchmark's name joins.\norg_id is left out of every created row: the request names no organisation, the acting user belongs to org 1, and the only existing Workforce Administration category belongs to org 2.\nThe assignment rule's based_on_priority is NOT NULL, but the request gives no value, so no cell tests it.\nThe criteria's users list and the template's change request are tightened to exactly the named entries; the benchmark tested only that both users are present and a case-insensitive substring of the description, and did not test the category.\nThe check 'Verify Legacy Transfer Request service is deactivated' is named for a different service, but its query tests Benefits Enrollment, which the request names; it is kept as is.\nThe only tool that acts on an existing service is delete_hr_service; the request asks for deactivation, so the requirement expects the row to remain with active = 0, and a hard delete would fail it.",
+  "minutes": 32
+}

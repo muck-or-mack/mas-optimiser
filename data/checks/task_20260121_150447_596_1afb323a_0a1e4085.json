@@ -1,0 +1,208 @@
+{
+  "task_id": "task_20260121_150447_596_1afb323a_0a1e4085",
+  "policy_sha1": "2ab3c1fb",
+  "requirements": [
+    {
+      "text": "We've received an escalation from Initech concerning their open case ... update the case",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 122
+      },
+      "cells": {
+        "account_id": 5,
+        "product_id": 174,
+        "installed_product_id": 25,
+        "priority": "high",
+        "state": "in_progress",
+        "escalation": 1,
+        "escalation_reason": "customer_request"
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 122 AND account_id = 5 AND product_id = 174 AND installed_product_id = 25 AND priority = 'high' AND state = 'in_progress' AND escalation = 1 AND escalation_reason = 'customer_request'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Case Updated & Escalated to High",
+      "seed_count": 0,
+      "assumptions": [
+        "the case is 122, the only open case of account 5 (Initech) on product 174 'Cisco ASA 5525-X Variant 42' (installed product 25); the other open cases on that product (345, 347, 348) belong to account 15",
+        "escalation = 1 and a reason from policy 8; escalation_reason = customer_request kept from the benchmark check: the escalation came from the customer ('received an escalation from Initech', 'requested faster action'); impact ('service disruption') and breach_risk ('delays in resolution') are the alternatives",
+        "priority = high: policy 8's two-level increase on escalation from the seed's low (low -> moderate -> high)",
+        "state in_progress, account_id, product_id and installed_product_id kept from the benchmark check; they identify the case, are unchanged on the seed, and the request moves none of them",
+        "policy 8 asks for the justification in case notes, but customer_case has no notes column and the schema has no work-note table, so nothing is required for it",
+        "disagreement: structure: B carries the benchmark check in one requirement including assigned_to, A splits it into this update and the reassignment; kept A's split because 'update the case' and 'reassign it' are two clauses of the request, and both requirements carry the same source"
+      ]
+    },
+    {
+      "text": "reassign it to an available agent located at Plot 551, in the same city where the product is installed",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 122
+      },
+      "cells": {
+        "assigned_to": 219,
+        "assignment_group_id": 36
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 122 AND assigned_to = 219 AND assignment_group_id = 36",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Case Updated & Escalated to High",
+      "seed_count": 0,
+      "assumptions": [
+        "installed product 25 is at location 812 (tokyo); Plot 551 has two locations, 27 (london; its only user, 27, is a customer) and 219 (tokyo), so the agent is Mark Smith, user 219 (agent, active)",
+        "the current assignee Joseph Green (554, manager, active) is 'on leave' by the request's word only; no tool changes users and the request asks nothing of his row",
+        "disagreement: assignment_group_id = 36: A tests it, B does not (seed value 36); kept because the request reassigns the person, not the group, policy 2 ties assigned_to to assignment_group_id, and the benchmark's membership check presupposes group 36"
+      ]
+    },
+    {
+      "text": "reassign it to an available agent (policy 2: be a member of the assigned group; if not, add them to that group)",
+      "kind": "create",
+      "table": "user_group_member",
+      "anchor": {
+        "member_id": 960
+      },
+      "cells": {
+        "user_id": 219,
+        "group_id": 36
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 960 AND user_id = 219 AND group_id = 36",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Agent Membership Added",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by policy 2, not stated in the request: the assignee must be a member of the case's group (36, Customer Onboarding_2), 'if not, add them to that group'; on the seed user 219 is in groups 10, 71 and 75 only",
+        "id assumed next in sequence (959 is the highest member_id on the seed); the task adds exactly one membership",
+        "policy 2's 'if not, mark them as active' does not apply: user 219 is already active"
+      ]
+    },
+    {
+      "text": "add or remove SLAs as necessary to ensure compliance",
+      "kind": "remove",
+      "table": "case_sla",
+      "selector": "case_id = 122",
+      "cells": {
+        "sla_def_id": "IN (4, 9)"
+      },
+      "sql": "SELECT COUNT(*) FROM case_sla WHERE case_id = 122 AND sla_def_id IN (4, 9)",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "Old Low-Priority SLAs Removed",
+      "seed_count": 2,
+      "assumptions": [
+        "the seed links SLA Response - Low (4, case_sla 243) and SLA Resolution - Low (9, case_sla 244); at priority high they no longer apply and must be removed (delete_case_slas is listed)",
+        "removal means the rows are gone, as the benchmark counts them; cancelling the stage would not satisfy it",
+        "disagreement: cells: A {sla_def_id: IN (4, 9)} with the same predicate repeated in the selector, B {} with it in the selector only; chose selector case_id = 122 with the IN predicate as the cell, so the tested column is in cells and the row key in the selector; the sql is the same in both passes"
+      ]
+    },
+    {
+      "text": "Make sure the correct SLA definitions are applied to the case",
+      "kind": "create",
+      "table": "case_sla",
+      "selector": "case_id = 122 AND sla_def_id = 11",
+      "cells": {
+        "stage": "in_progress"
+      },
+      "sql": "SELECT COUNT(*) FROM case_sla WHERE case_id = 122 AND sla_def_id = 11 AND stage = 'in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "High Priority SLA Set Applied (Response + Resolution)",
+      "seed_count": 0,
+      "assumptions": [
+        "policy 8 fixes the response SLA of an escalated case to the 'no pause on pending' definition: 11 'SLA Response - High (No Pause)' (pause_on_pending 0, priority high, active), not 2",
+        "SLAs are in scope: Initech holds active account-wide entitlements (37, 39, 42) on active contracts",
+        "stage = in_progress kept from the benchmark check (the column's default for a new link)",
+        "selected by natural key (case and definition), not by sequence position: the task creates two case_sla rows in no fixed order"
+      ]
+    },
+    {
+      "text": "Make sure the correct SLA definitions are applied to the case",
+      "kind": "create",
+      "table": "case_sla",
+      "selector": "case_id = 122 AND sla_def_id = 7",
+      "cells": {
+        "stage": "in_progress"
+      },
+      "sql": "SELECT COUNT(*) FROM case_sla WHERE case_id = 122 AND sla_def_id = 7 AND stage = 'in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "High Priority SLA Set Applied (Response + Resolution)",
+      "seed_count": 0,
+      "assumptions": [
+        "no 'no pause' resolution definition exists for high, so policy 8's fallback ('if not in scope, apply appropriate SLA definition') gives 7 'SLA Resolution - High', the only active resolution definition for priority high",
+        "stage = in_progress kept from the benchmark check (the column's default for a new link)",
+        "selected by natural key (case and definition), not by sequence position: the task creates two case_sla rows in no fixed order"
+      ]
+    },
+    {
+      "text": "Make sure the correct SLA definitions are applied to the case",
+      "kind": "stay",
+      "table": "case_sla",
+      "selector": "case_id = 122",
+      "cells": {
+        "sla_def_id": "NOT IN (4, 7, 9, 11)"
+      },
+      "sql": "SELECT COUNT(*) FROM case_sla WHERE case_id = 122 AND sla_def_id NOT IN (4, 7, 9, 11)",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of 'the correct SLA definitions': the paused high-response definition 2, the critical definitions 1 and 6 (a loose reading of the two-level rise), the moderate ones 3, 8 and 12, and the inactive globals 5 and 10 must not be linked; the four named definitions have their own requirements",
+        "disagreement: cells: A {sla_def_id: NOT IN (4, 7, 9, 11)} with the predicate repeated in the selector, B {} with it in the selector only; chose selector case_id = 122 with the NOT IN predicate as the cell, the same shape as the removal requirement; the sql is the same in both passes"
+      ]
+    },
+    {
+      "text": "their open case for the 'Cisco ASA 5525-X Variant 42' appliance",
+      "kind": "stay",
+      "table": "customer_case",
+      "selector": "product_id = 174 AND case_id <> 122",
+      "cells": {
+        "escalation": 1
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE product_id = 174 AND case_id <> 122 AND escalation = 1",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of the case selector: cases 345, 347 and 348 are open on the same product but belong to account 15 (Reyes Inc), so a reading that drops the account must not escalate them",
+        "disagreement: A has this stay, B does not; kept as the boundary of the case selector (the second kind of stay): the request names the case by product and account, and the product alone picks three more open cases"
+      ]
+    },
+    {
+      "text": "an available agent located at Plot 551, in the same city where the product is installed",
+      "kind": "stay",
+      "table": "user_group_member",
+      "selector": "user_id = 27",
+      "cells": {
+        "group_id": 36
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE user_id = 27 AND group_id = 36",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of the agent selector: Ashley Krueger (user 27) is the other user at a Plot 551 location (27, london), a customer in the wrong city; she must not be added to the case's group",
+        "disagreement: B has this stay, A does not; kept as the boundary of the agent selector (the second kind of stay): Plot 551 alone picks two locations and the case requirement's assigned_to = 219 does not catch a wrong membership; B's cells {} with the whole key in the selector rewritten as selector user_id = 27 with group_id = 36 as the cell"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Agent Membership Added": {
+      "disposition": "kept"
+    },
+    "Case Updated & Escalated to High": {
+      "disposition": "kept"
+    },
+    "Old Low-Priority SLAs Removed": {
+      "disposition": "kept"
+    },
+    "High Priority SLA Set Applied (Response + Resolution)": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on all four benchmark checks (kept), the case (122), the agent (219), the priority (high), the escalation reason (customer_request), the membership (960 in group 36), the two low SLAs removed (4, 9) and the two high SLAs applied (11, 7), each applied SLA selected by natural key and carrying the benchmark's count-2 check. disagreement: the case check's structure: B carries it in one requirement with assigned_to, A splits it into the escalation update and the reassignment; kept A's split (logged in the first requirement). disagreement: assignment_group_id = 36: A tests it, B does not; kept, as the tighter predicate both passes assume in substance (logged in the reassignment). disagreement: stay on the other open cases of product 174 (escalation stays 0): A only; kept as the boundary of the case selector. disagreement: stay on user 27 not joining group 36: B only; kept as the boundary of the agent selector. disagreement: cells of the SLA removal and the SLA stay: A repeats the selector's predicate as the cell, B leaves cells empty; chose selector case_id = 122 with the predicate on sla_def_id as the cell (logged in each). The escalation reason is the cell both passes were least sure of: customer_request is kept from the benchmark and fits 'received an escalation from Initech', but 'service disruption' (impact) and 'delays in resolution' (breach_risk) are also in the request. The acting user Jose Roberson (32) is an admin but active = 0 on the seed; the benchmark expects the work done, so this is recorded, not treated as blocking. Installed product 25 is in status 'repair'; policy 6 forbids attaching repair items to new cases, but this case already carries it and the request does not touch it, so the benchmark's installed_product_id = 25 cell stands.",
+  "minutes": 13
+}

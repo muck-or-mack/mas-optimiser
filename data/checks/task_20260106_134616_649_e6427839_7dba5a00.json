@@ -1,0 +1,100 @@
+{
+ "task_id": "task_20260106_134616_649_e6427839_7dba5a00",
+ "policy_sha1": "10503d62",
+ "requirements": [
+  {
+   "text": "We need to make it critical",
+   "kind": "change",
+   "table": "customer_case",
+   "anchor": {
+    "case_id": 1041
+   },
+   "cells": {
+    "account_id": 45,
+    "priority": "critical",
+    "escalation": 0
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1041 AND account_id = 45 AND priority = 'critical' AND escalation = 0",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify if case is updated or not.",
+   "seed_count": 0,
+   "assumptions": [
+    "CS-0001041 is case_id 1041, on Simon LLC (account 45), the caller's account; priority moves from high to critical",
+    "account_id is case 1041's seed value, which the request leaves unchanged; kept from the benchmark check",
+    "'make it critical' sets the priority, not the escalation flag; escalation = 0 is kept from the benchmark check; not fixed by request or policy (the policy allows, but does not require, escalation for business impact)"
+   ]
+  },
+  {
+   "text": "Also assign it to David Johnston",
+   "kind": "change",
+   "table": "customer_case",
+   "anchor": {
+    "case_id": 1041
+   },
+   "cells": {
+    "assigned_to": 72,
+    "assignment_group_id": "IN (7, 40, 57)"
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1041 AND assigned_to = 72 AND assignment_group_id IN (7, 40, 57)",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify if case is updated or not.",
+   "seed_count": 0,
+   "assumptions": [
+    "David Johnston is user 72, the only user of that name: an active manager",
+    "the policy requires the assignee to be a member of the case's assignment group; David is a member of groups 7, 40 and 57 on the seed, and the case's group 40 (Billing & Adjustments_2) already satisfies this, so no group change is needed",
+    "disagreement: assignment_group_id: one pass tests that the case's group is one of David's groups, the other leaves the group untested; kept the cell because the policy's assignment constraint fixes it, written as his three groups on the seed"
+   ]
+  },
+  {
+   "text": "attach relevant knowledge article if present",
+   "kind": "create",
+   "table": "case_knowledge",
+   "anchor": {
+    "case_kb_id": 528
+   },
+   "cells": {
+    "case_id": 1041,
+    "knowledge_id": 174,
+    "used_as": "suggested"
+   },
+   "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_kb_id = 528 AND case_id = 1041 AND knowledge_id = 174 AND used_as = 'suggested'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify if KB article linked correctly.",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (527 is the highest case_kb_id); the task links exactly one article",
+    "the relevant article is KB-0000174 (knowledge 174), the only article on the case's product 113 (IBM WebSphere Application Server ND Variant 93); it is published, as the policy requires for linking",
+    "the case has no linked article on the seed, so the condition 'if present' holds",
+    "used_as suggested: the policy links knowledge found through a search as suggested, and the article's usefulness is still to be checked by David Johnston"
+   ]
+  },
+  {
+   "text": "attach relevant knowledge article if present",
+   "kind": "stay",
+   "table": "case_knowledge",
+   "selector": "case_id = 1041 AND knowledge_id <> 174",
+   "cells": {},
+   "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_id = 1041 AND knowledge_id <> 174",
+   "expected": 0,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 0,
+   "assumptions": [
+    "boundary of the article selector: the articles for other IBM WebSphere Application Server ND products (knowledge 20, 21, 50, 51, 78, 110, 140; 21 is retired, which the policy forbids linking) match by title but not by product, so no article other than 174 is linked to the case"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Verify if case is updated or not.": {
+   "disposition": "kept"
+  },
+  "Verify if KB article linked correctly.": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "The benchmark's case check is one conjunction; this file splits it into the priority change (with the unchanged account and escalation cells) and the assignment, and both requirements carry it, so the check holds exactly when both hold.\nThe benchmark compares integer columns with quoted values ('1041', '0'); SQLite's column affinity makes these equal to the unquoted integers used here.\nThe policy lets a case be escalated for high business impact, and the request stresses impact and an important customer, but it asks only for the priority to be critical; the benchmark's escalation = 0 is kept on that reading.\nDavid Johnston's later review or update of the article is his own future action, not part of this request, so nothing is expected of the knowledge row.\nNo tool writes case_sla, so no SLA realignment for the new priority is tested; the call from Simon LLC is not asked to be logged as an interaction, and no tool writes that table.\ndisagreement: value: the assignment group: one pass tests that the case's group is one David Johnston belongs to, the other leaves the group open; kept the cell because the policy requires the assignee to be a member of the assignment group, written as his groups on the seed (7, 40, 57) so the verdict does not depend on membership changes during the task.\ndisagreement: missing requirement: a stay that no article other than 174 is linked to case 1041; one pass has it, the other does not; kept because the request names no article, so it is picked by description, and seven near-match WebSphere articles on other products (one retired, which the policy forbids linking) are what a loose search would sweep in, the boundary of that selector, not a generic invariant.",
+ "minutes": 31
+}

@@ -1,0 +1,159 @@
+{
+ "task_id": "task_20260106_161859_265_00364ece_0e836ce8",
+ "policy_sha1": "38269939",
+ "requirements": [
+  {
+   "text": "Thomas Bailey sent an email ... This is a new high-priority case ... Assign the case to one of the two based on who currently has fewer cases to work on.",
+   "kind": "create",
+   "table": "customer_case",
+   "anchor": {
+    "case_id": 1233
+   },
+   "cells": {
+    "account_id": 5,
+    "contact_id": 5,
+    "product_id": 209,
+    "channel": "email",
+    "priority": "high",
+    "state": "new",
+    "assigned_to": 344,
+    "assignment_group_id": 21
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1233 AND account_id = 5 AND contact_id = 5 AND product_id = 209 AND channel = 'email' AND priority = 'high' AND state = 'new' AND assigned_to = 344 AND assignment_group_id = 21",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Validate new high priority case created. ",
+   "assumptions": [
+    "id assumed next in sequence (case_id 1233 after 1232)",
+    "Thomas Bailey is user 63, the portal user of contact 5 on account 5 (Initech); Managed Network Services Variant 17 is product 209 (active; account 5 holds an active entitlement for it)",
+    "channel email from 'sent an email'; priority high from 'high-priority'",
+    "state new from 'a new ... case' and the policy's default state for a registered case",
+    "assignment group 21 (CSM Tier 1 Support_2) from 'make sure CSM Tier 1 Support_2 is investigating this case'",
+    "the installed product is not required: the policy asks for the product or the installed product, and the product is fixed",
+    "disagreement: assigned_to: A IN (344, 714), B 344; chose 344 because two active users are named David Smith and the request's own criterion, applied to every user it names, picks 344: open cases (new, in_progress, pending) are 0 for 344, 1 for 714 and 2 for Denise Watson (336); 344 is also the agent-role David Smith, 714 a manager"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "make sure CSM Tier 1 Support_2 is investigating this case",
+   "kind": "create",
+   "table": "user_group_member",
+   "anchor": {
+    "member_id": 960
+   },
+   "cells": {
+    "group_id": 21,
+    "user_id": 344
+   },
+   "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 960 AND group_id = 21 AND user_id = 344",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Validating group membership. ",
+   "assumptions": [
+    "id assumed next in sequence (member_id 960 after 959)",
+    "implied by the request, not stated: the policy requires the assignee to be a member of the case's assignment group, and user 344 is not in group 21 on the seed",
+    "disagreement: user_id: A either David Smith (344 or 714) provided it is the case's assignee, B 344; chose 344 because the case is assigned to 344, the David Smith with the fewest open cases"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "make sure CSM Tier 1 Support_2 is investigating this case",
+   "kind": "stay",
+   "table": "user_group_member",
+   "selector": "group_id = 21 AND user_id = 714",
+   "cells": {},
+   "sql": "SELECT COUNT(*) FROM user_group_member WHERE group_id = 21 AND user_id = 714",
+   "expected": 0,
+   "comparison": "equals",
+   "source": "new",
+   "assumptions": [
+    "boundary of the selector: user 714 is the second active user named David Smith and not the assignee, so a loose reading of the name would add him to group 21"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "give a report to Thomas referencing the case ID",
+   "kind": "create",
+   "table": "notification",
+   "anchor": {
+    "notification_id": 734
+   },
+   "cells": {
+    "case_id": 1233,
+    "email": "thomas.bailey63@initech.io",
+    "type": "report",
+    "status": "success",
+    "knowledge_id": "IS NULL"
+   },
+   "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 734 AND case_id = 1233 AND email = 'thomas.bailey63@initech.io' AND type = 'report' AND status = 'success' AND knowledge_id IS NULL",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Validating successful notification. ",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (notification_id 734 after 733)",
+    "type report from 'give a report'; email is Thomas Bailey's (user 63)",
+    "status success kept from the benchmark check; not fixed by request or policy",
+    "knowledge_id empty: the appropriate article KB-0000315 is internal, which the policy limits to agents, so it is not sent to the customer"
+   ]
+  },
+  {
+   "text": "give a report to Thomas ... with appropriate knowledge article",
+   "kind": "stay",
+   "table": "notification",
+   "selector": "case_id = 1233",
+   "cells": {
+    "knowledge_id": 315
+   },
+   "sql": "SELECT COUNT(*) FROM notification WHERE case_id = 1233 AND knowledge_id = 315",
+   "expected": 0,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 0,
+   "assumptions": [
+    "forbidden by the policy: the policy limits internal articles to agents and KB-0000315 is internal, so no notification on the case may carry it to the customer",
+    "disagreement: form: one pass selects the case's notifications and tests knowledge_id = 315 as a cell, the other puts knowledge_id = 315 in the selector with no cells; the same SQL, kept the cell form because the article is what the stay tests"
+   ]
+  },
+  {
+   "text": "with appropriate knowledge article",
+   "kind": "create",
+   "table": "case_knowledge",
+   "anchor": {
+    "case_kb_id": 528
+   },
+   "cells": {
+    "case_id": 1233,
+    "knowledge_id": 315,
+    "used_as": "suggested"
+   },
+   "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_kb_id = 528 AND case_id = 1233 AND knowledge_id = 315 AND used_as = 'suggested'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify that knowledge is linked",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (case_kb_id 528 after 527)",
+    "implied by the request, not stated: the policy has a knowledge search run when a new case is to be investigated and a found article linked to the case",
+    "KB-0000315 is the only published article for product 209",
+    "used_as suggested: the policy links articles found by search as suggested"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Validate new high priority case created. ": {
+   "disposition": "kept"
+  },
+  "Validating group membership. ": {
+   "disposition": "kept"
+  },
+  "Validating successful notification. ": {
+   "disposition": "kept"
+  },
+  "Verify that knowledge is linked": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "Open cases are counted as those not resolved, closed or canceled: Denise Watson (336) has 2 (in progress and pending), David Smith 344 has 0 and David Smith 714 has 1; counting every case regardless of state ties all three at 2, so 'cases to work on' is read as open cases.\nTwo active users are named David Smith (344, agent; 714, manager). The benchmark's case and membership checks select the assignee by name, so either would pass them; this file resolves the name to 344, the one with the fewest open cases.\nThe request asks for the report to carry the appropriate article, but article 315 is internal and the recipient is a customer; the policy's visibility rule decides, so the article is linked to the case and the report carries no article, as the benchmark's check expects.\nThe installed product (29, account 5's in-use install of product 209) is not stated by the request and is left untested.\nThe short description follows the policy's template ('Product: ..., Issue: is not working as expected.'), which no benchmark check tests, so it is not a cell.\ndisagreement: value: the case's assignee: one pass accepts either David Smith (344 or 714), the other 344 alone; chose 344 because the request's fewer-cases criterion, applied to every user it names, picks him (0 open cases against 1 and 2).\ndisagreement: value: the new group member: one pass either David Smith provided he is the case's assignee, the other 344; chose 344, following the assignee.\ndisagreement: missing requirement: a stay that David Smith 714 is not added to group 21: one pass wrote it, the other did not; kept because 714 is the second user of that name, the row a loose reading of 'David Smith' would sweep in, which is the selector boundary a stay records.\ndisagreement: form of the stay that no notification on the new case carries article 315: one pass tests knowledge_id = 315 as a cell on the case's notifications, the other puts it in the selector; the SQL is the same; kept the cell form.",
+ "minutes": 36
+}

@@ -1,0 +1,135 @@
+{
+  "task_id": "task_20260113_153008_006_46ca2862_c5083638",
+  "policy_sha1": "044e7a06",
+  "requirements": [
+    {
+      "text": "open a high-impact, and high-urgency incident for that owner with the description 'Urgent: BitLocker Malware Data Corruption' to the affected user device (HP EliteBook - Steven Hernandez)",
+      "kind": "create",
+      "table": "incident",
+      "selector": "configuration_item = 'CI_026'",
+      "cells": {
+        "caller_id": "USER_009",
+        "description": "Urgent: BitLocker Malware Data Corruption",
+        "impact": "high",
+        "urgency": "high",
+        "priority": "critical",
+        "status": "new"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE configuration_item = 'CI_026' AND caller_id = 'USER_009' AND description = 'Urgent: BitLocker Malware Data Corruption' AND impact = 'high' AND urgency = 'high' AND priority = 'critical' AND status = 'new'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Incident creation for HP EliteBook - Steven Hernandez",
+      "seed_count": 0,
+      "assumptions": [
+        "'all of our HP fleet at our Sales office at New York office' read as the CIs named HP at LOC_002 'NYC Sales Office' (ORG_001): CI_026 and CI_033, both in_use; this one is CI_026",
+        "'for that owner' read as the device's owner_id (USER_009, Steven Hernandez) as caller_id (policy 3.1: caller_id is the user affected)",
+        "'to the affected user device' read as configuration_item = CI_026, as the benchmark check tests; the CI is in_use, so policy 5.1 allows the link",
+        "priority critical from the policy matrix (impact high x urgency high)",
+        "status new from the policy default for new incidents (3.1); not stated in the request",
+        "two incidents are created, so the row is selected by its device (the column that tells the two apart), not by id; no seed incident is on this device",
+        "disagreement: description placement: A in the selector, B a cell; chose B's because the description is a value the request asks for, while the device is what tells the two created rows apart (the sql is the same either way)"
+      ]
+    },
+    {
+      "text": "open a high-impact, and high-urgency incident for that owner with the description 'Urgent: BitLocker Malware Data Corruption' to the affected user device (HP ZBook - Eric Rodriguez)",
+      "kind": "create",
+      "table": "incident",
+      "selector": "configuration_item = 'CI_033'",
+      "cells": {
+        "caller_id": "USER_024",
+        "description": "Urgent: BitLocker Malware Data Corruption",
+        "impact": "high",
+        "urgency": "high",
+        "priority": "critical",
+        "status": "new"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE configuration_item = 'CI_033' AND caller_id = 'USER_024' AND description = 'Urgent: BitLocker Malware Data Corruption' AND impact = 'high' AND urgency = 'high' AND priority = 'critical' AND status = 'new'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Incident creation for HP ZBook - Eric Rodriguez",
+      "seed_count": 0,
+      "assumptions": [
+        "'all of our HP fleet at our Sales office at New York office' read as the CIs named HP at LOC_002 'NYC Sales Office' (ORG_001): CI_026 and CI_033, both in_use; this one is CI_033",
+        "'for that owner' read as the device's owner_id (USER_024, Eric Rodriguez) as caller_id (policy 3.1: caller_id is the user affected)",
+        "'to the affected user device' read as configuration_item = CI_033, as the benchmark check tests; the CI is in_use, so policy 5.1 allows the link",
+        "priority critical from the policy matrix (impact high x urgency high)",
+        "status new from the policy default for new incidents (3.1); not stated in the request",
+        "two incidents are created, so the row is selected by its device (the column that tells the two apart), not by id; no seed incident is on this device",
+        "disagreement: description placement: A in the selector, B a cell; chose B's because the description is a value the request asks for, while the device is what tells the two created rows apart (the sql is the same either way)"
+      ]
+    },
+    {
+      "text": "If you find a knowledge base on encryption or BitLocker, link it to the tickets, as suggested (first incident, CI_026)",
+      "kind": "create",
+      "table": "incident_knowledge",
+      "selector": "knowledge_id = 'KB_012' AND incident_id IN (SELECT incident_id FROM incident WHERE configuration_item = 'CI_026' AND description = 'Urgent: BitLocker Malware Data Corruption')",
+      "cells": {
+        "used_as": "suggested"
+      },
+      "sql": "SELECT COUNT(*) FROM incident_knowledge WHERE knowledge_id = 'KB_012' AND incident_id IN (SELECT incident_id FROM incident WHERE configuration_item = 'CI_026' AND description = 'Urgent: BitLocker Malware Data Corruption') AND used_as = 'suggested'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Checing for the linking of the knowledge base for the first incident",
+      "seed_count": 0,
+      "assumptions": [
+        "KB_012 (title 'Bitlocker Recovery Key', short_description 'Laptop Encryption', published, ORG_001) is the only article on encryption or BitLocker in title, short description or body",
+        "used_as = suggested from the request's 'as suggested' and policy 7 (articles matched at incident creation are linked as suggested)",
+        "the incident's id is not fixed (two are created), so it is found through its device CI_026 and the requested description; IN instead of the benchmark's = so the subquery keeps its meaning if more than one row matches",
+        "disagreement: incident subquery: A configuration_item = 'CI_026' AND the description, B configuration_item = 'CI_026' only; chose A's because both are right and A's is tighter (it names the ticket the request opens, not any incident on the device)"
+      ]
+    },
+    {
+      "text": "If you find a knowledge base on encryption or BitLocker, link it to the tickets, as suggested (second incident, CI_033)",
+      "kind": "create",
+      "table": "incident_knowledge",
+      "selector": "knowledge_id = 'KB_012' AND incident_id IN (SELECT incident_id FROM incident WHERE configuration_item = 'CI_033' AND description = 'Urgent: BitLocker Malware Data Corruption')",
+      "cells": {
+        "used_as": "suggested"
+      },
+      "sql": "SELECT COUNT(*) FROM incident_knowledge WHERE knowledge_id = 'KB_012' AND incident_id IN (SELECT incident_id FROM incident WHERE configuration_item = 'CI_033' AND description = 'Urgent: BitLocker Malware Data Corruption') AND used_as = 'suggested'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Checing for the linking of the knowledge base for the second incident",
+      "seed_count": 0,
+      "assumptions": [
+        "KB_012 (title 'Bitlocker Recovery Key', short_description 'Laptop Encryption', published, ORG_001) is the only article on encryption or BitLocker in title, short description or body",
+        "used_as = suggested from the request's 'as suggested' and policy 7 (articles matched at incident creation are linked as suggested)",
+        "the incident's id is not fixed (two are created), so it is found through its device CI_033 and the requested description; IN instead of the benchmark's = so the subquery keeps its meaning if more than one row matches",
+        "disagreement: incident subquery: A configuration_item = 'CI_033' AND the description, B configuration_item = 'CI_033' only; chose A's because both are right and A's is tighter (it names the ticket the request opens, not any incident on the device)"
+      ]
+    },
+    {
+      "text": "all of our HP fleet at our Sales office at New York office (boundary: no incident with this description on any other device)",
+      "kind": "stay",
+      "table": "incident",
+      "selector": "description = 'Urgent: BitLocker Malware Data Corruption' AND (configuration_item IS NULL OR configuration_item NOT IN ('CI_026', 'CI_033'))",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM incident WHERE description = 'Urgent: BitLocker Malware Data Corruption' AND (configuration_item IS NULL OR configuration_item NOT IN ('CI_026', 'CI_033'))",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of the fleet: CI_046 'HP EliteBook - Christina Oliver' is HP but at LOC_006 (ORG_002), and CI_006, CI_017, CI_018, CI_028 are at LOC_002 but not HP; a loose reading of 'HP fleet' or 'Sales office' would sweep them in",
+        "an incident with this description and no configuration item is also outside the request ('to the affected user device')",
+        "disagreement: selector: A configuration_item NOT IN ('CI_026', 'CI_033'), B also counts rows with configuration_item IS NULL; chose B's because both are right and B's is tighter (a NULL CI escapes NOT IN)"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Incident creation for HP EliteBook - Steven Hernandez": {
+      "disposition": "kept"
+    },
+    "Incident creation for HP ZBook - Eric Rodriguez": {
+      "disposition": "kept"
+    },
+    "Checing for the linking of the knowledge base for the first incident": {
+      "disposition": "kept"
+    },
+    "Checing for the linking of the knowledge base for the second incident": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on the two incidents (CI_026 for USER_009, CI_033 for USER_024; high/high/critical, new, the requested description), the two KB_012 links as suggested, the fleet boundary stay and all four dispositions (kept).\ndisagreement: value: incident description placement: A puts description = 'Urgent: BitLocker Malware Data Corruption' in the selector, B in the cells; chose B's because the description is a requested value while the device tells the two created rows apart; the sql is the same either way.\ndisagreement: value: knowledge-link incident subquery: A finds the incident by device and description, B by device only; chose A's because both are right and A's is tighter, naming the ticket the request opens rather than any incident on the device.\ndisagreement: value: fleet boundary selector: A configuration_item NOT IN ('CI_026', 'CI_033'), B adds OR configuration_item IS NULL; chose B's because both are right and B's is tighter, since a row with a NULL CI escapes NOT IN.\nThe acting user USER_039 (Karen Watkins, admin, ORG_001) may create incidents. LOC_002 'NYC Sales Office' is the only Sales or New York location in ORG_001; the other New York locations belong to other organisations. 'The tickets' (plural) and 'that owner' read as one incident per HP device with the device's owner as caller. The benchmark tests incident.configuration_item, not incident_affected_cis, and the requirements follow it. No tool writes incident.status explicitly; status new is the policy default. No boundary stay is written for the knowledge link because KB_012 is the only encryption or BitLocker article. No requirement on short_description: it is mandatory under policy 3.1 but the request gives no wording for it.",
+  "minutes": 35
+}

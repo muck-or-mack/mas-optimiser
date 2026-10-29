@@ -1,0 +1,70 @@
+{
+  "task_id": "task_20260109_133046_369_391f1eff_7e44fdca",
+  "policy_sha1": "0bfb012b",
+  "requirements": [
+    {
+      "text": "request a profile update to correct my personal employee information ... Please raise a case for this request",
+      "kind": "create",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 61
+      },
+      "cells": {
+        "status": "draft",
+        "priority": "moderate",
+        "hr_service": 35,
+        "opened_for": 39,
+        "opened_by": 39
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND status = 'draft' AND priority = 'moderate' AND hr_service = 35 AND opened_for = 39 AND opened_by = 39",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "HR Case Created",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (61 after 60); the only case the task creates",
+        "hr_service 35 'Employee Profile Update' (active, org 1) is the only service matching a profile update; 37 'Erasure of Personal Data', 45 'Request Personal Information Report' and 47 'Setup New Hire HR Profile' share words but not the meaning",
+        "the request is in the first person, so subject and requester are both the acting user Karen Watkins: hr_profile 39 (user_id 39), per policy 3.1 (subject_person and opened_by)",
+        "status draft from policy 3.1 (all new cases are set to status = draft)",
+        "priority not stated; policy 3.1 defaults it to moderate, which the seed uses (12 cases); the policy's section 7 list (critical, high, medium, low) contradicts 3.1 and the seed and is set aside",
+        "short_description not tested: policy 8's template ('Service: , Subject: , Detail: .') is a format rule the benchmark does not test, and the file tests state, not wording",
+        "source (channel), coe_type, assignment and org_id are not fixed by the request or policy; not tested"
+      ]
+    },
+    {
+      "text": "keep me posted once the case has been successfully created",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": 61
+      },
+      "cells": {
+        "hr_case_id": 61,
+        "email": "karen.watkins@servicenow.com",
+        "type": "update",
+        "status": "draft"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 61 AND hr_case_id = 61 AND email = 'karen.watkins@servicenow.com' AND type = 'update' AND status = 'draft'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Notification Sent To Karen Watkins",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (61 after 60); the one notification the request asks for",
+        "hr_case_id = 61 added: the notification reports the case this request creates (the schema makes hr_case_id NOT NULL); not in the benchmark check",
+        "email is the acting user's work address as the benchmark check has it; the seed's existing notifications go to personal addresses, but the request names no address and nothing in it or the policy fixes which is used",
+        "type = update and status = draft kept from the benchmark check; not fixed by request or policy (the seed has update/ready rows and no update/draft row, and the policy names no notification states)"
+      ]
+    }
+  ],
+  "original_checks": {
+    "HR Case Created": {
+      "disposition": "kept"
+    },
+    "Notification Sent To Karen Watkins": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on both requirements (case 61: service 35, profile 39 as both subject and requester, draft, moderate; notification 61: case 61, Karen's work email, update, draft) and both dispositions (kept). No disagreements. Both passes added a short_description cell testing policy 8's template as LIKE 'Service:%Subject:%Detail:%'; dropped from the cells, since it is a format rule the benchmark does not test and the file tests state, not wording. No stay requirements: nothing is forbidden and no selector has a boundary. The acting user Karen Watkins (39) is an admin; policy 2 says admins must not perform routine HR case work, but she is the requester raising a case about herself (an Employee capability) and the benchmark expects the case, so this is not a halt. The policy's section 7 priority enumeration (medium) contradicts its own 3.1 default (moderate) and the seed; the seed and the benchmark's value stand.\nrevised: the short_description note now gives only its reason (a format rule the benchmark does not test) and no longer appeals to an outside rule.",
+  "minutes": 7
+}

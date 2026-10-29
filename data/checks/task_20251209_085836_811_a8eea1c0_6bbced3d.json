@@ -1,0 +1,158 @@
+{
+ "task_id": "task_20251209_085836_811_a8eea1c0_6bbced3d",
+ "policy_sha1": "10503d62",
+ "requirements": [
+  {
+   "text": "ensure agent Thomas Green is active again",
+   "kind": "change",
+   "table": "user",
+   "anchor": {
+    "user_id": 1
+   },
+   "cells": {
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM user WHERE user_id = 1 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "update_user_details, add_new_user",
+   "seed_count": 0,
+   "assumptions": [
+    "Thomas Green is user 1, the only user of that name, an agent and inactive in the seed"
+   ]
+  },
+  {
+   "text": "provision a new internal agent, Sarah Connor (sarah.connor.new@servicenow.com), based in our User 4 - Tokyo Japan office",
+   "kind": "create",
+   "table": "user",
+   "anchor": {
+    "user_id": 803
+   },
+   "cells": {
+    "first_name": "Sarah",
+    "last_name": "Connor",
+    "email": "sarah.connor.new@servicenow.com",
+    "role": "agent",
+    "location_id": 4,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM user WHERE user_id = 803 AND first_name = 'Sarah' AND last_name = 'Connor' AND email = 'sarah.connor.new@servicenow.com' AND role = 'agent' AND location_id = 4 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "update_user_details, add_new_user",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence",
+    "User 4 - Tokyo Japan office is location 4 (User 4 - Tokyo, city tokyo, country japan), the only location of that name",
+    "active = 1: a newly provisioned agent who is to handle the new line, and the policy requires assigned agents to be active"
+   ]
+  },
+  {
+   "text": "immediately assign her to the CSM Tier 1 Support Team",
+   "kind": "create",
+   "table": "user_group_member",
+   "anchor": {
+    "member_id": 960
+   },
+   "cells": {
+    "group_id": 1,
+    "user_id": 803
+   },
+   "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 960 AND group_id = 1 AND user_id = 803",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "add_new_group_member",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence",
+    "CSM Tier 1 Support Team is group 1 'CSM Tier 1 Support' (active, support)"
+   ]
+  },
+  {
+   "text": "immediately assign her to the CSM Tier 1 Support Team",
+   "kind": "stay",
+   "table": "user_group_member",
+   "selector": "user_id = 803",
+   "cells": {
+    "group_id": "IN (21, 41, 61)"
+   },
+   "sql": "SELECT COUNT(*) FROM user_group_member WHERE user_id = 803 AND group_id IN (21, 41, 61)",
+   "expected": 0,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 0,
+   "assumptions": [
+    "groups 21, 41 and 61 (CSM Tier 1 Support_2, _3 and _4) nearly match the team's name but are other groups, so a loose reading would sweep them in"
+   ]
+  },
+  {
+   "text": "Add the product to our catalog",
+   "kind": "create",
+   "table": "product",
+   "anchor": {
+    "product_id": 241
+   },
+   "cells": {
+    "name": "Quantum Firewall 5000",
+    "category": "hardware",
+    "lifecycle_state": "active"
+   },
+   "sql": "SELECT COUNT(*) FROM product WHERE product_id = 241 AND name = 'Quantum Firewall 5000' AND category = 'hardware' AND lifecycle_state = 'active'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "add_new_product",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence",
+    "'Quantum Firewall 5000 Hardware' read as the name Quantum Firewall 5000 with category hardware, as the benchmark check has it",
+    "lifecycle_state active kept from the benchmark check; the policy requires products to be active, and the product is being released"
+   ]
+  },
+  {
+   "text": "create a preliminary internal knowledge article",
+   "kind": "create",
+   "table": "knowledge",
+   "anchor": {
+    "knowledge_id": 370
+   },
+   "cells": {
+    "state": "draft",
+    "visibility": "internal",
+    "product_id": 241,
+    "owner_id": 803
+   },
+   "sql": "SELECT COUNT(*) FROM knowledge WHERE knowledge_id = 370 AND state = 'draft' AND visibility = 'internal' AND product_id = 241 AND owner_id = 803",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "create_knowledge",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence",
+    "preliminary = draft; internal = visibility internal",
+    "product_id 241: the article is for the product being released",
+    "owner_id 803 (the new agent who handles the line) kept from the benchmark check; not fixed by request or policy"
+   ]
+  }
+ ],
+ "original_checks": {
+  "update_user_details, add_new_user": {
+   "disposition": "kept"
+  },
+  "add_new_product": {
+   "disposition": "kept"
+  },
+  "add_new_group_member": {
+   "disposition": "kept"
+  },
+  "create_knowledge": {
+   "disposition": "repaired",
+   "evidence": "kb_number is a server-kept number, and the seed numbers articles as KB-0000369, so 'KB000370' can never match; the article is identified by knowledge_id 370, next in sequence, with the check's product, owner and draft state kept"
+  },
+  "find_user_group": {
+   "disposition": "weak",
+   "evidence": "tests only seed facts: group 1 is already CSM Tier 1 Support, type support and active, and no tool in the task changes groups"
+  }
+ },
+ "notes": "The first benchmark check is a disjunction counting two rows (Thomas Green active, Sarah Connor created as an agent); it is carried jointly by the reactivation and the new-user requirements.\nThe request writes the product as the new Quantum Firewall 5000 Hardware; the name Quantum Firewall 5000 with category hardware follows the benchmark's reading, and an agent that keeps Hardware in the name would fail it.\nThe knowledge article's title and body are not tested: the policy's KB title and body templates are format rules the benchmark does not test, the request gives no wording, and a release article has no case, group or assignee to fill them.\nThe product's price and the new user's phone are not given and are not tested.\nNo acting user is given, so the policy's default admin role applies, which covers users, memberships, products and knowledge.",
+ "minutes": 30
+}

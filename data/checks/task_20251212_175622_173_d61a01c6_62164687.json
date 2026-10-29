@@ -1,0 +1,84 @@
+{
+  "task_id": "task_20251212_175622_173_d61a01c6_62164687",
+  "policy_sha1": "9ffbbf7e",
+  "requirements": [
+    {
+      "text": "Lets name it 'PII Change request'. It will be a Profile Update an manual operation under the HR operations category",
+      "kind": "create",
+      "table": "hr_service",
+      "anchor": {
+        "hr_service_id": 55
+      },
+      "cells": {
+        "service_name": "PII Change request",
+        "fulfillment_type": "manual",
+        "topic_detail": 28,
+        "service_template": 6,
+        "hr_criteria": "IS NULL",
+        "active": 1,
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 55 AND service_name = 'PII Change request' AND fulfillment_type = 'manual' AND topic_detail = 28 AND service_template = 6 AND hr_criteria IS NULL AND active = 1 AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify new created service",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (55)",
+        "service name spelt as the request gives it, with a lower-case r in request",
+        "topic_detail 28 is Profile Update, the only detail of that name, under HR Operations (category 6)",
+        "service_template 6, Personal Data Correction Protocol, is the one readymade template for personal data and the only one marked gdpr_compliant, matching 'we need to be GDPR compliant'",
+        "fulfillment_type manual is the request's 'manual operation' and is in the policy's list",
+        "hr_criteria IS NULL: kept from the benchmark check; not fixed by request or policy",
+        "active: kept from the benchmark check; not fixed by request or policy; a case may only reference an active service",
+        "org_id 1 is the acting user's org (Robin Monroe, user 31)"
+      ]
+    },
+    {
+      "text": "Once we have it under HRC0000711, we need to create a task 'PII Change Request', and make it ready to work on it",
+      "kind": "create",
+      "table": "hr_case_task",
+      "anchor": {
+        "hr_case_task_id": 150
+      },
+      "cells": {
+        "short_description": "PII Change Request",
+        "status": "ready",
+        "parent_case": 1,
+        "active": 1,
+        "org_id": 1,
+        "assigned_to": "IS NULL",
+        "assignment_group": "IS NULL",
+        "task_type": "IS NULL",
+        "hr_service": "IS NULL",
+        "external_url": "IS NULL",
+        "worknotes": "IS NULL"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case_task WHERE hr_case_task_id = 150 AND short_description = 'PII Change Request' AND status = 'ready' AND parent_case = 1 AND active = 1 AND org_id = 1 AND assigned_to IS NULL AND assignment_group IS NULL AND task_type IS NULL AND hr_service IS NULL AND external_url IS NULL AND worknotes IS NULL",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify task creation",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (150)",
+        "parent_case 1 is case HRC0000711 (org 1)",
+        "status ready is the request's 'make it ready to work on it', a task status in use on the seed",
+        "active: kept from the benchmark check; not fixed by request or policy; a task made ready to work on is active",
+        "assigned_to, assignment_group, task_type, hr_service, external_url and worknotes IS NULL: kept from the benchmark check; not fixed by request or policy",
+        "org_id 1 is the org of the acting user and of the parent case",
+        "the task number is assigned by the server and is not tested"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify new created service": {
+      "disposition": "kept"
+    },
+    "Verify task creation": {
+      "disposition": "repaired",
+      "evidence": "number = 'TASK-0001' dropped: the task number is kept by the server, and the seed numbers tasks HRT0001000 to HRT0001148, so the next task would not be TASK-0001; every other cell is kept"
+    }
+  },
+  "notes": "The acting user, Robin Monroe (user 31), has the manager role. The policy reserves creating HR services for administrators and bars managers from system configuration, but the seed's role permissions grant the manager role full access to hr_services and hr_case_tasks, and the request and the benchmark both ask for both records, so both creations are required here; a reviewer may weigh the policy's role text differently.\nThe policy sets a 30 to 120 character range for short descriptions, but the request names the task 'PII Change Request' (18 characters); the request and the benchmark agree on that text, so it is required as given.\nThe task is not linked to the new service: the request says only that the task sits under case HRC0000711, so the task's hr_service stays empty as the benchmark check has it. The case itself is not changed by the request, and no listed tool updates cases.\nThe two passes agree on both requirements and both dispositions; one wrote the empty cells as null values and the other as the predicate IS NULL, the same test, written here as IS NULL. Their texts and assumptions differ in wording only.",
+  "minutes": 26
+}

@@ -1,0 +1,143 @@
+{
+  "task_id": "task_20260101_233731_695_00364ece_187f2808",
+  "policy_sha1": "ae2fb5c7",
+  "requirements": [
+    {
+      "text": "Joanne Simpson has been transferred and is now at the TB State Building, Sydney, Australia",
+      "kind": "create",
+      "table": "location",
+      "anchor": {"location_id": 907},
+      "cells": {"name": "TB State Building", "city": "sydney", "country": "australia", "active": 1},
+      "sql": "SELECT COUNT(*) FROM location WHERE location_id = 907 AND name = 'TB State Building' AND city = 'sydney' AND country = 'australia' AND active = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Validating whether a new location is created. ",
+      "seed_count": 0,
+      "assumptions": [
+        "no location named TB State Building exists in the seed, so one is created",
+        "city and country written as the enumerated values sydney and australia",
+        "active 1 kept from the benchmark check; not fixed by request or policy",
+        "id assumed next in sequence (907 after 906); the task creates one location"
+      ]
+    },
+    {
+      "text": "Joanne Simpson has been transferred and is now at the TB State Building, Sydney, Australia",
+      "kind": "change",
+      "table": "user",
+      "anchor": {"user_id": 4},
+      "cells": {"location_id": 907},
+      "sql": "SELECT COUNT(*) FROM user WHERE user_id = 4 AND location_id = 907",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Validating whether the user is updated with the location. ",
+      "seed_count": 0,
+      "assumptions": [
+        "Joanne Simpson is user 4, the only Joanne in the seed, an active manager at location 4 (User 4 - Tokyo)",
+        "location 907 is the new TB State Building location"
+      ]
+    },
+    {
+      "text": "They transferred specifically to look after CS-0000299",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {"case_id": 299},
+      "cells": {"assigned_to": 4},
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 299 AND assigned_to = 4",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Validating whether the case is updated. ",
+      "seed_count": 0,
+      "assumptions": [
+        "CS-0000299 is case 299, assigned to user 528 in the seed; to look after it is to be its assignee; Joanne Simpson is an active manager, a role the policy allows as assignee"
+      ]
+    },
+    {
+      "text": "raise priority as possible to resolve this issue immediately",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {"case_id": 299},
+      "cells": {"priority": "critical"},
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 299 AND priority = 'critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Validating whether the case is updated. ",
+      "seed_count": 0,
+      "assumptions": [
+        "as high as possible is critical, the top of the priority list; the case is low in the seed"
+      ]
+    },
+    {
+      "text": "as it is now impacting the business very badly",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {"case_id": 299},
+      "cells": {"escalation": 1, "escalation_reason": "impact"},
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 299 AND escalation = 1 AND escalation_reason = 'impact'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Validating whether the case is updated. ",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by the request, not stated: the policy raises escalations for high business impact, recorded as escalation 1 with a reason, and the business impact gives the reason impact"
+      ]
+    },
+    {
+      "text": "The Proactive Case Monitoring_2 group decided to step in to monitor this case",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {"case_id": 299},
+      "cells": {"assignment_group_id": 31},
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 299 AND assignment_group_id = 31",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Validating whether the case is updated. ",
+      "seed_count": 0,
+      "assumptions": [
+        "the group steps in as the case's assignment group: Proactive Case Monitoring_2 is group 31, distinct from Proactive Case Monitoring (11), _3 (51) and _4 (71); the case is in group 27 in the seed"
+      ]
+    },
+    {
+      "text": "The Proactive Case Monitoring_2 group decided to step in to monitor this case",
+      "kind": "create",
+      "table": "user_group_member",
+      "anchor": {"member_id": 960},
+      "cells": {"group_id": 31, "user_id": 4},
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 960 AND group_id = 31 AND user_id = 4",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Validating whether user is assigned to the group.",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by the request, not stated: the policy requires assigned_to to be a member of assignment_group_id, and Joanne Simpson belongs only to groups 1 and 66 in the seed",
+        "the acting user, Scott Mitchell, is an admin, who may change group memberships",
+        "id assumed next in sequence (960 after 959); the task creates one membership"
+      ]
+    },
+    {
+      "text": "Update Joanne once it is done.",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {"notification_id": 734},
+      "cells": {"case_id": 299, "email": "joanne.simpson@servicenow.com", "type": "update", "status": "success"},
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 734 AND case_id = 299 AND email = 'joanne.simpson@servicenow.com' AND type = 'update' AND status = 'success'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Validating whether notification has been sent to the user. ",
+      "seed_count": 0,
+      "assumptions": [
+        "the update concerns case 299 and goes to Joanne Simpson's email, joanne.simpson@servicenow.com; type update follows the request's word",
+        "status success kept from the benchmark check; not fixed by request or policy",
+        "id assumed next in sequence (734 after 733); the task creates one notification"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Validating whether a new location is created. ": {"disposition": "kept"},
+    "Validating whether the user is updated with the location. ": {"disposition": "kept"},
+    "Validating whether user is assigned to the group.": {"disposition": "kept"},
+    "Validating whether the case is updated. ": {"disposition": "kept"},
+    "Validating whether notification has been sent to the user. ": {"disposition": "kept"}
+  },
+  "notes": "The benchmark finds the location, user, group and notification by name and email through joins; here each is fixed by id (user 4, group 31, case 299) or by the next id in its table for the new rows (location 907, member 960, notification 734), and the user's new location is tested as location_id 907.\nThe benchmark's case check, a conjunction of assignee, group, priority and escalation, is split into four requirements, one per thing asked; each names that check.\nThe policy's free-text escalation template does not apply to escalation_reason, which the schema restricts to an enumerated list; impact is the value for business impact.\nThe policy also asks for an escalation's justification in case notes; the schema has no case-notes table and no listed tool writes one, so it is not tested.\nThe location's plot number and street are not given in the request and are not tested.\nJoanne Simpson's existing memberships (CSM Tier 1 Support, group 1, and group 66) and her old location 4 are not named by the request and carry no requirement.\nThe two independent passes agree on every requirement, value and disposition; their requirement texts and assumptions differ in wording only.",
+  "minutes": 28
+}

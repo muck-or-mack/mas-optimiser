@@ -1,0 +1,152 @@
+{
+ "task_id": "task_20260116_192842_208_46ca2862_04093fc7",
+ "policy_sha1": "b1e737f6",
+ "requirements": [
+  {
+   "text": "confirm that the Policy Enforcement service exists under the Profile Update topic, creating it if necessary",
+   "kind": "create",
+   "table": "hr_service",
+   "anchor": {
+    "hr_service_id": 55
+   },
+   "cells": {
+    "service_name": "Policy Enforcement",
+    "topic_detail": 28,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 55 AND service_name = 'Policy Enforcement' AND topic_detail = 28 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify Service Creation",
+   "seed_count": 0,
+   "assumptions": [
+    "no service named 'Policy Enforcement' exists in the seed, so it must be created",
+    "id assumed next in sequence (54 is the highest hr_service_id)",
+    "'Profile Update' is topic_detail 28, the only topic of that name",
+    "active = 1 because a case may only reference an active service (policy 3.1), and the case below uses this service",
+    "fulfillment_type is not fixed by request or policy and is not tested"
+   ]
+  },
+  {
+   "text": "Record a High-priority ongoing case for each impacted employee under Account: ACC-ADM-00, using the following description format exactly",
+   "kind": "create",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 61
+   },
+   "cells": {
+    "opened_for": 59,
+    "hr_service": 55,
+    "short_description": "Service: Policy Enforcement, Subject: Manager , Detail: Remote Access Revoked",
+    "priority": "high",
+    "status": "work_in_progress",
+    "coe_type": "Workforce Administration",
+    "account_number": "ACC-ADM-00"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND opened_for = 59 AND hr_service = 55 AND short_description = 'Service: Policy Enforcement, Subject: Manager , Detail: Remote Access Revoked' AND priority = 'high' AND status = 'work_in_progress' AND coe_type = 'Workforce Administration' AND account_number = 'ACC-ADM-00'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify Audit Case Generation",
+   "seed_count": 0,
+   "assumptions": [
+    "the only Male profile with position Manager and location_type Remote is hr_profile 59 (Gregory Richards), so exactly one case is created",
+    "id assumed next in sequence (60 is the highest hr_case_id)",
+    "'for each impacted employee' makes profile 59 the case's subject (opened_for)",
+    "hr_service 55 is the service created above",
+    "'ongoing' maps to the seed's status value work_in_progress",
+    "short description taken literally from the request, including the space before the comma",
+    "coe_type kept from the benchmark check; 'Profile Update' sits under the HR Operations category, whose coe_type is Workforce Administration"
+   ]
+  },
+  {
+   "text": "issue a report to each manager email address to formally inform them of the update, and more details will be added later",
+   "kind": "create",
+   "table": "notification",
+   "anchor": {
+    "notification_id": 61
+   },
+   "cells": {
+    "hr_case_id": 61,
+    "email": "gregory.richards36@servicenow.com",
+    "type": "report",
+    "status": "draft"
+   },
+   "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 61 AND hr_case_id = 61 AND email = 'gregory.richards36@servicenow.com' AND type = 'report' AND status = 'draft'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify Notification Dispatch",
+   "seed_count": 0,
+   "assumptions": [
+    "one impacted manager, so one notification; id assumed next in sequence (60 is the highest notification_id)",
+    "the manager informed is the impacted manager, Gregory Richards; his email address is the user record's, gregory.richards36@servicenow.com",
+    "'issue a report' maps to type report",
+    "status draft because more details will be added later; also kept from the benchmark check",
+    "the report is attached to the case recorded for him, 61"
+   ]
+  },
+  {
+   "text": "We would discuss updating the profiles to match this new status later",
+   "kind": "stay",
+   "table": "hr_profile",
+   "anchor": {
+    "hr_profile_id": 59
+   },
+   "cells": {
+    "location_type": "Remote"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_profile WHERE hr_profile_id = 59 AND location_type = 'Remote'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 1,
+   "assumptions": [
+    "the request defers profile updates, so the impacted manager's location_type stays Remote for now"
+   ]
+  },
+  {
+   "text": "Record a High-priority ongoing case for each impacted employee",
+   "kind": "stay",
+   "table": "hr_case",
+   "selector": "short_description = 'Service: Policy Enforcement, Subject: Manager , Detail: Remote Access Revoked' AND hr_case_id <> 61",
+   "cells": {},
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE short_description = 'Service: Policy Enforcement, Subject: Manager , Detail: Remote Access Revoked' AND hr_case_id <> 61",
+   "expected": 0,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 0,
+   "assumptions": [
+    "boundary of the selector: only one employee is a Male remote manager, so no other case carries this description; the remote female manager (68) and the male managers not working remotely (37, 72, 75, 96) get no case",
+    "disagreement: selector: A short_description = the mandated text AND hr_case_id <> 61, B opened_for IN (37, 68, 72, 75, 96) AND the same description; chose A because it is the tighter of two right predicates: it catches a case for any of B's five managers and also a second case for profile 59"
+   ]
+  },
+  {
+   "text": "issue a report to each manager email address",
+   "kind": "stay",
+   "table": "notification",
+   "selector": "email IN ('randy.martinez94@servicenow.com', 'randy.martinez.37@personal.example.com', 'leah.lewis81@servicenow.com', 'leah.lewis.68@personal.example.com', 'david.johnston82@servicenow.com', 'david.johnston.72@personal.example.com', 'david.sanchez@servicenow.com', 'david.sanchez.75@personal.example.com', 'kurt.fritz@servicenow.com', 'kurt.fritz.96@personal.example.com')",
+   "cells": {},
+   "sql": "SELECT COUNT(*) FROM notification WHERE email IN ('randy.martinez94@servicenow.com', 'randy.martinez.37@personal.example.com', 'leah.lewis81@servicenow.com', 'leah.lewis.68@personal.example.com', 'david.johnston82@servicenow.com', 'david.johnston.72@personal.example.com', 'david.sanchez@servicenow.com', 'david.sanchez.75@personal.example.com', 'kurt.fritz@servicenow.com', 'kurt.fritz.96@personal.example.com')",
+   "expected": 0,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 0,
+   "assumptions": [
+    "boundary of the selector: the managers outside the impacted set, the remote female manager (68) and the male managers not working remotely (37, 72, 75, 96), receive no notification at either their work or their personal address",
+    "disagreement: selector: A Leah Lewis's work and personal addresses with no type cell, B the five managers' work addresses with type = 'report'; chose the five managers' work and personal addresses with no type cell, the union of the two, because each is a manager a loose reading of 'male manager working remotely' sweeps in, seed notifications go to personal addresses, and no notification of any type to them is asked for"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Verify Audit Case Generation": {
+   "disposition": "kept"
+  },
+  "Verify Notification Dispatch": {
+   "disposition": "kept"
+  },
+  "Verify Service Creation": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "disagreement: value: the selector of the stay that no other case carries the mandated description: one pass selects every other case by description (hr_case_id <> 61), the other the five near-match managers' cases by opened_for; chose the description selector, the tighter of two right predicates (resolved on that requirement).\ndisagreement: value: the selector of the stay that no other manager is notified: one pass names Leah Lewis's work and personal addresses with any type, the other the work addresses of the five near-match managers with type report; chose all five managers' work and personal addresses with any type, the union of the two (resolved on that requirement).\nThe two passes otherwise agree on every requirement, id, cell and disposition (all three checks kept).\nThe impacted set is the hr_profile rows with gender Male, position Manager and location_type Remote: only profile 59 (user 59, Gregory Richards) in the seed.\n'Each manager email address' is read as the impacted manager's own address, since the report is to formally inform them of the update; his line manager (profile 4) is not informed. The work address on the user record is used, as the benchmark check does, although seed notifications go to personal addresses.\nThe short description template has a blank after 'Manager' that may have been meant for the manager's name; the request says to use the format exactly, so the literal string is required.\nThe service is created with id 55, the case with id 61 and the notification with id 61, the next ids in sequence; the benchmark checks hard-code the first two and the case link.",
+ "minutes": 29
+}

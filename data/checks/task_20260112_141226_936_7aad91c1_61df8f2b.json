@@ -1,0 +1,213 @@
+{
+ "task_id": "task_20260112_141226_936_7aad91c1_61df8f2b",
+ "policy_sha1": "9ffbbf7e",
+ "requirements": [
+  {
+   "text": "Please open a new HR case under the Payroll Support service for Sarah Chen ... (Account Number: 4242123456, Type: Checking)",
+   "kind": "create",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 15
+   },
+   "cells": {
+    "hr_service": 3,
+    "opened_for": 1,
+    "account_number": "4242123456",
+    "account_type": "checking",
+    "source": "chat",
+    "coe_type": "Payroll"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 15 AND hr_service = 3 AND opened_for = 1 AND account_number = '4242123456' AND account_type = 'checking' AND source = 'chat' AND coe_type = 'Payroll'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify the new Payroll Support case for Sarah Chen",
+   "assumptions": [
+    "id assumed next in sequence",
+    "Payroll Support is hr_service 3, the only active service of that name",
+    "Sarah Chen is user 1 with hr_profile 1, so opened_for is 1 whether it is read as a profile or a user",
+    "account_type stored in lower case, as the seed's existing values are",
+    "source chat: the request came as a text in chat, and the seed's source values include chat",
+    "coe_type Payroll kept from the benchmark check; not fixed by request or policy, and every Payroll Support case in the seed has it"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "priority to high",
+   "kind": "create",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 15
+   },
+   "cells": {
+    "priority": "high"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 15 AND priority = 'high'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify the new Payroll Support case for Sarah Chen",
+   "assumptions": [
+    "id assumed next in sequence"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "move the case directly into work in progress once created",
+   "kind": "create",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 15
+   },
+   "cells": {
+    "status": "work_in_progress"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 15 AND status = 'work_in_progress'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "assumptions": [
+    "id assumed next in sequence",
+    "'work in progress' is stored as work_in_progress in this database (the policy's list calls it in_progress)"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "The short description should read exactly",
+   "kind": "create",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 15
+   },
+   "cells": {
+    "short_description": "Service: Payroll Support, Subject: Sarah Chen, Detail: Urgent payroll correction for most recent payment."
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 15 AND short_description = 'Service: Payroll Support, Subject: Sarah Chen, Detail: Urgent payroll correction for most recent payment.'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify the new Payroll Support case for Sarah Chen",
+   "assumptions": [
+    "id assumed next in sequence",
+    "the closing full stop inside the quotation marks is part of the text"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "Assign the case to the IT Support group and directly to Emily Watson",
+   "kind": "create",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 15
+   },
+   "cells": {
+    "assignment_group": 1,
+    "assigned_to": 3
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 15 AND assignment_group = 1 AND assigned_to = 3",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify the new Payroll Support case for Sarah Chen",
+   "assumptions": [
+    "id assumed next in sequence",
+    "IT Support is group 1, the only group of that name",
+    "Emily Watson is user 3, active and a member of IT Support, as the policy requires of an assignee"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "Create a checklist-type case task under this new case, using the \u201cPayroll Support\u201d HR service, keep it active, and set the task status to ready",
+   "kind": "create",
+   "table": "hr_case_task",
+   "anchor": {
+    "hr_case_task_id": 6
+   },
+   "cells": {
+    "parent_case": 15,
+    "task_type": "checklist",
+    "hr_service": 3,
+    "active": true,
+    "status": "ready"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case_task WHERE hr_case_task_id = 6 AND parent_case = 15 AND task_type = 'checklist' AND hr_service = 3 AND active = TRUE AND status = 'ready'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify the checklist-type HR case task",
+   "assumptions": [
+    "id assumed next in sequence",
+    "the task's short description is not fixed ('focus on the operational steps'), so it has no cell"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "one to validate Sarah\u2019s bank account details",
+   "kind": "create",
+   "table": "checklist",
+   "selector": "case_task_id = 6 AND checklist_item_description LIKE '%Sarah%bank%account%'",
+   "cells": {},
+   "sql": "SELECT COUNT(*) FROM checklist WHERE case_task_id = 6 AND checklist_item_description LIKE '%Sarah%bank%account%'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify the two required checklist items",
+   "assumptions": [
+    "two checklist rows are created, so each is selected by its task and its wording rather than by id",
+    "the wording pattern kept from the benchmark check; the request fixes only the item's purpose",
+    "checked left untested: the request does not state it"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "one to confirm the corrected net pay against the HR system",
+   "kind": "create",
+   "table": "checklist",
+   "selector": "case_task_id = 6 AND checklist_item_description LIKE '%net%pay%'",
+   "cells": {},
+   "sql": "SELECT COUNT(*) FROM checklist WHERE case_task_id = 6 AND checklist_item_description LIKE '%net%pay%'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify the two required checklist items",
+   "assumptions": [
+    "two checklist rows are created, so each is selected by its task and its wording rather than by id",
+    "the wording pattern kept from the benchmark check; the request fixes only the item's purpose"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "send an email notification to update sarah.chen@techcorp.com to confirm that the payroll correction case has been opened,  status should be ready",
+   "kind": "create",
+   "table": "notification",
+   "anchor": {
+    "notification_id": 5
+   },
+   "cells": {
+    "hr_case_id": 15,
+    "email": "sarah.chen@techcorp.com",
+    "type": "update",
+    "status": "ready"
+   },
+   "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 5 AND hr_case_id = 15 AND email = 'sarah.chen@techcorp.com' AND type = 'update' AND status = 'ready'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify the email notification",
+   "assumptions": [
+    "id assumed next in sequence",
+    "'notification to update' read as type update, one of the seed's notification types",
+    "'status should be ready' read as the notification's status, since the case is to be in work in progress"
+   ],
+   "seed_count": 0
+  }
+ ],
+ "original_checks": {
+  "Verify the new Payroll Support case for Sarah Chen": {
+   "disposition": "kept"
+  },
+  "Verify the checklist-type HR case task": {
+   "disposition": "kept"
+  },
+  "Verify the two required checklist items": {
+   "disposition": "kept"
+  },
+  "Verify the email notification": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "Merged from two independent passes that agree on every table, row, cell and expected count (the case at hr_case_id 15 with its service, subject, account, source, coe_type, priority, exact short description, work_in_progress status, IT Support group and Emily Watson; the checklist task at hr_case_task_id 6; its two checklist items selected by task and wording; the update notification at notification_id 5) and on all four dispositions (kept); they differ only in how the case's cells are grouped into requirements and in wording, so there is no disagreement to log. The case's cells are kept as one requirement per thing asked.\nThe case check is carried by the case requirements together; the request's move to work in progress is a new requirement the benchmark does not test. The benchmark identifies the new case, task and notification through the case's short description; here they are anchored on the next ids, with the short description tested once on the case.\nThe checklist check counts matching items anywhere with an unparenthesised OR and expects 2; it is carried by two requirements that restrict each item to the new task, as the request requires ('add ... checklist items to that task').\nThe policy's state names (new, in_progress) and channel names (chat_bot) differ from the values this database stores (work_in_progress, chat); the stored vocabulary is used.\nThe task's short description ('focus on the operational steps') fixes no testable wording and is left out. The policy says moving a case to in progress generates template tasks; the Payroll template defines no tasks, so the agent's task is taken to be the next task id, but a server that inserts tasks on that transition would shift it.\nNo acting user is named, so opened_by is untested. The bank account number is stored on the case as the request asks; the policy's PII rule bars disclosing it in email or chat, which no notification column could show.",
+ "minutes": 33
+}

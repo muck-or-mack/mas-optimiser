@@ -1,0 +1,104 @@
+{
+  "task_id": "task_20251219_111409_528_c5ca08eb_db61cf35",
+  "policy_sha1": "4afd943b",
+  "requirements": [
+    {
+      "text": "create a new incident for Travis ... issue with the Jira Server, which is unreachable ... prioritize this incident appropriately, as it is blocking his day-to-day operations",
+      "kind": "create",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_101"
+      },
+      "cells": {
+        "caller_id": "USER_011",
+        "status": "new",
+        "short_description": "LIKE '%Jira%'",
+        "urgency": "high",
+        "priority": "IN ('moderate', 'high', 'critical')"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_101' AND caller_id = 'USER_011' AND status = 'new' AND short_description LIKE '%Jira%' AND urgency = 'high' AND priority IN ('moderate', 'high', 'critical')",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (INC_101 after INC_100); the only incident the task creates, and the benchmark check anchors on INC_101 too",
+        "Travis Wood resolves to USER_011, the only user of that name in the seed (active, role agent); he is the caller",
+        "status new from the policy's default for new incidents (section 3.1)",
+        "'blocking his day-to-day operations' read as urgency high; impact is not fixed by the request, so priority is only required to follow the policy matrix for urgency high (moderate, high or critical)",
+        "disagreement: urgency: A tests urgency = high, B leaves it untested; kept because the request ties the priority to the issue blocking his work, which is what urgency measures, and the priority band both passes test only follows from the matrix once urgency is fixed",
+        "disagreement: short_description: B tests LIKE '%Jira%', A leaves it untested; kept because the request names the issue as the Jira Server and short_description is mandatory (policy 3.1); INC_023's own short_description 'Server Unreachable' does not name Jira, so copying it verbatim fails this cell",
+        "channel, contact_type, category, impact and org_id are not fixed by request or policy and are not tested",
+        "the acting user USER_039 is an admin, so may create incidents (policy section 2)"
+      ]
+    },
+    {
+      "text": "link the same service ... as specified in the original ticket (INC-000023)",
+      "kind": "stay",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_101"
+      },
+      "cells": {
+        "service": "SVC_020"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_101' AND service = 'SVC_020'",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "Verify Service and Service Offering Linkage",
+      "seed_count": 0,
+      "assumptions": [
+        "INC-000023 is INC_023; its service is SVC_020 (Jira Dev Instance 1.0), status retired in the seed",
+        "kept from the benchmark check, which expects INC_101 not to carry both SVC_020 and SVCOFF_025; the request's words say to link it, but the retired state and the policy's integrity rule (5.1: retired items are not linked to active incidents) decide against it",
+        "stricter than the benchmark's OR: each retired item is forbidden on its own",
+        "disagreement: form: A tests service and offering together as a create requirement with cells IS NOT 'SVC_020' and IS NOT 'SVCOFF_025' (expected 1), B as two stays with expected 0; kept B's stays, since a link that must be absent is a count held at zero, with existence tested by requirement 1"
+      ]
+    },
+    {
+      "text": "link the same ... service offering ... as specified in the original ticket (INC-000023)",
+      "kind": "stay",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_101"
+      },
+      "cells": {
+        "service_offering": "SVCOFF_025"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_101' AND service_offering = 'SVCOFF_025'",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "Verify Service and Service Offering Linkage",
+      "seed_count": 0,
+      "assumptions": [
+        "INC_023's service offering is SVCOFF_025 (Jira Dev - Legacy, business_service SVC_020), status retired in the seed",
+        "kept from the benchmark check, as for the service; the retired state decides against the request's words"
+      ]
+    },
+    {
+      "text": "link the same ... configuration item (CI) as specified in the original ticket (INC-000023)",
+      "kind": "stay",
+      "table": "incident",
+      "selector": "caller_id = 'USER_011'",
+      "cells": {
+        "configuration_item": "CI_072"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE caller_id = 'USER_011' AND configuration_item = 'CI_072'",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "INC_023's CI is CI_072 (Dev Server - Kristen Mitchell), status retired in the seed; policy 5.1 forbids linking a retired CI to an active incident, so the request's words are overridden",
+        "the benchmark check does not test the CI; this stay is new",
+        "disagreement: form: A selects by caller and CI, B anchors on INC_101; kept A's selector, which is tighter (it holds whatever id the new incident gets; the seed has no incident for USER_011)"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify Service and Service Offering Linkage": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on the reading: the reference ticket INC_023's service (SVC_020), service offering (SVCOFF_025) and CI (CI_072) are all retired in the seed, the benchmark's check is a negation (INC_101 must not carry both retired links, expected 1), so the incident is created for Travis Wood without any of the three retired links. disagreement: disposition: A marks the check repaired (its OR tightened to both links forbidden), B kept; chose kept because the check's anchor, expected count and substance are unchanged and the requirements are merely stricter, which is not a repair. disagreement: urgency = high cell (A only); kept (logged in requirement 1). disagreement: short_description LIKE '%Jira%' cell (B only); kept (logged in requirement 1). disagreement: form of the service and offering requirement (A one create with IS NOT cells, B two stays); kept B's stays (logged in requirement 2). disagreement: form of the CI stay (A selector by caller, B anchor on INC_101); kept A's selector (logged in requirement 4). Seed facts re-checked at merge: Travis Wood is USER_011 (active, agent); the acting user USER_039 is an admin; INC_100 is the highest incident; no active service, offering or CI in the seed is named Jira, so no substitute link is expected; INC_023 has impact medium, urgency medium, priority moderate, which the request does not ask to copy. The policy's rule 5.1 forbids only the CI link and is silent on retired services, so the service and offering stays rest on the benchmark check plus the seed; both passes rejected the stricter reading of policy section 1 (halt the whole request because linking CI_072 violates 5.1) since it contradicts the benchmark check and the valid part of the request. Tools include create_incident only, so INC_023 cannot be altered. revised: the CI stay named configuration_item = 'CI_072' in both its selector and its cells; the selector now names the rows (Travis Wood's incidents, none in the seed) and the cell carries the retired CI that must stay unlinked, with the same count. revised: the form disagreement on the service stay now states its own reason (a link that must be absent is a count held at zero) in place of a reference to a form convention.",
+  "minutes": 32
+}

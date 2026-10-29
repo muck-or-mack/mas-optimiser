@@ -1,0 +1,254 @@
+{
+  "task_id": "task_20260112_194743_238_a8eea1c0_a4b1468a",
+  "policy_sha1": "044e7a06",
+  "requirements": [
+    {
+      "text": "one mentioning HR DB ... link them as children to the major SAP database incident",
+      "kind": "create",
+      "table": "child_incident",
+      "selector": "parent_incident = 'INC_001' AND child_incident = 'INC_057'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM child_incident WHERE parent_incident = 'INC_001' AND child_incident = 'INC_057'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "child_incident_mappings_creation",
+        "combined_all_operations_validation",
+        "audit_trail_consistency"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "the major SAP database incident is INC_001 ('MAJOR:SAP Database Unreachable', the only SAP major incident on the seed, assigned to USER_059)",
+        "the HR DB report is INC_057 (short_description 'HR DB', the only incident mentioning HR on the seed)",
+        "three mappings are created and the request fixes no order, so each is selected by (parent, child), not by the mapping ids CINC_007-009 the benchmark check lists",
+        "incident.parent_incident is not tested: the request names the link, and the benchmark measures it in child_incident",
+        "carries jointly the composite checks combined_all_operations_validation and audit_trail_consistency (their link parts; INC_001 and INC_057 are both ORG_001 on the seed)",
+        "disagreement: selector: A one set requirement for both symptomatic links (child_incident IN ('INC_057', 'INC_030'), expected 2), B one requirement per (parent, child) pair; chose one per pair because each created row is then selected by its own natural key and reported on its own"
+      ]
+    },
+    {
+      "text": "another for Disk Full ... link them as children to the major SAP database incident",
+      "kind": "create",
+      "table": "child_incident",
+      "selector": "parent_incident = 'INC_001' AND child_incident = 'INC_030'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM child_incident WHERE parent_incident = 'INC_001' AND child_incident = 'INC_030'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "child_incident_mappings_creation",
+        "combined_all_operations_validation",
+        "audit_trail_consistency"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "the Disk Full report is INC_030 (short_description 'Disk Full'); INC_053 'Disk Space' is the near match on the seed and is covered by a stay",
+        "three mappings are created and the request fixes no order, so this one is selected by (parent, child), not by mapping id",
+        "carries jointly the composite checks combined_all_operations_validation and audit_trail_consistency (their link parts; INC_030 is ORG_001 on the seed)",
+        "disagreement: selector: A one set requirement for both symptomatic links (child_incident IN ('INC_057', 'INC_030'), expected 2), B one requirement per (parent, child) pair; chose one per pair because each created row is then selected by its own natural key and reported on its own"
+      ]
+    },
+    {
+      "text": "put that HR DB ticket on hold while we wait for the root problem resolution",
+      "kind": "change",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_057"
+      },
+      "cells": {
+        "status": "on_hold",
+        "on_hold_reason": "Awaiting Problem"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_057' AND status = 'on_hold' AND on_hold_reason = 'Awaiting Problem'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "incident_inc_057_status_update",
+        "combined_all_operations_validation"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "'wait for the root problem resolution' is the policy 9 enumeration value 'Awaiting Problem' (Awaiting Change / Awaiting Caller / Awaiting Problem)",
+        "INC_057 is status new on the seed; new -> on_hold is a valid policy 3.3 transition",
+        "carries jointly the composite check combined_all_operations_validation (its INC_057 part)"
+      ]
+    },
+    {
+      "text": "put that HR DB ticket on hold while we wait for the root problem resolution",
+      "kind": "change",
+      "table": "incident_sla",
+      "anchor": {
+        "incident_sla_id": "TSLA_022"
+      },
+      "cells": {
+        "stage": "paused"
+      },
+      "sql": "SELECT COUNT(*) FROM incident_sla WHERE incident_sla_id = 'TSLA_022' AND stage = 'paused'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "policy 6: the SLA timer must be paused (stage = paused) when an incident is on_hold with on_hold_reason Awaiting Problem, which the INC_057 hold sets",
+        "TSLA_022 (SLA_001) is INC_057's only SLA row, stage in_progress on the seed; every on-hold incident on the seed that has an SLA row has it paused (TSLA_007, TSLA_014, TSLA_024)",
+        "no tool writes this table; the server may pause it on update_incident, or it may stay unmet"
+      ]
+    },
+    {
+      "text": "he needs a Post-Outage Compliance Audit logged. Assign it to the same manager who's already handling the main database outage",
+      "kind": "create",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_101"
+      },
+      "cells": {
+        "caller_id": "USER_059",
+        "assigned_to": "USER_059",
+        "short_description": "Post-Outage Compliance Audit",
+        "category": "database",
+        "status": "new",
+        "impact": "low",
+        "urgency": "low",
+        "priority": "planning"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_101' AND caller_id = 'USER_059' AND assigned_to = 'USER_059' AND short_description = 'Post-Outage Compliance Audit' AND category = 'database' AND status = 'new' AND impact = 'low' AND urgency = 'low' AND priority = 'planning'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "incident_inc_101_creation",
+        "combined_all_operations_validation"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (INC_101 after INC_100); the only incident the task creates",
+        "the manager handling the main database outage is INC_001.assigned_to = USER_059 (Gregory Richards, role manager, active), which satisfies policy 3.2's role and activity rules",
+        "caller_id USER_059 kept from the benchmark check; 'he needs ... logged' makes Gregory Richards the user affected, which agrees",
+        "short_description taken verbatim from the request's 'Post-Outage Compliance Audit'",
+        "category database, impact low, urgency low and priority planning kept from the benchmark check; not fixed by request or policy (priority planning follows low/low in the policy 3.1 matrix)",
+        "status new is the policy 3.1 default",
+        "number = 'INC-000101' in the benchmark check is a server-kept column and is not a cell",
+        "assignment_group not tested: the request names none, the check tests none, and USER_059 is in no group on the seed while already holding INC_001",
+        "carries jointly the composite check combined_all_operations_validation (its INC_101 part)"
+      ]
+    },
+    {
+      "text": "link this audit as a child of the major incident as well",
+      "kind": "create",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_101"
+      },
+      "cells": {
+        "org_id": "ORG_001"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_101' AND org_id = 'ORG_001'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "audit_trail_consistency",
+      "seed_count": 0,
+      "assumptions": [
+        "org_id ORG_001 kept from the benchmark check, which requires each child to share the parent's org; not fixed by the request, but the parent INC_001, the caller USER_059 and the acting user USER_039 are all ORG_001",
+        "the check's link part is carried by the three link requirements, which name it in their source; INC_057 and INC_030 are already ORG_001 on the seed",
+        "disagreement: form: A org_id = 'ORG_001' on INC_101, B the check's three-way join over the links counting 3; chose the flat cell because the parent and the two existing children are ORG_001 on the seed, so the audit's org is the join's only open cell"
+      ]
+    },
+    {
+      "text": "link this audit as a child of the major incident as well",
+      "kind": "create",
+      "table": "child_incident",
+      "selector": "parent_incident = 'INC_001' AND child_incident = 'INC_101'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM child_incident WHERE parent_incident = 'INC_001' AND child_incident = 'INC_101'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "child_incident_mappings_creation",
+        "combined_all_operations_validation",
+        "audit_trail_consistency"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "the audit incident is INC_101 (id assumed next in sequence, after INC_100)",
+        "three mappings are created and the request fixes no order, so this one is selected by (parent, child), not by mapping id",
+        "carries jointly the composite checks combined_all_operations_validation and audit_trail_consistency (their link parts)"
+      ]
+    },
+    {
+      "text": "link them as children to the major SAP database incident ... link this audit as a child of the major incident as well",
+      "kind": "create",
+      "table": "child_incident",
+      "selector": "parent_incident = 'INC_001'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM child_incident WHERE parent_incident = 'INC_001'",
+      "expected": 6,
+      "comparison": "equals",
+      "source": "parent_child_relationship_integrity",
+      "seed_count": 3,
+      "assumptions": [
+        "the seed already links INC_044, INC_069 and INC_082 to INC_001, so three new children make 6; the check's description says 'exactly three' but its expected 6 counts the seed rows too",
+        "this also bounds the link selector: no further incident is linked to INC_001"
+      ]
+    },
+    {
+      "text": "put that HR DB ticket on hold",
+      "kind": "stay",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_030"
+      },
+      "cells": {
+        "status": "in_progress",
+        "on_hold_reason": "IS NULL"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_030' AND status = 'in_progress' AND on_hold_reason IS NULL",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "boundary of 'that HR DB ticket': a loose reading ('put them on hold') puts both consolidated reports on hold; the request names only the HR DB one, so INC_030 keeps its seed status and empty hold reason",
+        "disagreement: on_hold_reason: A IS NULL, B untested; chose IS NULL because a hold sets the reason as well as the status, and both predicates hold on the seed"
+      ]
+    },
+    {
+      "text": "another for Disk Full",
+      "kind": "stay",
+      "table": "child_incident",
+      "selector": "parent_incident = 'INC_001' AND child_incident = 'INC_053'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM child_incident WHERE parent_incident = 'INC_001' AND child_incident = 'INC_053'",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of 'Disk Full': INC_053 'Disk Space' (same caller, assignee and group as INC_030) is the near match on the seed and must not be linked; the parent count of 6 also catches an extra link, this names the row"
+      ]
+    }
+  ],
+  "original_checks": {
+    "child_incident_mappings_creation": {
+      "disposition": "kept",
+      "evidence": "carried by the three link requirements, one per (parent, child) pair; its mapping-id list CINC_007-009 is not carried, since three rows are created in no fixed order and each is selected by its natural key"
+    },
+    "incident_inc_057_status_update": {
+      "disposition": "kept"
+    },
+    "incident_inc_101_creation": {
+      "disposition": "kept",
+      "evidence": "every predicate is carried by the audit-incident requirement except number = 'INC-000101', a server-kept column that is never a cell"
+    },
+    "combined_all_operations_validation": {
+      "disposition": "kept",
+      "evidence": "a UNION ALL (expected 5 = 3 + 1 + 1) over the three links, the INC_057 hold and the INC_101 create, cells the other carried checks test; carried jointly by the five requirements that carry its parts, without its mapping ids (several rows created in no fixed order) and number (server-kept). disagreement: disposition: A kept it without naming it in any source, B excluded it as a duplicate; chose kept because a composite over carried cells is carried jointly"
+    },
+    "parent_child_relationship_integrity": {
+      "disposition": "kept"
+    },
+    "audit_trail_consistency": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "disagreement: disposition: combined_all_operations_validation: A kept it without naming it in any source, B excluded it as a duplicate of the first three checks; chose kept, carried jointly, because it is a UNION ALL over cells other carried checks test (the three links, the INC_057 hold, the INC_101 create), so each requirement that carries one of its parts names it; its mapping ids CINC_007-009 and number INC-000101 are not carried, as the three links are created in no fixed order and number is server-kept.\ndisagreement: missing requirement: the pause of INC_057's SLA row TSLA_022 (stage = paused); A has it, B does not; kept because policy 6 requires the SLA timer to be paused when an incident is on_hold with reason Awaiting Problem, which the requested hold sets, and every on-hold incident on the seed with an SLA row has it paused; no tool writes this table.\ndisagreement: missing requirement: a stay that INC_053 'Disk Space' is not linked to INC_001 (expected 0); B has it, A does not, relying on the parent count of 6; kept because INC_053 is the near match of 'Disk Full' on the seed (same caller, assignee and group as INC_030), so it is the boundary of that selector, and the stay names the row a count alone cannot.\ndisagreement: value: the INC_030 stay: A tests status = in_progress and on_hold_reason IS NULL, B status = in_progress only; chose A's tighter predicate because a hold sets the reason as well as the status; both hold on the seed.\ndisagreement: value: the HR DB and Disk Full links: A writes one set requirement (child_incident IN ('INC_057', 'INC_030'), expected 2), B one requirement per (parent, child) pair; chose one per pair, which selects each created row by its own natural key, is as strict under the UNIQUE (parent_incident, child_incident) constraint, and reports each link on its own.\ndisagreement: value: the form of audit_trail_consistency: A carries it as org_id = 'ORG_001' on the created INC_101, B as the check's three-way join counting 3 with a cell keyed by a table alias; chose the flat org_id cell because INC_001, INC_057 and INC_030 are ORG_001 on the seed, so the audit's org is the join's only open cell, and a cell keyed by column fits the audit; the join's link part is carried by the three link requirements, which name the check in their source.\nparent_child_relationship_integrity's description says 'exactly three' children, but the seed already has three (INC_044, INC_069, INC_082) and its expected value 6 is right.\nPolicy 3.2 wants assigned_to to be a member of the assignment_group, but USER_059 is in no group on the seed while already holding INC_001, so no group cell is written for the audit incident.\nincident.parent_incident on the three children is not tested: the seed's existing children of INC_001 carry it, but the request names the link and the benchmark measures it in child_incident.",
+  "minutes": 40
+}

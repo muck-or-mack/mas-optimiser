@@ -1,0 +1,246 @@
+{
+ "task_id": "task_20260102_031908_712_accab84d_886a7365",
+ "policy_sha1": "b3841dd3",
+ "requirements": [
+  {
+   "text": "Ensure our expert in service optimization, Amelia Jones (amelia.jones@servicenow.com) based in User 1 - New York is active",
+   "kind": "create",
+   "table": "user",
+   "anchor": {
+    "user_id": 803
+   },
+   "cells": {
+    "first_name": "Amelia",
+    "last_name": "Jones",
+    "email": "amelia.jones@servicenow.com",
+    "role": "agent",
+    "location_id": 1,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM user WHERE user_id = 803 AND first_name = 'Amelia' AND last_name = 'Jones' AND email = 'amelia.jones@servicenow.com' AND role = 'agent' AND location_id = 1 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "User Amelia added to the network",
+   "seed_count": 0,
+   "assumptions": [
+    "implied by the request, not stated: no user with this email or first name exists on the seed, so she must be created",
+    "id assumed next in sequence (highest user_id on the seed is 802)",
+    "User 1 - New York is location 1",
+    "role agent kept from the benchmark check; the policy requires an assignee with role agent or manager and the request names neither",
+    "the acting user is an admin, whom the policy allows to create users"
+   ]
+  },
+  {
+   "text": "is active in the CSM Tier 2 Support group",
+   "kind": "create",
+   "table": "user_group_member",
+   "anchor": {
+    "member_id": 960
+   },
+   "cells": {
+    "group_id": 2,
+    "user_id": 803
+   },
+   "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 960 AND group_id = 2 AND user_id = 803",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "User added to the new group",
+   "seed_count": 0,
+   "assumptions": [
+    "CSM Tier 2 Support is group 2; CSM Tier 2 Support_2, _3 and _4 (22, 42, 62) are other rows",
+    "id assumed next in sequence (highest member_id on the seed is 959)"
+   ]
+  },
+  {
+   "text": "Immediately reassign CS-0000032 to this team",
+   "kind": "change",
+   "table": "customer_case",
+   "anchor": {
+    "case_id": 32
+   },
+   "cells": {
+    "assignment_group_id": 2
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 32 AND assignment_group_id = 2",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "User added to the assignment group",
+   "seed_count": 0,
+   "assumptions": [
+    "CS-0000032 is case 32 (Zebra Partners, account 2, product 202 Health Check & Optimization Variant 10), unassigned and pending on the seed"
+   ]
+  },
+  {
+   "text": "Immediately reassign CS-0000032 to this team and person",
+   "kind": "change",
+   "table": "customer_case",
+   "anchor": {
+    "case_id": 32
+   },
+   "cells": {
+    "assigned_to": 803
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 32 AND assigned_to = 803",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Case assigned to the user",
+   "seed_count": 0,
+   "assumptions": [
+    "the person is Amelia Jones, the new user 803"
+   ]
+  },
+  {
+   "text": "escalating it to in progress",
+   "kind": "change",
+   "table": "customer_case",
+   "anchor": {
+    "case_id": 32
+   },
+   "cells": {
+    "state": "in_progress"
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 32 AND state = 'in_progress'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Case-32 has been updated",
+   "seed_count": 0,
+   "assumptions": [
+    "case 32 is pending on the seed; pending to in_progress is a valid transition under the policy"
+   ]
+  },
+  {
+   "text": "escalating it ... ensuring no breach occurs",
+   "kind": "change",
+   "table": "customer_case",
+   "anchor": {
+    "case_id": 32
+   },
+   "cells": {
+    "escalation": 1,
+    "escalation_reason": "breach_risk"
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 32 AND escalation = 1 AND escalation_reason = 'breach_risk'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Case-32 has been updated",
+   "seed_count": 0,
+   "assumptions": [
+    "the case is escalated: the request says escalating it, and the later 'Also, escalate case CS-0000030' implies this case is escalated too",
+    "escalation_reason breach_risk kept from the benchmark check: the request asks that no breach occur, and the policy allows escalation when SLA breach risk exists"
+   ]
+  },
+  {
+   "text": "applying the SLA Resolution - Critical, ensuring no breach occurs",
+   "kind": "create",
+   "table": "case_sla",
+   "selector": "case_id = 32 AND sla_def_id = 6",
+   "cells": {
+    "stage": "in_progress",
+    "has_breached": 0
+   },
+   "sql": "SELECT COUNT(*) FROM case_sla WHERE case_id = 32 AND sla_def_id = 6 AND stage = 'in_progress' AND has_breached = 0",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "New SLA has been linked to the case",
+   "seed_count": 0,
+   "assumptions": [
+    "SLA Resolution - Critical is sla_def 6; the seed already links it to case 32 as row 64, paused while the case is pending",
+    "applied to a case now in progress the SLA must run, so stage is in_progress; the policy pauses SLAs only while the case is pending",
+    "has_breached 0 because the request asks that no breach occur",
+    "selected by case and SLA definition: the running row may be a new link or row 64 resumed, and exactly one must run",
+    "disagreement: kind: A change, B create; chose create because the requirement asks that one running row exist whichever row it is, and the benchmark's check reads the step as a new link"
+   ]
+  },
+  {
+   "text": "escalate case CS-0000030 with reason urgency",
+   "kind": "change",
+   "table": "customer_case",
+   "anchor": {
+    "case_id": 30
+   },
+   "cells": {
+    "escalation": 1,
+    "escalation_reason": "urgency"
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 30 AND escalation = 1 AND escalation_reason = 'urgency'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Case-30 has been updated ",
+   "seed_count": 0,
+   "assumptions": [
+    "CS-0000030 is case 30 (account 2), not escalated on the seed"
+   ]
+  },
+  {
+   "text": "move it to in progress",
+   "kind": "change",
+   "table": "customer_case",
+   "anchor": {
+    "case_id": 30
+   },
+   "cells": {
+    "state": "in_progress"
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 30 AND state = 'in_progress'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Case-30 has been updated ",
+   "seed_count": 0,
+   "assumptions": [
+    "case 30 is pending on the seed; pending to in_progress is a valid transition under the policy"
+   ]
+  },
+  {
+   "text": "Mark case CS-0000047 as closed",
+   "kind": "change",
+   "table": "customer_case",
+   "anchor": {
+    "case_id": 47
+   },
+   "cells": {
+    "state": "closed"
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 47 AND state = 'closed'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Case-47 has been updated",
+   "seed_count": 0,
+   "assumptions": [
+    "CS-0000047 is case 47, in_progress on the seed; the policy requires it to pass through resolved before closed, and only the final state is tested"
+   ]
+  }
+ ],
+ "original_checks": {
+  "User added to the new group": {
+   "disposition": "kept"
+  },
+  "User added to the assignment group": {
+   "disposition": "kept"
+  },
+  "Case assigned to the user": {
+   "disposition": "kept"
+  },
+  "User Amelia added to the network": {
+   "disposition": "kept"
+  },
+  "New SLA has been linked to the case": {
+   "disposition": "weak",
+   "evidence": "case 32 already has SLA Resolution - Critical linked on the seed (case_sla 64, paused), so the count is 1 before the agent acts, and a fresh link would make it 2 and fail; the requirement that carries it tests one running, unbreached row instead"
+  },
+  "Case-32 has been updated": {
+   "disposition": "kept"
+  },
+  "Case-30 has been updated ": {
+   "disposition": "kept"
+  },
+  "Case-47 has been updated": {
+   "disposition": "kept"
+  },
+  "check entitlement details": {
+   "disposition": "weak",
+   "evidence": "entitlement 11 (account 2, product 202) is already active on the seed; the request asks for no entitlement change, and the policy only asks for the entitlement to be verified, which writes nothing"
+  }
+ },
+ "notes": "Three benchmark checks read a cell rather than count rows (case 32's assignment group and assignee, case 47's state); their requirements test the same values as counts. Case 47's closed_on is a server-kept timestamp and is not tested.\nThe SLA requirement is the main judgement: the benchmark counts any link of SLA 6 to case 32, which the seed already holds, so the requirement asks for exactly one running, unbreached link instead.\nCase 32's escalation is a judgement: 'We need to rapidly address this before escalation' could argue against escalating, but 'escalating it' with 'ensuring no breach occurs' and the following 'Also, escalate case CS-0000030' read as an escalation for breach risk, as the benchmark tests.\nThe policy asks for escalation justifications in case notes; the schema has no case-notes table, so they are untestable. Amelia Jones's phone is not given and is not a cell. The SLAs already linked to cases 30 and 47 are not tested: the request says nothing about them.\nThe opening sentence about Zebra Partners' several critical cases names no action beyond the ones that follow, so no stay is written for the account's other critical pending cases (48, 49), which are on other products.\ndisagreement: value: the kind of the SLA requirement on case 32: change in one pass, create in the other; chose create, as recorded on the requirement.\ndisagreement: form: one pass tests case 32's state and escalation, and case 30's escalation and state, as separate requirements, the other as one requirement per case with the same cells and sources; kept them separate because the request asks for each as its own step, so a failure names the step that was missed.",
+ "minutes": 43
+}

@@ -1,0 +1,79 @@
+{
+  "task_id": "task_20251223_081019_100_d4a463c3_f8774fe4",
+  "policy_sha1": "4afd943b",
+  "requirements": [
+    {
+      "text": "close the change as successful, with close notes stating, \"Found 3 unused rules removed, 2 vendor access rules updated.\"",
+      "kind": "change",
+      "table": "change",
+      "anchor": {
+        "change_id": "CHG_017"
+      },
+      "cells": {
+        "status": "closed",
+        "close_code": "successful",
+        "close_notes": "LIKE '%Found 3 unused rules removed, 2 vendor access rules updated%'"
+      },
+      "sql": "SELECT COUNT(*) FROM change WHERE change_id = 'CHG_017' AND status = 'closed' AND close_code = 'successful' AND close_notes LIKE '%Found 3 unused rules removed, 2 vendor access rules updated%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verfiy Change Update",
+      "seed_count": 0,
+      "assumptions": [
+        "CHG0000017 resolves to change_id CHG_017 in the seed ('Monthly Firewall Rule Audit', status review, close_code and close_notes null)",
+        "close_code = 'successful' added beyond the benchmark check: the request says 'as successful' and the seed's closed changes use the code 'successful'",
+        "close_notes tested with LIKE so trailing punctuation or wrapping text does not fail a correct agent",
+        "acting user USER_039 is an active admin, so may close a change (policy section 2)"
+      ]
+    },
+    {
+      "text": "check whether this change is linked to any problems in the system, if so, update the related problems to reflect that the residual risk has been accepted",
+      "kind": "change",
+      "table": "problem",
+      "anchor": {
+        "problem_id": "PRB_011"
+      },
+      "cells": {
+        "status": "closed"
+      },
+      "sql": "SELECT COUNT(*) FROM problem WHERE problem_id = 'PRB_011' AND status = 'closed'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Problem Update",
+      "seed_count": 0,
+      "assumptions": [
+        "PRB_011 ('Firewall Rule Audit Findings', fix_in_progress) is the only problem linked to CHG_017 in change_request_mapping (row CRM_017), so 'the related problems' is one row, anchored by id",
+        "status = closed kept from the benchmark check; not fixed by request or policy, which names no column or state for 'residual risk has been accepted'",
+        "closing is consistent with policy 4.2: the permanent fix came via the linked change CHG_017, which the first step closes as successful",
+        "no text cell for the risk-acceptance wording: the request fixes neither the column (worknotes, workaround or fix_notes) nor the words"
+      ]
+    },
+    {
+      "text": "update the related problems (boundary: problems not linked to the change)",
+      "kind": "stay",
+      "table": "problem",
+      "selector": "problem_id <> 'PRB_011'",
+      "cells": {
+        "status": "closed"
+      },
+      "sql": "SELECT COUNT(*) FROM problem WHERE status = 'closed' AND problem_id <> 'PRB_011'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "boundary of 'the related problems': only PRB_011 is linked to CHG_017; a loose reading could close other firewall or fix_in_progress problems (PRB_002 on the same network service is the nearest), so the count of closed problems other than PRB_011 stays at the seed's one (PRB_005)"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verfiy Change Update": {
+      "disposition": "kept"
+    },
+    "Verify Problem Update": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on both carried requirements (CHG_017 closed successful with the close notes; PRB_011 closed), on both dispositions, and on the boundary stay over closed problems other than PRB_011 (identical sql and counts, wording merged).\ndisagreement: missing requirement: one pass adds a stay on CHG_010 'Update Firewall Rules for Vendor' (status scheduled, close_code null) as the nearest other firewall-rule change; the other has none; dropped because the request names the change by its number CHG0000017 and the agent resolves it with find_change_by_number, so no loose reading of a description sweeps CHG_010 in, and the request neither forbids touching other changes nor describes the change loosely enough to need a boundary.\nActing user USER_039 (Karen Watkins) is an active admin with full CRUD, so no policy block applies. The change requirement is stricter than the benchmark check by one cell (close_code = 'successful', fixed by the request's 'as successful'). The change table has no type column, so policy 4.2's 'normal or emergency' condition for closing a problem cannot be read from the data; CHG_017 is treated as eligible once closed successfully. The tools list update_change and update_problem, which write both tables.\nrevised: the CHG_010 disagreement line now refers to the two passes as one pass and the other, and states its reason in the request's terms rather than citing an outside rule.\nrevised: the boundary stay's selector is now problem_id <> 'PRB_011' with status = closed carried only in cells, since the selector repeated the cell's column; the sql and counts are unchanged.",
+  "minutes": 24
+}

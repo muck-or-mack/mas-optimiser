@@ -1,0 +1,166 @@
+{
+  "task_id": "task_20260115_190725_477_a8eea1c0_eba3a1c5",
+  "policy_sha1": "b2da3f42",
+  "requirements": [
+    {
+      "text": "get her set up in the system with a Manager role",
+      "kind": "create",
+      "table": "user",
+      "anchor": {
+        "user_id": 101
+      },
+      "cells": {
+        "first_name": "Elena",
+        "last_name": "Petrova",
+        "email": "elena.petrova@servicenow.com",
+        "phone": "IN ('+1-555-000-1111', '+15550001111')",
+        "role": "manager",
+        "active": 1,
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM user WHERE user_id = 101 AND first_name = 'Elena' AND last_name = 'Petrova' AND email = 'elena.petrova@servicenow.com' AND phone IN ('+1-555-000-1111', '+15550001111') AND role = 'manager' AND active = 1 AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "elena_petrova_user_account_creation",
+        "complete_elena_onboarding_and_case_assignment_integrity",
+        "elena_petrova_no_duplicate_records"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest user_id in the seed is 100)",
+        "no user with this email exists in the seed, so the account must be created",
+        "org_id 1 (ServiceNow): the acting user's organisation and that of the servicenow.com users; kept from the benchmark check",
+        "phone accepted as given ('+1-555-000-1111', the dashed form some seed users carry, e.g. user 100 '+1-555-000-100') or with the dashes stripped",
+        "active = 1 kept from the benchmark check; a new hire starting today",
+        "disagreement: active: A true, B 1; chose 1 because the seed stores booleans as integers (true equals 1 in SQLite, so the count is the same as the benchmark check's active = true)"
+      ]
+    },
+    {
+      "text": "ensure her HR profile is onboarded for the HR position",
+      "kind": "create",
+      "table": "hr_profile",
+      "anchor": {
+        "hr_profile_id": 101
+      },
+      "cells": {
+        "user_id": 101,
+        "personal_email": "elena.p.private@example.com",
+        "position": "HR",
+        "national_tax_id": "LIKE '%877'",
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM hr_profile WHERE hr_profile_id = 101 AND user_id = 101 AND personal_email = 'elena.p.private@example.com' AND position = 'HR' AND national_tax_id LIKE '%877' AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "elena_petrova_hr_profile_creation",
+        "complete_elena_onboarding_and_case_assignment_integrity",
+        "elena_petrova_no_duplicate_records"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest hr_profile_id in the seed is 100)",
+        "the request gives the tax ID only as 877; any stored form ending in 877 is accepted",
+        "org_id 1, the same organisation as her user account; kept from the benchmark check"
+      ]
+    },
+    {
+      "text": "verify if she is a member of David Sanchez's HR Leadership Approval group; if not, add her immediately",
+      "kind": "create",
+      "table": "user_group_member",
+      "anchor": {
+        "member_id": 44
+      },
+      "cells": {
+        "group_id": 10,
+        "user_id": 101,
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 44 AND group_id = 10 AND user_id = 101 AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "elena_hr_leadership_approval_group_membership",
+        "complete_elena_onboarding_and_case_assignment_integrity",
+        "elena_petrova_no_duplicate_records"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest member_id in the seed is 43)",
+        "HR Leadership Approval is group 10, the only group of that name; David Sanchez (user 75) is not a member of it in the seed, so the possessive does not select another group",
+        "she is a new user, so she cannot already be a member and the membership must be added"
+      ]
+    },
+    {
+      "text": "create a high-priority Payroll Discrepancy case for Steven Maxwell regarding a missed performance bonus from last quarter, and assign Elena as the lead agent",
+      "kind": "create",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 61
+      },
+      "cells": {
+        "hr_service": 14,
+        "opened_for": 87,
+        "opened_by": 39,
+        "assigned_to": 101,
+        "status": "draft",
+        "priority": "high",
+        "source": "email",
+        "coe_type": "Payroll",
+        "short_description": [
+          "LIKE '%Payroll Discrepancy%'",
+          "LIKE '%Steven Maxwell%'",
+          "LIKE '%missed performance bonus from last quarter%'"
+        ],
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND hr_service = 14 AND opened_for = 87 AND opened_by = 39 AND assigned_to = 101 AND status = 'draft' AND priority = 'high' AND source = 'email' AND coe_type = 'Payroll' AND short_description LIKE '%Payroll Discrepancy%' AND short_description LIKE '%Steven Maxwell%' AND short_description LIKE '%missed performance bonus from last quarter%' AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "steven_maxwell_payroll_discrepancy_case_creation",
+        "complete_elena_onboarding_and_case_assignment_integrity"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest hr_case_id in the seed is 60)",
+        "hr_service 14 is the active Payroll Discrepancy service",
+        "opened_for references hr_profile: Steven Maxwell is user 87 with hr_profile 87",
+        "opened_by is the requester (policy 3.1): the acting user Karen Watkins, hr_profile 39",
+        "assigned_to references user: Elena is user 101",
+        "status draft kept from the benchmark check; policy 3.1 lets a new case default to draft or ready",
+        "source email kept from the benchmark check: the request arrived by email ('HR emailed') and no policy default exists",
+        "coe_type Payroll kept from the benchmark check; not fixed by request or policy, and it matches the seed's Payroll-service cases",
+        "short_description terms kept from the benchmark check; they are the request's own words",
+        "disagreement: opened_by: A untested, B 39; chose 39, the tighter predicate, because policy 3.1 makes opened_by the requester, the acting user Karen Watkins (hr_profile 39) asks for the case, and every seed case (60 of 60) has opened_by = opened_for only because the seed's cases are self-opened, which does not contradict the policy",
+        "disagreement: status: A draft, B IN ('draft', 'ready'); chose draft because the benchmark check tests draft and policy 3.1 allows it as a new case's default, so nothing contradicts the check, and draft is the tighter of two predicates the policy admits"
+      ]
+    }
+  ],
+  "original_checks": {
+    "elena_petrova_user_account_creation": {
+      "disposition": "repaired",
+      "evidence": "the request gives the phone as '+1-555-000-1111' while the check requires '+15550001111'; the seed stores phones both with dashes (e.g. user 100 '+1-555-000-100') and without, and no rule fixes a format, so either form is accepted"
+    },
+    "elena_petrova_hr_profile_creation": {
+      "disposition": "repaired",
+      "evidence": "number = 'HR-001' is assigned by the system and does not follow the seed's HRP00NNN numbering, so it is dropped; the request gives the tax ID only as 877 and the seed stores tax IDs as TAX-1-0039, which 'TAX-001-877' does not follow either, so the stored form is undecidable and the cell tests a value ending in 877"
+    },
+    "elena_hr_leadership_approval_group_membership": {
+      "disposition": "kept"
+    },
+    "steven_maxwell_payroll_discrepancy_case_creation": {
+      "disposition": "repaired",
+      "evidence": "number = 'HRC0000771' is assigned by the server when the case is created; that predicate is dropped and every other cell is carried unchanged"
+    },
+    "complete_elena_onboarding_and_case_assignment_integrity": {
+      "disposition": "kept"
+    },
+    "elena_petrova_no_duplicate_records": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "disagreement: active: A true, B 1; chose 1 because the seed stores booleans as integers (true equals 1 in SQLite, so the count is the same as the benchmark check's active = true)\ndisagreement: opened_by: A untested, B 39; chose 39, the tighter predicate, because policy 3.1 makes opened_by the requester, the acting user Karen Watkins (hr_profile 39) asks for the case, and every seed case (60 of 60) has opened_by = opened_for only because the seed's cases are self-opened, which does not contradict the policy\ndisagreement: status: A draft, B IN ('draft', 'ready'); chose draft because the benchmark check tests draft and policy 3.1 allows it as a new case's default, so nothing contradicts the check, and draft is the tighter of two predicates the policy admits\ndisagreement: disposition of 'complete_elena_onboarding_and_case_assignment_integrity': A kept, B repaired for its case number predicate; chose kept because it is a conjunction of user, profile, membership and case cells that the four requirements already test, so it is carried jointly by them; the server-assigned case number is the only predicate they do not repeat\nThe two passes otherwise agree on every requirement, anchor, id and the other dispositions; their assumptions differ in wording only.\nThe skills check ('check if she already has any Payroll or Compensation skills') is read-only: she is a new user with no user_skill rows and no listed tool writes user_skill, so it gives no requirement.\n'Starting today' would set an employment start date whose value depends on the run date, so it is not tested.\nHR Leadership Approval is group 10, the only group of that name; David Sanchez (user 75) is not a member of it in the seed, so the possessive picks out no other group.\nThe acting user Karen Watkins is an admin, and section 2 of the policy says administrators must not perform routine HR case work or modify PII outside audited correction; the request asks for the onboarding and the case outright, so they are required here, though a strict reading of the policy would have the agent refuse the case.\nThe policy asks for national_tax_id to be encrypted, but the seed stores tax IDs in plain text, so the cell tests the stored digits.\nThe composite check and the no-duplicates check are carried jointly by the user, profile, membership and (for the composite) case requirements; the composite's case number predicate is server-assigned and is not a cell.",
+  "minutes": 37
+}

@@ -1,0 +1,248 @@
+{
+ "task_id": "task_20251223_150001_549_d9bcd1e5_475d93ab",
+ "policy_sha1": "b2da3f42",
+ "requirements": [
+  {
+   "text": "Employee Profile Update should be an active HR service mapped to its own Employee Profile Changes topic detail that also lives in Employee Data Management",
+   "kind": "create",
+   "table": "topic_detail",
+   "anchor": {
+    "topic_detail_id": 36
+   },
+   "cells": {
+    "name": "Employee Profile Changes",
+    "topic_category": 4,
+    "active": 1,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM topic_detail WHERE topic_detail_id = 36 AND name = 'Employee Profile Changes' AND topic_category = 4 AND active = 1 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify Employee Profile Changes topic detail exists under Employee Data Management",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (highest topic_detail_id on the seed is 35); no topic detail named Employee Profile Changes exists on the seed",
+    "Employee Data Management is topic_category 4 (coe_type Workforce Administration) on the seed",
+    "active = 1 kept from the benchmark check; not fixed by request or policy",
+    "org_id 1 is ServiceNow, the organisation the request names and the acting admin's organisation"
+   ]
+  },
+  {
+   "text": "the Erasure of Personal Data ... should ... be active HR services mapped to the Subject Access Request topic detail within the Employee Data Management topic category",
+   "kind": "change",
+   "table": "hr_service",
+   "anchor": {
+    "hr_service_id": 37
+   },
+   "cells": {
+    "topic_detail": 32,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 37 AND topic_detail = 32 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify Erasure of Personal Data uses Subject Access Request under Employee Data Management",
+   "seed_count": 0,
+   "assumptions": [
+    "Erasure of Personal Data is hr_service 37, mapped to topic detail 7 (Data Erasure) on the seed",
+    "Subject Access Request is topic_detail 32, under topic_category 4 (Employee Data Management, Workforce Administration); no listed tool moves a topic detail or changes a category's COE type"
+   ]
+  },
+  {
+   "text": "the ... Request Personal Information Report services should both be active HR services mapped to the Subject Access Request topic detail",
+   "kind": "change",
+   "table": "hr_service",
+   "anchor": {
+    "hr_service_id": 45
+   },
+   "cells": {
+    "topic_detail": 32,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 45 AND topic_detail = 32 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify Request Personal Information Report uses Subject Access Request under Employee Data Management",
+   "seed_count": 1,
+   "assumptions": [
+    "weak: Request Personal Information Report (hr_service 45) is already active and mapped to topic_detail 32 on the seed; the predicate is exact, the end state simply already holds"
+   ]
+  },
+  {
+   "text": "Employee Profile Update should be an active HR service mapped to its own Employee Profile Changes topic detail",
+   "kind": "change",
+   "table": "hr_service",
+   "anchor": {
+    "hr_service_id": 35
+   },
+   "cells": {
+    "topic_detail": 36,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 35 AND topic_detail = 36 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify Employee Profile Update uses Employee Profile Changes under Employee Data Management",
+   "seed_count": 0,
+   "assumptions": [
+    "Employee Profile Update is hr_service 35, mapped to topic_detail 28 (Profile Update, HR Operations) on the seed",
+    "topic_detail 36 is the new Employee Profile Changes row (id assumed next in sequence)"
+   ]
+  },
+  {
+   "text": "its own Employee Profile Changes topic detail ... is not used by any other service",
+   "kind": "stay",
+   "table": "hr_service",
+   "selector": "org_id = 1 AND hr_service_id <> 35",
+   "cells": {
+    "topic_detail": "IN (SELECT topic_detail_id FROM topic_detail WHERE name = 'Employee Profile Changes' AND org_id = 1)"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE org_id = 1 AND hr_service_id <> 35 AND topic_detail IN (SELECT topic_detail_id FROM topic_detail WHERE name = 'Employee Profile Changes' AND org_id = 1)",
+   "expected": 0,
+   "comparison": "equals",
+   "source": "Verify Employee Profile Changes is not shared with other services",
+   "seed_count": 0,
+   "assumptions": [
+    "the topic detail is selected by its name, so the count holds whatever id it receives",
+    "disagreement: selector: A scopes the services and the topic detail to org 1, B scopes neither; chose the org 1 scoping because the request concerns ServiceNow's own topic detail and the benchmark check scopes both to org 1; every service and topic detail on the seed is in org 1, so both pick the same rows"
+   ]
+  },
+  {
+   "text": "there should be one published internal knowledge article for the three services that briefly explains this grouping, following naming guidelines, since there are 3 services use the category name in the title instead",
+   "kind": "create",
+   "table": "knowledge",
+   "anchor": {
+    "knowledge_id": 7
+   },
+   "cells": {
+    "title": "Resolution Guide: Employee Data Management fulfillment steps for privacy and profile-change services",
+    "state": "published",
+    "visibility": "internal",
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM knowledge WHERE knowledge_id = 7 AND title = 'Resolution Guide: Employee Data Management fulfillment steps for privacy and profile-change services' AND state = 'published' AND visibility = 'internal' AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify knowledge article for Employee Data Management exists and is internal published",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (highest knowledge_id on the seed is 6)",
+    "title follows the policy format 'Resolution Guide: <> fulfillment steps for <>.' with the category name Employee Data Management in the first slot, as the request directs for three services",
+    "the second slot 'privacy and profile-change services' kept from the benchmark check; not fixed by request or policy, and it is the request's own phrase for these services",
+    "the full stop after the policy's quoted template is read as ending the policy's sentence, not as part of the title; the benchmark's title has none",
+    "state published and visibility internal are the request's words; org_id 1 is the acting admin's organisation",
+    "disagreement: title: A the benchmark's exact title, B LIKE 'Resolution Guide: Employee Data Management fulfillment steps for %'; chose the exact title because the benchmark's check is the prior and neither the request nor the policy contradicts its second slot, which repeats the request's words"
+   ]
+  },
+  {
+   "text": "no Payroll or Benefits services should have their existing topic categories or COE types changed",
+   "kind": "stay",
+   "table": "topic_category",
+   "anchor": {
+    "topic_category_id": 3
+   },
+   "cells": {
+    "name": "Benefits",
+    "coe_type": "Total Rewards"
+   },
+   "sql": "SELECT COUNT(*) FROM topic_category WHERE topic_category_id = 3 AND name = 'Benefits' AND coe_type = 'Total Rewards'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify Benefits and Payroll topic categories keep original COE types",
+   "seed_count": 1,
+   "assumptions": [
+    "Benefits is topic_category 3 with coe_type Total Rewards on the seed",
+    "no tool writes this table",
+    "disagreement: cells: A coe_type only, B name and coe_type; chose both because the benchmark check tests the category name with its COE type and the tighter stay holds on the seed"
+   ]
+  },
+  {
+   "text": "no Payroll or Benefits services should have their existing topic categories or COE types changed",
+   "kind": "stay",
+   "table": "topic_category",
+   "anchor": {
+    "topic_category_id": 8
+   },
+   "cells": {
+    "name": "Payroll Administration",
+    "coe_type": "Payroll"
+   },
+   "sql": "SELECT COUNT(*) FROM topic_category WHERE topic_category_id = 8 AND name = 'Payroll Administration' AND coe_type = 'Payroll'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify Benefits and Payroll topic categories keep original COE types",
+   "seed_count": 1,
+   "assumptions": [
+    "Payroll Administration is topic_category 8 with coe_type Payroll on the seed",
+    "no tool writes this table",
+    "disagreement: cells: A coe_type only, B name and coe_type; chose both because the benchmark check tests the category name with its COE type and the tighter stay holds on the seed"
+   ]
+  },
+  {
+   "text": "no Payroll or Benefits services should have their existing topic categories or COE types changed",
+   "kind": "stay",
+   "table": "hr_service",
+   "selector": "hr_service_id IN (6, 7, 8, 9, 15, 16, 17, 20, 21, 22, 24, 25, 29, 30, 31, 38, 49, 51, 52, 53)",
+   "cells": {
+    "topic_detail": "IN (SELECT topic_detail_id FROM topic_detail WHERE topic_category = 3)"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id IN (6, 7, 8, 9, 15, 16, 17, 20, 21, 22, 24, 25, 29, 30, 31, 38, 49, 51, 52, 53) AND topic_detail IN (SELECT topic_detail_id FROM topic_detail WHERE topic_category = 3)",
+   "expected": 20,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 20,
+   "assumptions": [
+    "Benefits services are the 20 services whose topic detail lies under topic_category 3 (Benefits, Total Rewards) on the seed",
+    "the category is tested, not the topic detail: a move between Benefits topic details keeps the topic category and is allowed"
+   ]
+  },
+  {
+   "text": "no Payroll or Benefits services should have their existing topic categories or COE types changed",
+   "kind": "stay",
+   "table": "hr_service",
+   "selector": "hr_service_id IN (14, 32, 33, 34)",
+   "cells": {
+    "topic_detail": "IN (SELECT topic_detail_id FROM topic_detail WHERE topic_category = 8)"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id IN (14, 32, 33, 34) AND topic_detail IN (SELECT topic_detail_id FROM topic_detail WHERE topic_category = 8)",
+   "expected": 4,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 4,
+   "assumptions": [
+    "Payroll services are the 4 services whose topic detail lies under topic_category 8 (Payroll Administration, Payroll) on the seed",
+    "Request Corporate Credit Card (topic_category 12, Time and Expense Management, coe_type Payroll) is read as an expense service, not a Payroll service",
+    "the category is tested, not the topic detail, since the request forbids only a change of category"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Verify Employee Profile Changes topic detail exists under Employee Data Management": {
+   "disposition": "kept"
+  },
+  "Verify Erasure of Personal Data uses Subject Access Request under Employee Data Management": {
+   "disposition": "kept"
+  },
+  "Verify Request Personal Information Report uses Subject Access Request under Employee Data Management": {
+   "disposition": "weak",
+   "evidence": "Request Personal Information Report is already active and mapped to Subject Access Request in Employee Data Management on the seed"
+  },
+  "Verify Employee Profile Update uses Employee Profile Changes under Employee Data Management": {
+   "disposition": "kept"
+  },
+  "Verify Employee Profile Changes is not shared with other services": {
+   "disposition": "kept",
+   "evidence": "the request forbids any other service using the new topic detail; a stay on a forbidden state holds on the seed by nature and is carried as a stay requirement, not marked weak"
+  },
+  "Verify knowledge article for Employee Data Management exists and is internal published": {
+   "disposition": "kept",
+   "evidence": "the exact title is kept: its first slot is the category name the request directs, its second slot repeats the request's phrase 'privacy and profile-change services', which neither the request nor the policy contradicts, and the policy's closing full stop ends the policy's sentence"
+  },
+  "Verify Benefits and Payroll topic categories keep original COE types": {
+   "disposition": "kept",
+   "evidence": "the request forbids changing the COE types of the Benefits and Payroll categories; a stay on a forbidden change holds on the seed by nature and is carried by the two category stays, not marked weak"
+  }
+ },
+ "notes": "disagreement: value: selector of the stay that no other service uses Employee Profile Changes: one pass scopes services and topic detail to org 1, the other does not; kept the org 1 scoping, as the benchmark check does; both pick the same rows, since the seed holds org 1 only.\ndisagreement: value: cells of the Benefits (3) and Payroll Administration (8) category stays: one pass tests coe_type only, the other name and coe_type; kept both cells, the tighter stay, because the benchmark check tests the name with the COE type.\ndisagreement: value: the knowledge article's title: one pass tests the benchmark's exact title, the other only the template prefix with the category name; kept the exact title, because the benchmark's check is the prior and its second slot repeats the request's phrase 'privacy and profile-change services', which nothing contradicts.\ndisagreement: disposition: the knowledge article check: one pass kept, the other repaired; kept, for the reason above.\ndisagreement: disposition: the check that Employee Profile Changes is not shared: one pass kept, the other weak; kept, because it tests a state the request forbids and is carried by a stay, which holds on the seed by nature.\ndisagreement: disposition: the Benefits and Payroll COE type check: one pass kept, the other weak; kept, because it tests a change the request forbids and is carried by the two category stays.\nThe two passes otherwise agree on every requirement, id and cell: Erasure of Personal Data 37, Request Personal Information Report 45, Employee Profile Update 35, Subject Access Request topic detail 32, Employee Data Management category 4 (Workforce Administration), the new topic detail 36 and the new article 7.\nThe benchmark checks select through joins on topic detail and category names; the requirements test the resolved ids, which no listed tool can rename or move (the tools add topic details but cannot edit topic details or categories).\nThe article body ('briefly explains this grouping') is free text and is not tested; the request fixes no owner for the article.\nThe old topic details Data Erasure (7) and Profile Update (28) become unused; the request does not ask to deactivate them, so nothing is required of them.\nThe acting user, Karen Watkins (user 39), holds the admin role in org 1 (ServiceNow), which the policy allows to change service and topic configuration.",
+ "minutes": 44
+}

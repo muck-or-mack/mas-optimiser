@@ -1,0 +1,173 @@
+{
+  "task_id": "task_20251222_181355_411_764e5ead_48850a98",
+  "policy_sha1": "4afd943b",
+  "requirements": [
+    {
+      "text": "Update CI location attributes accordingly (all configuration items currently associated with the Sales Office location, consolidated into the London Datacenter)",
+      "kind": "change",
+      "table": "configuration_item",
+      "selector": "configuration_item_id IN ('CI_033', 'CI_028', 'CI_026', 'CI_018', 'CI_017', 'CI_006')",
+      "cells": {
+        "location_id": "LOC_003"
+      },
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE configuration_item_id IN ('CI_033', 'CI_028', 'CI_026', 'CI_018', 'CI_017', 'CI_006') AND location_id = 'LOC_003'",
+      "expected": 6,
+      "comparison": "equals",
+      "source": "CMDB_Location_Update",
+      "seed_count": 0,
+      "assumptions": [
+        "Sales Office in New York resolves to LOC_002 'NYC Sales Office' and London Datacenter to LOC_003, the only locations with those names (both ORG_001)",
+        "the seed holds exactly six CIs at LOC_002, all status in_use, so the audit of active and legitimate CIs passes every one and the plan relocates all six",
+        "the CMDB audit and the transfer plan are read-only outputs with no table, so they leave no requirement of their own"
+      ]
+    },
+    {
+      "text": "align associated owner records where impacted by the consolidation",
+      "kind": "change",
+      "table": "users",
+      "selector": "user_id IN ('USER_024', 'USER_012', 'USER_009', 'USER_057', 'USER_041')",
+      "cells": {
+        "location_id": "LOC_003"
+      },
+      "sql": "SELECT COUNT(*) FROM users WHERE user_id IN ('USER_024', 'USER_012', 'USER_009', 'USER_057', 'USER_041') AND location_id = 'LOC_003'",
+      "expected": 5,
+      "comparison": "equals",
+      "source": "User_Location_Alignment",
+      "seed_count": 1,
+      "assumptions": [
+        "owner records read as the users rows of the six CIs' owner_id values (USER_041, USER_057 x2, USER_009, USER_012, USER_024), moved to LOC_003 with their CIs",
+        "USER_041 (CI_006) is already at LOC_003 on the seed, so the count tests four moves; all five owners are active, as policy 8.1 requires for an updated user",
+        "disagreement: selector and count: A five owners, expected 5 (seed_count 1); B the four owners still at LOC_002, expected 4 (seed_count 0); chose A because it is the tighter predicate (USER_041 must also remain at LOC_003) and carries the original check as written"
+      ]
+    },
+    {
+      "text": "Where incidents are associated with affected CIs, alert the currently assigned users (INC_001, linked to CI_017 in the related list)",
+      "kind": "create",
+      "table": "notification",
+      "selector": "incident_id = 'INC_001' AND email = 'gregory.richards36@servicenow.com'",
+      "cells": {
+        "type": "alert",
+        "status": "sent",
+        "message": "IS NOT NULL"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_001' AND email = 'gregory.richards36@servicenow.com' AND type = 'alert' AND status = 'sent' AND message IS NOT NULL",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Incident_Notification_1",
+      "seed_count": 0,
+      "assumptions": [
+        "INC_001 is linked to CI_017 through incident_affected_cis (TASKCI_002); its assigned_to USER_059 has this email",
+        "type alert is the request's word; status sent and a non-null message are what the send tool records, as the original check reads them; status = sent also separates the new row from the seed's NOTIF_001 (alert, opened) to the same address",
+        "selected by incident and recipient rather than an id anchor: the task creates three notifications and the request fixes no order"
+      ]
+    },
+    {
+      "text": "Where incidents are associated with affected CIs, alert the currently assigned users (INC_054, linked to CI_006 in the related list)",
+      "kind": "create",
+      "table": "notification",
+      "selector": "incident_id = 'INC_054' AND email = 'teresa.gibson51@servicenow.com'",
+      "cells": {
+        "type": "alert",
+        "status": "sent",
+        "message": "IS NOT NULL"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_054' AND email = 'teresa.gibson51@servicenow.com' AND type = 'alert' AND status = 'sent' AND message IS NOT NULL",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Incident_Notification_2",
+      "seed_count": 0,
+      "assumptions": [
+        "INC_054 is linked to CI_006 through incident_affected_cis (TASKCI_008); its assigned_to USER_054 has this email",
+        "cells as the original check reads them",
+        "selected by incident and recipient rather than an id anchor: the request fixes no order among the alerts"
+      ]
+    },
+    {
+      "text": "Where incidents are associated with affected CIs, alert the currently assigned users (INC_030, whose configuration_item is CI_006)",
+      "kind": "create",
+      "table": "notification",
+      "selector": "incident_id = 'INC_030' AND email = 'casey.green@servicenow.com'",
+      "cells": {
+        "type": "alert",
+        "status": "sent",
+        "message": "IS NOT NULL"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_030' AND email = 'casey.green@servicenow.com' AND type = 'alert' AND status = 'sent' AND message IS NOT NULL",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "INC_030 (in_progress) names CI_006 in its own configuration_item column, not in the incident_affected_cis related list; the request says associated, which covers both links; its assigned_to USER_052 has this email",
+        "no listed tool searches incidents by CI, which is why the benchmark's checks stop at the related-list rows; the requirement stands on the request's words",
+        "cells mirror the two benchmark notification checks; both passes found this requirement"
+      ]
+    },
+    {
+      "text": "all configuration items currently associated with the Sales Office location (boundary: CIs at the other New York locations are not Sales Office items)",
+      "kind": "stay",
+      "table": "configuration_item",
+      "selector": "location_id IN ('LOC_007', 'LOC_011', 'LOC_014', 'LOC_016', 'LOC_020')",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE location_id IN ('LOC_007', 'LOC_011', 'LOC_014', 'LOC_016', 'LOC_020')",
+      "expected": 15,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 15,
+      "assumptions": [
+        "five other locations (other organisations) are in the city New York; a reading of 'Sales Office in New York' by city would sweep their fifteen CIs in"
+      ]
+    },
+    {
+      "text": "all configuration items currently associated with the Sales Office location (boundary: the impacted owners' other CIs are not at the Sales Office)",
+      "kind": "stay",
+      "table": "configuration_item",
+      "selector": "configuration_item_id IN ('CI_010', 'CI_011', 'CI_098')",
+      "cells": {
+        "location_id": "LOC_001"
+      },
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE configuration_item_id IN ('CI_010', 'CI_011', 'CI_098') AND location_id = 'LOC_001'",
+      "expected": 3,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 3,
+      "assumptions": [
+        "the only other CIs owned by one of the five owners (USER_041) sit at LOC_001; an agent that relocates the impacted owners together with their assets would sweep them in",
+        "disagreement: A only; kept as the boundary of the owner-alignment selector"
+      ]
+    },
+    {
+      "text": "align associated owner records where impacted (boundary: Sales Office users who own none of the relocated CIs are not impacted)",
+      "kind": "stay",
+      "table": "users",
+      "selector": "location_id = 'LOC_002' AND user_id NOT IN ('USER_024', 'USER_012', 'USER_009', 'USER_057', 'USER_041')",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM users WHERE location_id = 'LOC_002' AND user_id NOT IN ('USER_024', 'USER_012', 'USER_009', 'USER_057', 'USER_041')",
+      "expected": 7,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 7,
+      "assumptions": [
+        "seven other users at LOC_002 (including the acting user USER_089) own none of the six CIs; the request moves owner records, not every user at the office",
+        "disagreement: form: A excludes five users, B four; the same seven rows on the seed since USER_041 is at LOC_003; the five-user list is kept to match the owner requirement"
+      ]
+    }
+  ],
+  "original_checks": {
+    "CMDB_Location_Update": {
+      "disposition": "kept"
+    },
+    "User_Location_Alignment": {
+      "disposition": "kept",
+      "evidence": "carried as written; USER_041 is already at LOC_003, so the five-user set holds once the other four move"
+    },
+    "Incident_Notification_1": {
+      "disposition": "kept"
+    },
+    "Incident_Notification_2": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two independent passes that agree on the six CIs, the three alerts (selected by incident and recipient, since the request fixes no sending order), the other-New-York stay and all four dispositions. disagreement: A's stay that USER_041's three other CIs (CI_010, CI_011, CI_098) stay at LOC_001 (B had no such requirement); kept because it is the boundary of the owner-alignment selector: an agent that relocates the impacted owners together with their assets would sweep in the only CIs the five owners hold outside the Sales Office. disagreement: value: the owner requirement's set and count (A five users, expected 5, seed_count 1; B four, expected 4, seed_count 0); A's kept as the tighter predicate that also carries the original check as written. disagreement: form: the LOC_002 users stay excludes five users in A and four in B; the same seven rows on the seed, so the five-user list is kept to match the owner requirement. The passes list the six CIs in different orders; the original check's order is kept. The CMDB audit and the transfer plan are prose with no table. INC_030 reaches CI_006 only through incident.configuration_item; no listed tool searches incidents by CI, so agents that follow the tools will miss it, but the request's 'associated' covers it. Least sure: keeping the USER_041 CI stay, which sits at the edge of the stay rule (a boundary, not a generic invariant, only if an owner-based reading counts as a loose reading of 'associated with the Sales Office location'). revised: the two stays that count CIs at the other New York locations and the other LOC_002 users repeated their selector's location condition in cells; cells is now empty, since the selector already names those rows and the query is unchanged.",
+  "minutes": 12
+}

@@ -64,7 +64,12 @@ from dotenv import load_dotenv
 
 import mas_optimiser
 from mas_optimiser import tracing
-from mas_optimiser.benchmarks.enterpriseops import GYM_ROOT, diagnosis, verifiers
+from mas_optimiser.benchmarks.enterpriseops import (
+    GYM_ROOT,
+    REPO_ROOT,
+    diagnosis,
+    verifiers,
+)
 
 from benchmark.executor import BenchmarkExecutor
 from benchmark.models import BenchmarkConfig, LLMConfig
@@ -79,7 +84,6 @@ HF_REVISION = "c8e538eae8a6205294f0a86675fefdc1fac408f6"
 JSON_COLUMNS = {"gym_servers_config", "verifiers"}
 ID_COLUMNS = {"task_id", "domain"}
 
-REPO_ROOT = GYM_ROOT.parents[1]
 CONFIGS = REPO_ROOT / "configs"
 RUNS = REPO_ROOT / "runs"
 DESCRIPTION = __doc__.split("\n\n")[0]
@@ -707,8 +711,19 @@ def run(args: argparse.Namespace) -> None:
         # registered tracer; the LangChain callback already records each call
         # with its content, so those duplicates are switched off.
         os.environ.setdefault("ANTHROPIC_OPEN_TELEMETRY", "false")
+    # Taken once, before any task runs: an edit or commit made while a long
+    # run goes on must not be stamped on results the edited code never made.
+    version = mas_optimiser.code_version()
     for domain in experiment["domain"]:
-        evaluate(experiment, domain, model, pricing, trace=trace, thinking=thinking)
+        evaluate(
+            experiment,
+            domain,
+            model,
+            pricing,
+            trace=trace,
+            thinking=thinking,
+            version=version,
+        )
     if trace:
         tracing.shutdown()
 
@@ -721,6 +736,7 @@ def evaluate(
     *,
     trace: bool,
     thinking: dict | None,
+    version: str,
 ) -> None:
     """Run one domain's tasks as one evaluation and write its folder and index row.
 
@@ -731,6 +747,8 @@ def evaluate(
         pricing: The model's price table.
         trace: Send each task to Langfuse.
         thinking: Model ``thinking`` setting, or ``None`` for the default.
+        version: The code's version, from ``mas_optimiser.code_version`` when
+            the run began, recorded in ``run.json`` and the index.
     """
     tasks = load_tasks(domain, experiment["mode"])
     tasks = dict(list(tasks.items())[: experiment["limit"]])
@@ -741,7 +759,9 @@ def evaluate(
             for s in config["gym_servers_config"]
         }
     )
-    started = datetime.now()
+    # With the UTC offset, so that start times order correctly across a
+    # change of the clocks.
+    started = datetime.now().astimezone()
     out = (
         Path(experiment["out"])
         if experiment["out"]
@@ -831,9 +851,9 @@ def evaluate(
         "dataset_revision": HF_REVISION,
         "thinking": thinking,
         "traced": trace,
-        "mas_optimiser_version": mas_optimiser.__version__,
+        "mas_optimiser_version": version,
         "started": started.isoformat(timespec="seconds"),
-        "finished": datetime.now().isoformat(timespec="seconds"),
+        "finished": datetime.now().astimezone().isoformat(timespec="seconds"),
     }
     (out / "run.json").write_text(json.dumps(settings | {"totals": totals}, indent=2))
     append_index(
@@ -850,7 +870,7 @@ def evaluate(
                 f"{k}={v}" for k, v in experiment["overrides"].items()
             ),
             "limit": experiment["limit"] or "",
-            "code_version": mas_optimiser.__version__,
+            "code_version": version,
         }
         | totals,
     )

@@ -1,0 +1,209 @@
+{
+  "task_id": "task_20260115_151312_690_57529556_9fca8861",
+  "policy_sha1": "118dd827",
+  "requirements": [
+    {
+      "text": "handle this transfer case ... Use COE type Talent Management for this department transfer (account number is TRANSFER-TW-2025)",
+      "kind": "create",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 61
+      },
+      "cells": {
+        "opened_for": 11,
+        "coe_type": "Talent Management",
+        "account_number": "TRANSFER-TW-2025",
+        "short_description": [
+          "LIKE '%Travis Wood%'",
+          "LIKE '%transfer%'"
+        ],
+        "priority": "moderate"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND opened_for = 11 AND coe_type = 'Talent Management' AND account_number = 'TRANSFER-TW-2025' AND short_description LIKE '%Travis Wood%' AND short_description LIKE '%transfer%' AND priority = 'moderate'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Valid COE Type Verification",
+      "assumptions": [
+        "id assumed next in sequence (hr_case 61 after 60); the only case the task creates",
+        "opened_for = 11 is Travis Wood's hr_profile_id (user 11, the seed's only Travis and only Wood)",
+        "short_description predicates kept from the benchmark check; the request fixes no wording and policy section 8's 'Service: , Subject: , Detail:' template is not enforced because the seed's own descriptions ignore it",
+        "priority not stated; policy 3.1 defaults it to moderate (section 7's enumeration says medium, a contradiction in the policy; the seed uses moderate)",
+        "hr_service, opened_by, status and org_id not fixed by the request and not tested; policy 3.1 only says the service must be active"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "handle this transfer case (channel not stated)",
+      "kind": "create",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 61
+      },
+      "cells": {
+        "source": "IN ('self-service', 'email', 'phone', 'chat', 'walk-in', 'web_portal')"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND source IN ('self-service', 'email', 'phone', 'chat', 'walk-in', 'web_portal')",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Valid Channel Value Verification",
+      "assumptions": [
+        "kept from the benchmark check; not fixed by request or policy (the request names no channel and the policy sets no default); only validity is tested",
+        "the check's description mentions a 'mobile_app' value the request never uses; the query is kept as written",
+        "policy section 7 spells the set web_portal, email, phone, chat_bot, walk_in; the seed stores chat, walk-in and also virtual-agent, which the check's list omits; the check's list is kept as the prior"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "Once everything is done, close the case",
+      "kind": "change",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 61
+      },
+      "cells": {
+        "status": "closed_complete"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND status = 'closed_complete'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "Case Closure Verification",
+        "Case Ready State Verification"
+      ],
+      "assumptions": [
+        "the row is created in this task; closure is its final transition",
+        "'close' read as closed_complete: 'closed' is not in the policy's status enumeration (section 7) or the seed, policy 3.3 forbids a direct move to closed, and the benchmark checks test closed_complete",
+        "Case Ready State Verification is an exact duplicate of Case Closure Verification's query (a pass through ready cannot be read from the final state), so this requirement carries both"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "Create a document task to track the transfer paperwork - you know, contracts, forms, that kind of stuff",
+      "kind": "create",
+      "table": "hr_case_task",
+      "anchor": {
+        "hr_case_task_id": 150
+      },
+      "cells": {
+        "parent_case": 61,
+        "task_type": "checklist"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case_task WHERE hr_case_task_id = 150 AND parent_case = 61 AND task_type = 'checklist'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Valid Task Type Verification",
+      "assumptions": [
+        "id assumed next in sequence (hr_case_task 150 after 149); the only task the request asks for",
+        "'document' is not a task type (policy 3.2 and section 7); checklist is kept from the benchmark check as the type that tracks a list of contracts and forms, and create_checklist is in the tools",
+        "the task's short_description is not fixed by the request and not tested",
+        "policy 3.2's automatic task generation on work_in_progress is taken as narrative; if the server did generate tasks the id anchor would miss"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "Once everything is done, close the case",
+      "kind": "change",
+      "table": "hr_case_task",
+      "anchor": {
+        "hr_case_task_id": 150
+      },
+      "cells": {
+        "status": "closed_complete"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case_task WHERE hr_case_task_id = 150 AND status = 'closed_complete'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "assumptions": [
+        "implied by the request ('once everything is done') and policy 3.2: a case cannot reach closed_complete until its tasks are complete; the task is assumed mandatory, the policy gives no way to mark one optional",
+        "policy 3.2 counts a task complete when active = false or state = closed; status = closed_complete is tested because 17 seed tasks in draft also have active = 0, so active alone does not mean complete"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "Send notifications to Travis",
+      "kind": "create",
+      "table": "notification",
+      "selector": "hr_case_id = 61 AND email = 'travis.wood@servicenow.com'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM notification WHERE hr_case_id = 61 AND email = 'travis.wood@servicenow.com'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Employee Notification Verification",
+      "assumptions": [
+        "two notifications are created with no order fixed, so each is selected by case and recipient, not by id",
+        "recipient address kept from the benchmark check (user.email of user 11); every seed notification goes to hr_profile.personal_email instead (travis.wood.11@personal.example.com), but the request and policy fix no address",
+        "the check counts greater_than 0; exactly one is expected since the request asks for one notification to Travis",
+        "type and status not stated and not tested"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "Send notifications to ... his manager",
+      "kind": "create",
+      "table": "notification",
+      "selector": "hr_case_id = 61 AND email = 'randy.martinez94@servicenow.com'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM notification WHERE hr_case_id = 61 AND email = 'randy.martinez94@servicenow.com'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Manager Notification Verification",
+      "assumptions": [
+        "manager resolved from the seed: hr_profile 11 has manager = 37, hr_profile 37 is user 37 Randy Martinez, email randy.martinez94@servicenow.com (the check's join, made literal)",
+        "selected by case and recipient, not by id (two notifications, no order fixed)",
+        "recipient address kept from the benchmark check (user.email); the seed convention is personal_email, but the request and policy fix no address"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "Travis Wood from IT Support is transferring to the Administration department",
+      "kind": "change",
+      "table": "hr_profile",
+      "anchor": {
+        "hr_profile_id": 11
+      },
+      "cells": {
+        "position": "Administration"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_profile WHERE hr_profile_id = 11 AND position = 'Administration'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "HR Profile Update Verification",
+      "assumptions": [
+        "implied by the request, not stated: the profile update is the transfer itself, update_hr_profile is listed, and the benchmark tests it",
+        "hr_profile has no department column; position holds the department names (IT Support on the seed, Administration on 33 other profiles)",
+        "anchored by hr_profile_id = 11, user 11's profile (the check anchors by user_id = 11; same row)"
+      ],
+      "seed_count": 0
+    }
+  ],
+  "original_checks": {
+    "Valid COE Type Verification": {
+      "disposition": "kept"
+    },
+    "Valid Task Type Verification": {
+      "disposition": "kept"
+    },
+    "Valid Channel Value Verification": {
+      "disposition": "kept"
+    },
+    "Case Ready State Verification": {
+      "disposition": "kept",
+      "evidence": "an exact duplicate of Case Closure Verification's query (status = closed_complete on the same case), carried jointly by the closure requirement, which names both; its description's pass through ready cannot be read from the final state. disagreement: A excluded, B excluded, both as the duplicate; chose kept because an exact-duplicate check whose cells are all carried is kept jointly, not excluded"
+    },
+    "Employee Notification Verification": {
+      "disposition": "kept"
+    },
+    "Manager Notification Verification": {
+      "disposition": "kept"
+    },
+    "Case Closure Verification": {
+      "disposition": "kept"
+    },
+    "HR Profile Update Verification": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on every requirement, cell and value (case 61 for Travis Wood 11 with COE Talent Management, account TRANSFER-TW-2025, priority moderate, a valid source; task 150 of type checklist; both closed_complete; notifications to travis.wood@servicenow.com and his manager randy.martinez94@servicenow.com, selected by case and recipient; hr_profile 11 position Administration) and on seven of eight dispositions. disagreement: Case Ready State Verification: A excluded, B excluded (an exact duplicate of Case Closure Verification); kept, carried jointly by the closure requirement, because an exact-duplicate check whose cells are all carried is kept, carried jointly, not excluded. The acting user Karen Watkins (user 39) has role admin; policy section 2 says an Administrator must not perform routine HR case work, but every benchmark check expects the case to be created and closed, so the file assumes the work is done. The policy's enumerations disagree with the seed (priority moderate vs medium; channel chat_bot/walk_in vs chat/walk-in; roles admin/agent vs administrator/hr_specialist); where they differ the seed's spellings are used. No stay requirements: the request forbids nothing and no selector has a boundary (Travis Wood is the only Travis and the only Wood in the seed). Least sure (both passes): the notification addresses, kept at the benchmark's user.email although every seed notification uses personal_email. revised: the two notification requirements no longer repeat hr_case_id and email in cells, since their selectors already fix both columns. revised: the Case Ready State Verification resolution now states its reason (an exact duplicate whose cells are all carried) rather than appealing to a rule.",
+  "minutes": 10
+}

@@ -1,0 +1,210 @@
+{
+ "task_id": "task_20251217_073807_153_761f6b82_cba63024",
+ "policy_sha1": "c99239b6",
+ "requirements": [
+  {
+   "text": "she holds the required IT credential, which is applied if missing",
+   "kind": "create",
+   "table": "user_skill",
+   "anchor": {
+    "user_skill_id": 336
+   },
+   "cells": {
+    "skill": 13,
+    "user": 15,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM user_skill WHERE user_skill_id = 336 AND skill = 13 AND user = 15 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify Skill Enforcement",
+   "seed_count": 0,
+   "assumptions": [
+    "Diana Johnson is user 15 (diana.johnson@servicenow.com) in org 1; the IT credential is skill 13, named 'IT'",
+    "she lacks skill 13 on the seed, so it must be added",
+    "id assumed next in sequence (user_skill_id 336 after 335)"
+   ]
+  },
+  {
+   "text": "Any existing association with the HR Service Desk is cleared",
+   "kind": "remove",
+   "table": "user_group_member",
+   "selector": "group_id = 4 AND user_id = 15",
+   "cells": {},
+   "sql": "SELECT COUNT(*) FROM user_group_member WHERE group_id = 4 AND user_id = 15",
+   "expected": 0,
+   "comparison": "equals",
+   "source": "Verify Group Swap",
+   "seed_count": 1,
+   "assumptions": [
+    "HR Service Desk is group 4; her membership on the seed is member_id 9"
+   ]
+  },
+  {
+   "text": "she is positioned within Field Ops \u2013 North",
+   "kind": "create",
+   "table": "user_group_member",
+   "anchor": {
+    "member_id": 44
+   },
+   "cells": {
+    "group_id": 5,
+    "user_id": 15,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 44 AND group_id = 5 AND user_id = 15 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify Addition to New Group",
+   "seed_count": 0,
+   "assumptions": [
+    "the request's 'Field Ops \u2013 North' (en dash) is the group stored as 'Field Ops - North', group 5",
+    "id assumed next in sequence (member_id 44 after 43)"
+   ]
+  },
+  {
+   "text": "Her authority is elevated to a managerial level",
+   "kind": "change",
+   "table": "user",
+   "anchor": {
+    "user_id": 15
+   },
+   "cells": {
+    "role": "manager"
+   },
+   "sql": "SELECT COUNT(*) FROM user WHERE user_id = 15 AND role = 'manager'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Promotion",
+   "seed_count": 0,
+   "assumptions": [
+    "role is stored by the role table's names (admin, manager, agent, employee); the managerial level is 'manager', up from 'agent' on the seed"
+   ]
+  },
+  {
+   "text": "A new manual service as 'Emergency Field Deployment', is established under the general topic",
+   "kind": "create",
+   "table": "hr_service",
+   "anchor": {
+    "hr_service_id": 55
+   },
+   "cells": {
+    "service_name": "Emergency Field Deployment",
+    "fulfillment_type": "manual",
+    "topic_detail": 13,
+    "active": 1,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 55 AND service_name = 'Emergency Field Deployment' AND fulfillment_type = 'manual' AND topic_detail = 13 AND active = 1 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Service",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (hr_service_id 55 after 54)",
+    "the general topic is topic_detail 13, 'General', the only topic of that name",
+    "active not stated; the policy requires a case's service to be active, and the case below is raised against this service",
+    "org 1, the acting user's and Diana Johnson's organisation"
+   ]
+  },
+  {
+   "text": "A critical checking case, Deployment: Diana Johnson, is requested against this service, ready under the designated other account 'ACC-EMG-01' as gotten from the virtual agent",
+   "kind": "create",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 61
+   },
+   "cells": {
+    "hr_service": 55,
+    "short_description": "Deployment: Diana Johnson",
+    "priority": "critical",
+    "account_number": "ACC-EMG-01",
+    "status": "ready",
+    "source": "virtual-agent",
+    "request_status": "requested",
+    "account_type": "other",
+    "opened_for": 15,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND hr_service = 55 AND short_description = 'Deployment: Diana Johnson' AND priority = 'critical' AND account_number = 'ACC-EMG-01' AND status = 'ready' AND source = 'virtual-agent' AND request_status = 'requested' AND account_type = 'other' AND opened_for = 15 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Case",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (hr_case_id 61 after 60)",
+    "'is requested' is request_status 'requested'; 'ready' is status 'ready'; 'the virtual agent' is source 'virtual-agent'",
+    "account_type 'other' kept from the benchmark check: the account itself is called the 'designated other account'; 'checking case' is read as describing the case, not the account",
+    "opened_for implied by the request, not stated: the case is about Diana Johnson, whose profile is 15, and the policy starts registration from the subject person",
+    "coe_type is not stated and not tested"
+   ]
+  },
+  {
+   "text": "a notification is drafted, issued directly to her official email address to remind her",
+   "kind": "create",
+   "table": "notification",
+   "anchor": {
+    "notification_id": 61
+   },
+   "cells": {
+    "hr_case_id": 61,
+    "email": "diana.johnson@servicenow.com",
+    "type": "reminder",
+    "status": "draft",
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 61 AND hr_case_id = 61 AND email = 'diana.johnson@servicenow.com' AND type = 'reminder' AND status = 'draft' AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Notification",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (notification_id 61 after 60)",
+    "her official email is the work address in the user table, not the personal email in her HR profile",
+    "'drafted' is status 'draft'; 'to remind her' is type 'reminder'",
+    "the notification belongs to the new case, hr_case 61"
+   ]
+  },
+  {
+   "text": "issued directly to her official email address",
+   "kind": "stay",
+   "table": "notification",
+   "selector": "email = 'diana.johnson.15@personal.example.com'",
+   "cells": {},
+   "sql": "SELECT COUNT(*) FROM notification WHERE email = 'diana.johnson.15@personal.example.com'",
+   "expected": 0,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 0,
+   "assumptions": [
+    "boundary of the recipient: Diana Johnson's HR profile (15) holds a second address, diana.johnson.15@personal.example.com, which a loose reading of 'her email address' would pick; the request names the official one, so no notification goes to the personal address",
+    "disagreement: whole requirement: A has this stay, B does not; kept because the personal address is the near match of the request's recipient and a lookup tool by personal email is listed, so a second notification to it is the misreading this guards"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Promotion": {
+   "disposition": "kept"
+  },
+  "Service": {
+   "disposition": "kept"
+  },
+  "Verify Skill Enforcement": {
+   "disposition": "kept"
+  },
+  "Verify Group Swap": {
+   "disposition": "kept"
+  },
+  "Verify Addition to New Group": {
+   "disposition": "kept"
+  },
+  "Case": {
+   "disposition": "kept"
+  },
+  "Notification": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "disagreement: missing requirement: a stay that no notification goes to Diana Johnson's personal address (diana.johnson.15@personal.example.com, on her HR profile); one pass has it, the other does not; kept because the request names her official address and the personal one is the near match a loose reading of 'her email address' would pick, the boundary of the recipient, with a lookup by personal email among the tools.\nThe two passes otherwise agree on every requirement, id, cell and disposition (all seven checks kept); their texts and assumptions differ in wording only.\nThe request calls the case both a 'checking case' and one under the 'designated other account'; checking and other are both stored account types, so the two words conflict. The benchmark tests 'other', the word attached to the account itself, and that is kept; checking is not tested.\nThe case's short description 'Deployment: Diana Johnson' is 25 characters, below the policy's 30-character minimum, and does not follow its 'Service: , Subject: , Detail: ' template; the request names it exactly and the benchmark tests it exactly, so it is kept, though a policy-strict agent could halt here instead of creating the case and its notification.\nThe acting user (Tommy Jacobs) is an administrator; the policy lets administrators create services and change users, groups and roles, but bars them from routine HR case work. The case is part of the set-up the request asks for, so it is required.\nThe policy's role names (hr_manager and so on) do not match the stored role names; 'manager' is the stored value. Diana Johnson's user_role row (role 3, agent) is not tested: no listed tool names it and the benchmark tests only user.role.\ncoe_type, opened_by, assignment and the service's template and criteria are not stated and not tested. The other HR Service Desk member (user 22) is outside the removal's selector: the request clears only her association.",
+ "minutes": 38
+}

@@ -1,0 +1,118 @@
+{
+  "task_id": "task_20260116_105748_962_99ba2325_dcc658fa",
+  "policy_sha1": "f10443ca",
+  "requirements": [
+    {
+      "text": "request an update to her phone number to +1 618 736 1053",
+      "kind": "change",
+      "table": "user",
+      "anchor": {
+        "user_id": 50
+      },
+      "cells": {
+        "phone": "+16187361053"
+      },
+      "sql": "SELECT COUNT(*) FROM user WHERE user_id = 50 AND phone = '+16187361053'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify User Profile",
+      "assumptions": [
+        "Sara Clark is user 50 (sara.clark93@servicenow.com, org 1); the seed has no other Sara Clark (three other Clarks: users 43, 66, 81)",
+        "the phone is stored without spaces, as the benchmark check writes it and as every seed phone is stored (none contains a space; Sara's is +16175693041)"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "her personal email address be reviewed and updated to saraclark031@gm.com if it is not already reflected in our system",
+      "kind": "change",
+      "table": "hr_profile",
+      "anchor": {
+        "hr_profile_id": 50
+      },
+      "cells": {
+        "user_id": 50,
+        "personal_email": "saraclark031@gm.com"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_profile WHERE hr_profile_id = 50 AND user_id = 50 AND personal_email = 'saraclark031@gm.com'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify HR Profile",
+      "assumptions": [
+        "the seed holds sara.clark.50@personal.example.com, so the conditional update is due (the 'if not already reflected' branch does not apply)",
+        "hr_profile 50 belongs to user 50 (every seed profile has hr_profile_id = user_id); user_id is the benchmark check's locator and is listed in cells to match the sql (A omitted it from cells)"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "creating the case using the description “Payroll Discrepancy Investigation Required” (Payroll Discrepancy service, Payroll COE, moderate priority, reached out by email)",
+      "kind": "create",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 61
+      },
+      "cells": {
+        "opened_for": 50,
+        "opened_by": 50,
+        "hr_service": 14,
+        "status": "draft",
+        "priority": "moderate",
+        "coe_type": "Payroll",
+        "source": "email",
+        "short_description": "Service: Payroll Discrepancy, Subject: Sara Clark, Detail: Payroll Discrepancy Investigation Required."
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND opened_for = 50 AND opened_by = 50 AND hr_service = 14 AND status = 'draft' AND priority = 'moderate' AND coe_type = 'Payroll' AND source = 'email' AND short_description = 'Service: Payroll Discrepancy, Subject: Sara Clark, Detail: Payroll Discrepancy Investigation Required.'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Case",
+      "assumptions": [
+        "id assumed next in sequence (hr_case_id 61 after 60)",
+        "opened_for is Sara's hr_profile 50; the benchmark check joins user on opened_for, which is equivalent because every seed profile id equals its user id",
+        "disagreement: opened_by: A untested, B 50; chose 50 because policy 3.1 makes opened_by the requester, the request says Sara reached out herself, and every seed case (60 of 60) has opened_by = opened_for; a tool that stamps the acting user (Karen Watkins, 39) would fail this cell",
+        "hr_service 14 is the active 'Payroll Discrepancy' service (org 1); this policy's 3.1 requires an active service",
+        "status draft kept from the benchmark check and fixed by policy 3.1 (new cases default to draft); the request asks for no transition",
+        "short_description kept exactly as the benchmark check writes it: policy 8's template 'Service: , Subject: , Detail: .' with the request's description as the detail (97 characters, inside 30-120)",
+        "source email from 'reached out by email'; the seed's source column uses that value"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "send an alert to Sara confirming the case creation",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": 61
+      },
+      "cells": {
+        "hr_case_id": 61,
+        "email": "sara.clark93@servicenow.com",
+        "type": "alert"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 61 AND hr_case_id = 61 AND email = 'sara.clark93@servicenow.com' AND type = 'alert'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Notification",
+      "assumptions": [
+        "id assumed next in sequence (notification_id 61 after 60); the only notification the request creates",
+        "the work email kept from the benchmark check; the request does not say which address, and the personal address is the one being changed",
+        "notification status not stated and not tested"
+      ],
+      "seed_count": 0
+    }
+  ],
+  "original_checks": {
+    "Verify Notification": {
+      "disposition": "kept"
+    },
+    "Verify Case": {
+      "disposition": "kept"
+    },
+    "Verify HR Profile": {
+      "disposition": "kept"
+    },
+    "Verify User Profile": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on every id (user 50, hr_profile 50, case 61 on service 14, notification 61 to the work email), every value and every disposition (all four checks kept). disagreement: opened_by on the case: A untested, B 50; chose 50 (policy 3.1, the request's 'Sara Clark reached out', and opened_by = opened_for on all 60 seed cases; logged in the requirement). disagreement: the skills requirement for 'handled ... by someone with expertise in HR Benefits and Payroll': A tested hr_case.skills LIKE '%HR Benefits%' and LIKE '%Payroll%' (names, after assignment_rules.based_on_skills), B LIKE '%9%' and LIKE '%15%' (ids); both dropped because hr_case.skills is a JSON column no seed case populates (0 of 60), so its storage format is unknown and the cell is untestable; recorded here: HR Benefits is skill 9 and Payroll skill 15, both active, and list_skills is among the tools, so a run that writes them is expected but cannot be checked. disagreement: B's stay requirement that user.email stay sara.clark93@servicenow.com; dropped because the request specifies the personal email rather than forbidding a change to the work one, the hr_profile requirement is anchored and fails directly if the wrong column is written, and a selector boundary needs a selector: this is a generic invariant. disagreement: form of the hr_profile requirement: A's cells omit user_id though its sql tests it; kept B's cells so they match the sql. No stay requirements: every row is anchored by id and the request forbids nothing; three other Clarks exist (users 43, 66, 81) but the anchors exclude them. This policy states 'Administrator: must not perform routine HR case work' and the acting user Karen Watkins has role admin on the seed; the benchmark checks expect the case to be created, so the file follows that prior and does not treat the request as a halt. Policy 3.1 also requires hr_service_id to reference an active service (service 14 is active). revised: the remarks on the administrator restriction and the active-service rule now state them as this policy's own rules, without comparing this policy to policies outside this file.",
+  "minutes": 15
+}

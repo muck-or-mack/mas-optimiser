@@ -1,0 +1,79 @@
+{
+  "task_id": "task_20260115_201951_323_391f1eff_659b9dae",
+  "policy_sha1": "4afd943b",
+  "requirements": [
+    {
+      "text": "A new incident needs to be logged with the highest available levels of impact, urgency, and priority, assigned directly to Elena Petrov, and immediately moved to in progress",
+      "kind": "create",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_024"
+      },
+      "cells": {
+        "caller_id": "USER_003",
+        "assigned_to": "USER_006",
+        "channel": "virtual-agent",
+        "impact": "high",
+        "urgency": "high",
+        "priority": "critical",
+        "status": "in_progress",
+        "configuration_item": "CI_001",
+        "service": "SVC_002",
+        "category": "hardware"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_024' AND caller_id = 'USER_003' AND assigned_to = 'USER_006' AND channel = 'virtual-agent' AND impact = 'high' AND urgency = 'high' AND priority = 'critical' AND status = 'in_progress' AND configuration_item = 'CI_001' AND service = 'SVC_002' AND category = 'hardware'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_incident_created_for_carlos",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (INC_023 is the highest incident id)",
+        "caller is Carlos Rodriguez (USER_003), the user whose hardware is affected",
+        "Elena Petrov is USER_006, an active agent, so she may be assigned",
+        "highest impact and urgency are high; the policy's matrix gives high x high = critical, the highest priority",
+        "in progress is status in_progress; the policy creates incidents as new and allows new -> in_progress",
+        "the desktop hardware assigned to Carlos is CI_001, the only configuration item he owns (named Carlos Laptop); the one desktop, CI_002, belongs to Aisha Williams",
+        "Customer Portal is SVC_002, the only service of that name",
+        "channel virtual-agent as the benchmark check spells it, in the hyphenated form the seed uses for self-service; no seed incident uses this channel",
+        "category hardware follows the request's 'desktop hardware', as the benchmark check has it",
+        "assignment group left untested: the request assigns directly to a person and names no group"
+      ]
+    },
+    {
+      "text": "an alert notification must be sent to the assigned user referencing that incident and briefly explaining that degraded service performance is blocking essential sprint work and requires immediate action",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": "NOTIF_008"
+      },
+      "cells": {
+        "incident_id": "INC_024",
+        "email": "elena.petrov@techcorp.com",
+        "type": "alert",
+        "status": "queued",
+        "message": "LIKE '%sprint%'"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 'NOTIF_008' AND incident_id = 'INC_024' AND email = 'elena.petrov@techcorp.com' AND type = 'alert' AND status = 'queued' AND message LIKE '%sprint%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "verify_alert_notification_sent_to_carlos",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (NOTIF_007 is the highest notification id); the task sends exactly one notification",
+        "the assigned user is Elena Petrov, whose email is elena.petrov@techcorp.com",
+        "status queued kept from the benchmark check; not fixed by request or policy",
+        "message wording is free; it must mention the sprint work the request says it explains"
+      ]
+    }
+  ],
+  "original_checks": {
+    "verify_incident_created_for_carlos": {
+      "disposition": "kept"
+    },
+    "verify_alert_notification_sent_to_carlos": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on every requirement, value and disposition: both benchmark checks are kept, the incident is INC_024 for Carlos (CI_001, SVC_002, virtual-agent, high/high/critical, assigned to USER_006, in_progress) and the one alert is NOTIF_008 to Elena Petrov mentioning the sprint.\nThe notification check's name and description say it goes to Carlos, but its query and the request both send it to the assigned user, Elena Petrov; the query is followed.\nThe request calls the hardware a desktop, while Carlos's only configuration item is a laptop (CI_001, LAPTOP-NYC-001); ownership decides it, as in the benchmark check.\nThe policy asks for a knowledge search on incident creation with matching articles linked as suggested, but no seed article covers performance slowdowns or the Customer Portal (KB_003 covers desktop boot failure, the rest password and email topics), so no knowledge link is required; no listed tool searches or links knowledge either.\nShort description, description and the rest of the message wording are free text the request does not fix and are not tested; contact_type has no seed pairing for the virtual-agent channel and is not tested.",
+  "minutes": 29
+}

@@ -1,0 +1,208 @@
+{
+  "task_id": "task_20251221_231733_401_66392a82_514cea3c",
+  "policy_sha1": "4afd943b",
+  "requirements": [
+    {
+      "text": "creation of a new group called \"Service Desk Unified Hub\", with the group type set to \"Service Desk\" and the description \"Unified frontline service desk coverage across all tiers.\", and set Leah Lewis as an active manager",
+      "kind": "create",
+      "table": "user_group",
+      "anchor": {
+        "group_id": "GROUP_009"
+      },
+      "cells": {
+        "name": "Service Desk Unified Hub",
+        "type": "Service Desk",
+        "description": "Unified frontline service desk coverage across all tiers.",
+        "manager_id": "USER_068",
+        "active": 1
+      },
+      "sql": "SELECT COUNT(*) FROM user_group WHERE group_id = 'GROUP_009' AND name = 'Service Desk Unified Hub' AND type = 'Service Desk' AND description = 'Unified frontline service desk coverage across all tiers.' AND manager_id = 'USER_068' AND active = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "New unified group exists with correct attributes",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (GROUP_009 after GROUP_008); the only group the task creates, and no group named like it exists on the seed",
+        "Leah Lewis resolved from the seed as USER_068 (the only Lewis; role manager)",
+        "active = 1 kept from the benchmark check; not fixed by request or policy",
+        "org_id and email not stated by the request and not tested (every seed group and the acting user are in ORG_001)"
+      ]
+    },
+    {
+      "text": "set Leah Lewis as an active manager",
+      "kind": "change",
+      "table": "users",
+      "anchor": {
+        "user_id": "USER_068"
+      },
+      "cells": {
+        "active": 1
+      },
+      "sql": "SELECT COUNT(*) FROM users WHERE user_id = 'USER_068' AND active = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Set Leah Lewis active",
+      "seed_count": 0,
+      "assumptions": [
+        "Leah Lewis is active = 0 on the seed with role manager, so 'active manager' requires her users.active to become 1 (update_user_details is in the tools; policy 8.1 asks that an updated user be active)",
+        "her role is already manager on the seed and is not tested"
+      ]
+    },
+    {
+      "text": "All users who are currently members of the \"L1 Service Desk\" group should be transferred into this new \"Service Desk Unified Hub\" group",
+      "kind": "create",
+      "table": "user_group_member",
+      "selector": "user_id = 'USER_003'",
+      "cells": {
+        "group_id": "GROUP_009"
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE user_id = 'USER_003' AND group_id = 'GROUP_009'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "All former L1 Service Desk members are now in \"Service Desk Unified Hub\"",
+      "seed_count": 0,
+      "assumptions": [
+        "L1 Service Desk is GROUP_003 on the seed; its five members are USER_003, USER_013, USER_015, USER_022, USER_023",
+        "five memberships are created and the request fixes no order, so each is selected by its natural key (group, user), not by member_id; the new group's id is assumed GROUP_009, next in sequence",
+        "disagreement: structure: A carries the benchmark's count-5 check as one requirement per member, B as one requirement over user_id IN (the five) with expected 5; kept A's split as the tighter form (a count of 5 cannot tell one row per user from two rows for one, since the unique key includes org_id) and because several created rows in one table are found by natural key, not by sequence position; the benchmark check is carried jointly",
+        "disagreement: cells: A repeats both selector columns, B lists both as cells with user_id IN (...); chose selector user_id = <user> with group_id = GROUP_009 as the cell, so the row key sits in the selector and the tested column in cells without repeating either; the sql is unchanged"
+      ]
+    },
+    {
+      "text": "All users who are currently members of the \"L1 Service Desk\" group should be transferred into this new \"Service Desk Unified Hub\" group",
+      "kind": "create",
+      "table": "user_group_member",
+      "selector": "user_id = 'USER_013'",
+      "cells": {
+        "group_id": "GROUP_009"
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE user_id = 'USER_013' AND group_id = 'GROUP_009'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "All former L1 Service Desk members are now in \"Service Desk Unified Hub\"",
+      "seed_count": 0,
+      "assumptions": [
+        "selected by natural key; see the first membership requirement"
+      ]
+    },
+    {
+      "text": "All users who are currently members of the \"L1 Service Desk\" group should be transferred into this new \"Service Desk Unified Hub\" group",
+      "kind": "create",
+      "table": "user_group_member",
+      "selector": "user_id = 'USER_015'",
+      "cells": {
+        "group_id": "GROUP_009"
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE user_id = 'USER_015' AND group_id = 'GROUP_009'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "All former L1 Service Desk members are now in \"Service Desk Unified Hub\"",
+      "seed_count": 0,
+      "assumptions": [
+        "selected by natural key; see the first membership requirement"
+      ]
+    },
+    {
+      "text": "All users who are currently members of the \"L1 Service Desk\" group should be transferred into this new \"Service Desk Unified Hub\" group",
+      "kind": "create",
+      "table": "user_group_member",
+      "selector": "user_id = 'USER_022'",
+      "cells": {
+        "group_id": "GROUP_009"
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE user_id = 'USER_022' AND group_id = 'GROUP_009'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "All former L1 Service Desk members are now in \"Service Desk Unified Hub\"",
+      "seed_count": 0,
+      "assumptions": [
+        "selected by natural key; see the first membership requirement"
+      ]
+    },
+    {
+      "text": "All users who are currently members of the \"L1 Service Desk\" group should be transferred into this new \"Service Desk Unified Hub\" group",
+      "kind": "create",
+      "table": "user_group_member",
+      "selector": "user_id = 'USER_023'",
+      "cells": {
+        "group_id": "GROUP_009"
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE user_id = 'USER_023' AND group_id = 'GROUP_009'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "All former L1 Service Desk members are now in \"Service Desk Unified Hub\"",
+      "seed_count": 0,
+      "assumptions": [
+        "selected by natural key; see the first membership requirement"
+      ]
+    },
+    {
+      "text": "transferred into this new \"Service Desk Unified Hub\" group",
+      "kind": "remove",
+      "table": "user_group_member",
+      "selector": "user_id IN ('USER_003', 'USER_013', 'USER_015', 'USER_022', 'USER_023')",
+      "cells": {
+        "group_id": "GROUP_003"
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE user_id IN ('USER_003', 'USER_013', 'USER_015', 'USER_022', 'USER_023') AND group_id = 'GROUP_003'",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "\"L1 Service Desk\" no longer has those members",
+      "seed_count": 5,
+      "assumptions": [
+        "'transferred' read as move, not copy: the five L1 Service Desk (GROUP_003) memberships are removed; implied by the request, not stated, carried from the benchmark check, and remove_group_membership is in the tools",
+        "disagreement: cells: A leaves cells empty, B repeats both selector columns; chose the users in the selector and group_id = GROUP_003 as the cell, the same shape as the memberships; the sql is unchanged"
+      ]
+    },
+    {
+      "text": "All users who are currently members of the \"L1 Service Desk\" group should be transferred",
+      "kind": "stay",
+      "table": "user_group_member",
+      "selector": "user_id NOT IN ('USER_003', 'USER_013', 'USER_015', 'USER_022', 'USER_023')",
+      "cells": {
+        "group_id": "GROUP_009"
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE user_id NOT IN ('USER_003', 'USER_013', 'USER_015', 'USER_022', 'USER_023') AND group_id = 'GROUP_009'",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "selector boundary: only the five current L1 Service Desk members join the new group; a loose reading of 'all first-contact Service Desk activity' would sweep in the three L2 Service Desk members (USER_031, USER_024, USER_025), who must stay out",
+        "disagreement: A writes this stay, B does not; kept because it is the boundary of the transfer set (the GROUP_004 stay below only keeps the L2 members in L2, not out of the new group); cells written in the memberships' shape"
+      ]
+    },
+    {
+      "text": "members of the \"L1 Service Desk\" group",
+      "kind": "stay",
+      "table": "user_group_member",
+      "selector": "group_id = 'GROUP_004'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE group_id = 'GROUP_004'",
+      "expected": 3,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 3,
+      "assumptions": [
+        "selector boundary: L2 Service Desk (GROUP_004) is the other 'Service Desk' group; the request names only L1 Service Desk, so its three memberships stay as on the seed",
+        "disagreement: cells: A leaves cells empty, B carries group_id = GROUP_004; cells left empty because the selector already fixes group_id; the sql is unchanged"
+      ]
+    }
+  ],
+  "original_checks": {
+    "New unified group exists with correct attributes": {
+      "disposition": "kept"
+    },
+    "All former L1 Service Desk members are now in \"Service Desk Unified Hub\"": {
+      "disposition": "kept"
+    },
+    "\"L1 Service Desk\" no longer has those members": {
+      "disposition": "kept"
+    },
+    "Set Leah Lewis active": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on all four benchmark checks (kept), the new group (GROUP_009: Service Desk Unified Hub, Service Desk, the stated description, manager USER_068, active), the activation of Leah Lewis (USER_068), the five memberships moving from GROUP_003 to GROUP_009, the removal of the five GROUP_003 rows, and the stay on the three L2 Service Desk (GROUP_004) memberships.\ndisagreement: the membership check's structure: A one natural-key requirement per member, B one requirement with a count of 5 over user_id IN (the five); kept A's split as the tighter form and because several created rows in one table are found by natural key, not by sequence position, with the benchmark check carried jointly by all five (logged in the first membership).\ndisagreement: a stay that no user outside the five joins GROUP_009: A writes it, B does not; kept because it is the boundary of the transfer set, which a loose reading of 'all first-contact Service Desk activity' would widen to the L2 members (logged in the requirement).\ndisagreement: cells of the memberships, the removal and the GROUP_004 stay: A leaves cells empty or repeats both selector columns, B repeats the selector or writes user_id IN (...) as a cell; chose the row key in the selector and the tested column as the cell, with no selector column repeated in cells (the GROUP_004 stay therefore has no cells); no sql changed (logged in each).\nSeed facts re-checked at merge: GROUP_003 (L1 Service Desk) has members USER_003, USER_013, USER_015, USER_022, USER_023; GROUP_004 (L2 Service Desk) has USER_031, USER_024, USER_025; USER_068 Leah Lewis is the only Lewis, role manager, active = 0; the acting user USER_039 is an admin (full CRUD), so the policy allows every step; GROUP_008 and MEM_028 are the highest ids; no group named like the new one exists. Nothing in the request deactivates or renames L1 Service Desk, so no stay is written for the group row itself. A manager added as a member of the new group would fail the boundary stay; the request does not ask for it.\nrevised: the L2 Service Desk stay repeated its selector column group_id in cells; cells emptied, since the selector already fixes it and the sql is unchanged.\nrevised: two resolution reasons cited a working rule or earlier files instead of the reason; reworded to state the reason itself (natural keys for several created rows; no column repeated between selector and cells).",
+  "minutes": 27
+}

@@ -1,0 +1,183 @@
+{
+  "task_id": "task_20260116_112336_208_c5cac200_da33db0a",
+  "policy_sha1": "babaaaaf",
+  "requirements": [
+    {
+      "text": "create an HR case for this tax inquiry with priority set to low since it's not urgent, use COE type as Payroll, set the account number as PAYROLL-JM-2025 with account type checking",
+      "kind": "create",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 61
+      },
+      "cells": {
+        "opened_for": 13,
+        "priority": "low",
+        "coe_type": "Payroll",
+        "account_number": "PAYROLL-JM-2025",
+        "account_type": "checking",
+        "short_description": "LIKE '%tax%'"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND opened_for = 13 AND priority = 'low' AND coe_type = 'Payroll' AND account_number = 'PAYROLL-JM-2025' AND account_type = 'checking' AND short_description LIKE '%tax%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Valid Priority Value Verification",
+      "assumptions": [
+        "id assumed next in sequence (hr_case_id 61 after 60)",
+        "opened_for is Jonathan Martinez's hr_profile 13 (user 13, the only Jonathan Martinez; the benchmark check uses 13); the seed lists his position as IT Support, not the request's Administration (Zachary Martinez, user 93, is the Administration one), and the unique name decides it",
+        "priority low as the request states; the benchmark check accepts any of five valid priorities",
+        "short_description LIKE '%tax%' kept from the benchmark check; the request calls it a tax inquiry but fixes no wording",
+        "account_type checking is a seed value of hr_case.account_type (checking, savings, other)",
+        "opened_by not tested: the request does not say who submitted the case; source and hr_service not tested: neither is stated and no tool lists services (the seed's 'Complete Tax Forms through CIC Plus', service 28, is not named)"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "assign this case to the HR Service Desk",
+      "kind": "change",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 61
+      },
+      "cells": {
+        "assignment_group": 4
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND assignment_group = 4",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Correct Assignment Group Verification",
+      "assumptions": [
+        "HR Service Desk is user_group 4 on the seed (active, org 1; Global Service Desk is 3); the benchmark check joins on the name, which resolves to the same row",
+        "assigned_to not tested: the request names no individual"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "Once the case is created and in progress",
+      "kind": "change",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 61
+      },
+      "cells": {
+        "status": "work_in_progress"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND status = 'work_in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "assumptions": [
+        "implied by the request ('once the case is created and in progress'), not stated as a step; policy 3.1 opens cases as draft, 3.3 allows draft -> work_in_progress, and update_hr_case is listed"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "create a checklist task to track the required tax forms",
+      "kind": "create",
+      "table": "hr_case_task",
+      "anchor": {
+        "hr_case_task_id": 150
+      },
+      "cells": {
+        "parent_case": 61,
+        "task_type": "checklist"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case_task WHERE hr_case_task_id = 150 AND parent_case = 61 AND task_type = 'checklist'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "Valid Task Type Verification",
+        "Task Creation Verification"
+      ],
+      "assumptions": [
+        "id assumed next in sequence (hr_case_task_id 150 after 149); the only task the request creates",
+        "the task's status, group, assignee and short description are not stated and not tested",
+        "Task Creation Verification's query is identical to Valid Task Type Verification's; this requirement carries both"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "specifically for W-2 verification",
+      "kind": "create",
+      "table": "checklist",
+      "selector": "case_task_id = 150 AND checklist_item_description LIKE '%W-2%'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM checklist WHERE case_task_id = 150 AND checklist_item_description LIKE '%W-2%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Checklist Items Completion Verification",
+      "assumptions": [
+        "the task creates two checklist items, so each is selected by its task and wording, not by id",
+        "matched on the request's spelling 'W-2'",
+        "disagreement: expected: A equals 1, B greater_than 0; chose equals 1 because each named item is one created row, whose expected count is 1; an agent that splits the W-2 item into two rows would fail it",
+        "checked not tested: the request says 'track', not complete; the benchmark query does not test it either despite its description"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "and tax document identification",
+      "kind": "create",
+      "table": "checklist",
+      "selector": "case_task_id = 150 AND checklist_item_description LIKE '%tax document%'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM checklist WHERE case_task_id = 150 AND checklist_item_description LIKE '%tax document%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "assumptions": [
+        "second named checklist item; selected by task and wording for the same reason as the first",
+        "LIKE is case-insensitive and also matches 'tax documents'; an item worded 'tax forms' would be missed",
+        "disagreement: expected: A equals 1, B greater_than 0; chose equals 1 as for the first item",
+        "checked not tested, as for the first item"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "draft Jonathan a notification to his email as an update to let him know his tax form requirements have been documented",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": 61
+      },
+      "cells": {
+        "hr_case_id": 61,
+        "email": "jonathan.martinez67@servicenow.com",
+        "type": "update",
+        "status": "draft"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 61 AND hr_case_id = 61 AND email = 'jonathan.martinez67@servicenow.com' AND type = 'update' AND status = 'draft'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Notification draft to Joanne ",
+      "assumptions": [
+        "id assumed next in sequence (notification_id 61 after 60); the only notification the request creates",
+        "'his email' is user 13's work email on the seed, as the benchmark check uses; the profile's personal address (jonathan.martinez.13@personal.example.com) is not the one meant",
+        "status draft from 'draft Jonathan a notification'; type update from 'as an update'; both are seed values"
+      ],
+      "seed_count": 0
+    }
+  ],
+  "original_checks": {
+    "Valid Priority Value Verification": {
+      "disposition": "repaired",
+      "evidence": "the check accepts any of five priorities; the request says 'priority set to low', so the requirement tests low only (its description's 'standard' value is not in this request)"
+    },
+    "Valid Task Type Verification": {
+      "disposition": "kept"
+    },
+    "Correct Assignment Group Verification": {
+      "disposition": "kept"
+    },
+    "Task Creation Verification": {
+      "disposition": "kept",
+      "evidence": "its query is identical to Valid Task Type Verification's; the checklist-task requirement carries both, named in its source (its description's 'skip task creation' is not in this request). disagreement: A excluded it as a duplicate, B kept; chose kept because an exact-duplicate check whose cells are all carried is kept jointly"
+    },
+    "Checklist Items Completion Verification": {
+      "disposition": "kept"
+    },
+    "Notification draft to Joanne ": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on every id (case 61 for profile 13, task 150, two checklist items selected by wording, notification 61 to the work email) and every value but one. disagreement: Task Creation Verification: A excluded (duplicate query), B kept; chose kept, carried jointly with Valid Task Type Verification by the checklist-task requirement (logged in its evidence). disagreement: the two checklist items' expected count: A equals 1, B greater_than 0; chose equals 1 because a created row's expected count is 1 (logged in each requirement). disagreement: B's stay requirement that no notification go to Jonathan's personal address; dropped because the notification is anchored by id with the work email as a cell, so a wrong address fails the create directly, and the request specifies the address rather than forbidding another: no selector has a boundary here. No stay requirements: every row is anchored by id or selected under the new task's id, and the request forbids nothing. The check named 'Notification draft to Joanne ' (trailing space in the name, 'Joanne' in the description) tests Jonathan Martinez's email, which is right; the name is kept verbatim as the key. Four check descriptions describe a different request (an invalid 'standard' priority, a 'tax_form' type, a Payroll Admin group, skipping task creation); their queries fit this request, so the queries are what was mapped. The checklist seed rows carry today's created_at, which suggests the seed was touched; id_conventions still match (90 rows, highest 90). revised: the two checklist requirements no longer repeat case_task_id and checklist_item_description in cells, since their selectors already fix both with the same conditions; revised: the W-2 item's expected-count disagreement now states its reason directly (each named item is one created row, so its count is 1).",
+  "minutes": 12
+}

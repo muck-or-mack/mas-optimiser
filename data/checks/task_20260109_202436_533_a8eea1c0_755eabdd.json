@@ -1,0 +1,309 @@
+{
+ "task_id": "task_20260109_202436_533_a8eea1c0_755eabdd",
+ "policy_sha1": "117eb8ac",
+ "requirements": [
+  {
+   "text": "Create Compensation Review Topic Detail",
+   "kind": "create",
+   "table": "topic_detail",
+   "anchor": {
+    "topic_detail_id": 36
+   },
+   "cells": {
+    "name": "Compensation Review",
+    "topic_category": 3,
+    "active": true,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM topic_detail WHERE topic_detail_id = 36 AND name = 'Compensation Review' AND topic_category = 3 AND active = true AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "topic_detail_creation",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence",
+    "the request places it under the Total Rewards COE, whose only topic category on the seed is Benefits (3)",
+    "active = true kept from the benchmark check; not fixed by request or policy"
+   ]
+  },
+  {
+   "text": "initially restricted by a temporary Manager Visibility Only case visibility criteria using the HR Leadership Approval Group",
+   "kind": "create",
+   "table": "hr_criteria",
+   "selector": "name = 'Manager Visibility Only'",
+   "cells": {
+    "type": "case_visibility",
+    "user_group": 10,
+    "active": true,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_criteria WHERE name = 'Manager Visibility Only' AND type = 'case_visibility' AND user_group = 10 AND active = true AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "hr_criteria_creation_and_configuration",
+   "seed_count": 0,
+   "assumptions": [
+    "two criteria are created, so each is selected by its unique name rather than an id",
+    "HR Leadership Approval is group 10",
+    "active = true kept from the benchmark check; not fixed by request or policy; the criteria stays in the table after the service moves off it"
+   ]
+  },
+  {
+   "text": "create US/GB Full-Time Compensation Staff Access case visibility criteria using the existing Onsite Support HQ group",
+   "kind": "create",
+   "table": "hr_criteria",
+   "selector": "name = 'US/GB Full-Time Compensation Staff Access'",
+   "cells": {
+    "type": "case_visibility",
+    "user_group": 6,
+    "active": true,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_criteria WHERE name = 'US/GB Full-Time Compensation Staff Access' AND type = 'case_visibility' AND user_group = 6 AND active = true AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "hr_criteria_creation_and_configuration",
+   "seed_count": 0,
+   "assumptions": [
+    "two criteria are created, so each is selected by its unique name rather than an id",
+    "Onsite Support HQ is group 6",
+    "active = true kept from the benchmark check; not fixed by request or policy"
+   ]
+  },
+  {
+   "text": "Then create Compensation Inquiry with manual fulfillment",
+   "kind": "create",
+   "table": "hr_service",
+   "anchor": {
+    "hr_service_id": 55
+   },
+   "cells": {
+    "service_name": "Compensation Inquiry",
+    "fulfillment_type": "manual",
+    "topic_detail": 36,
+    "active": true,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 55 AND service_name = 'Compensation Inquiry' AND fulfillment_type = 'manual' AND topic_detail = 36 AND active = true AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "hr_service_creation_and_update",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence",
+    "link to the new Compensation Review topic detail (36) implied by the request, not stated",
+    "active = true kept from the benchmark check; not fixed by request or policy"
+   ]
+  },
+  {
+   "text": "Update the Compensation Inquiry service to use this permanent criteria instead of the temporary one",
+   "kind": "change",
+   "table": "hr_service",
+   "anchor": {
+    "hr_service_id": 55
+   },
+   "cells": {
+    "hr_criteria": "IN (SELECT hr_criteria_id FROM hr_criteria WHERE name = 'US/GB Full-Time Compensation Staff Access' AND org_id = 1)"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 55 AND hr_criteria IN (SELECT hr_criteria_id FROM hr_criteria WHERE name = 'US/GB Full-Time Compensation Staff Access' AND org_id = 1)",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "hr_service_creation_and_update",
+   "seed_count": 0,
+   "assumptions": [
+    "the service is created earlier in this task with the temporary criteria; the final state must reference the permanent one",
+    "the permanent criteria is identified by its name, since two criteria are created and their ids depend on creation order",
+    "disagreement: kind: A create, B change; chose change because the cell is set by a later update_hr_service call on the row created earlier in the task; seed_count is 0 because service 55 does not exist yet"
+   ]
+  },
+  {
+   "text": "Create High Priority Compensation Routing assignment rule that routes high-priority cases requiring the Payroll skill to the HR Service Desk Group",
+   "kind": "create",
+   "table": "assignment_rules",
+   "anchor": {
+    "assignment_rule_id": 9
+   },
+   "cells": {
+    "name": "High Priority Compensation Routing",
+    "based_on_priority": "high",
+    "based_on_skills": "LIKE '%Payroll%'",
+    "user_group": 4,
+    "active": true,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM assignment_rules WHERE assignment_rule_id = 9 AND name = 'High Priority Compensation Routing' AND based_on_priority = 'high' AND based_on_skills LIKE '%Payroll%' AND user_group = 4 AND active = true AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "assignment_rule_creation",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence",
+    "the seed's rules store skill names as a JSON list of strings, so the rule must name Payroll in based_on_skills",
+    "HR Service Desk is group 4",
+    "active = true kept from the benchmark check; not fixed by request or policy",
+    "based_on_country and users not stated; left untested"
+   ]
+  },
+  {
+   "text": "assign the Payroll skill to Steven Maxwell",
+   "kind": "create",
+   "table": "user_skill",
+   "anchor": {
+    "user_skill_id": 336
+   },
+   "cells": {
+    "skill": 15,
+    "user": 87,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM user_skill WHERE user_skill_id = 336 AND skill = 15 AND user = 87 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "user_skill_assignment",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence",
+    "Payroll is skill 15; Steven Maxwell is user 87"
+   ]
+  },
+  {
+   "text": "add David Sanchez to the HR Leadership Approval Group",
+   "kind": "create",
+   "table": "user_group_member",
+   "anchor": {
+    "member_id": 44
+   },
+   "cells": {
+    "group_id": 10,
+    "user_id": 75,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 44 AND group_id = 10 AND user_id = 75 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "user_group_membership_addition",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence",
+    "David Sanchez is user 75; he is not a member of group 10 on the seed (its members are users 4, 37 and 49)"
+   ]
+  },
+  {
+   "text": "Create a high-priority test case for Steven using the Payroll Discrepancy service with high priority and the Payroll skill attached via phone. Use savings account ACC-17-771",
+   "kind": "create",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 61
+   },
+   "cells": {
+    "hr_service": 14,
+    "opened_for": 87,
+    "priority": "high",
+    "source": "phone",
+    "account_number": "ACC-17-771",
+    "account_type": "savings",
+    "status": "draft",
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND hr_service = 14 AND opened_for = 87 AND priority = 'high' AND source = 'phone' AND account_number = 'ACC-17-771' AND account_type = 'savings' AND status = 'draft' AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence",
+    "Payroll Discrepancy is service 14; Steven Maxwell is user 87 and his HR profile is 87",
+    "via phone stored in source as 'phone', the seed's value for that channel",
+    "status not stated; the policy sets every new case to draft",
+    "opened_by, coe_type, assignment and short description not fixed by the request; left untested"
+   ]
+  },
+  {
+   "text": "create a Final Compensation Review Validation task with ready status for the High Priority Case with assignment group set to HR Service Desk and task type checklist",
+   "kind": "create",
+   "table": "hr_case_task",
+   "anchor": {
+    "hr_case_task_id": 150
+   },
+   "cells": {
+    "status": "ready",
+    "short_description": "Final Compensation Review Validation for High Priority Case.",
+    "task_type": "checklist",
+    "assignment_group": 4,
+    "parent_case": 61,
+    "active": true,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case_task WHERE hr_case_task_id = 150 AND status = 'ready' AND short_description = 'Final Compensation Review Validation for High Priority Case.' AND task_type = 'checklist' AND assignment_group = 4 AND parent_case = 61 AND active = true AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "hr_case_task_creation",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence",
+    "the parent is the test case created in this task (61)",
+    "short_description kept from the benchmark check; not fixed by request or policy: the request names the task 'Final Compensation Review Validation' for the High Priority Case without quoting a text",
+    "active = true kept from the benchmark check; not fixed by request or policy",
+    "disagreement: short_description: A the benchmark's exact text, B LIKE '%Final Compensation Review Validation%'; chose the exact text because it is built from the request's own words and neither the request, the policy (60 characters, within 30 to 120) nor the seed contradicts it"
+   ]
+  },
+  {
+   "text": "add a checklist item that says \"Confirm compensation change approval by David Sanchez\"",
+   "kind": "create",
+   "table": "checklist",
+   "anchor": {
+    "checklist_id": 91
+   },
+   "cells": {
+    "checklist_item_description": "Confirm compensation change approval by David Sanchez",
+    "checked": false,
+    "case_task_id": 150,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM checklist WHERE checklist_id = 91 AND checklist_item_description = 'Confirm compensation change approval by David Sanchez' AND checked = false AND case_task_id = 150 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "checklist_item_creation",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence",
+    "checked = false kept from the benchmark check; not fixed by request or policy"
+   ]
+  }
+ ],
+ "original_checks": {
+  "topic_detail_creation": {
+   "disposition": "kept"
+  },
+  "hr_criteria_creation_and_configuration": {
+   "disposition": "repaired",
+   "evidence": "the check fixes the two criteria at ids 8 and 9, an order the outcome does not depend on; each criteria is unique by name in its organisation, so each is identified by name with the same type, group, active and organisation cells"
+  },
+  "hr_service_creation_and_update": {
+   "disposition": "repaired",
+   "evidence": "the check expects hr_criteria = 9, which assumes the permanent criteria received id 9; the request fixes only that the service uses the US/GB Full-Time Compensation Staff Access criteria, so that criteria is identified by name"
+  },
+  "assignment_rule_creation": {
+   "disposition": "kept"
+  },
+  "user_skill_assignment": {
+   "disposition": "kept"
+  },
+  "user_group_membership_addition": {
+   "disposition": "kept"
+  },
+  "steven_maxwell_verification": {
+   "disposition": "weak",
+   "evidence": "Steven Maxwell is already active user 87 in org 1 on the seed, so the count is 1 before the agent acts"
+  },
+  "hr_case_task_creation": {
+   "disposition": "repaired",
+   "evidence": "the check tests number = 'TASK-0001'; the number is assigned by the server and every seed task is numbered in the HRT0001148 form, so that predicate is dropped and every other cell, the exact short description included, is carried unchanged"
+  },
+  "checklist_item_creation": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "disagreement: value: the kind of the requirement that the service uses the permanent criteria: one pass writes create, the other change; chose change, since the cell is set by a later update call on the service created earlier in the task (resolved on that requirement).\ndisagreement: value: the validation task's short_description: one pass requires the benchmark's exact text 'Final Compensation Review Validation for High Priority Case.', the other only that it contain 'Final Compensation Review Validation'; chose the exact text, since it is built from the request's words and nothing in the request, policy or seed contradicts it, so the task check is repaired only by dropping its server-assigned number (resolved on that requirement).\nThe passes otherwise agree on every requirement, id, cell and disposition: topic detail 36 under Benefits (3), the two criteria selected by name (groups 10 and 6), service 55, rule 9, user skill 336, member 44, case 61, task 150 and checklist item 91; their texts and assumptions differ in wording only.\nSeed task titles are bare names (for example 'Add Beneficiaries'); an agent that titles the task 'Final Compensation Review Validation' alone fails the task requirement.\nNo benchmark check tests the test case itself, so a new requirement covers it (hr_case 61, the parent the task check already assumes). The Payroll skill attached to that case goes in the skills JSON column, which is null on every seed case, so its storage format is not shown and the cell is left out as untestable.\nThe case short description would follow only the policy's 'Service: , Subject: , Detail: .' template; no benchmark check tests it and the request gives no text, so it is not a cell.\nThe Compensation Inquiry service is first created with the temporary criteria and then moved to the permanent one; only the final reference can be tested. The temporary criteria stays active, as the benchmark tests and the request does not say to deactivate it.\nThe routing rule adds a based_on_skills cell the benchmark omits: the request says the rule routes cases requiring the Payroll skill, and every seed rule stores skill names as a JSON list of strings; an agent that stores the skill id instead would fail that cell.\nThe acting user, Joanne Simpson (user 4), holds the manager role in org 1. The policy reserves services, assignment rules and other system configuration for administrators, but the seed's permission table grants the manager role create, read, update and delete on topic details, criteria, services, skills, groups and assignment rules, and the request asks for each step explicitly, so the configuration steps are required.\nrevised: the validation task's short description 'Final Compensation Review Validation for High Priority Case.' is 60 characters, not 61; the length in that requirement's assumption is corrected, and it remains within the policy's 30 to 120 limit.",
+ "minutes": 45
+}

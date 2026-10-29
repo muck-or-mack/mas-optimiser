@@ -1,0 +1,150 @@
+{
+ "task_id": "task_20260116_143750_504_a8eea1c0_7d91efa1",
+ "policy_sha1": "b2da3f42",
+ "requirements": [
+  {
+   "text": "Travis Wood is heading the new Lead HR Support initiative. Establish that Service Desk group.",
+   "kind": "create",
+   "table": "user_group",
+   "anchor": {
+    "group_id": 19
+   },
+   "cells": {
+    "name": "Lead HR Support",
+    "type": "Service Desk",
+    "active": 1,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM user_group WHERE group_id = 19 AND name = 'Lead HR Support' AND type = 'Service Desk' AND active = 1 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "user_group_creation_lead_hr_support",
+    "complete_transaction_integrity_check"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (highest group_id in the seed is 18); the task creates one user_group row",
+    "active = 1 kept from the benchmark check; not fixed by request or policy, and consistent with a newly established group",
+    "org_id 1 is the organisation of the acting user, Travis Wood and case HRC0000711"
+   ]
+  },
+  {
+   "text": "transfer his membership",
+   "kind": "create",
+   "table": "user_group_member",
+   "anchor": {
+    "member_id": 44
+   },
+   "cells": {
+    "group_id": 19,
+    "user_id": 11,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 44 AND group_id = 19 AND user_id = 11 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "group_membership_transfer_completion",
+    "complete_transaction_integrity_check"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (highest member_id in the seed is 43); the task creates one user_group_member row",
+    "Travis Wood resolved to user 11, the only user of that name",
+    "the transfer's destination is the new Lead HR Support group (19), which he is heading"
+   ]
+  },
+  {
+   "text": "He shouldn't be in the Global Service Desk Group anymore",
+   "kind": "remove",
+   "table": "user_group_member",
+   "selector": "user_id = 11 AND group_id = 3",
+   "cells": {},
+   "sql": "SELECT COUNT(*) FROM user_group_member WHERE user_id = 11 AND group_id = 3",
+   "expected": 0,
+   "comparison": "equals",
+   "source": [
+    "group_membership_transfer_completion",
+    "complete_transaction_integrity_check"
+   ],
+   "seed_count": 1,
+   "assumptions": [
+    "'Global Service Desk Group' resolved to group 3 'Global Service Desk'; his membership there is member 6 on the seed"
+   ]
+  },
+  {
+   "text": "Ensure HRC0000711's assignment group is updated to Lead HR Support",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 1
+   },
+   "cells": {
+    "assignment_group": 19
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 1 AND assignment_group = 19",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_case_assignment_group_update",
+    "complete_transaction_integrity_check"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "HRC0000711 resolved to hr_case 1 by number (assignment group 4, HR Service Desk, on the seed)",
+    "group 19 is the Lead HR Support group the request creates, assumed next in sequence"
+   ]
+  },
+  {
+   "text": "add a General Inquiry Transition Briefing task to that same group for the case",
+   "kind": "create",
+   "table": "hr_case_task",
+   "anchor": {
+    "hr_case_task_id": 150
+   },
+   "cells": {
+    "short_description": "General Inquiry Transition Briefing",
+    "assignment_group": 19,
+    "parent_case": 1,
+    "status": "ready",
+    "active": 1,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case_task WHERE hr_case_task_id = 150 AND short_description = 'General Inquiry Transition Briefing' AND assignment_group = 19 AND parent_case = 1 AND status = 'ready' AND active = 1 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_case_task_creation_transition_briefing",
+    "complete_transaction_integrity_check"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (highest hr_case_task_id in the seed is 149); the task creates one hr_case_task row",
+    "status = 'ready' and active = 1 kept from the benchmark check; not fixed by request or policy",
+    "org_id 1 is the parent case's organisation",
+    "task_type and assigned_to are not fixed by request or policy and are not tested"
+   ]
+  }
+ ],
+ "original_checks": {
+  "user_group_creation_lead_hr_support": {
+   "disposition": "kept"
+  },
+  "group_membership_transfer_completion": {
+   "disposition": "kept"
+  },
+  "hr_case_assignment_group_update": {
+   "disposition": "repaired",
+   "evidence": "its updated_at > created_at predicate tests only a server-kept timestamp and is dropped; number = 'HRC0000711' is the display column of the anchored row hr_case 1; the reassignment itself is carried by the assignment_group cell"
+  },
+  "hr_case_task_creation_transition_briefing": {
+   "disposition": "kept"
+  },
+  "complete_transaction_integrity_check": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "The membership transfer is two requirements, the new Lead HR Support membership and the removal of the Global Service Desk one; the benchmark's membership check is a conjunction of both and is carried by each. complete_transaction_integrity_check is a conjunction of cells the other checks test (group, both membership changes, case assignment group, task) and is carried jointly by every requirement. Travis Wood (user 11) is already assigned_to on HRC0000711 and will be a member of Lead HR Support, so the policy's rule that assignees be active members of the assignment group holds without further change; assigned_to is not tested. The acting user Karen Watkins holds the admin role, which the policy gives full write access but bars from routine HR case work; the case reassignment and task belong to an organisational change, so they are still required.",
+ "minutes": 27
+}

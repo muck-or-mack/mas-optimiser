@@ -1,0 +1,186 @@
+{
+ "task_id": "task_20260111_204619_117_a8eea1c0_b69d59bc",
+ "policy_sha1": "b2da3f42",
+ "requirements": [
+  {
+   "text": "I want it moved to high priority",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 3
+   },
+   "cells": {
+    "priority": "high",
+    "status": "awaiting_approval",
+    "org_id": 3
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 3 AND priority = 'high' AND status = 'awaiting_approval' AND org_id = 3",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_case_update_validation",
+    "combined_multi_table_state_verification"
+   ],
+   "assumptions": [
+    "HRC0000713 is hr_case_id 3 in the seed",
+    "status awaiting_approval and org_id 3 kept from the benchmark check; not fixed by request or policy (both are the case's current values)",
+    "a manager may override standard priority settings, so the acting user may make this change"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "Assign it to Steven Hernandez",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 3
+   },
+   "cells": {
+    "assigned_to": 9,
+    "assignment_group": 2
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 3 AND assigned_to = 9 AND assignment_group = 2",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_case_update_validation",
+    "combined_multi_table_state_verification"
+   ],
+   "assumptions": [
+    "Steven Hernandez is user 9 (the only user of that name)",
+    "assignment_group 2 (IT Support L2): a case must be assigned to an active user in its assignment group, and Steven's only group membership is IT Support L2; the case's current group 3 (Global Service Desk) does not contain him",
+    "a manager may reassign cases across groups"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "Update the case short description for James Hill",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 3
+   },
+   "cells": {
+    "short_description": [
+     "LIKE '%James Hill%'",
+     "LIKE '%Access%'",
+     "LIKE '%Advanced Portal Security%'"
+    ]
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 3 AND short_description LIKE '%James Hill%' AND short_description LIKE '%Access%' AND short_description LIKE '%Advanced Portal Security%'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_case_update_validation",
+    "combined_multi_table_state_verification"
+   ],
+   "assumptions": [
+    "the new short description names James Hill, the case's subject (opened_for profile 8, user 8)",
+    "'Access' and 'Advanced Portal Security' kept from the benchmark check; not fixed by request or policy"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "he will need the Advanced Portal Security qualification",
+   "kind": "create",
+   "table": "skill",
+   "anchor": {
+    "skill_id": 20
+   },
+   "cells": {
+    "name": "Advanced Portal Security",
+    "active": true,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM skill WHERE skill_id = 20 AND name = 'Advanced Portal Security' AND active = true AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "advanced_portal_security_skill_creation",
+    "combined_multi_table_state_verification"
+   ],
+   "assumptions": [
+    "no skill of this name exists, so granting it implies creating it",
+    "id assumed next in sequence",
+    "active true and org_id 1 kept from the benchmark check; org 1 is the acting user's and Steven's organisation, where all existing skills sit"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "he will need the Advanced Portal Security qualification",
+   "kind": "create",
+   "table": "user_skill",
+   "anchor": {
+    "user_skill_id": 336
+   },
+   "cells": {
+    "skill": 20,
+    "user": 9,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM user_skill WHERE user_skill_id = 336 AND skill = 20 AND user = 9 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "advanced_portal_security_user_skill_assignment",
+    "combined_multi_table_state_verification"
+   ],
+   "assumptions": [
+    "id assumed next in sequence",
+    "skill 20 is the newly created Advanced Portal Security skill",
+    "org_id 1 kept from the benchmark check; Steven's organisation"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "set up a routing rule called Security Portal Escalation so that future high-priority cases with this skill automatically go to the L2 group in IT Support",
+   "kind": "create",
+   "table": "assignment_rules",
+   "anchor": {
+    "assignment_rule_id": 9
+   },
+   "cells": {
+    "name": "Security Portal Escalation",
+    "based_on_priority": "high",
+    "user_group": 2,
+    "active": true,
+    "org_id": 1,
+    "based_on_skills": "LIKE '%Advanced Portal Security%'"
+   },
+   "sql": "SELECT COUNT(*) FROM assignment_rules WHERE assignment_rule_id = 9 AND name = 'Security Portal Escalation' AND based_on_priority = 'high' AND user_group = 2 AND active = true AND org_id = 1 AND based_on_skills LIKE '%Advanced Portal Security%'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "security_portal_escalation_assignment_rule_creation",
+    "combined_multi_table_state_verification"
+   ],
+   "assumptions": [
+    "id assumed next in sequence",
+    "'the L2 group in IT Support' is group 2, IT Support L2",
+    "based_on_skills must contain the skill name: the request says 'with this skill', and existing rules store skills as a JSON list of names",
+    "active true and org_id 1 kept from the benchmark check; not fixed by request or policy",
+    "based_on_country left untested: the request names no country"
+   ],
+   "seed_count": 0
+  }
+ ],
+ "original_checks": {
+  "advanced_portal_security_skill_creation": {
+   "disposition": "kept"
+  },
+  "advanced_portal_security_user_skill_assignment": {
+   "disposition": "kept"
+  },
+  "security_portal_escalation_assignment_rule_creation": {
+   "disposition": "kept"
+  },
+  "hr_case_update_validation": {
+   "disposition": "kept"
+  },
+  "combined_multi_table_state_verification": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "Merged from two independent passes that agree on every requirement (the case's priority, assignee and group, and short description on hr_case_id 3; the skill at skill_id 20; the user_skill at 336 for user 9; the rule at assignment_rule_id 9 with its skill cell), every cell and value, and all five dispositions (kept); they differ only in the wording of requirement texts and assumptions, so there is no disagreement to log.\nThe case check is split into three requirements (priority, assignment, short description) that together carry all its cells; its number predicate is not repeated because hr_case_id 3 already fixes the row and number is server-kept. The composite check is carried jointly by every requirement that carries one of its parts.\nThe rule requirement adds a based_on_skills cell the request fixes ('with this skill'); the seed stores that column as a JSON list of skill names, so a LIKE on the name tests it. based_on_country is left untested: the request names no country.\nThe request's last clause, confirming whether the case's notification is ready, is a read: the case's notification already has status ready in the seed and nothing asks for it to change, so it gives no requirement.\nThe policy's short-description template (Service/Subject/Detail) and its 30-120 character limit are not tested by the benchmark and are left out.\nThe policy bars managers from modifying system configuration, but it does not name skills or assignment rules as configuration, the seed grants the manager role create/read/update/delete on both tables, and the request asks for both with the tools to create them listed; so the creation requirements stand as the benchmark wrote them. A reviewer reading assignment rules as system configuration would turn the rule requirement into a stay at zero.",
+ "minutes": 30
+}

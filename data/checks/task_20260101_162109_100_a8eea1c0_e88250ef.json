@@ -1,0 +1,197 @@
+{
+  "task_id": "task_20260101_162109_100_a8eea1c0_e88250ef",
+  "policy_sha1": "60026242",
+  "requirements": [
+    {
+      "text": "Immediately transfer ownership to Tabitha Bullock in CSM Tier 1 Support Group",
+      "kind": "create",
+      "table": "user_group_member",
+      "anchor": {"member_id": 960},
+      "cells": {"group_id": 1, "user_id": 3},
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 960 AND group_id = 1 AND user_id = 3",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "user_group_member_addition_verifier",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by the request, not stated: the policy requires assigned_to to be a member of assignment_group_id, and Tabitha Bullock (user 3) is not a member of CSM Tier 1 Support (group 1) in the seed",
+        "the acting user, Karen Watkins, is an admin, who may create group memberships",
+        "id assumed next in sequence (960 after 959); the task creates one membership"
+      ]
+    },
+    {
+      "text": "Immediately transfer ownership to Tabitha Bullock in CSM Tier 1 Support Group",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {"case_id": 1},
+      "cells": {"assignment_group_id": 1, "assigned_to": 3, "account_id": 1, "product_id": 128},
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1 AND assignment_group_id = 1 AND assigned_to = 3 AND account_id = 1 AND product_id = 128",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "case_reassignment_state_update_verifier",
+      "seed_count": 0,
+      "assumptions": [
+        "CS-0000001 is case 1; Tabitha Bullock is user 3, an active agent; CSM Tier 1 Support is group 1, not its suffixed namesakes (groups 21, 41 and 61)",
+        "account_id 1 and product_id 128 kept from the benchmark check; not fixed by request or policy"
+      ]
+    },
+    {
+      "text": "mark the case as actively being handled",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {"case_id": 1},
+      "cells": {"state": "in_progress"},
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1 AND state = 'in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "case_reassignment_state_update_verifier",
+      "seed_count": 0,
+      "assumptions": [
+        "actively being handled is state in_progress; new to in_progress is a valid transition"
+      ]
+    },
+    {
+      "text": "The customer emailed thefore adjust the communication method as needed",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {"case_id": 1},
+      "cells": {"channel": "email"},
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1 AND channel = 'email'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "case_reassignment_state_update_verifier",
+      "seed_count": 0,
+      "assumptions": [
+        "the communication method is the case channel; the customer emailed, so email"
+      ]
+    },
+    {
+      "text": "indicate that this is the initial return to active handling",
+      "kind": "stay",
+      "table": "customer_case",
+      "anchor": {"case_id": 1},
+      "cells": {"reopen_count": 0},
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1 AND reopen_count = 0",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "case_historical_data_preservation_verifier",
+      "seed_count": 1,
+      "assumptions": [
+        "the initial return to active handling is read as the first move to in_progress, not a reopen: the lifecycle reopens only from resolved to new, and the case is new and has never been resolved",
+        "reopen_count 0 kept from the benchmark check, which holds it at its seed value"
+      ]
+    },
+    {
+      "text": "mark the case as actively being handled",
+      "kind": "change",
+      "table": "case_sla",
+      "anchor": {"case_sla_id": 2},
+      "cells": {"case_id": 1, "sla_def_id": 6, "stage": "in_progress", "has_breached": 0, "completed_time": "IS NULL"},
+      "sql": "SELECT COUNT(*) FROM case_sla WHERE case_sla_id = 2 AND case_id = 1 AND sla_def_id = 6 AND stage = 'in_progress' AND has_breached = 0 AND completed_time IS NULL",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "case_sla_stage_resumption_verifier",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by the request, not stated: the policy pauses SLAs only while a case is pending and aligns the SLA when a case moves to in progress, so the paused Resolution SLA resumes",
+        "case_sla 2 is the case's SLA Resolution - Critical (sla_def 6), paused in the seed",
+        "has_breached 0 and completed_time empty kept from the benchmark check; not fixed by request or policy",
+        "disagreement: text: A 'mark the case as actively being handled', B 'ensure the Resolution SLA is temporarily suspended whenever the case is awaiting further action'; chose A's because the stage returns to in_progress as a consequence of the case becoming active, while the suspension sentence concerns the pause setting, carried by the sla_definition requirement"
+      ]
+    },
+    {
+      "text": "ensure the Resolution SLA is temporarily suspended whenever the case is awaiting further action",
+      "kind": "change",
+      "table": "sla_definition",
+      "anchor": {"sla_def_id": 6},
+      "cells": {"metric": "resolution", "applies_to_priority": "critical", "pause_on_pending": 1, "active": 1},
+      "sql": "SELECT COUNT(*) FROM sla_definition WHERE sla_def_id = 6 AND metric = 'resolution' AND applies_to_priority = 'critical' AND pause_on_pending = 1 AND active = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "sla_definition_pause_configuration_verifier",
+      "seed_count": 1,
+      "assumptions": [
+        "the Resolution SLA is the one on the case, SLA Resolution - Critical (sla_def 6); suspended while awaiting further action is pause_on_pending 1",
+        "weak: pause_on_pending is already 1 and the definition active in the seed",
+        "no tool writes this table"
+      ]
+    },
+    {
+      "text": "Update and link the Palo Alto Networks KB (KB-0000195, the primary article for PA-3220)",
+      "kind": "change",
+      "table": "knowledge",
+      "anchor": {"knowledge_id": 195},
+      "cells": {"state": "published", "product_id": 128, "visibility": "internal"},
+      "sql": "SELECT COUNT(*) FROM knowledge WHERE knowledge_id = 195 AND state = 'published' AND product_id = 128 AND visibility = 'internal'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "knowledge_article_publication_verifier",
+      "seed_count": 0,
+      "assumptions": [
+        "the update is publication: KB-0000195 is retired in the seed and the policy links only published articles",
+        "product_id 128 (Palo Alto Networks PA-3220) and visibility internal kept from the benchmark check; not fixed by request or policy"
+      ]
+    },
+    {
+      "text": "link the Palo Alto Networks KB (KB-0000195, the primary article for PA-3220) to this case as a suggested fix",
+      "kind": "create",
+      "table": "case_knowledge",
+      "anchor": {"case_kb_id": 528},
+      "cells": {"case_id": 1, "knowledge_id": 195, "used_as": "suggested"},
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_kb_id = 528 AND case_id = 1 AND knowledge_id = 195 AND used_as = 'suggested'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "case_knowledge_suggested_linkage_addition_verifier",
+      "seed_count": 0,
+      "assumptions": [
+        "a suggested fix is used_as suggested, as the request states",
+        "id assumed next in sequence (528 after 527); the task creates one case_knowledge row"
+      ]
+    },
+    {
+      "text": "remove any earlier resolution association it may have had with the prior closed case CS-0000010",
+      "kind": "remove",
+      "table": "case_knowledge",
+      "selector": "case_id = 10 AND knowledge_id = 195 AND used_as = 'resolution'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_id = 10 AND knowledge_id = 195 AND used_as = 'resolution'",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "case_knowledge_unsuccessful_linkage_removal_verifier",
+      "seed_count": 1,
+      "assumptions": [
+        "CS-0000010 is case 10; its one resolution link to KB-0000195 is case_kb_id 3, its only link to the article",
+        "selected by case, article and usage rather than by id, so a resolution link re-created between the two also fails it"
+      ]
+    },
+    {
+      "text": "remove any earlier resolution association it may have had with the prior closed case CS-0000010",
+      "kind": "stay",
+      "table": "case_knowledge",
+      "selector": "knowledge_id = 195 AND case_id NOT IN (1, 10)",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE knowledge_id = 195 AND case_id NOT IN (1, 10)",
+      "expected": 11,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 11,
+      "assumptions": [
+        "boundary of the removal: KB-0000195 has eleven links to other cases (six resolution, five applied) that the request does not name",
+        "disagreement: selector: A all links of KB-0000195 to cases other than 1 and 10 (eleven rows), B only its resolution links to cases other than 10 (six rows); chose A's because it is the tighter boundary of the same description: it holds every row of B's and also guards the five applied links a loose reading of 'any earlier association' would sweep in"
+      ]
+    }
+  ],
+  "original_checks": {
+    "user_group_member_addition_verifier": {"disposition": "kept"},
+    "case_reassignment_state_update_verifier": {"disposition": "kept"},
+    "case_sla_stage_resumption_verifier": {"disposition": "kept"},
+    "knowledge_article_publication_verifier": {"disposition": "kept"},
+    "case_knowledge_unsuccessful_linkage_removal_verifier": {"disposition": "kept"},
+    "case_knowledge_suggested_linkage_addition_verifier": {"disposition": "kept"},
+    "assigned_user_active_status_verifier": {"disposition": "weak", "evidence": "tests only seed facts: Tabitha Bullock (user 3) is an active agent and Thomas Green (user 1) an inactive agent in the seed; the count is already 2"},
+    "sla_definition_pause_configuration_verifier": {"disposition": "weak", "evidence": "sla_def 6 already has pause_on_pending 1 and active 1 in the seed; carried as a weak change requirement"},
+    "case_historical_data_preservation_verifier": {"disposition": "weak", "evidence": "tests only seed values of case 1 (account, contact, product, installed product, priority, escalation, reopen_count, created and closed timestamps); the count is already 1; its reopen_count = 0 cell is carried by the stay on the initial return to active handling"}
+  },
+  "notes": "On the seed, case CS-0000001 is assigned to Susan Garcia (user 403, an admin) in Case Assignment (group 4), not to Thomas Green (user 1, an inactive agent in no group) as the request says; the requirements test the end state the request asks for, which does not depend on the current assignee.\nThe request calls CS-0000010 closed; on the seed it is resolved. The removal does not depend on its state.\n'indicate that this is the initial return to active handling' names no column. It is read as the first move to in_progress, not a reopen: the case is new and has never been resolved, and the lifecycle reopens only from resolved to new, so reopen_count stays 0, as the benchmark's historical check expects; the move to in_progress and the Resolution SLA's return to in_progress carry the phrase.\nThe case's Response SLA (case_sla 1, sla_def 1) is also paused on the seed; the request names only the Resolution SLA and no benchmark check tests the Response SLA, so no requirement covers it.\nThe benchmark's number = 'CS-0000001' and kb_number = 'KB-0000195' predicates are server-kept labels of the anchored rows and are not cells.\nNo interaction row is required: the request asks only that the case's communication method change.\ndisagreement: missing requirement: a stay holding case 1's reopen_count at 0 for 'indicate that this is the initial return to active handling': one pass wrote it, the other did not; kept because that phrase is the one an agent could misread as a reopen, the benchmark tests reopen_count = 0 on the case, and the case has never been resolved, so the lifecycle records no reopen.\ndisagreement: value: the selector of the stay on the article's other links: one pass all eleven links of KB-0000195 to cases other than 1 and 10, the other its six resolution links to cases other than 10; chose the eleven, which hold every row of the six and also guard the five applied links.\ndisagreement: value: the text of the Resolution SLA stage requirement: one pass 'mark the case as actively being handled', the other the suspension sentence; chose the first, since the stage resumes because the case becomes active. The other requirement texts and assumptions differ in wording only.",
+  "minutes": 36
+}

@@ -1,0 +1,156 @@
+{
+ "task_id": "task_20260116_085958_358_a8eea1c0_6d7f242a",
+ "policy_sha1": "0498d858",
+ "requirements": [
+  {
+   "text": "create a new user group named Special IT Response in IT Support",
+   "kind": "create",
+   "table": "user_group",
+   "anchor": {
+    "group_id": 19
+   },
+   "cells": {
+    "name": "Special IT Response",
+    "type": "IT Support",
+    "active": true
+   },
+   "sql": "SELECT COUNT(*) FROM user_group WHERE group_id = 19 AND name = 'Special IT Response' AND type = 'IT Support' AND active = true",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "group_provisioning_verifier",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (highest group_id in the seed is 18); the only group the task creates",
+    "'in IT Support' read as the group type IT Support, a type other seed groups already use",
+    "active = true kept from the benchmark check; not fixed by request or policy"
+   ]
+  },
+  {
+   "text": "Locate active users currently in the IT Support L1 Group who also possesses the IT skill and add them as a member of the group",
+   "kind": "create",
+   "table": "user_group_member",
+   "selector": "group_id = 19 AND user_id = 3",
+   "cells": {},
+   "sql": "SELECT COUNT(*) FROM user_group_member WHERE group_id = 19 AND user_id = 3",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "membership_logic_verifier",
+   "seed_count": 0,
+   "assumptions": [
+    "IT Support L1 is group 1; its members are users 1, 3 and 5, all holding the IT skill (skill 13)",
+    "Tabitha Bullock (user 3) is active, so she qualifies",
+    "two members are added, so each row is selected by group and user rather than by member_id",
+    "disagreement: membership rows: A one count of users 3 and 5 in group 19 expecting 2, B one requirement per user expecting 1 each; chose one per user, the tighter form, because a duplicate row for one user cannot stand in for the other"
+   ]
+  },
+  {
+   "text": "Locate active users currently in the IT Support L1 Group who also possesses the IT skill and add them as a member of the group",
+   "kind": "create",
+   "table": "user_group_member",
+   "selector": "group_id = 19 AND user_id = 5",
+   "cells": {},
+   "sql": "SELECT COUNT(*) FROM user_group_member WHERE group_id = 19 AND user_id = 5",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "membership_logic_verifier",
+   "seed_count": 0,
+   "assumptions": [
+    "IT Support L1 is group 1; its members are users 1, 3 and 5, all holding the IT skill (skill 13)",
+    "Mckenzie Mendez (user 5) is active, so she qualifies",
+    "two members are added, so each row is selected by group and user rather than by member_id",
+    "disagreement: membership rows: A one count of users 3 and 5 in group 19 expecting 2, B one requirement per user expecting 1 each; chose one per user, the tighter form, because a duplicate row for one user cannot stand in for the other"
+   ]
+  },
+  {
+   "text": "Locate active users currently in the IT Support L1 Group who also possesses the IT skill",
+   "kind": "stay",
+   "table": "user_group_member",
+   "selector": "group_id = 19 AND user_id NOT IN (3, 5)",
+   "cells": {},
+   "sql": "SELECT COUNT(*) FROM user_group_member WHERE group_id = 19 AND user_id NOT IN (3, 5)",
+   "expected": 0,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 0,
+   "assumptions": [
+    "boundary of the selector: Thomas Green (user 1) is in IT Support L1 with the IT skill but inactive, and many active users outside L1 (such as in IT Support L2) hold the IT skill; none of them may be added"
+   ]
+  },
+  {
+   "text": "register two new high-priority HRIT cases in ready status for ... Zachary Mcintosh (Account: ACC-789-012) ... assigned to the new group",
+   "kind": "create",
+   "table": "hr_case",
+   "selector": "opened_for = 33",
+   "cells": {
+    "hr_service": 3,
+    "assignment_group": 19,
+    "priority": "high",
+    "status": "ready",
+    "coe_type": "HRIT",
+    "account_number": "ACC-789-012",
+    "opened_by": 39,
+    "short_description": "Service: HR Account Access Request, Subject: High-priority IT case, Detail: Case for Special IT Response group",
+    "worknotes": "This case requires immediate attention from the Special IT Response team."
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE opened_for = 33 AND hr_service = 3 AND assignment_group = 19 AND priority = 'high' AND status = 'ready' AND coe_type = 'HRIT' AND account_number = 'ACC-789-012' AND opened_by = 39 AND short_description = 'Service: HR Account Access Request, Subject: High-priority IT case, Detail: Case for Special IT Response group' AND worknotes = 'This case requires immediate attention from the Special IT Response team.'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "hrit_case_creation_verifier",
+   "seed_count": 0,
+   "assumptions": [
+    "Zachary Mcintosh is hr_profile 33; no case for this employee exists in the seed, so the employee selects the new row",
+    "two cases are created, so each is selected by its employee rather than by hr_case_id",
+    "HR Account Access Request is hr_service 3 (active); the new group is group 19",
+    "account number ACC-789-012 taken from the request into account_number; the benchmark check does not test it, and account_type is not stated, so it is not tested",
+    "opened_by is the requester per policy 3.1: the acting user Karen Watkins, hr_profile 39",
+    "short description and worknote are the request's exact text",
+    "disagreement: opened_by: A untested, B 39; chose 39 because policy 3.1 defines opened_by as the requester, the acting user Karen Watkins (hr_profile 39), who asks for the cases on the employees' behalf; every seed case has opened_by = opened_for, but that is a pattern in the seed's data, not a rule that contradicts the policy"
+   ]
+  },
+  {
+   "text": "register two new high-priority HRIT cases in ready status for ... Steven Maxwell (Account: ACC-345-678) ... assigned to the new group",
+   "kind": "create",
+   "table": "hr_case",
+   "selector": "opened_for = 87",
+   "cells": {
+    "hr_service": 3,
+    "assignment_group": 19,
+    "priority": "high",
+    "status": "ready",
+    "coe_type": "HRIT",
+    "account_number": "ACC-345-678",
+    "opened_by": 39,
+    "short_description": "Service: HR Account Access Request, Subject: High-priority IT case, Detail: Case for Special IT Response group",
+    "worknotes": "This case requires immediate attention from the Special IT Response team."
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE opened_for = 87 AND hr_service = 3 AND assignment_group = 19 AND priority = 'high' AND status = 'ready' AND coe_type = 'HRIT' AND account_number = 'ACC-345-678' AND opened_by = 39 AND short_description = 'Service: HR Account Access Request, Subject: High-priority IT case, Detail: Case for Special IT Response group' AND worknotes = 'This case requires immediate attention from the Special IT Response team.'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "hrit_case_creation_verifier",
+   "seed_count": 0,
+   "assumptions": [
+    "Steven Maxwell is hr_profile 87; no case for this employee exists in the seed, so the employee selects the new row",
+    "two cases are created, so each is selected by its employee rather than by hr_case_id",
+    "HR Account Access Request is hr_service 3 (active); the new group is group 19",
+    "account number ACC-345-678 taken from the request into account_number; the benchmark check does not test it, and account_type is not stated, so it is not tested",
+    "opened_by is the requester per policy 3.1: the acting user Karen Watkins, hr_profile 39",
+    "short description and worknote are the request's exact text",
+    "disagreement: opened_by: A untested, B 39; chose 39 because policy 3.1 defines opened_by as the requester, the acting user Karen Watkins (hr_profile 39), who asks for the cases on the employees' behalf; every seed case has opened_by = opened_for, but that is a pattern in the seed's data, not a rule that contradicts the policy"
+   ]
+  }
+ ],
+ "original_checks": {
+  "group_provisioning_verifier": {
+   "disposition": "kept"
+  },
+  "membership_logic_verifier": {
+   "disposition": "repaired",
+   "evidence": "the check counts users 1, 3 and 5 in group 19 and expects 2, so it also passes when the inactive Thomas Green (user 1, active = 0 in the seed) is added in place of an active member; the request asks for active users only, so the members are users 3 and 5, each tested separately. The check's description names skill 5 (Exit Interviews), but the IT skill is skill 13, which all three L1 members hold; the query does not use the skill"
+  },
+  "hrit_case_creation_verifier": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "disagreement: value: the membership rows: one pass counts users 3 and 5 in group 19 in one requirement expecting 2, the other gives each user its own requirement expecting 1; kept one per user, the tighter form (logged in those requirements).\ndisagreement: value: the cases' opened_by: one pass tests 39, the other leaves it untested because every seed case sets opened_by equal to opened_for; kept 39 because policy 3.1 makes opened_by the requester, the acting user (logged in both case requirements).\nThe two passes otherwise agree on every requirement, id, cell and disposition (two checks kept, the membership check repaired); their texts and assumptions differ in wording only.\nThe request says 'a specific expert' but then 'add them'; the seed yields two qualifying users (3 and 5), matching the benchmark's expected 2, so both are required.\nThe two case requirements carry the benchmark's single set check, adding each employee's account number from the request.\nassigned_to is not tested: policy 3.2 asks for an active assignee from the assignment group, but the request names only the group and the system's assignment rule runs on creation (if set, it should be user 3 or 5).\nThe policy's short-description template ends with a full stop; the request gives the exact text without one, and that text is required, as the benchmark does.\nThe acting user Karen Watkins holds the admin role, and the policy says administrators must not perform routine HR case work; the request frames the cases as part of setting up an emergency workflow and the benchmark expects them, so they are required, though a reviewer may judge that the agent should have declined that step.\nThe source and org_id of the new rows are not fixed by the request or policy and are not tested.",
+ "minutes": 33
+}

@@ -1,0 +1,59 @@
+{
+  "task_id": "task_20251223_135402_072_c5ca08eb_67009578",
+  "policy_sha1": "4afd943b",
+  "requirements": [
+    {
+      "text": "update the problem so its impact is set to high",
+      "kind": "change",
+      "table": "problem",
+      "anchor": {"problem_id": "PRB_009"},
+      "cells": {"impact": "high", "priority": "critical"},
+      "sql": "SELECT COUNT(*) FROM problem WHERE problem_id = 'PRB_009' AND impact = 'high' AND priority = 'critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Problem Record",
+      "seed_count": 0,
+      "assumptions": [
+        "PRB0000009 is problem.number of PRB_009 on the seed (impact medium, urgency high, priority high)",
+        "priority critical from the policy matrix (4.2): impact high x urgency high; the request does not change the urgency"
+      ]
+    },
+    {
+      "text": "make sure the same higher impact is reflected on the linked incident as well",
+      "kind": "change",
+      "table": "incident",
+      "anchor": {"incident_id": "INC_061"},
+      "cells": {"impact": "high", "priority": "high"},
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_061' AND impact = 'high' AND priority = 'high'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Incident Record",
+      "seed_count": 0,
+      "assumptions": [
+        "the linked incident is PRB_009's original_task, INC_061; no incident row has problem = 'PRB_009' on the seed",
+        "priority high from the policy matrix (3.1): impact high x urgency medium; the seed urgency is medium and the request does not change it"
+      ]
+    },
+    {
+      "text": "the linked incident",
+      "kind": "stay",
+      "table": "incident",
+      "anchor": {"incident_id": "INC_090"},
+      "cells": {"impact": "medium", "priority": "moderate"},
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_090' AND impact = 'medium' AND priority = 'moderate'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "boundary of 'the linked incident': INC_090 ('Sharepoint 500') shares PRB_009's service SVC_025 and offering SVCOFF_040 and echoes its statement 'Sharepoint 500 Errors', but PRB_009 links only INC_061, so INC_090 keeps its impact and priority"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify Problem Record": {"disposition": "kept"},
+    "Verify Incident Record": {"disposition": "kept"}
+  },
+  "notes": "disagreement: missing requirement: one pass adds a stay that INC_090 keeps impact medium and priority moderate, the other has none; kept because the request names the incident only as 'the linked incident' and INC_090 is a near match on the seed (same service and offering as PRB_009, short description 'Sharepoint 500' echoing the problem statement), so a loose reading would raise it too; it is the boundary of that description, not a generic invariant.\nOnly one incident is linked to PRB_009, through problem.original_task; incident.problem is null for every incident on the seed, so the anchor is INC_061. The acting user USER_039 (Karen Watkins) is an active admin with full CRUD, so no permission rule blocks either update.",
+  "minutes": 23
+}

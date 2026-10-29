@@ -1,0 +1,73 @@
+{
+ "task_id": "task_20251224_195437_497_e6427839_6357fed2",
+ "policy_sha1": "118dd827",
+ "requirements": [
+  {
+   "text": "move it to work in progress to begin processing the request",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 56
+   },
+   "cells": {
+    "status": "work_in_progress"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 56 AND status = 'work_in_progress'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 0,
+   "assumptions": [
+    "case number HRC0000766 is hr_case_id 56 (status ready on the seed, org 16)",
+    "'work in progress' is status work_in_progress, a valid transition from ready"
+   ]
+  },
+  {
+   "text": "move it to work in progress to begin processing the request",
+   "kind": "create",
+   "table": "hr_case_task",
+   "anchor": {
+    "hr_case_task_id": 150
+   },
+   "cells": {
+    "parent_case": 56,
+    "active": true,
+    "assignment_group": 5
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case_task WHERE hr_case_task_id = 150 AND parent_case = 56 AND active = true AND assignment_group = 5",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify if the task is created of in progress HR case.",
+   "seed_count": 0,
+   "assumptions": [
+    "implied by the request, not stated: the policy generates fulfilment tasks when a case moves to work_in_progress, and the task-creation tool is available",
+    "id assumed next in sequence (hr_case_task 149 is the highest)",
+    "active and assignment_group 5 kept from the benchmark check; not fixed by request or policy; group 5 (Field Ops - North) is the case's own assignment group",
+    "the case's service (Generate Employment History) names no template, so the task's description, type and status are not fixed"
+   ]
+  },
+  {
+   "text": "Ensure any relevant knowledge articles are reviewed and linked to the case where applicable",
+   "kind": "stay",
+   "table": "hr_case_knowledge",
+   "selector": "hr_case_id = 56",
+   "cells": {},
+   "sql": "SELECT COUNT(*) FROM hr_case_knowledge WHERE hr_case_id = 56",
+   "expected": 0,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 0,
+   "assumptions": [
+    "no article in the knowledge base (benefits, new hire orientation, leave, travel and expense, IT security, performance review) concerns an employment history verification letter, so none is applicable and the case gains no link",
+    "no tool writes this table"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Verify if the task is created of in progress HR case.": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "Merged from two passes that agree on every requirement, cell and value (the move of case 56 to work_in_progress, the new active task 150 under it in group 5, and no knowledge link) and on the single disposition (kept); their texts and assumptions differ in wording only. No disagreements.\nThe benchmark's only check tests a new fulfilment task under the case; it does not test the case's status, so the move to work_in_progress is a new requirement. The case already holds three active generated tasks (138 to 140) in group 5; the check asks for one more, and nothing fixes its description or type, so those are not tested.\nThe check writes its integers as quoted strings ('150', '56', '1', '5'); SQLite's integer affinity makes these equal to the unquoted numbers used here, so the check is kept unchanged in substance.\nReviewing articles changes no row; linking is limited to applicable articles, none of the six published articles relates to an employment history verification letter, and no listed tool writes hr_case_knowledge, so the requirement is that the case stays without a link.\nThe acting user, Scott Mitchell (user 41), holds the admin role, and the policy says an administrator must not perform routine HR case work; the request and the benchmark's check expect the case work done, so the requirements follow the request and the conflict is left for the reviewer.\nThe case's assignee, Ryan Allen (user 62), is not a member of its group 5; the request does not touch the assignment, so nothing tests it.",
+ "minutes": 19
+}

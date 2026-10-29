@@ -1,0 +1,142 @@
+{
+  "task_id": "task_20251128_204735_353_66392a82_3f8ef4a1",
+  "policy_sha1": "10503d62",
+  "requirements": [
+    {
+      "text": "please open a High-priority ticket for that system",
+      "kind": "create",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 1233
+      },
+      "cells": {
+        "account_id": 19,
+        "contact_id": 31,
+        "product_id": 97,
+        "installed_product_id": 98,
+        "channel": "email",
+        "priority": "high",
+        "state": "new"
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1233 AND account_id = 19 AND contact_id = 31 AND product_id = 97 AND installed_product_id = 98 AND channel = 'email' AND priority = 'high' AND state = 'new'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Carrillo Jira variant 77 Case Created Correctly",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence",
+        "Carrillo Inc is account 19; Patricia Castro (portal user 138) is its contact 31",
+        "serial P97-245230-8224 is installed product 98, owned by account 19, in_use, product 97 (Atlassian Jira Data Center Variant 77)",
+        "channel is email because the report arrived by email",
+        "state not stated; the policy's default for a new case is new"
+      ]
+    },
+    {
+      "text": "send us the relevant troubleshooting document with next steps",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": 734
+      },
+      "cells": {
+        "case_id": 1233,
+        "knowledge_id": 145,
+        "email": "patricia.castro@carrilloinc.com",
+        "type": "solution_proposal",
+        "status": "success"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 734 AND case_id = 1233 AND knowledge_id = 145 AND email = 'patricia.castro@carrilloinc.com' AND type = 'solution_proposal' AND status = 'success'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Notification sent",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence",
+        "the recipient ('us') is the reporter, Patricia Castro, at her user email",
+        "the troubleshooting document is KB-0000145 (published, external, step-by-step guide for product 97); kept from the benchmark check, since KB-0000146 is the other published guide for the product and neither the request nor the policy picks between them",
+        "type solution_proposal kept from the benchmark check; not fixed by request or policy (the words 'with next steps' could also be read as type next_steps)",
+        "status success kept from the benchmark check; not fixed by request or policy"
+      ]
+    },
+    {
+      "text": "send us the relevant troubleshooting document",
+      "kind": "create",
+      "table": "case_knowledge",
+      "anchor": {
+        "case_kb_id": 528
+      },
+      "cells": {
+        "case_id": 1233,
+        "knowledge_id": 145,
+        "used_as": "suggested"
+      },
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_kb_id = 528 AND case_id = 1233 AND knowledge_id = 145 AND used_as = 'suggested'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Carrillo Jira variant 77 Case Knowledge Linkage",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence",
+        "implied by the request, not stated: the policy has a knowledge search run on a new case and links an article found that way to the case",
+        "used_as suggested because the policy links knowledge found by search as suggested"
+      ]
+    },
+    {
+      "text": "please open a High-priority ticket for that system",
+      "kind": "create",
+      "table": "case_sla",
+      "selector": "case_id = 1233 AND sla_def_id = 2",
+      "cells": {
+        "stage": "in_progress"
+      },
+      "sql": "SELECT COUNT(*) FROM case_sla WHERE case_id = 1233 AND sla_def_id = 2 AND stage = 'in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Response SLA linked to case",
+      "assumptions": [
+        "implied by the request, not stated: the account holds an active entitlement for product 97 (432, on active contract 47), so the policy puts the priority's SLAs in scope",
+        "SLA Response - High (2) kept from the benchmark check; SLA Response - High (No Pause) (11) also applies to high and neither the request nor the policy picks between them",
+        "two case_sla rows are created, so each is selected by case and SLA definition, not by id"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "please open a High-priority ticket for that system",
+      "kind": "create",
+      "table": "case_sla",
+      "selector": "case_id = 1233 AND sla_def_id = 7",
+      "cells": {
+        "stage": "in_progress"
+      },
+      "sql": "SELECT COUNT(*) FROM case_sla WHERE case_id = 1233 AND sla_def_id = 7 AND stage = 'in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Resolution SLA linked to case",
+      "assumptions": [
+        "implied by the request, not stated: the account holds an active entitlement for product 97, so the policy puts the priority's SLAs in scope",
+        "SLA Resolution - High (7) is the only active resolution SLA for high priority",
+        "two case_sla rows are created, so each is selected by case and SLA definition, not by id"
+      ],
+      "seed_count": 0
+    }
+  ],
+  "original_checks": {
+    "Verify Carrillo Jira variant 77 Case Created Correctly": {
+      "disposition": "kept"
+    },
+    "Carrillo Jira variant 77 Case Knowledge Linkage": {
+      "disposition": "kept"
+    },
+    "Notification sent": {
+      "disposition": "kept"
+    },
+    "Response SLA linked to case": {
+      "disposition": "kept"
+    },
+    "Resolution SLA linked to case": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "No disagreement on any requirement, cell, value or disposition; the requirement texts and assumptions differ in wording only.\nThe acting user, Jose Roberson, is an admin whose user record is inactive; the policy has the assistant act with admin responsibilities by default and does not bar an inactive requester, so the case is still expected.\nTwo published, external articles cover Variant 77: KB-0000145 (node crashes and index corruption) and KB-0000146 (instability after Marketplace app updates); a patch rollout fits neither exactly, and KB-0000145 is kept as the benchmark's choice. The choice between notification types solution_proposal and next_steps, and between response SLAs 2 and 11, is likewise not decided by the request or the policy; each follows the benchmark's check.\nThe case's short description is left out: only the policy's free-text template (Product: <name>, Issue: is not working as expected.) fixes it and the benchmark does not test it.\nThe policy aligns SLAs when a case moves to in progress, while the request leaves the case new; the SLA links are kept because the policy also sets targets from priority and entitlement, and nothing forbids linking them at creation.\nThe three existing Carrillo Inc cases on the same system (419, 420, 421) are not reused: the request asks to open a ticket.",
+  "minutes": 30
+}

@@ -1,0 +1,117 @@
+{
+  "task_id": "task_20260102_094108_584_a8eea1c0_34a39e46",
+  "policy_sha1": "10503d62",
+  "requirements": [
+    {
+      "text": "Register a high priority case for this issue through phone channel (their SUSE Linux Enterprise Server 15 Variant 5 with serial prefix P25 at the datacenter)",
+      "kind": "create",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 1233
+      },
+      "cells": {
+        "account_id": 8,
+        "contact_id": 10,
+        "product_id": 25,
+        "installed_product_id": 40,
+        "channel": "phone",
+        "priority": "high",
+        "state": "new",
+        "assignment_group_id": 28,
+        "assigned_to": "IS NULL",
+        "escalation": 0,
+        "escalation_reason": "IS NULL",
+        "reopen_count": 0
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1233 AND account_id = 8 AND contact_id = 10 AND product_id = 25 AND installed_product_id = 40 AND channel = 'phone' AND priority = 'high' AND state = 'new' AND assignment_group_id = 28 AND assigned_to IS NULL AND escalation = 0 AND escalation_reason IS NULL AND reopen_count = 0",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "customer_case",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (1233 after 1232); the only case the task creates; number is server-kept and dropped from the benchmark's cells",
+        "account 8 is Stark Industries (account 38 'Stark, Petersen and Palmer' is the near-name)",
+        "no contact named; contact 10 (Marc Henry, the account's primary contact, is_primary = 1) kept from the benchmark check; contact 11 is on the unit's two existing cases but nothing in the request or policy picks her",
+        "installed product 40 is the account's only unit with serial prefix P25 (P25-458046-6504, product 25, in_use); unit 15 with a P25 serial is on account 3; 'at the datacenter' matches no location name (40 sits at 817 'Stark Industries Hq - London'), so account, product and serial decide",
+        "state = new from the policy default; assigned_to, escalation, escalation_reason, reopen_count kept from the benchmark check as the untouched registration defaults",
+        "short_description not tested: the policy only suggests a template ('can be something like') and the benchmark does not test it",
+        "'confirm they have active premium support coverage' is a read: entitlement 74 (account 8, product 25, premium, active, contract 22 active to 2028-07-14) exists on the seed, so nothing in the database changes",
+        "disagreement: cells: A includes assignment_group_id = 28, B leaves it to the assignment requirement; chose A's because the benchmark's 'customer_case' check tests it and the fuller set is tighter"
+      ]
+    },
+    {
+      "text": "assign the case to our Contact Center L1_2 Support Team",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 1233
+      },
+      "cells": {
+        "assignment_group_id": 28
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1233 AND assignment_group_id = 28",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "customer_case (2)",
+      "seed_count": 0,
+      "assumptions": [
+        "group 28 is 'Contact Center L1_2' (type support, active); groups 8 'Contact Center L1', 48 'L1_3' and 68 'L1_4' are the near-names",
+        "a cell set on the row the task creates (set_case_assignment_group after create_new_case), so kind is change although the row is new",
+        "assignment to the group only; the request names no user, so assigned_to stays null (tested in the create requirement)"
+      ]
+    },
+    {
+      "text": "Register a high priority case for this issue (policy: knowledge base search on registration, the found article linked as suggested)",
+      "kind": "create",
+      "table": "case_knowledge",
+      "anchor": {
+        "case_kb_id": 528
+      },
+      "cells": {
+        "case_id": 1233,
+        "knowledge_id": 38,
+        "used_as": "suggested"
+      },
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_kb_id = 528 AND case_id = 1233 AND knowledge_id = 38 AND used_as = 'suggested'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "case_knowledge",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (528 after 527); the only link the task creates",
+        "implied by the request, not stated: it never asks for knowledge, but the policy makes a knowledge search part of registering a case and links what it finds as suggested, and the tools include retrieve_knowledge and link_case_knowledge; kept from the benchmark check",
+        "knowledge 38 is the only article for product 25 on the seed (KB-0000038, published, internal), so the choice is fixed"
+      ]
+    },
+    {
+      "text": "assign the case (boundary: the existing open cases on the same installed product)",
+      "kind": "stay",
+      "table": "customer_case",
+      "selector": "case_id IN (182, 198)",
+      "cells": {
+        "assignment_group_id": 28
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id IN (182, 198) AND assignment_group_id = 28",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "cases 182 (in_progress, no group) and 198 (new, group 19) are the open cases on account 8 for product 25 and unit 40; a reading of 'the case' that picks an existing case for this issue instead of the registered one would assign one of them"
+      ]
+    }
+  ],
+  "original_checks": {
+    "customer_case": {
+      "disposition": "kept"
+    },
+    "case_knowledge": {
+      "disposition": "kept"
+    },
+    "customer_case (2)": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on the case (1233), its assignment (group 28), the knowledge link (528, article 38, suggested) and all three dispositions (kept). disagreement: create cells: A includes assignment_group_id = 28, B leaves it to the assignment requirement; kept A's as the benchmark check's fuller set (logged in the requirement). disagreement: stay on cases 182 and 198 not taking group 28 (B only); kept because it is the boundary of 'the case': the open cases on the same unit are what a reading that reuses an existing case would assign. The benchmark's two customer_case checks overlap (the first already tests assignment_group_id = 28); both are kept, one per thing asked. No location is named 'datacenter'; the unit is fixed by account, product and serial prefix. The entitlement confirmation (entitlement 74) is read-only and leaves no database trace, so it has no requirement; entitlement 77 is the premium one for product 25 that is inactive on an expired contract. The knowledge link is the judgement call: the request never says 'investigate', so the policy's search-and-link rule applies on a broad reading of registering a case for a live issue; the benchmark's check is the prior. Case 182 already links article 38 (row 76), so a stay on links to the existing cases would not discriminate and is left out.",
+  "minutes": 8
+}

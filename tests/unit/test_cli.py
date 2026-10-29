@@ -10,7 +10,7 @@ def test_help_lists_every_command(capsys):
         cli.main(["--help"])
     assert exit_info.value.code == 0
     out = capsys.readouterr().out
-    assert "run" in out and "replay" in out
+    assert all(name in out for name in ("run", "replay", "split", "schema"))
 
 
 def test_run_help_shows_the_options(capsys):

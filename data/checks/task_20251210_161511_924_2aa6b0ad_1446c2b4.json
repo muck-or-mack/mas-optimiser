@@ -1,0 +1,95 @@
+{
+  "task_id": "task_20251210_161511_924_2aa6b0ad_1446c2b4",
+  "policy_sha1": "a2e285e1",
+  "requirements": [
+    {
+      "text": "their latest in progress case ... make Paul Moyer look after this",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {"case_id": 231},
+      "cells": {"assigned_to": 619, "state": "in_progress"},
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 231 AND assigned_to = 619 AND state = 'in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": ["Validating case update. ", " Validating report notification status. "],
+      "seed_count": 0,
+      "assumptions": [
+        "Jermaine Hall is user 752, portal user of contact 14; case 231 (CS-0000231) is the only in_progress case of contact 14 and is unassigned on the seed",
+        "Paul Moyer is user 619, an active manager, so he meets the policy's agent-or-manager rule for assigned_to",
+        "state in_progress kept from the benchmark check; the request describes the case as in progress and asks no state change"
+      ]
+    },
+    {
+      "text": "make sure the Case Triage_4 group is looking after this with him",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {"case_id": 231},
+      "cells": {"assignment_group_id": 63},
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 231 AND assignment_group_id = 63",
+      "expected": 1,
+      "comparison": "equals",
+      "source": ["Validating case update. ", " Validating report notification status. "],
+      "seed_count": 0,
+      "assumptions": [
+        "Case Triage_4 is group 63 (active, support); the near names Case Triage, Case Triage_2 and Case Triage_3 are other groups"
+      ]
+    },
+    {
+      "text": "make sure the Case Triage_4 group is looking after this with him",
+      "kind": "create",
+      "table": "user_group_member",
+      "anchor": {"member_id": 960},
+      "cells": {"group_id": 63, "user_id": 619},
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 960 AND group_id = 63 AND user_id = 619",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Validating group membership.",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by the request, not stated: the policy requires assigned_to to be a member of assignment_group_id, and Paul Moyer is not a member of group 63 on the seed",
+        "id assumed next in sequence (highest member_id 959)",
+        "the acting user Scott Mitchell (user 41) is an admin, the role the policy allows to change group memberships"
+      ]
+    },
+    {
+      "text": "Once done, report the customer.",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {"notification_id": 734},
+      "cells": {"case_id": 231, "email": "jermaine.hall@hooli.com", "type": "report", "status": "success"},
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 734 AND case_id = 231 AND email = 'jermaine.hall@hooli.com' AND type = 'report' AND status = 'success'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": " Validating report notification status. ",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest notification_id 733)",
+        "email is Jermaine Hall's user email; type report from the request's word report",
+        "status success kept from the benchmark check; not fixed by request or policy"
+      ]
+    },
+    {
+      "text": "their latest in progress case was not assigned to anyone",
+      "kind": "stay",
+      "table": "customer_case",
+      "selector": "contact_id = 14 AND case_id <> 231 AND (assigned_to = 619 OR assignment_group_id = 63)",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE contact_id = 14 AND case_id <> 231 AND (assigned_to = 619 OR assignment_group_id = 63)",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of the selector: Jermaine Hall's other seven cases (three new and two canceled with no assignee, two closed) are not the in-progress case and must not be given Paul Moyer or Case Triage_4",
+        "disagreement: selector and expected: A all seven other cases of contact 14 counted where assigned to user 619 or group 63 (expected 0), B the three other new cases 226, 228 and 246 counted where still unassigned (expected 3); chose A's because it covers every other case of the customer and tests exactly the assignee and group a wrongly chosen case would receive, whereas any other assignment of the new cases is not something this request touches"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Validating case update. ": {"disposition": "kept"},
+    "Validating group membership.": {"disposition": "kept"},
+    " Validating report notification status. ": {"disposition": "kept"}
+  },
+  "notes": "The membership row is not asked for in words; it follows from the policy rule that the assignee must belong to the assignment group, and the benchmark tests it.\nThe report check is a conjunction of the notification cells and the case's state, assignee and group, so it is carried by the notification requirement and jointly by the two case requirements.\nThe notification's knowledge_id is not fixed by the request or policy and is not tested.\ndisagreement: missing requirement: one pass tests the case's assignee, group and state in one requirement, the other gives the group a requirement of its own; kept the separate group requirement because the request asks for the assignee and the group in separate sentences, and the cells tested are the same either way.\ndisagreement: value: the boundary stay on the customer's other cases: one pass counts the seven other cases given Paul Moyer or Case Triage_4 (expected 0), the other counts the three other new cases that stay unassigned (expected 3); chose the first because it covers every other case and tests the exact values a wrongly chosen case would receive.",
+  "minutes": 32
+}

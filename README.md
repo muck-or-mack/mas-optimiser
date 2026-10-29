@@ -142,6 +142,58 @@ mas-optimiser replay runs/<experiment>/<evaluation>/tasks/<task_id>/attempt-1.js
 `--full-policy` prints the whole policy rather than its first lines, and
 `--max-chars N` changes where long tool results and model text are clipped.
 
+## Splitting the tasks
+
+```
+mas-optimiser split --experiment baseline-haiku --name haiku-20-40-40 --seed 0
+```
+
+Draws the training, validation and test sets and writes
+`configs/splits/<name>.json`. For each domain it reads the experiment's
+latest full evaluation that has no label and no command-line option that
+changes what is measured (`--domain`, `--concurrency`, `--out` and the
+tracing switch change nothing), and stops if a domain with a full
+evaluation has none that qualifies, or if the evaluations chosen differ in
+model, mode, harness or attempts. The
+strata are domain crossed with baseline outcome (all, some or none of the
+task's attempts passed), so each set has the same mix of domains and
+difficulty. Tasks listed in `configs/splits/forced-training.yaml` (read or
+inspected by hand, dataset defects, crashes) go into training before the
+draw; the file must exist, and `--forced` names another one.
+`--proportions` sets the shares (default `0.2 0.4 0.4`).
+
+A split is drawn once. The command refuses a name that already has a file,
+since a redraw could move tasks someone has read into a sealed set. The file
+records the seed, proportions, evaluations read, code version, forced list
+and every task's stratum; those fix the draw, and a unit test checks that
+the committed split follows from its own record, so a clean clone can verify
+it without the local runs. The proposer reads training traces only, the
+acceptance gate decides on validation and returns its verdict alone, and the
+test set is opened once for the reported number. Paths here are inside the
+repository, whatever the working directory.
+
+## Local copies of the seed databases
+
+```
+mas-optimiser schema
+```
+
+Seeds a database on each domain's server from every seed file its tasks
+use, reads the CREATE statements of its tables and indexes back, checks
+that all of a domain's seed files share one schema, and writes it to
+`data/schemas/<domain>.sql`. With that file, `seeds.build_seed_database`
+builds a local SQLite copy of any task's starting database, so new checks
+can be tested without the servers. The copies match the servers' databases
+row for row (`uv run pytest -m integration tests/integration/test_seeds.py`),
+with one exception: in many rows the HR server replaces `created_at` and
+`updated_at` with the time it loads the seed (which rows depends on the seed
+file), so those two HR columns are left out of the comparison. The CSM
+server returns at most 100 rows to a query that sets no `LIMIT` of its own. The
+project's own check files, one per task under `data/checks/`, are
+described in `data/checks/README.md`; the runner scores the benchmark's
+checks until they are complete. Both folders are found from the repository,
+whatever the working directory.
+
 ## Watching a run in Langfuse
 
 [Langfuse](https://langfuse.com) shows each task as a tree: the task, every

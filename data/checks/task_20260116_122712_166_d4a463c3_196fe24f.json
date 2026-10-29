@@ -1,0 +1,214 @@
+{
+  "task_id": "task_20260116_122712_166_d4a463c3_196fe24f",
+  "policy_sha1": "c99239b6",
+  "requirements": [
+    {
+      "text": "Establish a new user group named 'Wellness Ambassadors'",
+      "kind": "create",
+      "table": "user_group",
+      "anchor": {
+        "group_id": 19
+      },
+      "cells": {
+        "name": "Wellness Ambassadors",
+        "type": "Service Desk",
+        "active": 1,
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM user_group WHERE group_id = 19 AND name = 'Wellness Ambassadors' AND type = 'Service Desk' AND active = 1 AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "Verifier 1: Wellness Ambassadors Group Created",
+        "Verifier 8: Wellness Ambassadors Group Type Validation"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest group_id in the seed is 18)",
+        "type = 'Service Desk' kept from the benchmark check; not fixed by request or policy",
+        "active = 1 kept from the benchmark check; a newly established group is active",
+        "org_id 1 is the organisation of the acting user (Karen Watkins, user 39) and of Tabitha Bullock"
+      ]
+    },
+    {
+      "text": "immediately enlist 'Tabitha Bullock' as its first member",
+      "kind": "create",
+      "table": "user_group_member",
+      "anchor": {
+        "member_id": 44
+      },
+      "cells": {
+        "group_id": 19,
+        "user_id": 3,
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 44 AND group_id = 19 AND user_id = 3 AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verifier 2: Tabitha Bullock Added to Wellness Ambassadors",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest member_id in the seed is 43)",
+        "Tabitha Bullock resolved by name to user 3, the only user with that name, active in org 1",
+        "group 19 is the new Wellness Ambassadors group"
+      ]
+    },
+    {
+      "text": "Define a new 'Health Coaching' skill",
+      "kind": "create",
+      "table": "skill",
+      "anchor": {
+        "skill_id": 20
+      },
+      "cells": {
+        "name": "Health Coaching",
+        "active": 1,
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM skill WHERE skill_id = 20 AND name = 'Health Coaching' AND active = 1 AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verifier 3: Health Coaching Skill Created",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest skill_id in the seed is 19)",
+        "active = 1 kept from the benchmark check; not fixed by request or policy"
+      ]
+    },
+    {
+      "text": "assign this qualification to Tabitha's user profile",
+      "kind": "create",
+      "table": "user_skill",
+      "anchor": {
+        "user_skill_id": 336
+      },
+      "cells": {
+        "skill": 20,
+        "user": 3,
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM user_skill WHERE user_skill_id = 336 AND skill = 20 AND user = 3 AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verifier 4: Health Coaching Skill Assigned to Tabitha",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest user_skill_id in the seed is 335)",
+        "skill 20 is the new Health Coaching skill; user 3 is Tabitha Bullock"
+      ]
+    },
+    {
+      "text": "Register a new 'Mental Health Support' HR Service under the 'Benefits' topic category",
+      "kind": "create",
+      "table": "topic_detail",
+      "anchor": {
+        "topic_detail_id": 36
+      },
+      "cells": {
+        "name": "Mental Health Support",
+        "topic_category": 3,
+        "active": 1,
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM topic_detail WHERE topic_detail_id = 36 AND name = 'Mental Health Support' AND topic_category = 3 AND active = 1 AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verifier 5: Mental Health Support Topic Detail Created",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by the request, not stated: an HR service links to a topic detail, not to a category, so placing it under Benefits needs a topic detail in that category; add_new_topic_detail is a listed tool",
+        "id assumed next in sequence (highest topic_detail_id in the seed is 35)",
+        "Benefits resolved by name to topic_category 3 in org 1",
+        "name = 'Mental Health Support' kept from the benchmark check; not fixed by request or policy"
+      ]
+    },
+    {
+      "text": "Register a new 'Mental Health Support' HR Service under the 'Benefits' topic category, setting the fulfillment type to 'manual'",
+      "kind": "create",
+      "table": "hr_service",
+      "anchor": {
+        "hr_service_id": 55
+      },
+      "cells": {
+        "service_name": "Mental Health Support",
+        "fulfillment_type": "manual",
+        "topic_detail": 36,
+        "active": 1,
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 55 AND service_name = 'Mental Health Support' AND fulfillment_type = 'manual' AND topic_detail = 36 AND active = 1 AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verifier 6: Mental Health Support HR Service Created",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest hr_service_id in the seed is 54)",
+        "topic_detail 36 is the new Mental Health Support topic detail under Benefits",
+        "active = 1 kept from the benchmark check; not fixed by request or policy"
+      ]
+    },
+    {
+      "text": "set up a new assignment rule ... routed based on Health Coaching skills, assigned to the Wellness Ambassadors group, remain active, and apply to medium-priority requests",
+      "kind": "create",
+      "table": "assignment_rules",
+      "anchor": {
+        "assignment_rule_id": 9
+      },
+      "cells": {
+        "based_on_skills": "LIKE '%Health Coaching%'",
+        "user_group": 19,
+        "active": 1,
+        "based_on_priority": "IN ('medium', 'moderate')",
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM assignment_rules WHERE assignment_rule_id = 9 AND based_on_skills LIKE '%Health Coaching%' AND user_group = 19 AND active = 1 AND based_on_priority IN ('medium', 'moderate') AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verifier 7: Assignment Rule Created for Wellness Program",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest assignment_rule_id in the seed is 8)",
+        "user_group 19 is the new Wellness Ambassadors group",
+        "the seed stores based_on_skills as a JSON list of skill names (e.g. [\"Benefits\", \"401k\"]), so the skill is matched by name; the benchmark's skill-id alternative is not carried",
+        "medium priority: the request and the policy's priority list say 'medium', the policy's case default is 'moderate', and every seed rule and case uses 'moderate' for that level, so either value is accepted",
+        "rule name not stated; left untested"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verifier 3: Health Coaching Skill Created": {
+      "disposition": "kept"
+    },
+    "Verifier 1: Wellness Ambassadors Group Created": {
+      "disposition": "kept"
+    },
+    "Verifier 2: Tabitha Bullock Added to Wellness Ambassadors": {
+      "disposition": "kept"
+    },
+    "Verifier 4: Health Coaching Skill Assigned to Tabitha": {
+      "disposition": "kept"
+    },
+    "Verifier 5: Mental Health Support Topic Detail Created": {
+      "disposition": "kept"
+    },
+    "Verifier 6: Mental Health Support HR Service Created": {
+      "disposition": "kept"
+    },
+    "Verifier 7: Assignment Rule Created for Wellness Program": {
+      "disposition": "kept"
+    },
+    "Verifier 8: Wellness Ambassadors Group Type Validation": {
+      "disposition": "kept"
+    },
+    "Verifier 9: Tabitha Bullock Active Status": {
+      "disposition": "weak",
+      "evidence": "user 3 is already active in organisation 1 before the agent acts; the check tests a seed fact only"
+    },
+    "Verifier 10: Benefits Topic Category Exists": {
+      "disposition": "weak",
+      "evidence": "topic_category 3 'Benefits' with coe_type 'Total Rewards' already exists in organisation 1; the check tests a seed fact only"
+    }
+  },
+  "notes": "The two independent passes agree on every requirement, id, cell and disposition; no disagreement was found.\nVerifier 8 returns the group's type rather than a count; it duplicates the type cell of the group requirement and is carried there jointly with Verifier 1.\nGroup type Service Desk comes only from the benchmark; neither the request nor the policy names a type.\nThe benchmark's assignment-rule check also accepts the Health Coaching skill id appearing anywhere in based_on_skills; the requirement matches the skill by name, the storage format the seed's existing rules use.\nThe rule's priority cell is not tested by the benchmark: the request says medium, the policy lists medium yet names moderate as its case default, the seed's vocabulary is moderate, and both spellings pass.\nGroup, member, skill, user skill, topic detail, service and rule ids are each the next in their table's sequence because the task creates exactly one row in each.",
+  "minutes": 30
+}

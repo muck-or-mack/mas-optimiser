@@ -1,0 +1,241 @@
+{
+ "task_id": "task_20251224_064352_705_ec0cb5dd_46d83d4e",
+ "policy_sha1": "b2da3f42",
+ "requirements": [
+  {
+   "text": "instead we need to route it to IT Support which has more people with diverse skills",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 2
+   },
+   "cells": {
+    "assignment_group": 1,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 2 AND assignment_group = 1 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "Verifier 2.7: Case Escalated to IT Support",
+    "Verifier 2.13: Approver Remains Michael Rodriguez"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "HRC-0002 is hr_case 2, assigned to Service Desk (group 2) in the seed and tagged with skills [2] (Benefits Advisor)",
+    "the Service Desk escalation rule (3) routes to Infrastructure Team (group 4), whose only member, Michael Rodriguez (user 2), holds Performance Management but not Benefits Advisor, so the request's IT Support branch applies",
+    "IT Support is group 1, active, in organisation 1",
+    "org_id 1 kept from the benchmark check; not fixed by request or policy (it is the case's organisation in the seed)",
+    "disagreement: org_id cell: A 1, B left out as a seed fact of the anchored case; chose 1 because the benchmark check tests it and nothing in the request, policy or seed contradicts it",
+    "disagreement: structure: A tests status, approver and request_status in this requirement, B in a separate stay; chose the stay, so this requirement tests only what changes and the stay tests what must not"
+   ]
+  },
+  {
+   "text": "but also increase the priority to high since we're deviating from the normal escalation path",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 2
+   },
+   "cells": {
+    "priority": "high"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 2 AND priority = 'high'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verifier 2.8: Priority Increased to High",
+   "seed_count": 0,
+   "assumptions": [
+    "the case is routed to IT Support instead of Infrastructure Team, so the request's priority increase applies; the seed priority is moderate"
+   ]
+  },
+  {
+   "text": "once you update the case assignment",
+   "kind": "stay",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 2
+   },
+   "cells": {
+    "approver": 2,
+    "request_status": "requested",
+    "status": "awaiting_approval"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 2 AND approver = 2 AND request_status = 'requested' AND status = 'awaiting_approval'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verifier 2.13: Approver Remains Michael Rodriguez",
+   "seed_count": 1,
+   "assumptions": [
+    "kept from the benchmark check; not fixed by request or policy: the request asks only for the assignment and priority to change, and the policy's transitions out of awaiting_approval follow an approval decision, which the request does not make"
+   ]
+  },
+  {
+   "text": "Don't proceed ... if we're trying to assign to someone who doesn't have the necessary skills",
+   "kind": "stay",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 2
+   },
+   "cells": {
+    "assigned_to": 3
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 2 AND assigned_to = 3",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 1,
+   "assumptions": [
+    "the policy requires the assignee to be an active member of the assignment group; of IT Support's members (users 3 and 4) only Emily Watson (user 3), the current assignee, has Benefits Advisor, so the assignee must stay user 3 and cannot be cleared"
+   ]
+  },
+  {
+   "text": "create a checklist task for the new team documenting why this was escalated and what's been attempted so far",
+   "kind": "create",
+   "table": "hr_case_task",
+   "anchor": {
+    "hr_case_task_id": 6
+   },
+   "cells": {
+    "parent_case": 2,
+    "assignment_group": 1,
+    "task_type": "checklist",
+    "status": "ready",
+    "org_id": 1,
+    "short_description": [
+     "LIKE '%Escalation%'",
+     "LIKE '%Service Desk%'",
+     "LIKE '%IT Support%'",
+     "LIKE '%Benefits%'"
+    ]
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case_task WHERE hr_case_task_id = 6 AND parent_case = 2 AND assignment_group = 1 AND task_type = 'checklist' AND status = 'ready' AND org_id = 1 AND short_description LIKE '%Escalation%' AND short_description LIKE '%Service Desk%' AND short_description LIKE '%IT Support%' AND short_description LIKE '%Benefits%'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verifier 2.9: Escalation Task Documents IT Support Assignment",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (highest hr_case_task_id in the seed is 5)",
+    "the new team is IT Support (group 1); the task belongs to case 2, in organisation 1",
+    "status ready kept from the benchmark check; not fixed by request or policy",
+    "short_description keywords (Escalation, Service Desk, IT Support, Benefits) kept from the benchmark check; not fixed by request or policy, though the reason for escalation the request asks for names the groups and the benefits skill"
+   ]
+  },
+  {
+   "text": "send an alert notification to whoever is in the newly assigned group so they know an escalated case is coming their way",
+   "kind": "create",
+   "table": "notification",
+   "selector": "hr_case_id = 2 AND email = 'emily.watson@techcorp.com'",
+   "cells": {
+    "type": "alert",
+    "status": "ready",
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM notification WHERE hr_case_id = 2 AND email = 'emily.watson@techcorp.com' AND type = 'alert' AND status = 'ready' AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verifier 2.10: Alert Sent to Emily Watson (IT Support Member)",
+   "seed_count": 0,
+   "assumptions": [
+    "the request speaks of 'an alert notification' and of 'both notifications', so one alert is sent; Emily Watson (user 3) is the IT Support member who is the case's assignee and holds the case's skill",
+    "status ready kept from the benchmark check; not fixed by request or policy",
+    "two notification rows are created, so each is selected by case and recipient rather than by id"
+   ]
+  },
+  {
+   "text": "look up who originally opened this case and send them an update notification letting them know their benefits case has been escalated",
+   "kind": "create",
+   "table": "notification",
+   "selector": "hr_case_id = 2 AND email = 'michael.rodriguez@techcorp.com'",
+   "cells": {
+    "type": "update",
+    "status": "ready",
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM notification WHERE hr_case_id = 2 AND email = 'michael.rodriguez@techcorp.com' AND type = 'update' AND status = 'ready' AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verifier 2.11: Update Sent to Michael Rodriguez (Case Opener)",
+   "seed_count": 0,
+   "assumptions": [
+    "case 2 has opened_by = hr_profile 2, which belongs to user 2, Michael Rodriguez (michael.rodriguez@techcorp.com); opened_for (James Brown) is the subject, not the opener",
+    "status ready kept from the benchmark check; not fixed by request or policy"
+   ]
+  },
+  {
+   "text": "Make sure both notifications link back to the case properly.",
+   "kind": "create",
+   "table": "notification",
+   "selector": "hr_case_id = 2",
+   "cells": {
+    "status": "ready",
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM notification WHERE hr_case_id = 2 AND status = 'ready' AND org_id = 1",
+   "expected": 2,
+   "comparison": "equals",
+   "source": "Verifier 2.12: Exactly Two Notifications Sent",
+   "seed_count": 0,
+   "assumptions": [
+    "the request names two notifications (the alert and the update), so exactly two new ready notifications point to case 2",
+    "the seed's only notification on case 2 (id 2, to James Brown) is work_in_progress and is not counted",
+    "disagreement: expected: A 3, B 2; chose 2 because the request's 'both notifications' counts two and the benchmark check expects two, which the request does not contradict"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Verifier 2.1: Case HRC-0002 Exists in Organization 1": {
+   "disposition": "weak",
+   "evidence": "tests seed facts alone: hr_case 2 is HRC-0002, awaiting_approval, in organisation 1 before the agent acts"
+  },
+  "Verifier 2.2: Escalation Rule Exists from Service Desk to Infrastructure Team": {
+   "disposition": "weak",
+   "evidence": "tests seed facts alone: escalation_rule 3 runs from Service Desk (group 2) to Infrastructure Team (group 4) in organisation 1"
+  },
+  "Verifier 2.3: Infrastructure Team Has One Member": {
+   "disposition": "weak",
+   "evidence": "tests seed facts alone: member 6 puts Michael Rodriguez (user 2) in Infrastructure Team (group 4)"
+  },
+  "Verifier 2.4: Michael Rodriguez Lacks Required Skill (Benefits Advisor)": {
+   "disposition": "weak",
+   "evidence": "tests seed facts alone: user 2 holds skill 4 (Performance Management) and no user_skill row gives him skill 2 (Benefits Advisor)"
+  },
+  "Verifier 2.5: IT Support Has Two Members": {
+   "disposition": "weak",
+   "evidence": "tests seed facts alone: IT Support (group 1) has two members, users 3 and 4"
+  },
+  "Verifier 2.6: Emily Watson Has Required Skill (Benefits Advisor)": {
+   "disposition": "weak",
+   "evidence": "tests seed facts alone: user_skill 2 gives Emily Watson (user 3) skill 2"
+  },
+  "Verifier 2.7: Case Escalated to IT Support": {
+   "disposition": "repaired",
+   "evidence": "the updated_at >= now - 5 minutes predicate tests a server-kept timestamp that depends on when the check runs, and is dropped; number is the anchored row's display number, kept by the server, and is not a cell"
+  },
+  "Verifier 2.8: Priority Increased to High": {
+   "disposition": "repaired",
+   "evidence": "the updated_at >= now - 5 minutes predicate tests a server-kept timestamp that depends on when the check runs, and is dropped"
+  },
+  "Verifier 2.9: Escalation Task Documents IT Support Assignment": {
+   "disposition": "repaired",
+   "evidence": "the created_at >= now - 5 minutes predicate tests a server-kept timestamp that depends on when the check runs, and is dropped"
+  },
+  "Verifier 2.10: Alert Sent to Emily Watson (IT Support Member)": {
+   "disposition": "repaired",
+   "evidence": "the created_at >= now - 5 minutes predicate tests a server-kept timestamp that depends on when the check runs, and is dropped"
+  },
+  "Verifier 2.11: Update Sent to Michael Rodriguez (Case Opener)": {
+   "disposition": "repaired",
+   "evidence": "the created_at >= now - 5 minutes predicate tests a server-kept timestamp that depends on when the check runs, and is dropped"
+  },
+  "Verifier 2.12: Exactly Two Notifications Sent": {
+   "disposition": "repaired",
+   "evidence": "the created_at >= now - 5 minutes predicate tests a server-kept timestamp that depends on when the check runs, and is dropped; the count of two is unchanged"
+  },
+  "Verifier 2.13: Approver Remains Michael Rodriguez": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "disagreement: missing requirement: one pass adds an alert to David Kim (user 4), the other IT Support member, reading 'whoever is in the newly assigned group' as every member; dropped because the request speaks of 'an alert notification' and of 'both notifications', which the benchmark's single alert to Emily Watson and its count of exactly two match, so the request does not contradict the benchmark's reading.\ndisagreement: value: the expected count of ready notifications on case 2: one pass 3, the other 2; chose 2, following the dropped alert (logged on the requirement).\ndisagreement: missing requirement: one pass has a stay that case 2 keeps approver 2, request_status requested and status awaiting_approval, the other tests the same three cells inside the assignment change; kept the stay, so the change tests what moves and the stay what must not, with the benchmark's approver check carried jointly by both (logged on the assignment requirement).\ndisagreement: value: org_id in the assignment change: one pass tests org_id = 1, the other leaves it to the anchor as a seed fact; kept org_id = 1 because the benchmark check tests it and nothing contradicts it (logged on the requirement).\nDecision path on the seed: HRC-0002 (hr_case 2) sits in Service Desk (group 2) with skills [2] (Benefits Advisor); the rule from Service Desk escalates to Infrastructure Team (group 4), whose only member Michael Rodriguez lacks Benefits Advisor, so the case goes to IT Support (group 1) at priority high. All three groups exist and are active, so no validation failure stops the request.\nThe reading of a single alert is the point a reviewer is most likely to read differently: 'whoever is in the newly assigned group' could also mean one alert per IT Support member, three notifications in all, which would fail the count of two.\nThe six seed-fact checks (escalation rule, group memberships, skills, the case's starting state) are weak and are not carried. The task's assigned_to is not tested: the request names only the team and the benchmark does not test it, though the policy would require any assignee to be an active member of IT Support. The policy's 30-120 character limit on short_description is not tested by the benchmark and is left out; LIKE matching is case-insensitive, but 'Escalated' does not satisfy '%Escalation%'. No checklist item rows are required: the request asks for a task of type checklist, and no listed tool writes the checklist table.\nThe acting user Sarah Chen is an admin; the policy bars admins from routine HR case work but gives them full write access, and the benchmark expects the escalation to be carried out, so the request is treated as permitted.",
+ "minutes": 54
+}

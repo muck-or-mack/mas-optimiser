@@ -1,0 +1,197 @@
+{
+ "task_id": "task_20251127_152838_396_99ba2325_8391501f",
+ "policy_sha1": "10503d62",
+ "requirements": [
+  {
+   "text": "deactivate the retiring site A",
+   "kind": "change",
+   "table": "location",
+   "anchor": {
+    "location_id": 892
+   },
+   "cells": {
+    "active": 0
+   },
+   "sql": "SELECT COUNT(*) FROM location WHERE location_id = 892 AND active = 0",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify location deactivated",
+   "seed_count": 0,
+   "assumptions": [
+    "'Simon Llc Site A - New York' is location 892 by exact name"
+   ]
+  },
+  {
+   "text": "move the repaired asset whose serial ends with nine-six-five-nine pattern over to site B",
+   "kind": "change",
+   "table": "installed_product",
+   "anchor": {
+    "installed_product_id": 250
+   },
+   "cells": {
+    "location_id": 907
+   },
+   "sql": "SELECT COUNT(*) FROM installed_product WHERE installed_product_id = 250 AND location_id = 907",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify Installed product",
+   "seed_count": 0,
+   "assumptions": [
+    "the repaired asset whose serial ends in 9659 is installed product 250 (P113-336951-9659, status repair, Simon LLC, at site A); it is the only Simon LLC asset with that ending",
+    "'Simon Llc Site B - New York' is location 907 by exact name"
+   ]
+  },
+  {
+   "text": "make sure it's in use there also",
+   "kind": "change",
+   "table": "installed_product",
+   "anchor": {
+    "installed_product_id": 250
+   },
+   "cells": {
+    "status": "in_use"
+   },
+   "sql": "SELECT COUNT(*) FROM installed_product WHERE installed_product_id = 250 AND status = 'in_use'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify Installed product",
+   "seed_count": 0,
+   "assumptions": [
+    "the repaired asset whose serial ends in 9659 is installed product 250 (P113-336951-9659, status repair, Simon LLC, at site A); it is the only Simon LLC asset with that ending"
+   ]
+  },
+  {
+   "text": "leave a trace or ticket-like record in the system so there's a paper trail of the repositioning",
+   "kind": "create",
+   "table": "customer_case",
+   "anchor": {
+    "case_id": 1233
+   },
+   "cells": {
+    "account_id": 45,
+    "contact_id": "IN (103, 104, 105, 106)",
+    "product_id": 113,
+    "installed_product_id": 250,
+    "channel": "alert",
+    "state": "new",
+    "priority": "moderate"
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1233 AND account_id = 45 AND contact_id IN (103, 104, 105, 106) AND product_id = 113 AND installed_product_id = 250 AND channel = 'alert' AND state = 'new' AND priority = 'moderate'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify case creation",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence",
+    "the ticket-like record is a customer case, the only record type the available actions can create for this",
+    "Simon LLC is account 45",
+    "contact_id must be one of Simon LLC's contacts (103 to 106): the policy has the reporting contact verified against the account; which one is not fixed",
+    "product_id 113 is installed product 250's product, which the policy says the case product must match",
+    "state new and priority moderate are the policy's defaults for a new case",
+    "channel alert kept from the benchmark check; not fixed by request or policy"
+   ]
+  },
+  {
+   "text": "then alert their primary contact once the whole reshuffle has been reconciled",
+   "kind": "create",
+   "table": "notification",
+   "anchor": {
+    "notification_id": 734
+   },
+   "cells": {
+    "case_id": 1233,
+    "email": "kayla.lutz@simonllc.com",
+    "type": "alert",
+    "status": "success"
+   },
+   "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 734 AND case_id = 1233 AND email = 'kayla.lutz@simonllc.com' AND type = 'alert' AND status = 'success'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify send notification",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence",
+    "Simon LLC's primary contact is Kayla Lutz (contact 103, kayla.lutz@simonllc.com), the account's only contact with is_primary = 1",
+    "type alert from the request's word 'alert'",
+    "case_id is the new case, assumed next in sequence",
+    "status success kept from the benchmark check; not fixed by request or policy"
+   ]
+  },
+  {
+   "text": "the other NY branch, Simon Llc Site B - New York, is becoming the primary location",
+   "kind": "stay",
+   "table": "location",
+   "anchor": {
+    "location_id": 907
+   },
+   "cells": {
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM location WHERE location_id = 907 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 1,
+   "assumptions": [
+    "'Simon Llc Site B - New York' is location 907 by exact name",
+    "boundary of 'deactivate the retiring site A': site B is the other Simon LLC New York site and becomes primary, so it stays active"
+   ]
+  },
+  {
+   "text": "move the repaired asset whose serial ends with nine-six-five-nine pattern over to site B",
+   "kind": "stay",
+   "table": "installed_product",
+   "anchor": {
+    "installed_product_id": 251
+   },
+   "cells": {
+    "location_id": 892,
+    "status": "repair"
+   },
+   "sql": "SELECT COUNT(*) FROM installed_product WHERE installed_product_id = 251 AND location_id = 892 AND status = 'repair'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 1,
+   "assumptions": [
+    "boundary of 'the repaired asset': installed product 251 (P147-765685-5711) is Simon LLC's other asset in repair at site A, but its serial does not end in 9659, so it is neither moved nor set in use"
+   ]
+  },
+  {
+   "text": "move the repaired asset whose serial ends with nine-six-five-nine pattern over to site B",
+   "kind": "stay",
+   "table": "installed_product",
+   "anchor": {
+    "installed_product_id": 277
+   },
+   "cells": {
+    "location_id": 899,
+    "status": "in_use"
+   },
+   "sql": "SELECT COUNT(*) FROM installed_product WHERE installed_product_id = 277 AND location_id = 899 AND status = 'in_use'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 1,
+   "assumptions": [
+    "boundary of the serial match: installed product 277 (P205-451267-9659) also ends in 9659 but belongs to account 49, sits at location 899 and is in use, not in repair, so it is not moved"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Verify location deactivated": {
+   "disposition": "kept"
+  },
+  "Verify Installed product": {
+   "disposition": "kept"
+  },
+  "Verify case creation": {
+   "disposition": "kept"
+  },
+  "Verify send notification": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "disagreement: missing requirement: one pass has a stay that Simon LLC's other site-A assets (248, 249, 251, 252, 253) all keep location 892, the other a stay on 251 alone; kept the stay on 251 and dropped the other four rows because 251 is the only other asset in repair at site A, the row a loose reading of 'the repaired asset' sweeps in, while 248 and 249 (in use) and 252 and 253 (retired) match neither 'repaired' nor the 9659 ending; 'incrementally sunset' describes the site's gradual phase-out and forbids nothing, so keeping those four at site A is a collateral invariant, not a requirement.\ndisagreement: cells: the stays on installed products 251 and 277 test location only in one pass, location and status (repair for 251, in_use for 277) in the other; kept the tighter form, since both predicates hold on the seed and a loose match would both move the asset and set it in use.\ndisagreement: form: one pass tests installed product 250's move to location 907 and its in_use status in one requirement, the other in two; kept two, one per thing the request asks ('move ... over to site B' and 'make sure it's in use there also'), both carrying 'Verify Installed product'; the conjunction of the two is the same test.\nThe two passes otherwise agree on every requirement, cell and value (location 892 deactivated, location 907 left active, case 1233 for account 45 with installed product 250 and product 113, notification 734 to Kayla Lutz on that case) and on all four dispositions (kept).\nThe acting user (user 32) is an active admin, and the policy has the assistant act with admin rights by default, so deactivating a location and updating an installed product are allowed. Location 907 (site B) exists in the seed, so no location is created.\nOrder matters for the policy but cannot be seen in the final state: the policy forbids attaching an item in repair status to a new case, so the asset must be set in use before the case is created, and the request also places the case and the notification after the move.\nThe case's short description is not tested: the request gives no text and the policy's 'Product: <name>, Issue: ...' template is only an example the benchmark does not test. The case's channel and the notification's status are kept from the benchmark checks, since neither the request nor the policy fixes them.",
+ "minutes": 36
+}

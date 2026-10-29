@@ -1,0 +1,138 @@
+{
+ "task_id": "task_20260121_145409_648_1afb323a_4e203caa",
+ "policy_sha1": "3e91ce7d",
+ "requirements": [
+  {
+   "text": "set up a contract for them from mid-november 2025 till mid-november 2026, and the amount was like seventy-two grand",
+   "kind": "create",
+   "table": "contract",
+   "anchor": {
+    "contract_id": 154
+   },
+   "cells": {
+    "account_id": 45,
+    "contract_type": "support",
+    "status": "active",
+    "start_date": "2025-11-15",
+    "end_date": "2026-11-15",
+    "contract_price": 72000
+   },
+   "sql": "SELECT COUNT(*) FROM contract WHERE contract_id = 154 AND account_id = 45 AND contract_type = 'support' AND status = 'active' AND start_date = '2025-11-15' AND end_date = '2026-11-15' AND contract_price = 72000",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify Contract",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (highest contract_id on the seed is 153); one contract is created",
+    "Simon LLC is account 45, the only account of that name",
+    "contract_type support from 'a new support thing'",
+    "mid-November read as the 15th: start 2025-11-15, end 2026-11-15, as the benchmark check has it",
+    "seventy-two grand read as a contract_price of 72000",
+    "status active kept from the benchmark check; not fixed by request or policy (also the column's default)"
+   ]
+  },
+  {
+   "text": "they want fast handling for high prio stuff, so maybe response around forty-five mins",
+   "kind": "create",
+   "table": "sla_definition",
+   "selector": "metric = 'response' AND applies_to_priority = 'high'",
+   "cells": {
+    "target_mins": 45,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM sla_definition WHERE metric = 'response' AND applies_to_priority = 'high' AND target_mins = 45 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify SLA definitions response",
+   "seed_count": 0,
+   "assumptions": [
+    "two SLA definitions are created, so each is selected by metric and priority rather than by id",
+    "target_mins 45 from 'around forty-five mins'; applies_to_priority high from 'high prio stuff'",
+    "active 1 kept from the benchmark check; not fixed by request or policy (also the column's default)",
+    "the seed's high-priority response definitions (2 at 30 minutes, 11 at 25 minutes) do not match, so the count is the new row alone"
+   ]
+  },
+  {
+   "text": "fix time around four hours",
+   "kind": "create",
+   "table": "sla_definition",
+   "selector": "metric = 'resolution' AND applies_to_priority = 'high'",
+   "cells": {
+    "target_mins": 240,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM sla_definition WHERE metric = 'resolution' AND applies_to_priority = 'high' AND target_mins = 240 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify SLA definitions resolution",
+   "seed_count": 0,
+   "assumptions": [
+    "'fix time' is the resolution metric, for the same high-priority cases; four hours is 240 minutes",
+    "two SLA definitions are created, so each is selected by metric and priority rather than by id",
+    "active 1 kept from the benchmark check; not fixed by request or policy (also the column's default)",
+    "the seed's high-priority resolution definition (7 at 480 minutes) does not match, so the count is the new row alone"
+   ]
+  },
+  {
+   "text": "plus that full-time premium coverage, the all-day all-night kind. and they’re trying to keep their monthly case load to fifteen",
+   "kind": "create",
+   "table": "entitlement",
+   "anchor": {
+    "entitlement_id": 432
+   },
+   "cells": {
+    "account_id": 45,
+    "product_id": 31,
+    "contract_id": 154,
+    "support_level": "premium",
+    "coverage_hours": "h24x7",
+    "max_cases_per_month": 15,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM entitlement WHERE entitlement_id = 432 AND account_id = 45 AND product_id = 31 AND contract_id = 154 AND support_level = 'premium' AND coverage_hours = 'h24x7' AND max_cases_per_month = 15 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify entitlement",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (highest entitlement_id on the seed is 431); one entitlement is created",
+    "'NGINX Plus v11 box' is product 31, NGINX Plus Variant 11 (active)",
+    "support_level premium and coverage_hours h24x7 from 'full-time premium coverage, the all-day all-night kind'",
+    "max_cases_per_month 15 from 'monthly case load to fifteen'",
+    "contract_id 154: the entitlement belongs to the new support contract set up in the same request (427 of the seed's 431 entitlements carry a contract of the same account); the benchmark check does not test it",
+    "active 1 kept from the benchmark check; not fixed by request or policy (also the column's default)"
+   ]
+  },
+  {
+   "text": "that NGINX Plus v11 box they’re using",
+   "kind": "stay",
+   "table": "entitlement",
+   "selector": "account_id = 45 AND product_id = 11",
+   "cells": {},
+   "sql": "SELECT COUNT(*) FROM entitlement WHERE account_id = 45 AND product_id = 11",
+   "expected": 0,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 0,
+   "assumptions": [
+    "boundary of the product match: product 11 is named plain 'NGINX Plus' and its id echoes the request's 'v11', but the request means NGINX Plus Variant 11 (product 31); Simon LLC has no entitlement on product 11 on the seed"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Verify Contract": {
+   "disposition": "kept"
+  },
+  "Verify SLA definitions response": {
+   "disposition": "kept"
+  },
+  "Verify entitlement": {
+   "disposition": "kept"
+  },
+  "Verify SLA definitions resolution": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "The SLA definitions have no link to an account, contract or entitlement in this schema, so they are tested as new global high-priority definitions, as the benchmark does. The seed already holds near matches (definition 5: response, 45 minutes, no priority, inactive; definition 6: resolution, 240 minutes, critical); no listed tool updates existing definitions, so the two SLA requirements can only be met by new rows.\nThe SLA definitions' names are free text and pause_on_pending is not stated, so neither is tested.\nThe entitlement's link to the new contract is added to the benchmark's entitlement check, since the request sets up one support arrangement made of the contract, the entitlement and the SLA targets.\n'the old one's kinda wrapping up soon' asks for no change to the existing contracts, and no listed tool updates contracts or entitlements, so the existing ones are left untested. Simon LLC has no installed product of NGINX Plus Variant 11 on the seed.\ndisagreement: a stay holding Simon LLC's entitlements off product 11 (plain 'NGINX Plus'), present in one pass only; kept because product 11 is the near-namesake a loose reading of 'NGINX Plus v11' would pick, so the stay is the boundary of the product match rather than a generic invariant, and it catches a second entitlement on the wrong product, which the anchored create cannot.",
+ "minutes": 36
+}

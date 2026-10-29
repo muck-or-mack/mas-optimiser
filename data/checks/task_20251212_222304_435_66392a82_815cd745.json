@@ -1,0 +1,179 @@
+{
+ "task_id": "task_20251212_222304_435_66392a82_815cd745",
+ "policy_sha1": "10503d62",
+ "requirements": [
+  {
+   "text": "identify all her active cases, assign them to Lisa Smith, and make sure those cases are now owned by the Case Assignment_3 support group",
+   "kind": "change",
+   "table": "customer_case",
+   "selector": "case_id IN (251, 1142)",
+   "cells": {
+    "assigned_to": 496,
+    "assignment_group_id": 44
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id IN (251, 1142) AND assigned_to = 496 AND assignment_group_id = 44",
+   "expected": 2,
+   "comparison": "equals",
+   "source": "All Active Tabitha Cases Reassigned To Lisa",
+   "seed_count": 0,
+   "assumptions": [
+    "Tabitha Bullock is user 3 and Lisa Smith user 496 (agent, active), each the only user of that name; Case Assignment_3 is group 44, the exact name match",
+    "active cases are those not resolved, closed or canceled: of user 3's three cases, 251 (new) and 1142 (in_progress) are active and 1088 (canceled) is not",
+    "state not stated; neither request nor policy fixes it, so it is not tested"
+   ]
+  },
+  {
+   "text": "identify all her active cases",
+   "kind": "stay",
+   "table": "customer_case",
+   "selector": "case_id = 1088",
+   "cells": {
+    "assigned_to": 3,
+    "assignment_group_id": 67
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1088 AND assigned_to = 3 AND assignment_group_id = 67",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 1,
+   "assumptions": [
+    "case 1088 is also assigned to Tabitha but canceled, so it is outside her active cases and keeps its assignment; reassigning it would sweep in a case the request leaves out"
+   ]
+  },
+  {
+   "text": "assign them to Lisa Smith, and make sure those cases are now owned by the Case Assignment_3 support group",
+   "kind": "create",
+   "table": "user_group_member",
+   "anchor": {
+    "member_id": 960
+   },
+   "cells": {
+    "group_id": 44,
+    "user_id": 496
+   },
+   "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 960 AND group_id = 44 AND user_id = 496",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Lisa Is Member Of Case Assignment_3",
+   "seed_count": 0,
+   "assumptions": [
+    "implied by the request, not stated: the policy requires assigned_to to be a member of the assignment group, and user 496 is in groups 9 and 63 only on the seed",
+    "id assumed next in sequence (highest member_id on the seed is 959)"
+   ]
+  },
+  {
+   "text": "owned by the Case Assignment_3 support group",
+   "kind": "stay",
+   "table": "user_group_member",
+   "selector": "user_id = 496 AND group_id IN (4, 24, 64)",
+   "cells": {},
+   "sql": "SELECT COUNT(*) FROM user_group_member WHERE user_id = 496 AND group_id IN (4, 24, 64)",
+   "expected": 0,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 0,
+   "assumptions": [
+    "groups 4, 24 and 64 are Case Assignment, Case Assignment_2 and Case Assignment_4, near matches of the named group; Lisa is not added to them"
+   ]
+  },
+  {
+   "text": "After the reassignment is complete, offboard Tabitha's profile",
+   "kind": "change",
+   "table": "user",
+   "anchor": {
+    "user_id": 3
+   },
+   "cells": {
+    "first_name": "Tabitha",
+    "last_name": "Bullock",
+    "active": 0
+   },
+   "sql": "SELECT COUNT(*) FROM \"user\" WHERE user_id = 3 AND first_name = 'Tabitha' AND last_name = 'Bullock' AND active = 0",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Tabitha Bullock Deactivated",
+   "seed_count": 0,
+   "assumptions": [
+    "offboarding the profile means deactivating user 3 (active = 0), active on the seed; the request asks for no role or other profile change"
+   ]
+  },
+  {
+   "text": "send a report notification to their contact confirming that a new case owner has been assigned",
+   "kind": "create",
+   "table": "notification",
+   "selector": "case_id = 251 AND email = 'brandon.davis@vehementcap.com'",
+   "cells": {
+    "type": "report",
+    "status": "success"
+   },
+   "sql": "SELECT COUNT(*) FROM notification WHERE case_id = 251 AND email = 'brandon.davis@vehementcap.com' AND type = 'report' AND status = 'success'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Notification Sent To Brandon",
+   "seed_count": 0,
+   "assumptions": [
+    "case 251's contact is contact 15, Brandon Davis (user 10, brandon.davis@vehementcap.com) of Vehement Capital Partners",
+    "two notifications are created, so each is selected by its case and recipient, not by id",
+    "the benchmark check reaches the recipient through the case's contact; the requirement tests the notification's own email, since the request sends it to the case's contact",
+    "status success kept from the benchmark check; not fixed by request or policy"
+   ]
+  },
+  {
+   "text": "send a report notification to their contact confirming that a new case owner has been assigned",
+   "kind": "create",
+   "table": "notification",
+   "selector": "case_id = 1142 AND email = 'david.trujillo@hernandezbarnettandstewart.com'",
+   "cells": {
+    "type": "report",
+    "status": "success"
+   },
+   "sql": "SELECT COUNT(*) FROM notification WHERE case_id = 1142 AND email = 'david.trujillo@hernandezbarnettandstewart.com' AND type = 'report' AND status = 'success'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Notification Sent To David",
+   "seed_count": 0,
+   "assumptions": [
+    "case 1142's contact is contact 112, David Trujillo (user 340, david.trujillo@hernandezbarnettandstewart.com) of Hernandez, Barnett and Stewart",
+    "the request's singular 'the customer whose active case' is read as each customer with an active case, since both active cases are reassigned",
+    "two notifications are created, so each is selected by its case and recipient, not by id",
+    "the seed already holds an update notification (681) to this address for case 1142; the type report keeps it out of the count",
+    "the benchmark check reaches the recipient through the case's contact; the requirement tests the notification's own email",
+    "status success kept from the benchmark check; not fixed by request or policy"
+   ]
+  },
+  {
+   "text": "for the customer whose active case Tabitha was handling, send a report notification",
+   "kind": "stay",
+   "table": "notification",
+   "selector": "case_id = 1088",
+   "cells": {},
+   "sql": "SELECT COUNT(*) FROM notification WHERE case_id = 1088",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 1,
+   "assumptions": [
+    "case 1088 is canceled, so its customer (Cox, Foster and Gilmore, contact Patrick Ross) gets no new notification; it has one notification on the seed"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Tabitha Bullock Deactivated": {
+   "disposition": "kept"
+  },
+  "All Active Tabitha Cases Reassigned To Lisa": {
+   "disposition": "kept"
+  },
+  "Lisa Is Member Of Case Assignment_3": {
+   "disposition": "kept"
+  },
+  "Notification Sent To Brandon": {
+   "disposition": "kept"
+  },
+  "Notification Sent To David": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "No disagreements: the two independent passes agree on every requirement, value and disposition; their texts and assumptions differ in wording only.\nThe request speaks of 'the customer whose active case Tabitha was handling' in the singular, but Tabitha holds two active cases for two customers (251 for Vehement Capital Partners, 1142 for Hernandez, Barnett and Stewart), so each case's contact gets a report notification. 'Their contact' is read as the case's contact: for case 1142 that is David Trujillo, while the account's primary contact is Nathan Scott (contact 111); the request does not name the primary contact.\nThe benchmark's two notification checks join the case to its contact's user email but never test the notification's own recipient; the requirements carry each check and add the recipient address, which the request fixes ('to their contact'). The notification's message (new owner assigned, now managed by Case Assignment_3) has no column in the notification table, so it is not testable.\n'Offboard Tabitha Bullock from our frontline case queue' is read as the summary of the steps that follow (reassign her active cases, then deactivate her profile); removing her membership of group 67 (Account Management_4) is not asked for in so many words and no listed tool removes a membership, so it is not a requirement. The order 'after the reassignment is complete' cannot be seen in the final state.\nThe acting user, Jose Roberson (user 32), is an admin but inactive on the seed; the policy has the assistant act with admin rights by default and states no bar on an inactive acting user.",
+ "minutes": 30
+}

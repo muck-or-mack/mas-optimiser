@@ -1,0 +1,257 @@
+{
+  "task_id": "task_20260107_162554_472_accab84d_41d2e871",
+  "policy_sha1": "b3841dd3",
+  "requirements": [
+    {
+      "text": "Create high priority cases for David Ramirez ... who reported software failures in their installed products Tomcat 9 Variant 12",
+      "kind": "create",
+      "table": "customer_case",
+      "selector": "case_id > 1232 AND contact_id = 48 AND installed_product_id = 134",
+      "cells": {
+        "account_id": 25,
+        "product_id": 32,
+        "channel": "web",
+        "priority": "high"
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id > 1232 AND contact_id = 48 AND installed_product_id = 134 AND account_id = 25 AND product_id = 32 AND channel = 'web' AND priority = 'high'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Case 1233 Created (David Ramirez - Tomcat 9 Variant 12)",
+      "seed_count": 0,
+      "assumptions": [
+        "David Ramirez is portal user 18, contact 48 (primary, active) of account 25 Miller-Willis; Tomcat 9 Variant 12 is product 32 (active software), and the account's only unit of it is installed product 134 (in_use)",
+        "two cases are created, so the row is selected by its natural key (contact and unit) among rows created after the seed (case_id > 1232; cases 550 and 557 already pair this contact and unit), not by the benchmark's case_id 1233, which fixes a creation order the request does not",
+        "channel web kept from the benchmark check; not fixed by request or policy (this policy has no channel default)",
+        "priority high is the request's word; state is tested by the in-progress requirement below; short_description is free text and not tested",
+        "entitlement 236 (product 32, premium, active, contract 61 active to 2027-06-02) is valid, so the case may be registered"
+      ]
+    },
+    {
+      "text": "Create high priority cases for ... Alexis Torres ... Tomcat 9 Variant 32",
+      "kind": "create",
+      "table": "customer_case",
+      "selector": "case_id > 1232 AND contact_id = 120 AND installed_product_id = 293",
+      "cells": {
+        "account_id": 52,
+        "product_id": 52,
+        "channel": "web",
+        "priority": "high"
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id > 1232 AND contact_id = 120 AND installed_product_id = 293 AND account_id = 52 AND product_id = 52 AND channel = 'web' AND priority = 'high'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Case 1234 Created (Alexis Torres - Tomcat 9 Variant 32)",
+      "seed_count": 0,
+      "assumptions": [
+        "Alexis Torres is portal user 238, contact 120 (primary, active) of account 52 Klein, Black and Wood; Tomcat 9 Variant 32 is product 52 (active software), and the account's only unit of it is installed product 293 (in_use)",
+        "selected by natural key among created rows (case 1204 already pairs this contact and unit), not by the benchmark's case_id 1234",
+        "channel web kept from the benchmark check; not fixed by request or policy",
+        "entitlement 422 (product 52, premium, active, contract 129 active to 2027-05-14) is valid"
+      ]
+    },
+    {
+      "text": "Begin investigation immediately by moving cases into in progress (David's case)",
+      "kind": "change",
+      "table": "customer_case",
+      "selector": "case_id > 1232 AND contact_id = 48 AND installed_product_id = 134",
+      "cells": {
+        "state": "in_progress"
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id > 1232 AND contact_id = 48 AND installed_product_id = 134 AND state = 'in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "new to in_progress is a valid transition under the policy's lifecycle; the benchmark never tests the state"
+      ]
+    },
+    {
+      "text": "Begin investigation immediately by moving cases into in progress (Alexis's case)",
+      "kind": "change",
+      "table": "customer_case",
+      "selector": "case_id > 1232 AND contact_id = 120 AND installed_product_id = 293",
+      "cells": {
+        "state": "in_progress"
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id > 1232 AND contact_id = 120 AND installed_product_id = 293 AND state = 'in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "as for David's case"
+      ]
+    },
+    {
+      "text": "moving cases into in progress (policy: when a new case moves to work in progress the appropriate SLA is aligned; response SLA, David's case)",
+      "kind": "create",
+      "table": "case_sla",
+      "selector": "case_id IN (SELECT case_id FROM customer_case WHERE case_id > 1232 AND contact_id = 48 AND installed_product_id = 134)",
+      "cells": {
+        "sla_def_id": 2
+      },
+      "sql": "SELECT COUNT(*) FROM case_sla WHERE case_id IN (SELECT case_id FROM customer_case WHERE case_id > 1232 AND contact_id = 48 AND installed_product_id = 134) AND sla_def_id = 2",
+      "expected": 1,
+      "comparison": "equals",
+      "source": " Verify Case 1233 Response SLA (SLA 2)",
+      "seed_count": 0,
+      "assumptions": [
+        "the policy says a new case moving to in progress gets the appropriate SLA aligned; the request never names SLAs",
+        "SLA 2 is 'SLA Response - High' (active, pause_on_pending 1), matching the case's priority; kept from the benchmark check as the prior",
+        "evidence against 2: SLA 11 'SLA Response - High (No Pause)' is also active for priority high, the seed attaches 11 (never 2) to all 317 of its high-priority cases, and sla_definition has no support-level or coverage column by which the entitlement could choose; evidence for 2: it is active, applies to high, and neither the request nor the policy rules it out, so the seed's convention is not a contradiction",
+        "four case_sla rows are created in no fixed order, so the row is selected by case and SLA definition, not by its case_sla_id",
+        "disagreement: sla_def_id: A 2, B IN (2, 11); chose 2 because nothing in the request, policy or seed contradicts the benchmark's value (the seed's preference for 11 is a convention, not a rule)",
+        "stage and start_time are not fixed by the request",
+        "disagreement: form only: A writes the selector as prose with a JOIN in the sql, B as a subquery on the case's natural key; B's form is kept because the selector is then valid SQL"
+      ]
+    },
+    {
+      "text": "moving cases into in progress (policy: appropriate SLA aligned; resolution SLA, David's case)",
+      "kind": "create",
+      "table": "case_sla",
+      "selector": "case_id IN (SELECT case_id FROM customer_case WHERE case_id > 1232 AND contact_id = 48 AND installed_product_id = 134)",
+      "cells": {
+        "sla_def_id": 7
+      },
+      "sql": "SELECT COUNT(*) FROM case_sla WHERE case_id IN (SELECT case_id FROM customer_case WHERE case_id > 1232 AND contact_id = 48 AND installed_product_id = 134) AND sla_def_id = 7",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Case 1233 Resolution SLA (SLA 7)",
+      "seed_count": 0,
+      "assumptions": [
+        "SLA 7 is 'SLA Resolution - High', the only active resolution SLA for priority high",
+        "selected by case and SLA definition, not by case_sla_id 2466"
+      ]
+    },
+    {
+      "text": "moving cases into in progress (policy: appropriate SLA aligned; response SLA, Alexis's case)",
+      "kind": "create",
+      "table": "case_sla",
+      "selector": "case_id IN (SELECT case_id FROM customer_case WHERE case_id > 1232 AND contact_id = 120 AND installed_product_id = 293)",
+      "cells": {
+        "sla_def_id": 2
+      },
+      "sql": "SELECT COUNT(*) FROM case_sla WHERE case_id IN (SELECT case_id FROM customer_case WHERE case_id > 1232 AND contact_id = 120 AND installed_product_id = 293) AND sla_def_id = 2",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Case 1234 Response SLA (SLA 2)",
+      "seed_count": 0,
+      "assumptions": [
+        "as for David's response SLA, including the sla_def_id disagreement (A 2, B IN (2, 11); chose 2)",
+        "selected by case and SLA definition, not by case_sla_id 2467"
+      ]
+    },
+    {
+      "text": "moving cases into in progress (policy: appropriate SLA aligned; resolution SLA, Alexis's case)",
+      "kind": "create",
+      "table": "case_sla",
+      "selector": "case_id IN (SELECT case_id FROM customer_case WHERE case_id > 1232 AND contact_id = 120 AND installed_product_id = 293)",
+      "cells": {
+        "sla_def_id": 7
+      },
+      "sql": "SELECT COUNT(*) FROM case_sla WHERE case_id IN (SELECT case_id FROM customer_case WHERE case_id > 1232 AND contact_id = 120 AND installed_product_id = 293) AND sla_def_id = 7",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Case 1234 Resolution SLA (SLA 7)",
+      "seed_count": 0,
+      "assumptions": [
+        "as for David's resolution SLA",
+        "selected by case and SLA definition, not by case_sla_id 2468"
+      ]
+    },
+    {
+      "text": "Begin investigation immediately (policy: a knowledge base search is performed and found articles are linked as suggested; David's case)",
+      "kind": "create",
+      "table": "case_knowledge",
+      "selector": "case_id IN (SELECT case_id FROM customer_case WHERE case_id > 1232 AND contact_id = 48 AND installed_product_id = 134)",
+      "cells": {
+        "knowledge_id": 18,
+        "used_as": "suggested"
+      },
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_id IN (SELECT case_id FROM customer_case WHERE case_id > 1232 AND contact_id = 48 AND installed_product_id = 134) AND knowledge_id = 18 AND used_as = 'suggested'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Case 1233 Linked to KB 18",
+      "seed_count": 0,
+      "assumptions": [
+        "the policy says a new case asked to be investigated gets a knowledge search, and an article found that way is linked as suggested; the request never names an article",
+        "KB 18 kept from the benchmark check as the prior: it is published (external), titled 'Issue Resolution related to Tomcat 9', the base product (product 12) of the case's Tomcat 9 Variant 12, and a title search for the variant matches it",
+        "evidence against 18: its product 12 is lifecycle retired and is not the case's product 32; KB 49 (published, internal) is the seed's only article for product 32 itself and the only article the seed's product-32 cases link (4 links, never 18); evidence for 18: the policy requires only that a linked article be published and ties no article's product to the case's product, so nothing contradicts the benchmark's choice",
+        "two case_knowledge rows are created, so the row is selected by case and article, not by case_kb_id 528",
+        "disagreement: knowledge_id: A 18, B 49; chose 18 because nothing in the request, policy or seed contradicts the benchmark's value (the seed's product-32 convention is not a rule); an agent that links 49 instead fails here"
+      ]
+    },
+    {
+      "text": "Begin investigation immediately (policy: knowledge search, linked as suggested; Alexis's case)",
+      "kind": "create",
+      "table": "case_knowledge",
+      "selector": "case_id IN (SELECT case_id FROM customer_case WHERE case_id > 1232 AND contact_id = 120 AND installed_product_id = 293)",
+      "cells": {
+        "knowledge_id": 77,
+        "used_as": "suggested"
+      },
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_id IN (SELECT case_id FROM customer_case WHERE case_id > 1232 AND contact_id = 120 AND installed_product_id = 293) AND knowledge_id = 77 AND used_as = 'suggested'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Case 1234 Linked to KB 77",
+      "seed_count": 0,
+      "assumptions": [
+        "KB 77 kept from the benchmark check: published, external, for product 52, and the article the seed's product-52 case 1204 links; KB 76 (published, internal, product 52) is equally eligible and nothing in the request or policy decides between them",
+        "selected by case and article, not by case_kb_id 529"
+      ]
+    },
+    {
+      "text": "(policy: articles linked to a case must be in state published; none of the created cases links an unpublished article)",
+      "kind": "stay",
+      "table": "case_knowledge",
+      "selector": "case_id > 1232 AND knowledge_id IN (SELECT knowledge_id FROM knowledge WHERE state <> 'published')",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_id > 1232 AND knowledge_id IN (SELECT knowledge_id FROM knowledge WHERE state <> 'published')",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "forbidden by the policy's knowledge-linking rule; all four candidate articles (18, 49, 76, 77) are published, so this guards against a wider search",
+        "disagreement: B only (A wrote no stay, finding nothing forbidden); kept because the policy forbids linking an unpublished article, which is one of the two kinds of stay allowed"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify Case 1233 Created (David Ramirez - Tomcat 9 Variant 12)": {
+      "disposition": "repaired",
+      "evidence": "every cell holds (contact 48, account 25, product 32, unit 134, channel web, priority high); two cases are created and the request fixes no order, so the anchor case_id = 1233 is replaced by the natural key (contact and unit, created after the seed)"
+    },
+    "Verify Case 1234 Created (Alexis Torres - Tomcat 9 Variant 32)": {
+      "disposition": "repaired",
+      "evidence": "as above for contact 120, account 52, product 52, unit 293; anchor case_id = 1234 replaced by the natural key"
+    },
+    " Verify Case 1233 Response SLA (SLA 2)": {
+      "disposition": "repaired",
+      "evidence": "the anchors case_sla_id = 2465 and case_id = 1233 fix a creation order among four rows that the request does not, so the row is selected by the case's natural key and the SLA definition; sla_def_id 2 is kept: it is an active response SLA for priority high, and although SLA 11 also is and the seed attaches 11 (never 2) to all 317 of its high-priority cases, neither the request nor the policy chooses, so the benchmark's value is not contradicted"
+    },
+    "Verify Case 1233 Resolution SLA (SLA 7)": {
+      "disposition": "repaired",
+      "evidence": "SLA 7 is the only active resolution SLA for priority high; anchors case_sla_id = 2466 and case_id = 1233 replaced by the natural key"
+    },
+    "Verify Case 1234 Response SLA (SLA 2)": {
+      "disposition": "repaired",
+      "evidence": "as for case 1233's response SLA; anchors case_sla_id = 2467 and case_id = 1234 replaced by the natural key, sla_def_id 2 kept"
+    },
+    "Verify Case 1234 Resolution SLA (SLA 7)": {
+      "disposition": "repaired",
+      "evidence": "as for case 1233's resolution SLA; anchors case_sla_id = 2468 and case_id = 1234 replaced by the natural key"
+    },
+    "Verify Case 1233 Linked to KB 18": {
+      "disposition": "repaired",
+      "evidence": "the anchors case_kb_id = 528 and case_id = 1233 fix an order among two rows that the request does not, so the row is selected by the case's natural key and the article; KB 18 is kept: it is published and nothing in the request or policy contradicts it, although its product 12 (Tomcat 9, retired) is not the case's product 32, whose own published article KB 49 is what the seed's product-32 cases link"
+    },
+    "Verify Case 1234 Linked to KB 77": {
+      "disposition": "repaired",
+      "evidence": "KB 77 is published and kept as the benchmark's choice; anchors case_kb_id = 529 and case_id = 1234 replaced by the natural key"
+    }
+  },
+  "notes": "Merged from two passes that agree on every row (two cases, two state changes, four SLA rows, two knowledge links, all selected by natural key because every benchmark check anchors a sequence id among several created rows) and on all eight dispositions (repaired). disagreement: value: the response SLA on both cases, A keeps the benchmark's sla_def_id 2, B widens it to IN (2, 11); chose 2 because the seed's convention (11 on all 317 high-priority cases, 2 on none) is not a contradiction, and the policy does not choose between the two active high-priority response SLAs; the evidence both ways is in the requirements and the check evidence. disagreement: value: David's knowledge link, A keeps the benchmark's KB 18, B changes it to KB 49; chose 18 because the policy requires only a published article and ties no article's product to the case's product; the evidence for 49 (the case's own product, the seed's product-32 convention) is recorded. disagreement: missing requirement: B's stay that no created case links an unpublished article; kept because the policy forbids it. disagreement: form: A writes the case_sla and case_knowledge selectors as prose with a JOIN in the sql, B as a subquery on the case's natural key; B's form kept. The benchmark's original checks give expected as the string \"1\"; the requirements use the integer. 'impacting major operations' could justify an escalation under the policy's 'may be raised' clause, but the request does not ask for one, so none is required. The entitlement check the policy asks for leaves no database state to test; the per-month limits (20 and 10 cases) are not checked against the seed's monthly counts. The acting user is an admin. revised: the unpublished-article stay joined knowledge in its FROM clause and named aliased columns in its selector, so its sql was more than the selector over case_knowledge; the selector now reads case_knowledge's own columns with a subquery on knowledge's state, which counts the same rows (0 on the seed).",
+  "minutes": 18
+}

@@ -1,0 +1,106 @@
+{
+  "task_id": "task_20251222_105710_498_391f1eff_8b25dbef",
+  "policy_sha1": "c56705c3",
+  "requirements": [
+    {
+      "text": "confirm that it reflects validation of urgency being set to high due to the high business impact on the Core-Switch-HQ (Cisco) network",
+      "kind": "change",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_012"
+      },
+      "cells": {
+        "urgency": "high",
+        "impact": "high",
+        "priority": "critical"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_012' AND urgency = 'high' AND impact = 'high' AND priority = 'critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Incident update",
+      "seed_count": 0,
+      "assumptions": [
+        "INC-000012 resolved to INC_012 by number on the seed (caller USER_039 Karen Watkins; urgency medium, impact high, priority high, status new; CI CI_004)",
+        "urgency is medium on the seed, so 'confirm ... urgency being set to high' is a change",
+        "impact = high is named by the request ('high business impact') and already holds on the seed; it is a cell so the priority rule is pinned to its inputs",
+        "priority = critical from the policy matrix (impact high x urgency high), as the benchmark check tests"
+      ]
+    },
+    {
+      "text": "Ensure the resolution on this incident is accelerated accordingly",
+      "kind": "change",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_012"
+      },
+      "cells": {
+        "status": "in_progress"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_012' AND status = 'in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Incident update",
+      "seed_count": 0,
+      "assumptions": [
+        "status = in_progress kept from the benchmark check; 'resolution ... accelerated' implies starting work (new -> in_progress is a valid transition under policy 3.3), not stated",
+        "resolving is not the reading: the request gives no resolution_code or resolution_notes, which policy 3.3 makes mandatory for resolved",
+        "split from the urgency requirement so a missed status move is seen apart from a missed urgency change"
+      ]
+    },
+    {
+      "text": "clearly conveys an appropriate communication to Karen to bring it to her notice regarding the incident resolution work",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": "NOTIF_031"
+      },
+      "cells": {
+        "incident_id": "INC_012",
+        "email": "karen.watkins@servicenow.com",
+        "type": "update",
+        "status": "queued"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 'NOTIF_031' AND incident_id = 'INC_012' AND email = 'karen.watkins@servicenow.com' AND type = 'update' AND status = 'queued'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Notification sent",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (NOTIF_031 after NOTIF_030); the only notification the task creates, and none exists for INC_012 on the seed",
+        "Karen resolved to the incident's caller USER_039, email karen.watkins@servicenow.com, on the seed",
+        "type = update and status = queued kept from the benchmark check; not fixed by request or policy",
+        "subject and message not tested: the request asks for 'an appropriate communication' without fixing the words"
+      ]
+    },
+    {
+      "text": "high business impact on the Core-Switch-HQ (Cisco) network causing interface flapping",
+      "kind": "stay",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_012"
+      },
+      "cells": {
+        "configuration_item": "CI_004"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_012' AND configuration_item = 'CI_004'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "boundary of the CI mention: the incident already points at CI_004 'Core-Switch-HQ (Cisco)' (in_use) and must keep it; the other Cisco and Switch CIs on the seed are CI_005 'VPN-Gateway-Lon (Cisco ASA)' and CI_045 'IT Lab Switch' (retired, which policy 5.1 forbids linking)",
+        "disagreement: A writes this stay, B does not; kept because the request names the CI, find_configuration_items and update_incident are listed so a re-link is possible, and a near match exists on the seed (two other Cisco or Switch CIs, one retired and forbidden by policy 5.1), so it is a boundary of a named entity, not a generic invariant"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Incident update": {
+      "disposition": "kept"
+    },
+    "Notification sent": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on both benchmark checks (kept), the split of the single 'Incident update' check into two change requirements on INC_012 (urgency, impact and the matrix priority critical; status in_progress as the benchmark's reading of 'resolution accelerated'), and the notification to Karen Watkins (NOTIF_031, INC_012, type update, status queued, the benchmark's values).\ndisagreement: a stay that INC_012 keeps configuration_item = CI_004: A writes it, B does not; kept as the boundary of the named CI, since the tools can re-link and the seed holds a retired switch the policy forbids (logged in the requirement).\nSeed facts re-checked at merge: INC_012 is INC-000012 (caller USER_039, urgency medium, impact high, priority high, status new, CI CI_004, assigned USER_059 in GROUP_007); CI_004 Core-Switch-HQ (Cisco) is in_use; NOTIF_030 is the highest notification id and none belongs to INC_012; the acting user USER_096 Kurt Fritz is a manager (full CRUD on incident), so the policy allows the update and the notification. No requirement is written for the message's content, since the request fixes none.",
+  "minutes": 22
+}

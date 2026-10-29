@@ -1,0 +1,169 @@
+{
+  "task_id": "task_20251205_075543_102_46ca2862_7ba653d0",
+  "policy_sha1": "0c2e755d",
+  "requirements": [
+    {
+      "text": "if it’s not in a usable state, make whatever updates are needed to get it ready",
+      "kind": "change",
+      "table": "knowledge",
+      "anchor": {
+        "knowledge_id": 197
+      },
+      "cells": {
+        "state": "published"
+      },
+      "sql": "SELECT COUNT(*) FROM knowledge WHERE knowledge_id = 197 AND state = 'published'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "update_knowledge",
+      "seed_count": 0,
+      "assumptions": [
+        "the appropriate article is KB-0000197 (knowledge_id 197), the only article whose product (130, NetApp FAS2750) is the case's product; the FAS2750 Variant articles belong to other products",
+        "the article is retired on the seed; the policy lets only published articles be linked, so getting it ready means state published"
+      ]
+    },
+    {
+      "text": "Find an appropriate knowledge article and link it to the case",
+      "kind": "create",
+      "table": "case_knowledge",
+      "anchor": {
+        "case_kb_id": 528
+      },
+      "cells": {
+        "case_id": 2,
+        "knowledge_id": 197,
+        "used_as": "suggested"
+      },
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_kb_id = 528 AND case_id = 2 AND knowledge_id = 197 AND used_as = 'suggested'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "link_case_knowledge",
+      "seed_count": 0,
+      "assumptions": [
+        "case CS-0000002 is case_id 2",
+        "id assumed next in sequence; the task creates one link",
+        "used_as suggested: the article is found by a knowledge search, which the policy links as suggested; kept from the benchmark check"
+      ]
+    },
+    {
+      "text": "link a relevant KB article to case CS-0000002",
+      "kind": "stay",
+      "table": "case_knowledge",
+      "selector": "case_id = 2 AND knowledge_id IN (212, 213, 230, 247, 267, 268)",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_id = 2 AND knowledge_id IN (212, 213, 230, 247, 267, 268)",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "the NetApp FAS2750 Variant articles (212, 213, 230, 247, 267, 268) near-match the case's product by title but belong to products 142, 154, 166 and 178, not the case's product 130, so none may be linked to this case",
+        "disagreement: selector: A any article other than 197 (knowledge_id <> 197), B the six Variant articles; chose the Variant articles because a stay marks the boundary a loose reading would cross, and the request does not forbid linking a further relevant article"
+      ]
+    },
+    {
+      "text": "placed under the Case Management support group",
+      "kind": "create",
+      "table": "user_group",
+      "anchor": {
+        "group_id": 81
+      },
+      "cells": {
+        "name": "Case Management",
+        "type": "support",
+        "active": 1
+      },
+      "sql": "SELECT COUNT(*) FROM user_group WHERE group_id = 81 AND name = 'Case Management' AND type = 'support' AND active = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "add_new_user_group",
+      "seed_count": 0,
+      "assumptions": [
+        "no group named Case Management exists on the seed, so it must be created",
+        "id assumed next in sequence; the task creates one group",
+        "type support from the request's words 'support group'",
+        "disagreement: active: A 1, B not tested; chose 1 because the request says the group will be handling the case moving forward, which an inactive group cannot, and active has no default in the table, so the agent must set it"
+      ]
+    },
+    {
+      "text": "Make sure she’s set up in the system and placed under the Case Management support group",
+      "kind": "create",
+      "table": "user_group_member",
+      "anchor": {
+        "member_id": 960
+      },
+      "cells": {
+        "group_id": 81,
+        "user_id": 4
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 960 AND group_id = 81 AND user_id = 4",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "add_new_group_member",
+      "seed_count": 0,
+      "assumptions": [
+        "Joanne Simpson is user_id 4 (joanne.simpson@servicenow.com), already an active manager, so being set up means the group membership",
+        "id assumed next in sequence; the task creates one membership"
+      ]
+    },
+    {
+      "text": "the case is being assigned to Joanne Simpson ... the Case Management support group that’ll be handling this case moving forward",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 2
+      },
+      "cells": {
+        "assignment_group_id": 81,
+        "assigned_to": 4
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 2 AND assignment_group_id = 81 AND assigned_to = 4",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "update_case",
+      "seed_count": 0,
+      "assumptions": [
+        "assignment_group_id 81 is the new Case Management group",
+        "Joanne's role manager meets the policy's agent-or-manager rule for assigned_to, and the new membership makes her a member of the assigned group"
+      ]
+    },
+    {
+      "text": "link it to the case",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 2
+      },
+      "cells": {
+        "state": "pending"
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 2 AND state = 'pending'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "update_case",
+      "seed_count": 0,
+      "assumptions": [
+        "the policy marks a case pending once it is linked to a knowledge article; new to pending is a valid transition"
+      ]
+    }
+  ],
+  "original_checks": {
+    "update_knowledge": {
+      "disposition": "kept"
+    },
+    "link_case_knowledge": {
+      "disposition": "kept"
+    },
+    "add_new_user_group": {
+      "disposition": "kept"
+    },
+    "add_new_group_member": {
+      "disposition": "kept"
+    },
+    "update_case": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Joanne Simpson already exists as user_id 4 (active, role manager), so no user row is created. 'She'll be focusing solely on this one' is not read as a removal of her existing memberships (CSM Tier 1 Support, Contract & Warranty Desk_4): the request asks only to place her in the new group and no listed tool removes a membership.\nThe benchmark's case check joins the assignment (asked by the request) and state pending (set by the policy once an article is linked); it is carried by two requirements, one per step.\nThe acting user Thomas Green (user_id 1) is an inactive agent on the seed; the policy's default is to act with admin responsibilities, so group and membership creation is treated as allowed, as the benchmark's checks assume.\ndisagreement: state pending on case 2 as its own requirement (one pass) or inside the assignment requirement (the other); kept as its own requirement because the state comes from the policy's rule for a case linked to an article, not from the assignment sentence, and both requirements carry the same benchmark check\ndisagreement: stay selector on case 2's links: one pass any article other than 197, the other the six FAS2750 Variant articles; chose the Variant articles because a stay marks the boundary a loose reading would cross, and the request does not forbid a further relevant link\ndisagreement: active cell on the new group: one pass 1, the other untested; chose 1 because the group is to handle the case moving forward and the table gives active no default",
+  "minutes": 34
+}

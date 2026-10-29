@@ -1,0 +1,79 @@
+{
+  "task_id": "task_20251218_220134_063_391f1eff_30369342",
+  "policy_sha1": "c56705c3",
+  "requirements": [
+    {
+      "text": "New database 'DB Center' (serial number: DB-CEN-101) was deployed at 'The Hive' with an estimated cost of 200 Pounds. The owner, Carl Brown",
+      "kind": "create",
+      "table": "configuration_item",
+      "anchor": {
+        "configuration_item_id": "CI_101"
+      },
+      "cells": {
+        "name": "DB Center",
+        "serial_number": "DB-CEN-101",
+        "owner_id": "USER_082",
+        "location_id": "LOC_009",
+        "status": "in_use",
+        "cost": 200
+      },
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE configuration_item_id = 'CI_101' AND name = 'DB Center' AND serial_number = 'DB-CEN-101' AND owner_id = 'USER_082' AND location_id = 'LOC_009' AND status = 'in_use' AND cost = 200",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "New CI",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (CI_101 after CI_100); the task creates exactly one CI",
+        "Carl Brown resolves to USER_082 (the only Carl or Brown in users, a reporter, active); 'The Hive' resolves to LOC_009",
+        "name = 'DB Center' added from the request's words; the benchmark check does not test it",
+        "status = in_use kept from the benchmark check; 'was deployed' and policy 5.1 (only in_use or maintenance CIs may be linked to an active incident) support it, the request does not state it",
+        "cost = 200 from '200 Pounds'; the currency has no column",
+        "org_id not fixed by request or policy; not tested"
+      ]
+    },
+    {
+      "text": "Carl Brown, emailed that the database is having performance issues ... classify both impact and urgency as high, record a new incident linked to the database",
+      "kind": "create",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_101"
+      },
+      "cells": {
+        "configuration_item": "CI_101",
+        "caller_id": "USER_082",
+        "channel": "email",
+        "status": "new",
+        "category": "database",
+        "impact": "high",
+        "urgency": "high",
+        "priority": "critical"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_101' AND configuration_item = 'CI_101' AND caller_id = 'USER_082' AND channel = 'email' AND status = 'new' AND category = 'database' AND impact = 'high' AND urgency = 'high' AND priority = 'critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "New incident",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (INC_101 after INC_100); the task creates exactly one incident",
+        "caller is the owner Carl Brown (USER_082), who reported the issue; the acting user Karen Watkins (USER_039, admin) logs it and is not the caller",
+        "channel = email because Carl 'emailed'",
+        "priority = critical from the policy matrix (impact high x urgency high)",
+        "status = new from the policy's default state for new incidents",
+        "category = database kept from the benchmark check; the request calls the CI a database and 'database' is a seed category value",
+        "'linked to the database' is read as incident.configuration_item = CI_101, the CI registered in the same task; no tool writes incident_affected_cis",
+        "'affecting the data service': no service in the seed has 'data' in its name, so no service cell is tested",
+        "short_description is mandatory by policy but its wording is not fixed by the request; not tested"
+      ]
+    }
+  ],
+  "original_checks": {
+    "New incident": {
+      "disposition": "kept"
+    },
+    "New CI": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on both benchmark checks (kept), the new CI (CI_101: name DB Center, serial DB-CEN-101, owner USER_082, location LOC_009, in_use, cost 200) and the new incident (INC_101 on CI_101, caller USER_082, email, new, database, impact and urgency high, priority critical). No disagreements: the two passes differ only in the wording of their assumptions, which are folded together above. Both passes add the CI's name from the request's words, which the benchmark check does not test. The acting user Karen Watkins (USER_039) is an admin, so the policy's role checks block neither creation. No stay requirements: the request forbids nothing and uses no selector; the pre-existing CI owned by Carl Brown (CI_084, serial TAB-CB-082) is not a near-match for DB-CEN-101, and the seed's two other database CIs (CI_001, CI_017) have other owners and serials. The incident's service is left untested because the seed has no data service. No row must be gone, so there is no remove requirement. revised: the note on disagreements now speaks of the two passes rather than their files.",
+  "minutes": 21
+}

@@ -1,0 +1,280 @@
+{
+ "task_id": "task_20251224_234036_267_accab84d_f26a18f7",
+ "policy_sha1": "b2da3f42",
+ "requirements": [
+  {
+   "text": "Create a case for Denise Hawkins (ACC-882-194) to update her employee profile - self-service request, moderate priority, ready to work",
+   "kind": "create",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 61
+   },
+   "cells": {
+    "opened_for": 7,
+    "hr_service": 35,
+    "priority": "moderate",
+    "source": "self-service",
+    "status": "ready",
+    "account_number": "ACC-882-194",
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND opened_for = 7 AND hr_service = 35 AND priority = 'moderate' AND source = 'self-service' AND status = 'ready' AND account_number = 'ACC-882-194' AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "HR case created under Employee Profile Update service",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (hr_case 60 is the highest); its number HRC0000771 is server-assigned and not a cell",
+    "Denise Hawkins is user 7 with HR profile 7, so opened_for is 7; the request names her as the subject although the benchmark check does not test it",
+    "'update her employee profile' is the active service Employee Profile Update (35)",
+    "ACC-882-194 is the case's account number, which no seed case holds",
+    "'ready to work' is status ready, a permitted status for a new case",
+    "org_id 1 kept from the benchmark check: the organisation of the acting user, the service and the HR Service Desk (Denise's profile is in org 3); not fixed by request or policy"
+   ]
+  },
+  {
+   "text": "Assign it to Michael Chen at michael.chen@company.com (agent role) in the HR Service Desk",
+   "kind": "create",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 61
+   },
+   "cells": {
+    "assigned_to": 101,
+    "assignment_group": 4
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND assigned_to = 101 AND assignment_group = 4",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "HR case created under Employee Profile Update service",
+   "seed_count": 0,
+   "assumptions": [
+    "the case created above (61)",
+    "Michael Chen is the new user 101; HR Service Desk is group 4"
+   ]
+  },
+  {
+   "text": "Set him up if he's not in the system yet",
+   "kind": "create",
+   "table": "user",
+   "anchor": {
+    "user_id": 101
+   },
+   "cells": {
+    "first_name": "Michael",
+    "last_name": "Chen",
+    "email": "michael.chen@company.com",
+    "role": "agent",
+    "active": true,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM user WHERE user_id = 101 AND first_name = 'Michael' AND last_name = 'Chen' AND email = 'michael.chen@company.com' AND role = 'agent' AND active = true AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Michael Chen user exists (agent, active)",
+   "seed_count": 0,
+   "assumptions": [
+    "no user named Michael Chen or with that email exists in the seed, so he must be created",
+    "id assumed next in sequence (user 100 is the highest)",
+    "org_id 1 is the organisation of the acting user and of the HR Service Desk",
+    "active kept from the benchmark check; a new agent who is to be assigned work must be active under the policy's assignment rule"
+   ]
+  },
+  {
+   "text": "Michael Chen ... (agent role) in the HR Service Desk. Set him up if he's not in the system yet",
+   "kind": "create",
+   "table": "user_group_member",
+   "selector": "group_id = 4 AND user_id = 101",
+   "cells": {
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM user_group_member WHERE group_id = 4 AND user_id = 101 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Michael Chen is a member of HR Service Desk",
+   "seed_count": 0,
+   "assumptions": [
+    "HR Service Desk is group 4 (org 1)",
+    "membership follows from the policy: a case must be assigned to an active user in its assignment group",
+    "selected by group and user rather than by member id, as only the pairing is asked for"
+   ]
+  },
+  {
+   "text": "Add tasks for updating her direct deposit",
+   "kind": "create",
+   "table": "hr_case_task",
+   "selector": "parent_case = 61 AND short_description LIKE '%direct deposit%'",
+   "cells": {
+    "status": "ready",
+    "assignment_group": 4,
+    "assigned_to": 101,
+    "active": true
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case_task WHERE parent_case = 61 AND short_description LIKE '%direct deposit%' AND status = 'ready' AND assignment_group = 4 AND assigned_to = 101 AND active = true",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Mandatory task: direct deposit update exists and is linked to the case",
+   "seed_count": 0,
+   "assumptions": [
+    "two tasks are created, so each is selected by its parent case and the phrase from the request, not by id",
+    "LIKE is case-insensitive, so it matches the benchmark's lower-cased comparison",
+    "status ready, active, and assignment to Michael Chen in HR Service Desk kept from the benchmark check; not fixed by request or policy for tasks"
+   ]
+  },
+  {
+   "text": "verifying emergency contacts",
+   "kind": "create",
+   "table": "hr_case_task",
+   "selector": "parent_case = 61 AND short_description LIKE '%emergency contact%'",
+   "cells": {
+    "assigned_to": 101,
+    "assignment_group": 4,
+    "status": "ready"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case_task WHERE parent_case = 61 AND short_description LIKE '%emergency contact%' AND assigned_to = 101 AND assignment_group = 4 AND status = 'ready'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify Task Creation (Emergency Contact)",
+   "seed_count": 0,
+   "assumptions": [
+    "two tasks are created, so each is selected by its parent case and the phrase from the request, not by id",
+    "the request fixes the topic, not the wording, so the description is matched on 'emergency contact'",
+    "status ready and assignment to Michael Chen in HR Service Desk kept from the benchmark check; not fixed by request or policy for tasks"
+   ]
+  },
+  {
+   "text": "otherwise create an internal one titled Data Privacy Guidelines for Profile Updates covering PII/PHI handling, encryption, and compliance",
+   "kind": "create",
+   "table": "knowledge",
+   "anchor": {
+    "knowledge_id": 7
+   },
+   "cells": {
+    "title": "Data Privacy Guidelines for Profile Updates",
+    "state": "published",
+    "visibility": "internal",
+    "org_id": 1,
+    "body": [
+     "LIKE '%PII%'",
+     "LIKE '%PHI%'",
+     "LIKE '%encrypt%'",
+     "LIKE '%complian%'"
+    ]
+   },
+   "sql": "SELECT COUNT(*) FROM knowledge WHERE knowledge_id = 7 AND title = 'Data Privacy Guidelines for Profile Updates' AND state = 'published' AND visibility = 'internal' AND org_id = 1 AND body LIKE '%PII%' AND body LIKE '%PHI%' AND body LIKE '%encrypt%' AND body LIKE '%complian%'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Knowledge article created",
+   "seed_count": 0,
+   "assumptions": [
+    "no Data Privacy article exists in the seed (six articles, none on data privacy), so the 'otherwise' branch applies",
+    "id assumed next in sequence (knowledge 6 is the highest)",
+    "the request's title is used as given, over the policy's 'Resolution Guide' title template",
+    "state published follows from the policy: only published articles are linkable, and the request has the article attached",
+    "body must cover the request's topics: PII, PHI, encryption and compliance",
+    "org_id 1 is the organisation of every existing article and of the acting user",
+    "disagreement: body: one pass tests PII, encryption and compliance, the other also PHI; chose all four, the tighter test, because the request names 'PII/PHI handling' among the subjects the article must cover"
+   ]
+  },
+  {
+   "text": "Attach our Data Privacy knowledge article if available; otherwise create an internal one",
+   "kind": "create",
+   "table": "hr_case_knowledge",
+   "anchor": {
+    "hr_case_kb_id": 13
+   },
+   "cells": {
+    "hr_case_id": 61,
+    "knowledge_id": 7,
+    "used_as": "applied",
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case_knowledge WHERE hr_case_kb_id = 13 AND hr_case_id = 61 AND knowledge_id = 7 AND used_as = 'applied' AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Knowledge article linked/applied to the case",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (hr_case_kb_id 12 is the highest)",
+    "used_as applied kept from the benchmark check; not fixed by request or policy",
+    "org_id 1 is the case's organisation",
+    "the new article 7 is attached to the new case 61, since no seed article concerns data privacy"
+   ]
+  },
+  {
+   "text": "Attach our Data Privacy knowledge article if available",
+   "kind": "stay",
+   "table": "hr_case_knowledge",
+   "selector": "hr_case_id = 61",
+   "cells": {
+    "knowledge_id": "<> 7"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case_knowledge WHERE hr_case_id = 61 AND knowledge_id <> 7",
+   "expected": 0,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 0,
+   "assumptions": [
+    "boundary of 'our Data Privacy knowledge article': none of the six existing articles (benefits, orientation, leave, travel, IT security, performance review) is a data privacy article, so none of them is attached to the case",
+    "disagreement: selector: one pass forbids links from case 61 to the six seed articles (knowledge_id IN (1, 2, 3, 4, 5, 6)), the other any link from case 61 to an article other than 7; chose the latter, the tighter test, because the request attaches exactly one article and both hold on the seed"
+   ]
+  },
+  {
+   "text": "Let Denise know it's all set up",
+   "kind": "create",
+   "table": "notification",
+   "anchor": {
+    "notification_id": 61
+   },
+   "cells": {
+    "hr_case_id": 61,
+    "email": "denise.hawkins83@larsonplc.com",
+    "type": "update",
+    "status": "ready",
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 61 AND hr_case_id = 61 AND email = 'denise.hawkins83@larsonplc.com' AND type = 'update' AND status = 'ready' AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Notification sent for the case",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (notification 60 is the highest)",
+    "email kept from the benchmark check: Denise's user email, the address the listed user-lookup tools return; not fixed by request or policy",
+    "type update and status ready kept from the benchmark check; not fixed by request or policy",
+    "org_id 1 is the case's organisation; every seed notification shares its case's organisation",
+    "disagreement: email: one pass accepts either of Denise Hawkins's addresses (her user email or her profile's personal email), the other only the benchmark's user email; chose the user email because the benchmark's check is the prior for a cell the request and policy leave open and the seed does not contradict it: no listed tool reads HR profiles, so the user email is the only address the agent can retrieve, although all 60 seed notifications use the subject's personal email"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Michael Chen user exists (agent, active)": {
+   "disposition": "kept"
+  },
+  "Michael Chen is a member of HR Service Desk": {
+   "disposition": "kept"
+  },
+  "HR case created under Employee Profile Update service": {
+   "disposition": "kept"
+  },
+  "Mandatory task: direct deposit update exists and is linked to the case": {
+   "disposition": "kept"
+  },
+  "Knowledge article created": {
+   "disposition": "repaired",
+   "evidence": "kb_number = 'KB-001' is dropped: the request gives no article number, and the seed's articles are numbered KB0040001 to KB0040006, so 'KB-001' follows no numbering the seed shows; the title, state, visibility and organisation are kept"
+  },
+  "Knowledge article linked/applied to the case": {
+   "disposition": "kept"
+  },
+  "Notification sent for the case": {
+   "disposition": "kept"
+  },
+  "Verify Task Creation (Emergency Contact)": {
+   "disposition": "repaired",
+   "evidence": "the check requires the exact description 'Verify Denise Hawkins emergency contact details', but the request says only 'verifying emergency contacts' and the policy fixes no task wording, so the description is matched on 'emergency contact', as the direct-deposit check matches on its phrase; parent case, assignee, group and status are kept"
+  }
+ },
+ "notes": "disagreement: disposition: 'Notification sent for the case': one pass repaired it by widening the email to either of Denise Hawkins's addresses, the other kept it with her user email; kept, because the request and policy leave the address open and nothing contradicts the benchmark's choice: the listed tools return only the user email, even though every seed notification goes to the subject's personal email (resolved on the notification requirement).\ndisagreement: value: the article's body: one pass tests PII, encryption and compliance, the other also PHI; kept the tighter test, since the request names 'PII/PHI handling' (resolved on the knowledge requirement).\ndisagreement: value: the boundary stay on case 61's knowledge links: one pass selects links to the six seed articles, the other any link to an article other than 7; kept the tighter test, since the request attaches exactly one article (resolved on that requirement).\nThe two passes otherwise agree on every requirement, cell and value (case 61 for Denise Hawkins under service 35, assigned to the new agent Michael Chen, user 101, in HR Service Desk, group 4, with his membership, the two tasks selected by description, article 7 and its applied link) and on the other seven dispositions; their texts and assumptions differ in wording only.\nThe case check's number HRC0000771 is the next case number after HRC0000770 and is server-assigned, so it is not a cell; the check is otherwise carried as written across the creation and assignment requirements.\nDenise Hawkins (user 7, profile 7) belongs to org 3, while the case, its tasks, the article, the link and the notification are required in org 1 as the benchmark's checks have them; the case's org is not fixed by the request, and the seed holds Denise's earlier cases in orgs 2 and 9.\nopened_by is not tested: 'self-service request' and the seed (every case has opened_by equal to opened_for) point to Denise, but the acting user, Karen Watkins, raises it, so the requester is undecided.\nThe case short description is not tested: only the policy's 'Service: , Subject: , Detail: .' template and 30 to 120 character limit fix it, and the benchmark does not test them; the same limit on the two task descriptions is likewise not tested.\nThe policy's knowledge title template ('Resolution Guide: ...') conflicts with the title the request gives; the request's title is used.\nMichael Chen's user_role row is not tested: the request's '(agent role)' is carried by user.role, and no listed tool writes user_role.\nThe acting user, Karen Watkins, holds the admin role; the policy lets an admin create users and group members but says an administrator must not perform routine HR case work, so the case, task, link and notification steps conflict with the policy; the request and the benchmark's checks expect them, so they are specified and the conflict is left for the reviewer.",
+ "minutes": 38
+}

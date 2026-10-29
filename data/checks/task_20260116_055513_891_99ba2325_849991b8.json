@@ -1,0 +1,197 @@
+{
+  "task_id": "task_20260116_055513_891_99ba2325_849991b8",
+  "policy_sha1": "118dd827",
+  "requirements": [
+    {
+      "text": "Kathleen Montgomery ... needs to update her phone number ... handle this contact information update for her ... set the priority to moderate",
+      "kind": "create",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 61
+      },
+      "cells": {
+        "opened_for": 23,
+        "coe_type": "Workforce Administration",
+        "short_description": [
+          "LIKE '%Kathleen Montgomery%'",
+          "LIKE '%phone%'"
+        ],
+        "priority": "moderate"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND opened_for = 23 AND coe_type = 'Workforce Administration' AND short_description LIKE '%Kathleen Montgomery%' AND short_description LIKE '%phone%' AND priority = 'moderate'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "Valid Priority Value Verification",
+        "Case Completion Verification"
+      ],
+      "assumptions": [
+        "id assumed next in sequence (hr_case 61 after 60); the only case the task creates",
+        "opened_for = 23 is Kathleen Montgomery's hr_profile_id (user 23, the seed's only Kathleen and only Montgomery)",
+        "coe_type and the short_description words kept from the benchmark checks; not fixed by request or policy, but the seed's Workforce Administration cases include 'Request to update employee profile details', and policy section 8's template is not enforced because the seed's descriptions ignore it",
+        "priority = 'moderate' is stated by the request and is policy 3.1's default; the check's IN list is narrowed to the stated value (its description calling moderate invalid contradicts its own query; section 7 says medium, the seed says moderate)",
+        "account_number = 'CONTACT-KM-2025' dropped from both checks: the request names no account number and policy section 1 forbids fabricating values",
+        "the request says she is from Administration but her seed position is IT Support; no change to the profile is asked, so it is not tested",
+        "hr_service, source and opened_by are not fixed by the request and not tested"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "we can skip the ready state and just close the case directly once we're done",
+      "kind": "change",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 61
+      },
+      "cells": {
+        "status": "closed_complete"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND status = 'closed_complete'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Case Completion Verification",
+      "assumptions": [
+        "the row is created in this task; closure is its final transition",
+        "'close' read as closed_complete: 'closed' is not in the policy's status enumeration (section 7) or the seed, and policy 3.3 forbids a direct move to closed; the check's own description says closed_complete",
+        "disagreement: status: A closed_complete, B work_in_progress (the benchmark's query, read as the policy forcing a halt); chose closed_complete because the request's words ('close the case') are the evidence and the check's description agrees; the policy conflict is in notes",
+        "'skip the ready state' and 'close directly' are path instructions the final state cannot show; policy 3.3 allows draft -> work_in_progress -> closed_complete, so the case can end closed as asked"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "We'll need a contact_form task to track the verification steps",
+      "kind": "create",
+      "table": "hr_case_task",
+      "anchor": {
+        "hr_case_task_id": 150
+      },
+      "cells": {
+        "parent_case": 61,
+        "task_type": "checklist"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case_task WHERE hr_case_task_id = 150 AND parent_case = 61 AND task_type = 'checklist'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "Valid Task Type Verification",
+        "Checklist Task Completion Verification"
+      ],
+      "assumptions": [
+        "id assumed next in sequence (hr_case_task 150 after 149); the request asks for one task",
+        "'contact_form' is not a task type (policy 3.2 and section 7); checklist is kept from the benchmark checks as the type that tracks a list of steps, and create_checklist is in the tools",
+        "the task's short_description is not fixed by the request and not tested",
+        "policy 3.2's automatic task generation on work_in_progress is taken as narrative; if the server did generate tasks the id anchor would miss"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "close the case directly once we're done",
+      "kind": "change",
+      "table": "hr_case_task",
+      "anchor": {
+        "hr_case_task_id": 150
+      },
+      "cells": {
+        "status": "closed_complete"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case_task WHERE hr_case_task_id = 150 AND status = 'closed_complete'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Checklist Task Completion Verification",
+      "assumptions": [
+        "policy 3.2: a case cannot reach closed_complete until its tasks are complete; the task is assumed mandatory, the policy gives no way to mark one optional",
+        "policy 3.2 counts a task complete when active = false or state = closed; status = closed_complete is tested because 17 seed tasks in draft also have active = 0",
+        "disagreement: status: A closed_complete (check repaired), B work_in_progress (check kept, the steps read as uncompletable without the new number); chose closed_complete because the request closes the case once done, policy 3.2 then requires the task complete, and the check's own description says 'created and completed'"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "track the verification steps - confirm the new number, update the records, maybe verify with some documentation",
+      "kind": "create",
+      "table": "checklist",
+      "selector": "case_task_id = 150",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM checklist WHERE case_task_id = 150",
+      "expected": 0,
+      "comparison": "greater_than",
+      "source": "new",
+      "assumptions": [
+        "implied by the request, not stated: a checklist task tracks its steps as checklist rows, the request names the steps and create_checklist is listed; the benchmark does not test it",
+        "the request fixes no number of items ('maybe verify with some documentation'), so the count is greater than zero and the wording is not tested",
+        "completion is tested on the task's status, not on each item's checked flag"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "Once everything is updated, send a notification to her personal email to confirm the change",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": 61
+      },
+      "cells": {
+        "hr_case_id": 61,
+        "email": "kathleen.montgomery.23@personal.example.com"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 61 AND hr_case_id = 61 AND email = 'kathleen.montgomery.23@personal.example.com'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Work Email Notification Verification",
+      "assumptions": [
+        "id assumed next in sequence (notification 61 after 60); the only notification the task creates",
+        "disagreement: anchor: A notification_id = 61, B a selector on case and recipient; chose the id anchor because a created row is anchored by id when it is the only row the task creates in that table",
+        "personal email resolved from the seed: hr_profile 23 personal_email = kathleen.montgomery.23@personal.example.com, the value the check's query also tests (its name and description say work email, contradicting its own query and the request; the policy has no rule on which address)",
+        "type not fixed by the request ('to confirm the change' names no type) and not tested"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "Kathleen Montgomery from Administration needs to update her phone number in the system - she got a new number last week",
+      "kind": "change",
+      "table": "user",
+      "anchor": {
+        "user_id": 23
+      },
+      "cells": {
+        "phone": "<> '+918863790861'"
+      },
+      "sql": "SELECT COUNT(*) FROM user WHERE user_id = 23 AND phone <> '+918863790861'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "assumptions": [
+        "no tool writes this table (no update_hr_profile or user update tool is listed); hr_profile has no phone column, so the phone lives in user.phone",
+        "the request gives no new number, so only a change from the seed value +918863790861 can be tested; policy section 1 forbids fabricating one",
+        "disagreement: A tests the phone change, B omits it as impossible (no number, no tool); kept because the request asks for the update in words and a requirement no listed tool can satisfy is kept with 'no tool writes this table'",
+        "policy 5.1 lets the employee change her own phone; the case is the record of the update, so this requirement documents the gap rather than something the agent can do"
+      ],
+      "seed_count": 0
+    }
+  ],
+  "original_checks": {
+    "Checklist Task Completion Verification": {
+      "disposition": "repaired",
+      "evidence": "its query tests t.status = 'work_in_progress' while its description says the task was completed; the request closes the case once done and policy 3.2 requires tasks complete before closed_complete, so the status becomes closed_complete (the seed's closed state for tasks); its task_type cell is carried by the task-creation requirement and its status by the task-closure requirement. disagreement: A repaired, B kept (the query as the policy's halt state); chose repaired because the request's words are the evidence"
+    },
+    "Valid Priority Value Verification": {
+      "disposition": "repaired",
+      "evidence": "account_number = 'CONTACT-KM-2025' appears nowhere in the request, so the agent cannot know it and policy section 1 forbids fabricating it; the cell is dropped. priority IN (...) is narrowed to the request's stated 'moderate'; the description calling moderate invalid contradicts its own query, the request and policy 3.1"
+    },
+    "Valid Task Type Verification": {
+      "disposition": "kept"
+    },
+    "Work Email Notification Verification": {
+      "disposition": "kept"
+    },
+    "Personal Email Notification Absence Verification": {
+      "disposition": "excluded",
+      "evidence": "it requires no notification to any '%personal%' address, which cannot hold together with Work Email Notification Verification (a notification to kathleen.montgomery.23@personal.example.com); the request says 'send a notification to her personal email' and the policy has no work-email-only rule (5.2 restricts PII content, not the address), so the request supports the other check; every seed notification goes to personal_email"
+    },
+    "Case Completion Verification": {
+      "disposition": "repaired",
+      "evidence": "its query tests status = 'work_in_progress' while its description says closed_complete and the request says to close the case once done; policy 3.3 reaches closed_complete from work_in_progress and lists no 'closed' value, so the status becomes closed_complete; account_number = 'CONTACT-KM-2025' is dropped because the request names none. disagreement: status: A closed_complete, B work_in_progress; chose closed_complete because the request's words are the evidence and the description agrees; the policy conflict the benchmark may have intended is in notes"
+    }
+  },
+  "notes": "Merged from two passes that agree on the case (61 for Kathleen Montgomery 23, COE Workforce Administration, priority moderate, no account number), the task (150, checklist), the checklist rows, the notification to her personal email, and on four of six dispositions. disagreement: final status of the case and the task: A closed_complete (both checks repaired), B work_in_progress (both checks' queries kept, read as the state the policy forces when the agent halts); chose closed_complete because the request names the state in words ('close the case'), the checks' own descriptions say completed and closed_complete, and policy 3.2 then requires the task complete. The policy conflict the benchmark may have intended: the request's 'skip the ready state and just close the case directly' breaks policy 3.3's closure constraint (no direct transition to closed; closed only from closed_complete) and section 1 says halt and cite at a violation, so a benchmark author may have expected the agent to stop at work_in_progress; the final state cannot show whether the agent went through work_in_progress, and the request's words decide the state. disagreement: Checklist Task Completion Verification: A repaired, B kept; chose repaired (as above). disagreement: phone change on user 23 (A only, new, no tool writes this table); kept because the request asks for the update in words, with its gap recorded: the request gives no number, policy section 1 forbids fabricating one, and no listed tool writes user.phone, so only a change from the seed value is tested. disagreement: notification anchor: A notification_id = 61, B a selector; chose the id anchor because the task creates one notification. Under this policy the acting user Karen Watkins (user 39) has role admin, policy section 2 says an Administrator must not perform routine HR case work, but the benchmark checks expect the case to be created, so the file assumes the work is done. The request says Kathleen is 'from Administration' but her seed position is IT Support; nothing in the request changes it. The account number CONTACT-KM-2025 in two checks is absent from the request and dropped from both. Checks 4 and 5 contradict each other on the personal email; the request decides for check 4. No stay requirements: nothing testable is forbidden beyond what the status cells already exclude, and no selector has a boundary (one Montgomery, one Kathleen in the seed). Least sure: keeping the phone requirement, which no agent can satisfy, against B's reading that it is not a thing the agent can be asked to do. revised: the checklist requirement no longer repeats case_task_id in cells, since its selector already fixes it. revised: the note on the acting user's role now rests on this file's policy alone rather than pointing to another task.",
+  "minutes": 11
+}

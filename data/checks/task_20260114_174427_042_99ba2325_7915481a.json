@@ -1,0 +1,79 @@
+{
+  "task_id": "task_20260114_174427_042_99ba2325_7915481a",
+  "policy_sha1": "4afd943b",
+  "requirements": [
+    {
+      "text": "that \"E-Commerce Website\" service that went down? I believe it's back now",
+      "kind": "change",
+      "table": "service",
+      "anchor": {"service_id": "SVC_007"},
+      "cells": {"name": "E-Commerce Website", "status": "operational"},
+      "sql": "SELECT COUNT(*) FROM service WHERE service_id = 'SVC_007' AND name = 'E-Commerce Website' AND status = 'operational'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Service Status Update to Operational",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by the request ('I believe it's back now'), not stated; update_service is listed and SVC_007 sits at repair_in_progress on the seed",
+        "SVC_007 resolved from the seed by name 'E-Commerce Website' (one match)",
+        "status operational kept from the benchmark check; the seed's service statuses are operational, ready, repair_in_progress, non-operational and retired",
+        "name kept from the benchmark check as an identity guard; not fixed by request or policy"
+      ]
+    },
+    {
+      "text": "swapped out the database configuration item with serial number \"SRV-ORC-9981\" for a new one apparently the new hardware specs use serial number \"DB-2025-PROD-001\"",
+      "kind": "change",
+      "table": "configuration_item",
+      "anchor": {"configuration_item_id": "CI_001"},
+      "cells": {"serial_number": "DB-2025-PROD-001"},
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE configuration_item_id = 'CI_001' AND serial_number = 'DB-2025-PROD-001'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Configuration Item Serial Number Update",
+      "seed_count": 0,
+      "assumptions": [
+        "CI_001 resolved from the seed by serial SRV-ORC-9981 (one match, status in_use; no CI carries DB-2025-PROD-001 on the seed)",
+        "read as updating the existing CI's serial number, as the article content says and as the only CI-writing tool (update_configuration_item) allows, not as creating a second CI"
+      ]
+    },
+    {
+      "text": "we need a knowledge article titled \"E-Commerce Service Restoration Procedure\" and article content \"...\" ... it should be accessible, visible to the public",
+      "kind": "create",
+      "table": "knowledge",
+      "anchor": {"knowledge_id": "KB_026"},
+      "cells": {
+        "title": "E-Commerce Service Restoration Procedure",
+        "state": "published",
+        "visibility": "external",
+        "owner_id": "USER_004",
+        "org_id": "ORG_001",
+        "body": [
+          "LIKE '%E-Commerce Website Service Restoration Procedure%'",
+          "LIKE '%serial number was updated to DB-2025-PROD-001%'",
+          "LIKE '%servicedesk@techcorp.com%'"
+        ]
+      },
+      "sql": "SELECT COUNT(*) FROM knowledge WHERE knowledge_id = 'KB_026' AND title = 'E-Commerce Service Restoration Procedure' AND state = 'published' AND visibility = 'external' AND owner_id = 'USER_004' AND org_id = 'ORG_001' AND body LIKE '%E-Commerce Website Service Restoration Procedure%' AND body LIKE '%serial number was updated to DB-2025-PROD-001%' AND body LIKE '%servicedesk@techcorp.com%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Knowledge Article Creation",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (KB_026 after KB_025)",
+        "state published: 'accessible' read with policy section 7 (only published articles are searchable by reporters); also the benchmark check's value",
+        "visibility external: 'visible to the public'; the seed's visibility values are internal and external",
+        "owner_id USER_004 is the acting user and the content's named author; org_id ORG_001 is her organisation in the seed",
+        "body tested by three fragments from separate lines rather than the full text: the request writes literal backslash-n sequences between paragraphs, and whether an agent stores them as newlines is undecidable",
+        "short_description not stated; not tested",
+        "disagreement: body's second fragment: A LIKE '%serial number was updated to DB-2025-PROD-001%', B LIKE '%DB-2025-PROD-001%'; chose the longer fragment because both are quoted from the request's content, which lies within one line, and it is the tighter of the two"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify Service Status Update to Operational": {"disposition": "kept"},
+    "Verify Configuration Item Serial Number Update": {"disposition": "kept"},
+    "Verify Knowledge Article Creation": {"disposition": "kept", "evidence": "the check's description says 'internal visibility' but its query tests visibility = external, which matches the request's 'visible to the public'; the query is kept as written"}
+  },
+  "notes": "disagreement: value: the knowledge body's second fragment, the serial number alone in one pass and the full clause 'serial number was updated to DB-2025-PROD-001' in the other; kept the full clause because it is quoted from one line of the request's content and is the tighter predicate.\nThe knowledge requirement adds a body cell the benchmark did not test, since the request fixes the content. The acting user USER_004 holds role manager (users.role and user_role ROLE_003); policy section 2 gives managers full CRUD only on incident, problem, change and knowledge, with read access elsewhere, so a strict reading would refuse the CI and service updates; the benchmark checks expect both and update_configuration_item and update_service are listed, so the checks are kept as the prior. No stay requirements: nothing is forbidden, and SRV-ORC-9981 matches one CI with no near match on the seed.",
+  "minutes": 26
+}

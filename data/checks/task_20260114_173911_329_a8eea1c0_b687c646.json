@@ -1,0 +1,261 @@
+{
+ "task_id": "task_20260114_173911_329_a8eea1c0_b687c646",
+ "policy_sha1": "b2da3f42",
+ "requirements": [
+  {
+   "text": "add his Dev Environment Setup checklist task and assign it to the HR Service Desk Group",
+   "kind": "create",
+   "table": "hr_case_task",
+   "selector": "parent_case = 10 AND short_description = 'Dev Environment Setup'",
+   "cells": {
+    "task_type": "checklist",
+    "assignment_group": 4,
+    "status": "ready",
+    "active": true,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case_task WHERE parent_case = 10 AND short_description = 'Dev Environment Setup' AND task_type = 'checklist' AND assignment_group = 4 AND status = 'ready' AND active = true AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_case_tasks_creation",
+    "comprehensive_atomicity_check"
+   ],
+   "assumptions": [
+    "Marc Henry is user 20 (hr_profile 20); his onboarding case is HRC0000720 (hr_case_id 10, 'Submission of new hire documentation'); his other case HRC0000767 (hr_case_id 57) is an HR portal access issue",
+    "two tasks are created, so the row is selected by its parent case and title, not by id",
+    "HR Service Desk is group_id 4, the only group of that name",
+    "status ready and active kept from the benchmark check; not fixed by request or policy",
+    "org_id 1 kept from the benchmark check; the acting user, the group and the survey are in org 1, though the case is in org 10"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "Ensure it includes Request Laptop for Developer",
+   "kind": "create",
+   "table": "checklist",
+   "selector": "case_task_id IN (SELECT hr_case_task_id FROM hr_case_task WHERE parent_case = 10 AND short_description = 'Dev Environment Setup') AND checklist_item_description = 'Request Laptop for Developer'",
+   "cells": {
+    "checked": false,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM checklist WHERE case_task_id IN (SELECT hr_case_task_id FROM hr_case_task WHERE parent_case = 10 AND short_description = 'Dev Environment Setup') AND checklist_item_description = 'Request Laptop for Developer' AND checked = false AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "checklist_items_creation",
+    "comprehensive_atomicity_check"
+   ],
+   "assumptions": [
+    "two items are created, so the row is selected by its task and description, not by id",
+    "the task is the new Dev Environment Setup task on case 10",
+    "unchecked kept from the benchmark check; a newly added item has not been done",
+    "org_id 1 kept from the benchmark check; not fixed by request or policy"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "Ensure it includes ... Provision GitHub Access",
+   "kind": "create",
+   "table": "checklist",
+   "selector": "case_task_id IN (SELECT hr_case_task_id FROM hr_case_task WHERE parent_case = 10 AND short_description = 'Dev Environment Setup') AND checklist_item_description = 'Provision GitHub Access'",
+   "cells": {
+    "checked": false,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM checklist WHERE case_task_id IN (SELECT hr_case_task_id FROM hr_case_task WHERE parent_case = 10 AND short_description = 'Dev Environment Setup') AND checklist_item_description = 'Provision GitHub Access' AND checked = false AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "checklist_items_creation",
+    "comprehensive_atomicity_check"
+   ],
+   "assumptions": [
+    "two items are created, so the row is selected by its task and description, not by id",
+    "the task is the new Dev Environment Setup task on case 10",
+    "unchecked kept from the benchmark check; a newly added item has not been done",
+    "org_id 1 kept from the benchmark check; not fixed by request or policy"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "create a survey task for how would you rate your onboarding experience so far, assign it to the same group",
+   "kind": "create",
+   "table": "hr_case_task",
+   "selector": "parent_case = 10 AND short_description = 'Contractor Feedback'",
+   "cells": {
+    "task_type": "survey",
+    "assignment_group": 4,
+    "status": "ready",
+    "active": true,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case_task WHERE parent_case = 10 AND short_description = 'Contractor Feedback' AND task_type = 'survey' AND assignment_group = 4 AND status = 'ready' AND active = true AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_case_tasks_creation",
+    "comprehensive_atomicity_check"
+   ],
+   "assumptions": [
+    "Marc Henry is user 20 (hr_profile 20); his onboarding case is HRC0000720 (hr_case_id 10, 'Submission of new hire documentation'); his other case HRC0000767 (hr_case_id 57) is an HR portal access issue",
+    "two tasks are created, so the row is selected by its parent case and title, not by id; case 10 already holds survey task 23 ('New Hire Feedback Survey'), which the title excludes",
+    "title 'Contractor Feedback' kept from the benchmark check; not fixed by request or policy; the request's 'final contractor experience survey' is consistent with it",
+    "the same group is HR Service Desk, group 4",
+    "status ready and active kept from the benchmark check; not fixed by request or policy",
+    "org_id 1 kept from the benchmark check; not fixed by request or policy",
+    "disagreement: short_description: A 'Contractor Feedback', B untested (row selected by type and an id above 149); chose 'Contractor Feedback' because the benchmark check tests it and nothing in the request, policy or seed contradicts it"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "make sure a survey instance is generated for Marc so he can complete it",
+   "kind": "create",
+   "table": "survey_instance",
+   "anchor": {
+    "survey_instance_id": 26
+   },
+   "cells": {
+    "survey_id": 2,
+    "case_task_id": "IN (SELECT hr_case_task_id FROM hr_case_task WHERE parent_case = 10 AND short_description = 'Contractor Feedback')",
+    "assigned_to": 20,
+    "org_id": 1,
+    "answer_1": "IS NULL",
+    "answer_2": "IS NULL",
+    "answer_3": "IS NULL",
+    "answer_4": "IS NULL",
+    "answer_5": "IS NULL"
+   },
+   "sql": "SELECT COUNT(*) FROM survey_instance WHERE survey_instance_id = 26 AND survey_id = 2 AND case_task_id IN (SELECT hr_case_task_id FROM hr_case_task WHERE parent_case = 10 AND short_description = 'Contractor Feedback') AND assigned_to = 20 AND org_id = 1 AND answer_1 IS NULL AND answer_2 IS NULL AND answer_3 IS NULL AND answer_4 IS NULL AND answer_5 IS NULL",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "survey_instance_creation",
+    "comprehensive_atomicity_check"
+   ],
+   "assumptions": [
+    "id assumed next in sequence (26 after 25); one instance is created",
+    "survey_id 2 is the only survey asking 'How would you rate your onboarding experience so far?'",
+    "linked to the new Contractor Feedback task on case 10, not the existing survey task 23, which already holds a completed instance of survey 2 for Marc",
+    "Marc Henry is user 20",
+    "empty answers kept from the benchmark check; Marc has yet to complete it",
+    "org_id 1 kept from the benchmark check; not fixed by request or policy",
+    "disagreement: case_task_id: A the new task on case 10 titled 'Contractor Feedback', B the new survey-type task on case 10 with an id above 149; chose the title, following the survey task's requirement"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "add a work note to the main case stating these onboarding enhancements have been applied",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 10
+   },
+   "cells": {
+    "worknotes": [
+     "LIKE '%onboarding enhancements%'",
+     "LIKE '%applied%'"
+    ]
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 10 AND worknotes LIKE '%onboarding enhancements%' AND worknotes LIKE '%applied%'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "hr_case_update",
+   "assumptions": [
+    "the main case is HRC0000720 (hr_case_id 10), the onboarding case the tasks are added to",
+    "the request fixes what the note says, not its wording: tested on the words 'onboarding enhancements' and 'applied'"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "change case status since work is in progress",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 10
+   },
+   "cells": {
+    "status": "work_in_progress",
+    "priority": "planning",
+    "source": "chat",
+    "short_description": "Submission of new hire documentation",
+    "coe_type": "Talent Management",
+    "account_number": "ACC-20-9",
+    "account_type": "checking",
+    "org_id": 10
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 10 AND status = 'work_in_progress' AND priority = 'planning' AND source = 'chat' AND short_description = 'Submission of new hire documentation' AND coe_type = 'Talent Management' AND account_number = 'ACC-20-9' AND account_type = 'checking' AND org_id = 10",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_case_update",
+    "comprehensive_atomicity_check"
+   ],
+   "assumptions": [
+    "the main case is HRC0000720 (hr_case_id 10)",
+    "the case is in draft; draft to work_in_progress is a valid lifecycle transition and the request names work in progress",
+    "priority, source, short description, coe_type, account fields and org_id kept from the benchmark check; not fixed by request or policy"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "noticed his case is missing the development environment setup",
+   "kind": "stay",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 57
+   },
+   "cells": {
+    "status": "awaiting_approval",
+    "worknotes": "Case created via email"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 57 AND status = 'awaiting_approval' AND worknotes = 'Case created via email'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "assumptions": [
+    "boundary of 'his case': Marc's other case HRC0000767 (hr_case_id 57, an HR portal access issue) is not the onboarding case; a loose reading could pick it for the status change or the work note"
+   ],
+   "seed_count": 1
+  },
+  {
+   "text": "Please add his Dev Environment Setup checklist task",
+   "kind": "stay",
+   "table": "hr_case_task",
+   "selector": "parent_case = 57",
+   "cells": {},
+   "sql": "SELECT COUNT(*) FROM hr_case_task WHERE parent_case = 57",
+   "expected": 3,
+   "comparison": "equals",
+   "source": "new",
+   "assumptions": [
+    "boundary of 'his case': no tasks are added to Marc's other case HRC0000767 (hr_case_id 57), which has 3 tasks on the seed",
+    "disagreement: missing requirement: A has this stay, B does not; kept because case 57 is the other case a loose reading of 'his case' would pick for the new tasks, and the count fails if either task lands there"
+   ],
+   "seed_count": 3
+  }
+ ],
+ "original_checks": {
+  "hr_case_tasks_creation": {
+   "disposition": "repaired",
+   "evidence": "the check pins the two tasks to ids 150 and 151 and numbers 'TASK-0001' and 'TASK-0002'; the request fixes no creation order between the two tasks, and the number is assigned by the server (seed task numbers run HRT0001000 onward), so each task is selected by parent case and title with the id and number dropped; the titles 'Dev Environment Setup' and 'Contractor Feedback' are kept. disagreement: the survey task's title: A kept 'Contractor Feedback', B dropped it as undecidable; chose to keep it because the request's 'final contractor experience survey' is consistent with it and nothing contradicts it"
+  },
+  "checklist_items_creation": {
+   "disposition": "repaired",
+   "evidence": "the check pins the items to ids 91 and 92 and to task 150; the request fixes no order between the two items, and the Dev Environment Setup task's id depends on creation order, so each item is selected by its task and description"
+  },
+  "survey_instance_creation": {
+   "disposition": "repaired",
+   "evidence": "the check pins case_task_id = 151; the survey task's id depends on the creation order of the two tasks, which the request does not fix, so the link is tested as the new survey task on case 10"
+  },
+  "hr_case_update": {
+   "disposition": "repaired",
+   "evidence": "the request asks only for a note 'stating these onboarding enhancements have been applied' and gives no wording, so the exact text 'Onboarding enhancements applied: added Dev Environment Setup and Contractor Feedback tasks.' is relaxed to its content words (the benchmark's text satisfies them); updated_at > created_at tests only server-kept timestamps and is dropped"
+  },
+  "comprehensive_atomicity_check": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "disagreement: value: the survey task's title: one pass selects the task by parent case and the benchmark's title 'Contractor Feedback', the other drops the title as undecidable and selects by type and an id above the seed's highest; kept the title, since the benchmark check is the prior and the request's 'contractor experience survey' does not contradict it (resolved on the survey task and survey instance requirements).\ndisagreement: missing requirement: a stay that Marc's other case (hr_case_id 57) keeps its 3 tasks; one pass has it, the other does not; kept because it is the boundary of 'his case' for the new tasks, as the stay on that case's status and work note is for the case update.\nThe two passes otherwise agree on every row, id, cell and disposition.\ncomprehensive_atomicity_check is a conjunction of counts on the rows the other checks test (two new tasks, two new checklist items, survey instance 26, case 10 in work_in_progress) and is carried jointly by the requirements that carry those rows; since exactly two tasks and two items are created, its ids 150, 151, 91 and 92 exist whatever the order.\nCase HRC0000720 sits in org 10 and Marc Henry's user record in org 11, while the acting user, HR Service Desk and survey 2 are in org 1; the new rows' org_id of 1 follows the benchmark.\nThe survey task's title 'Contractor Feedback' comes only from the benchmark check; an agent naming the task otherwise fails both the survey task and the survey instance requirements.\nNeither new task's assigned_to is tested: the request names no assignee, and the policy asks only that an assignee, when set, be an active member of the group. The policy's 30-120 character limit on work notes is not tested.",
+ "minutes": 35
+}

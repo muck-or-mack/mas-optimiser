@@ -1,0 +1,212 @@
+{
+  "task_id": "task_20251223_061756_991_a8eea1c0_e497a345",
+  "policy_sha1": "b2da3f42",
+  "requirements": [
+    {
+      "text": "I've been reviewing HRC0000711 and want to get the ball rolling on the setup to next state",
+      "kind": "change",
+      "table": "hr_case",
+      "selector": "hr_case_id = 1 AND number = 'HRC0000711'",
+      "cells": {
+        "status": "work_in_progress",
+        "priority": "critical",
+        "source": "self-service",
+        "short_description": "General inquiry regarding HR policies",
+        "coe_type": "Workforce Administration",
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 1 AND number = 'HRC0000711' AND status = 'work_in_progress' AND priority = 'critical' AND source = 'self-service' AND short_description = 'General inquiry regarding HR policies' AND coe_type = 'Workforce Administration' AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "hr_case_status_update",
+        "organization_data_isolation"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "HRC0000711 is hr_case 1, now in draft",
+        "the policy allows draft to move to work_in_progress, awaiting_approval, suspended or cancelled; work_in_progress is the step that starts fulfilment ('get the ball rolling'), kept from the benchmark check",
+        "priority, source, short description, coe_type and org_id are the seed's values, kept from the benchmark check; the request asks for no other change to the case",
+        "disagreement: row: A selector hr_case_id = 1 AND number = 'HRC0000711', B anchor hr_case_id = 1 without the number; chose A's because it names the same row and carries the benchmark check's number predicate exactly, so the check stays kept"
+      ]
+    },
+    {
+      "text": "I need a Verify Office Setup fulfillment task added for the HR Service Desk Group",
+      "kind": "create",
+      "table": "hr_case_task",
+      "selector": "parent_case = 1 AND short_description = 'Verify Office Setup'",
+      "cells": {
+        "assignment_group": 4,
+        "task_type": "checklist",
+        "status": "ready",
+        "active": true,
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case_task WHERE parent_case = 1 AND short_description = 'Verify Office Setup' AND assignment_group = 4 AND task_type = 'checklist' AND status = 'ready' AND active = true AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "hr_case_tasks_creation_for_parent_case",
+        "organization_data_isolation"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "selected by parent case and title: two tasks are created and the request fixes no creation order, so neither is tied to hr_case_task_id 150 or 151",
+        "HR Service Desk is group 4",
+        "task_type checklist implied by the request (the task carries checklist items), not stated; kept from the benchmark check",
+        "status ready and active = true kept from the benchmark check; not fixed by request or policy",
+        "org_id 1 kept from the benchmark check; it is the parent case's and the acting user's organisation"
+      ]
+    },
+    {
+      "text": "please set up an IT Support Experience Survey for Christina Oliver by creating a Rate Onboarding IT Survey task for that same group",
+      "kind": "create",
+      "table": "hr_case_task",
+      "selector": "parent_case = 1 AND short_description = 'Rate Onboarding IT'",
+      "cells": {
+        "assignment_group": 4,
+        "task_type": "survey",
+        "status": "ready",
+        "active": true,
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case_task WHERE parent_case = 1 AND short_description = 'Rate Onboarding IT' AND assignment_group = 4 AND task_type = 'survey' AND status = 'ready' AND active = true AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "hr_case_tasks_creation_for_parent_case",
+        "organization_data_isolation"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "selected by parent case and title: two tasks are created and the request fixes no creation order",
+        "title 'Rate Onboarding IT' kept from the benchmark check, reading 'Survey task' as the task's type, as 'fulfillment task' is the noun after 'Verify Office Setup'",
+        "task_type survey implied by the request ('Survey task', and a survey instance hangs on it)",
+        "'that same group' is the HR Service Desk, group 4",
+        "status ready and active = true kept from the benchmark check; not fixed by request or policy",
+        "org_id 1 kept from the benchmark check; it is the parent case's organisation"
+      ]
+    },
+    {
+      "text": "make sure it has Desk Assignment and Chair Delivery checklist items: Desk Assignment",
+      "kind": "create",
+      "table": "checklist",
+      "selector": "case_task_id IN (SELECT hr_case_task_id FROM hr_case_task WHERE parent_case = 1 AND short_description = 'Verify Office Setup') AND checklist_item_description = 'Desk Assignment'",
+      "cells": {
+        "checked": false,
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM checklist WHERE case_task_id IN (SELECT hr_case_task_id FROM hr_case_task WHERE parent_case = 1 AND short_description = 'Verify Office Setup') AND checklist_item_description = 'Desk Assignment' AND checked = false AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "checklist_items_creation_for_office_setup_task",
+        "organization_data_isolation"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "selected by its task (Verify Office Setup on case 1) and description: two items are created in no fixed order, and the task's own id depends on the order the two tasks are created",
+        "checked = false kept from the benchmark check; not fixed by request or policy (a new item starts unchecked)",
+        "org_id 1 kept from the benchmark check; it is the task's organisation"
+      ]
+    },
+    {
+      "text": "make sure it has Desk Assignment and Chair Delivery checklist items: Chair Delivery",
+      "kind": "create",
+      "table": "checklist",
+      "selector": "case_task_id IN (SELECT hr_case_task_id FROM hr_case_task WHERE parent_case = 1 AND short_description = 'Verify Office Setup') AND checklist_item_description = 'Chair Delivery'",
+      "cells": {
+        "checked": false,
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM checklist WHERE case_task_id IN (SELECT hr_case_task_id FROM hr_case_task WHERE parent_case = 1 AND short_description = 'Verify Office Setup') AND checklist_item_description = 'Chair Delivery' AND checked = false AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "checklist_items_creation_for_office_setup_task",
+        "organization_data_isolation"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "selected by its task (Verify Office Setup on case 1) and description: two items are created in no fixed order, and the task's own id depends on the order the two tasks are created",
+        "checked = false kept from the benchmark check; not fixed by request or policy (a new item starts unchecked)",
+        "org_id 1 kept from the benchmark check; it is the task's organisation"
+      ]
+    },
+    {
+      "text": "please set up an IT Support Experience Survey for Christina Oliver by creating a Rate Onboarding IT Survey task ... She needs to provide her feedback on the technical issue through the system",
+      "kind": "create",
+      "table": "survey_instance",
+      "anchor": {
+        "survey_instance_id": 26
+      },
+      "cells": {
+        "survey_id": 4,
+        "assigned_to": 2,
+        "case_task_id": "IN (SELECT hr_case_task_id FROM hr_case_task WHERE parent_case = 1 AND short_description = 'Rate Onboarding IT')",
+        "org_id": 1,
+        "answer_1": "IS NULL",
+        "answer_2": "IS NULL",
+        "answer_3": "IS NULL",
+        "answer_4": "IS NULL",
+        "answer_5": "IS NULL"
+      },
+      "sql": "SELECT COUNT(*) FROM survey_instance WHERE survey_instance_id = 26 AND survey_id = 4 AND assigned_to = 2 AND case_task_id IN (SELECT hr_case_task_id FROM hr_case_task WHERE parent_case = 1 AND short_description = 'Rate Onboarding IT') AND org_id = 1 AND answer_1 IS NULL AND answer_2 IS NULL AND answer_3 IS NULL AND answer_4 IS NULL AND answer_5 IS NULL",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "survey_instance_creation_for_christina_oliver",
+        "organization_data_isolation"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (25 is the highest survey_instance_id)",
+        "survey 4 is the IT support survey (its questions ask whether the technical issue was resolved and how knowledgeable the IT support agent was); in the seed every 'Rate IT Support Experience' task carries survey 4",
+        "Christina Oliver is user 2, the only user of that name",
+        "linked to the new Rate Onboarding IT task on case 1, found by parent case and title, since its id depends on creation order",
+        "org_id 1 kept from the benchmark check; it is the linked task's organisation, not Christina's own (org 2)",
+        "unanswered fields kept from the benchmark check; not fixed by request or policy (a new instance has no answers)",
+        "disagreement: case_task_id: A a task on case 1 titled LIKE 'Rate Onboarding IT%', B titled exactly 'Rate Onboarding IT'; chose B's, the tighter predicate, because it names the same task the survey-task requirement creates"
+      ]
+    },
+    {
+      "text": "set up an IT Support Experience Survey for Christina Oliver",
+      "kind": "stay",
+      "table": "survey_instance",
+      "selector": "survey_id <> 4 AND case_task_id IN (SELECT hr_case_task_id FROM hr_case_task WHERE parent_case = 1)",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM survey_instance WHERE survey_id <> 4 AND case_task_id IN (SELECT hr_case_task_id FROM hr_case_task WHERE parent_case = 1)",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of the survey selector: the task's title says 'Onboarding', survey 2 is the onboarding survey (the seed's 'New Hire Feedback Survey' tasks carry it) and Christina already holds an instance of it (instance 20); the request creates one survey instance, of survey 4, so no other survey may hang on any task of case 1",
+        "disagreement: selector: A instances of other surveys on the Rate Onboarding IT task (any assignee), B instances of other surveys assigned to Christina on any task of case 1; chose instances of other surveys on any task of case 1, which contains both and holds at 0 on the seed"
+      ]
+    }
+  ],
+  "original_checks": {
+    "hr_case_status_update": {
+      "disposition": "kept"
+    },
+    "hr_case_tasks_creation_for_parent_case": {
+      "disposition": "repaired",
+      "evidence": "the check ties 'Verify Office Setup' to hr_case_task_id 150 and 'Rate Onboarding IT' to 151, although the request fixes no order of creation, so each task is selected by parent case and title instead; it also tests number = 'TASK-0001' and 'TASK-0002', which the server assigns (the seed numbers tasks HRT0001000 upwards), so that predicate is dropped; group, status, active, org_id, titles and types are carried"
+    },
+    "checklist_items_creation_for_office_setup_task": {
+      "disposition": "repaired",
+      "evidence": "the check finds the items on case_task_id 150 with checklist_id 91 or 92; 150 is the Verify Office Setup task only if it is created before the survey task, which the request does not fix, so the items are found through that task's parent case and title, and by description, with the ids dropped; checked and org_id are carried"
+    },
+    "survey_instance_creation_for_christina_oliver": {
+      "disposition": "repaired",
+      "evidence": "the check links the instance to case_task_id 151, which is the Rate Onboarding IT task only if that task is created second; the request fixes no order, so the link is tested through the task's parent case and title; survey, user, org_id and empty answers are carried"
+    },
+    "organization_data_isolation": {
+      "disposition": "repaired",
+      "evidence": "a conjunction of org_id = 1 cells over the case, the two tasks, the two items and the instance, which the other requirements carry; it names the tasks by hr_case_task_id 150 and 151 and the items by checklist_id 91 and 92, which only the order of creation fixes, and the request fixes no order between the two tasks, so those rows are found by their natural keys instead"
+    }
+  },
+  "notes": "disagreement: value: the case's row: one pass selects it by id and number, the other anchors it by id alone; kept the selector, which names the same row and carries the benchmark check's number predicate exactly.\ndisagreement: value: the survey instance's task: one pass accepts a task on case 1 titled 'Rate Onboarding IT' with or without a trailing ' Survey', the other only the exact title; kept the exact title, the tighter predicate, since it is the task the survey-task requirement creates.\ndisagreement: value: the stay on other surveys: one pass bounds the Rate Onboarding IT task for any assignee, the other Christina's instances on any task of case 1; kept one stay on instances of any survey other than 4 on any task of case 1, which contains both and holds at 0 on the seed.\ndisagreement: value: whether moving case 1 to work_in_progress generates template tasks: one pass gives that as a reason the task ids could shift, the other says case 1's service has no template; the seed shows service 1 (General Inquiry) has no service template, so no template tasks arise, and the ids are open only because the request fixes no order between the two tasks.\nThe two passes otherwise agree on every requirement, cell and value (case 1 to work_in_progress, the two tasks for group 4 selected by title, the two items on the Verify Office Setup task, survey instance 26 of survey 4 for user 2) and on all five dispositions.\nThe task title 'Rate Onboarding IT' follows the benchmark, reading 'Rate Onboarding IT Survey task' as a survey-type task of that title; the other reading, a title of 'Rate Onboarding IT Survey', is also open, since seed survey tasks are titled both with 'Survey' (New Hire Feedback Survey) and without it (Rate IT Support Experience). That literal title would fail both the survey-task and the survey-instance requirements.\nThe policy's rule that a task be assigned to an active user of its group is not tested: the request names only the group, which has two active members (users 15 and 22), so assigned_to is left open.\nThe request asks for the two named checklist items and does not forbid others, so the item count on the task is not capped.\nBooleans are compared with true and false, which the seed stores as 1 and 0.",
+  "minutes": 43
+}

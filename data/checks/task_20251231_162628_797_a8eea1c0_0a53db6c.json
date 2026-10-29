@@ -1,0 +1,271 @@
+{
+  "task_id": "task_20251231_162628_797_a8eea1c0_0a53db6c",
+  "policy_sha1": "88641769",
+  "requirements": [
+    {
+      "text": "Please log a critical web case (repeated dataplane crashing on Stark Industries PA-3220, ending 8853)",
+      "kind": "create",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 1233
+      },
+      "cells": {
+        "account_id": 8,
+        "contact_id": 10,
+        "product_id": 140,
+        "installed_product_id": 42,
+        "channel": "web",
+        "priority": "critical"
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1233 AND account_id = 8 AND contact_id = 10 AND product_id = 140 AND installed_product_id = 42 AND channel = 'web' AND priority = 'critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "create_new_case",
+        "link_case_knowledge (2)"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (1233 after 1232); the only case the task creates",
+        "'PA-3220, ending 8853' on Stark Industries (account 8) is installed product 42 (serial P140-898548-8853, in_use, product 140 Palo Alto Networks PA-3220 Variant 8); units 2 and 108 carry 8853 mid-serial and belong to other accounts",
+        "reporting contact not named; the account's primary contact (contact 10, Marc Henry) assumed, which the benchmark's create_new_case (2) check corroborates",
+        "short_description not fixed by the request (the policy's template is advisory); not tested",
+        "carries link_case_knowledge (2) too: its only non-timestamp cell is case_id = 1233"
+      ]
+    },
+    {
+      "text": "I need immediate Escalation Management",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 1233
+      },
+      "cells": {
+        "assignment_group_id": 18
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1233 AND assignment_group_id = 18",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "set_case_assignment_group",
+      "seed_count": 0,
+      "assumptions": [
+        "'Escalation Management' is the support group of exactly that name (group 18); the _2/_3/_4 namesakes (38, 58, 78) are not it",
+        "read as a group assignment, not as the case's escalation flag: the policy's escalation section is permissive ('may be raised') and the request names the group",
+        "a cell set on the row the task creates (set_case_assignment_group after create_new_case), so kind is change although the row is new",
+        "disagreement: kind: A create, B change; chose change because the cell is set by a later tool call on the created row"
+      ]
+    },
+    {
+      "text": "log a critical web case ... Escalation Management ... link resolution SLA (policy: assigned to a group, and before an SLA is linked, the state is in_progress)",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 1233
+      },
+      "cells": {
+        "state": "in_progress"
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1233 AND state = 'in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "update_case",
+      "seed_count": 0,
+      "assumptions": [
+        "state fixed by policy: a case assigned to a group must be in_progress, and the case must move new -> in_progress before link_new_case_sla",
+        "disagreement: kind: A create, B change; chose change for the same reason as the assignment requirement"
+      ]
+    },
+    {
+      "text": "Please log a critical web case (policy: creating an interaction is mandatory whenever a new case is registered)",
+      "kind": "create",
+      "table": "interaction",
+      "anchor": {
+        "interaction_id": 1233
+      },
+      "cells": {
+        "case_id": 1233,
+        "account_id": 8,
+        "contact_id": 10,
+        "channel": "web"
+      },
+      "sql": "SELECT COUNT(*) FROM interaction WHERE interaction_id = 1233 AND case_id = 1233 AND account_id = 8 AND contact_id = 10 AND channel = 'web'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "policy: creating an interaction is mandatory whenever a new case is registered",
+        "id assumed next in sequence (1233 after 1232); the only interaction the task creates",
+        "channel taken as the case's channel, web; status and interacted_user not tested",
+        "no tool writes this table (create_new_case may do it internally)",
+        "disagreement: cells: A omits contact_id, B includes contact_id = 10; chose B's as the tighter predicate, consistent with the case's contact"
+      ]
+    },
+    {
+      "text": "contract with start date 18/11/2025, establish a new 12-month Enterprise support",
+      "kind": "create",
+      "table": "contract",
+      "anchor": {
+        "contract_id": 154
+      },
+      "cells": {
+        "account_id": 8,
+        "contract_type": "support",
+        "status": "active",
+        "start_date": "2025-11-18",
+        "end_date": "2026-11-18"
+      },
+      "sql": "SELECT COUNT(*) FROM contract WHERE contract_id = 154 AND account_id = 8 AND contract_type = 'support' AND status = 'active' AND start_date = '2025-11-18' AND end_date = '2026-11-18'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "enlist_new_contract",
+        "enlist_new_contract (2)",
+        "add_new_entitlement (2)"
+      ],
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (154 after 153); the only contract the task creates",
+        "12 months from 18/11/2025 read as end_date 2026-11-18, as the benchmark's check has it (2026-11-17 rejected)",
+        "status not stated; a newly enlisted contract that has started is active (schema default, benchmark check)",
+        "contract_price not stated; not tested",
+        "carries enlist_new_contract (2) and add_new_entitlement (2) too: their only non-timestamp cell is contract_id = 154"
+      ]
+    },
+    {
+      "text": "top-tier 24x7 Enterprise support for this specific firewall",
+      "kind": "create",
+      "table": "entitlement",
+      "anchor": {
+        "entitlement_id": 432
+      },
+      "cells": {
+        "account_id": 8,
+        "product_id": 140,
+        "contract_id": 154,
+        "support_level": "enterprise",
+        "coverage_hours": "h24x7",
+        "active": 1
+      },
+      "sql": "SELECT COUNT(*) FROM entitlement WHERE entitlement_id = 432 AND account_id = 8 AND product_id = 140 AND contract_id = 154 AND support_level = 'enterprise' AND coverage_hours = 'h24x7' AND active = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "add_new_entitlement",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (432 after 431); the only entitlement the task creates",
+        "'this specific firewall' fixes product_id to 140, the product of installed product 42 (the entitlement table has no installed-product column), not an account-wide entitlement",
+        "contract_id 154 assumes the new contract is enlisted before the entitlement, as the request orders them",
+        "max_cases_per_month not stated; not tested"
+      ]
+    },
+    {
+      "text": "link resolution SLA",
+      "kind": "create",
+      "table": "case_sla",
+      "anchor": {
+        "case_sla_id": 2465
+      },
+      "cells": {
+        "case_id": 1233,
+        "sla_def_id": 6,
+        "stage": "in_progress"
+      },
+      "sql": "SELECT COUNT(*) FROM case_sla WHERE case_sla_id = 2465 AND case_id = 1233 AND sla_def_id = 6 AND stage = 'in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "link_new_case_sla",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (2465 after 2464); the request asks for one SLA (resolution), so this is the only case_sla row the task creates",
+        "the resolution SLA for a critical case is definition 6 (SLA Resolution - Critical), the only active critical resolution definition; the inactive global one (10) is not eligible",
+        "stage in_progress fixed by policy so tracking begins immediately"
+      ]
+    },
+    {
+      "text": "urgent help needed ... repeated dataplane crashing (policy: a knowledge base search on a new case, found articles linked as suggested)",
+      "kind": "create",
+      "table": "case_knowledge",
+      "anchor": {
+        "case_kb_id": 528
+      },
+      "cells": {
+        "case_id": 1233,
+        "knowledge_id": 210,
+        "used_as": "suggested"
+      },
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_kb_id = 528 AND case_id = 1233 AND knowledge_id = 210 AND used_as = 'suggested'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "link_case_knowledge",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by the request, not stated: it never says 'investigate', but the policy orders a knowledge search when a new case is to be investigated and the request asks for urgent help with the crash; kept from the benchmark check",
+        "article 210 is the only published article for product 140; 195 for the base PA-3220 (product 128) is retired and the others are for other variants",
+        "found by search, so used_as = suggested per policy",
+        "id assumed next in sequence (528 after 527); the only link the task creates"
+      ]
+    },
+    {
+      "text": "Stark Industries PA-3220 (policy: no retired article may be linked)",
+      "kind": "stay",
+      "table": "case_knowledge",
+      "selector": "case_id = 1233 AND knowledge_id = 195",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_id = 1233 AND knowledge_id = 195",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "policy forbids linking an unpublished article: 195 (base product PA-3220, product 128) is retired and its title matches a loose reading of 'PA-3220'",
+        "disagreement: this stay is A only (B had none); kept because the policy forbids the link"
+      ]
+    }
+  ],
+  "original_checks": {
+    "enlist_new_contract": {
+      "disposition": "kept"
+    },
+    "enlist_new_contract (2)": {
+      "disposition": "repaired",
+      "evidence": "tests only the server-kept sys_updated_on of contract 154, which is never a cell; its other cell (contract 154 exists) is carried by the contract requirement, so the timestamp cell is dropped"
+    },
+    "add_new_entitlement": {
+      "disposition": "kept"
+    },
+    "add_new_entitlement (2)": {
+      "disposition": "repaired",
+      "evidence": "tests contract 154's server-kept sys_updated_on against 2025-11-18, never a cell and fixed by nothing in the request; its other cell (contract 154 exists) is carried by the contract requirement, so the timestamp cell is dropped"
+    },
+    "create_new_case": {
+      "disposition": "kept"
+    },
+    "create_new_case (2)": {
+      "disposition": "weak",
+      "evidence": "tests seed facts alone: contact 10 already has sys_updated_on = 2026-03-19 18:56:26 on the seed"
+    },
+    "set_case_assignment_group": {
+      "disposition": "kept"
+    },
+    "set_case_assignment_group (2)": {
+      "disposition": "weak",
+      "evidence": "tests seed facts alone: group 18 already has sys_updated_on = 2026-01-11 21:22:24 on the seed"
+    },
+    "update_case": {
+      "disposition": "kept"
+    },
+    "link_new_case_sla": {
+      "disposition": "kept"
+    },
+    "link_case_knowledge": {
+      "disposition": "kept"
+    },
+    "link_case_knowledge (2)": {
+      "disposition": "repaired",
+      "evidence": "tests only the server-kept sys_updated_on of case 1233, which is never a cell; its other cell (case 1233 exists) is carried by the case requirement, so the timestamp cell is dropped"
+    }
+  },
+  "notes": "Merged from two passes that agree on the eight shared requirements (case 1233 with its group 18 and state in_progress, interaction 1233, contract 154, entitlement 432, case_sla 2465 on definition 6, case_knowledge 528 on article 210) and on all twelve dispositions. disagreement: kind of the assignment and state requirements: A create, B change; kept change because the cells are set by later tool calls on the created row (logged in the requirements). disagreement: interaction cells: A omits contact_id, B includes contact_id = 10; kept B's as the tighter predicate (logged in the requirement). disagreement: A's stay that retired article 195 is not linked to case 1233 (B had none); kept because the policy forbids linking an unpublished article. disagreement: B's stay that case 1233 does not take installed products 2 or 108 (A had none); dropped because the create requirement pins installed_product_id = 42 on the same row, a single-valued column, so the stay cannot fail unless the create already fails. disagreement: B's stay that contract 138 stays expired (A had none); dropped because the request asks for a new contract and neither it nor the policy forbids touching 138, which makes it a generic invariant measured as collateral (no tool updates contracts either). The three timestamp-only checks on new rows (enlist_new_contract (2), add_new_entitlement (2), link_case_knowledge (2)) are repaired, not excluded: a server-kept timestamp is never a cell, but their other cell (the new row's id) is carried, and the contract and case requirements name them in source. The escalation flag is required by neither pass: the policy's escalation section is permissive and 'Escalation Management' names the group. The knowledge link rests on the benchmark's prior plus the policy's search rule; the request never says 'investigate'. The acting user Joanne Simpson (user 4) is a manager, so every step is within her role, and no benchmark check depends on the acting user. The interaction has no tool to write it. The prior contract the request mentions is 138 (warranty, expired 2025-05-14, with the inactive enterprise h24x7 entitlement 75).\nrevised: the assignment requirement's kind disagreement and the note on the three timestamp-only checks now state their reasons directly.",
+  "minutes": 13
+}

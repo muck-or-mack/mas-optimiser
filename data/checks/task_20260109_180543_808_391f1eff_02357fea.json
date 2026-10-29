@@ -1,0 +1,114 @@
+{
+ "task_id": "task_20260109_180543_808_391f1eff_02357fea",
+ "policy_sha1": "0bfb012b",
+ "requirements": [
+  {
+   "text": "a new approval-type HR criterion called HR Data Access Review that is owned by the HR Leadership Approval group",
+   "kind": "create",
+   "table": "hr_criteria",
+   "anchor": {
+    "hr_criteria_id": 8
+   },
+   "cells": {
+    "name": "HR Data Access Review",
+    "type": "approval",
+    "user_group": 10,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_criteria WHERE hr_criteria_id = 8 AND name = 'HR Data Access Review' AND type = 'approval' AND user_group = 10 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "Verify New HR criterion exists and is wired to “HR Leadership Approval”",
+    "Verify “Employee Profile Update” HR service is active, Workforce Administration, and uses the new criterion"
+   ],
+   "assumptions": [
+    "id assumed next in sequence (highest hr_criteria_id in the seed is 7)",
+    "HR Leadership Approval is user_group 10, the only group of that name",
+    "active = 1 kept from the benchmark check; not fixed by request or policy, and a criterion the service relies on must be usable",
+    "disagreement: source: A this requirement's own check alone, B also the HR service check; chose both because the service check joins the criterion by its name and type, which only this requirement carries"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "supported by an internal-only knowledge article, whose title makes clear that this criterion must be used for sensitive HR case review",
+   "kind": "create",
+   "table": "knowledge",
+   "anchor": {
+    "knowledge_id": 7
+   },
+   "cells": {
+    "title": "LIKE 'Resolution Guide: Employee Profile Update fulfillment steps for sensitive HR case review'",
+    "visibility": "internal",
+    "state": "published"
+   },
+   "sql": "SELECT COUNT(*) FROM knowledge WHERE knowledge_id = 7 AND title LIKE 'Resolution Guide: Employee Profile Update fulfillment steps for sensitive HR case review' AND visibility = 'internal' AND state = 'published'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify Internal-only knowledge article exists and is published",
+   "assumptions": [
+    "id assumed next in sequence (highest knowledge_id in the seed is 6)",
+    "internal-only read as visibility = internal",
+    "title kept from the benchmark check; not fixed by request or policy (case-insensitive match, no wildcards): it fills the policy's title template 'Resolution Guide: ... fulfillment steps for ...' with the service and the request's phrase 'sensitive HR case review'",
+    "state = published kept from the benchmark check; the policy makes only published articles visible and linkable, so an article that supports the criterion must be published",
+    "disagreement: title: A the benchmark's exact title, B the template's fixed words plus 'sensitive HR case review' with the subject open; chose the exact title because the benchmark's title fits the policy template and the request's description, so neither contradicts it"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "the existing Employee Profile Update HR service to rely on the new HR Data Access Review criterion",
+   "kind": "change",
+   "table": "hr_service",
+   "anchor": {
+    "hr_service_id": 35
+   },
+   "cells": {
+    "hr_criteria": 8
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 35 AND hr_criteria = 8",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify “Employee Profile Update” HR service is active, Workforce Administration, and uses the new criterion",
+   "assumptions": [
+    "Employee Profile Update is hr_service_id 35, the only service of that name; its hr_criteria is empty in the seed",
+    "the new criterion is hr_criteria_id 8, the row the criterion requirement anchors; its name and type are tested there"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "while remaining active under the Workforce Administration COE",
+   "kind": "stay",
+   "table": "hr_service",
+   "anchor": {
+    "hr_service_id": 35
+   },
+   "cells": {
+    "active": 1,
+    "topic_detail": "IN (SELECT td.topic_detail_id FROM topic_detail td JOIN topic_category tc ON td.topic_category = tc.topic_category_id WHERE tc.coe_type = 'Workforce Administration')"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 35 AND active = 1 AND topic_detail IN (SELECT td.topic_detail_id FROM topic_detail td JOIN topic_category tc ON td.topic_category = tc.topic_category_id WHERE tc.coe_type = 'Workforce Administration')",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify “Employee Profile Update” HR service is active, Workforce Administration, and uses the new criterion",
+   "assumptions": [
+    "the service must not be deactivated or moved out of the Workforce Administration COE; in the seed it is active under topic_detail 28 (Profile Update), category HR Operations, whose coe_type is Workforce Administration",
+    "any topic under a Workforce Administration category satisfies 'under the Workforce Administration COE'; the request names the COE, not the topic"
+   ],
+   "seed_count": 1
+  }
+ ],
+ "original_checks": {
+  "Verify New HR criterion exists and is wired to “HR Leadership Approval”": {
+   "disposition": "kept"
+  },
+  "Verify Internal-only knowledge article exists and is published": {
+   "disposition": "kept",
+   "evidence": "the title 'Resolution Guide: Employee Profile Update fulfillment steps for sensitive HR case review' fits the policy's knowledge title template and makes clear the article is for sensitive HR case review; neither the request nor the policy contradicts it, so the check is carried unchanged"
+  },
+  "Verify “Employee Profile Update” HR service is active, Workforce Administration, and uses the new criterion": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "disagreement: value: the source of the criterion requirement: one pass lists the criterion check alone, the other adds the HR service check; chose both, since the service check joins the criterion by its name and type, which only that requirement carries (resolved on that requirement).\ndisagreement: value: the knowledge article's title: one pass requires the benchmark's exact title, the other only the template's fixed words and the phrase 'sensitive HR case review'; chose the exact title, since the benchmark's title fits the policy template and the request, and neither contradicts it (resolved on that requirement).\ndisagreement: disposition: the knowledge article check: one pass kept it, the other repaired it by loosening the title; kept, since a cell is changed only where the request, policy or seed contradicts it, and none does here.\nThe passes otherwise agree on every requirement, id and cell; their texts and assumptions differ in wording only.\nThe service check is carried jointly by the criterion requirement (name, type), the change (hr_criteria = 8) and the stay (still active, still under a Workforce Administration topic).\nNo column links a knowledge article to an HR criterion (hr_case_knowledge links articles to cases only), so 'supported by' is tested only through the article's existence, visibility, state and title.\nThe title does not name the criterion itself; 'makes clear that this criterion' may suggest it should, but the benchmark's title does not, so no such predicate is added. The policy's 30 to 120 character limit on titles is not tested, as the benchmark does not test it.\nOwner, body and the criterion's users list are not stated and are not tested.\nThe acting user, Karen Watkins (user 39), holds the admin role, which the policy allows to create criteria and update HR services.",
+ "minutes": 34
+}

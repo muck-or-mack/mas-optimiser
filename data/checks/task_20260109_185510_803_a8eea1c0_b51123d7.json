@@ -1,0 +1,241 @@
+{
+ "task_id": "task_20260109_185510_803_a8eea1c0_b51123d7",
+ "policy_sha1": "117eb8ac",
+ "requirements": [
+  {
+   "text": "The priority is currently set to critical, but it should be low",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 1
+   },
+   "cells": {
+    "priority": "low",
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 1 AND priority = 'low' AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_cases_case_update",
+    "master_database_state_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "case HRC0000711 is hr_case_id 1 in organisation 1; it is critical and in draft on the seed",
+    "disagreement: org_id: A untested as a fixed fact of the anchored row, B org_id = 1; chose org_id = 1 because the benchmark check tests it, nothing in the request, policy or seed contradicts it (the row is in org 1), and it is the tighter predicate"
+   ]
+  },
+  {
+   "text": "Change the case status from draft to ready",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 1
+   },
+   "cells": {
+    "status": "ready",
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 1 AND status = 'ready' AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_cases_case_update",
+    "master_database_state_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "draft to ready is a permitted lifecycle transition",
+    "disagreement: org_id: A untested as a fixed fact of the anchored row, B org_id = 1; chose org_id = 1 because the benchmark check tests it, nothing in the request, policy or seed contradicts it (the row is in org 1), and it is the tighter predicate"
+   ]
+  },
+  {
+   "text": "The case needs to be reassigned to Diana Johnson who works in the HR Service Desk Group",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 1
+   },
+   "cells": {
+    "assigned_to": 15,
+    "assignment_group": 4,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 1 AND assigned_to = 15 AND assignment_group = 4 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_cases_case_update",
+    "master_database_state_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "Diana Johnson is user 15 (active) and HR Service Desk is group 4",
+    "assignment group 4 is already set on the seed; assigned_to changes from user 11",
+    "user 15 is already a member of group 4 (member_id 9), so the assignee satisfies the group-membership rule",
+    "disagreement: org_id: A untested as a fixed fact of the anchored row, B org_id = 1; chose org_id = 1 because the benchmark check tests it, nothing in the request, policy or seed contradicts it (the row is in org 1), and it is the tighter predicate"
+   ]
+  },
+  {
+   "text": "Also update the case short description to \"Service: General Inquiry, Subject: Christina Oliver, Detail: Priority reduced from critical to low per SOP.\"",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 1
+   },
+   "cells": {
+    "short_description": "Service: General Inquiry, Subject: Christina Oliver, Detail: Priority reduced from critical to low per SOP.",
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 1 AND short_description = 'Service: General Inquiry, Subject: Christina Oliver, Detail: Priority reduced from critical to low per SOP.' AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_cases_case_update",
+    "master_database_state_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "the quoted text is stored verbatim, trailing full stop included (107 characters, within the 30 to 120 limit)",
+    "disagreement: org_id: A untested as a fixed fact of the anchored row, B org_id = 1; chose org_id = 1 because the benchmark check tests it, nothing in the request, policy or seed contradicts it (the row is in org 1), and it is the tighter predicate"
+   ]
+  },
+  {
+   "text": "Check if Workforce Policy Skill exists, and if it doesn't, create it",
+   "kind": "create",
+   "table": "skill",
+   "anchor": {
+    "skill_id": 20
+   },
+   "cells": {
+    "name": "Workforce Policy",
+    "active": true,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM skill WHERE skill_id = 20 AND name = 'Workforce Policy' AND active = true AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "skills_new_skill_creation",
+    "master_database_state_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "no skill named Workforce Policy exists on the seed, so it must be created",
+    "id assumed next in sequence",
+    "active = true kept from the benchmark check; not fixed by request or policy",
+    "org_id 1 is the acting user's organisation"
+   ]
+  },
+  {
+   "text": "create Low Priority Workforce Policy Routing assignment rule that will route low-priority cases requiring the Workforce Policy skill to the HR Service Desk group",
+   "kind": "create",
+   "table": "assignment_rules",
+   "anchor": {
+    "assignment_rule_id": 9
+   },
+   "cells": {
+    "name": "Low Priority Workforce Policy Routing",
+    "based_on_priority": "low",
+    "based_on_skills": "LIKE '%Workforce Policy%'",
+    "user_group": 4,
+    "active": true,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM assignment_rules WHERE assignment_rule_id = 9 AND name = 'Low Priority Workforce Policy Routing' AND based_on_priority = 'low' AND based_on_skills LIKE '%Workforce Policy%' AND user_group = 4 AND active = true AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "assignment_rules_new_routing_rule_creation",
+    "master_database_state_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence",
+    "the seed's rules store skill names as a JSON list of strings, so the rule must name Workforce Policy in based_on_skills",
+    "active = true kept from the benchmark check; not fixed by request or policy",
+    "based_on_country and users not stated; left untested"
+   ]
+  },
+  {
+   "text": "assign the Workforce Policy skill to Diana Johnson",
+   "kind": "create",
+   "table": "user_skill",
+   "anchor": {
+    "user_skill_id": 336
+   },
+   "cells": {
+    "skill": 20,
+    "user": 15,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM user_skill WHERE user_skill_id = 336 AND skill = 20 AND user = 15 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "user_skills_skill_assignment_to_user",
+    "master_database_state_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence",
+    "skill 20 is the Workforce Policy skill created by this task"
+   ]
+  },
+  {
+   "text": "Update that notification by changing its status to ready so it can be sent out to the case requester",
+   "kind": "change",
+   "table": "notification",
+   "anchor": {
+    "notification_id": 1
+   },
+   "cells": {
+    "hr_case_id": 1,
+    "email": "christina.oliver.2@personal.example.com",
+    "type": "report",
+    "status": "ready",
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 1 AND hr_case_id = 1 AND email = 'christina.oliver.2@personal.example.com' AND type = 'report' AND status = 'ready' AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "notifications_notification_status_update",
+    "master_database_state_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "notification 1 is the only notification on case 1 and is in draft on the seed",
+    "email and type kept from the benchmark check; not fixed by request or policy; they are the seed values, and the email is the requester's personal email (profile 2, who opened the case)",
+    "disagreement: org_id: A untested as a fixed fact of the anchored row, B org_id = 1; chose org_id = 1 because the benchmark check tests it, nothing in the request, policy or seed contradicts it (the row is in org 1), and it is the tighter predicate"
+   ]
+  }
+ ],
+ "original_checks": {
+  "skills_new_skill_creation": {
+   "disposition": "kept"
+  },
+  "assignment_rules_new_routing_rule_creation": {
+   "disposition": "kept"
+  },
+  "user_skills_skill_assignment_to_user": {
+   "disposition": "kept"
+  },
+  "group_membership_verification": {
+   "disposition": "weak",
+   "evidence": "Diana Johnson (user 15) is already a member of HR Service Desk (group 4, member_id 9) on the seed, so the count is 1 before the agent acts; the request states that membership as a fact rather than asking for it"
+  },
+  "hr_cases_case_update": {
+   "disposition": "kept"
+  },
+  "notifications_notification_status_update": {
+   "disposition": "kept"
+  },
+  "master_database_state_verification": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "disagreement: value: org_id on the four case requirements and the notification requirement: one pass leaves it untested as a fixed fact of the anchored row, the other tests org_id = 1 as the benchmark checks do; chose org_id = 1, the tighter predicate, which the request, policy and seed do not contradict (resolved on each requirement).\nThe passes otherwise agree on every requirement, id, cell and disposition; their texts and assumptions differ in wording only.\nThe case update check is split into four requirements, one per asked change (priority, status, reassignment, short description); together they carry it. The case number it also tests is a display column and is not a cell, since hr_case_id 1 already names the row.\nThe composite check is a conjunction over the six other checks, so it is kept and carried jointly by every requirement; its group-membership part is true on the seed.\nThe routing rule adds a based_on_skills cell the benchmark omits: the request says the rule routes cases requiring the Workforce Policy skill, and every seed rule stores skill names as a JSON list of strings, so the name is tested with LIKE. The benchmark's description speaks of skill 20 in that array; an agent that stores the id instead would fail this cell.\nThe acting user, Joanne Simpson (user 4), holds the manager role in org 1. The policy reserves assignment rule and system configuration changes for administrators, but the seed's permission table grants the manager role create, read, update and delete on skills and assignment rules, and the request asks for both explicitly, so the creations are required.",
+ "minutes": 33
+}

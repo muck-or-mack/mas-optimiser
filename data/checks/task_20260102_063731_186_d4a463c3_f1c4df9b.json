@@ -1,0 +1,121 @@
+{
+  "task_id": "task_20260102_063731_186_d4a463c3_f1c4df9b",
+  "policy_sha1": "10503d62",
+  "requirements": [
+    {
+      "text": "The guidance material currently associated with the case ... ensure it is no longer presented in the case context",
+      "kind": "remove",
+      "table": "case_knowledge",
+      "selector": "case_id = 1204 AND knowledge_id = 77",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_id = 1204 AND knowledge_id = 77",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "Verify no knowledge linkage",
+      "seed_count": 1,
+      "assumptions": [
+        "the case is 1204: the only Tomcat 9 Variant 32 (product 52) case for contact 120, who is kathy.oliver@thomasgroup.com (user 238, contact.portal_user_id) on account 52",
+        "the guidance material is the case's one link, case_kb_id 515 to article 77 (used_as applied); a removal, so expected is 0",
+        "'no longer presented in the case context' read as removing the link, not retiring the article (no tool writes the knowledge table)",
+        "disagreement: anchor: A case_kb_id = 515, B selector case_id = 1204 AND knowledge_id = 77; chose B's because both pick row 515 on the seed and B's also fails if the row is deleted and relinked"
+      ]
+    },
+    {
+      "text": "Due to the stated impact, the case should be surfaced for higher-level review",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 1204
+      },
+      "cells": {
+        "escalation": 1,
+        "escalation_reason": "impact"
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1204 AND escalation = 1 AND escalation_reason = 'impact'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Case Escalation",
+      "seed_count": 0,
+      "assumptions": [
+        "'higher-level review' read as an escalation; the policy records escalation = true on the case with an escalation_reason and no separate record",
+        "escalation_reason = impact from 'Due to the stated impact' (policy enumeration: urgency, vip, impact, breach_risk, customer_request)",
+        "escalation = 1 is the schema's form of the benchmark's escalation = true (SQLite reads both the same)",
+        "the policy also wants the justification in case notes; the schema has no notes table, so nothing to test"
+      ]
+    },
+    {
+      "text": "An online correspondence was received from kathy.oliver@thomasgroup.com ... The received communication should be reflected on the case as having been addressed",
+      "kind": "create",
+      "table": "interaction",
+      "anchor": {
+        "interaction_id": 1233
+      },
+      "cells": {
+        "channel": "email",
+        "account_id": 52,
+        "contact_id": 120,
+        "case_id": 1204,
+        "status": "handled"
+      },
+      "sql": "SELECT COUNT(*) FROM interaction WHERE interaction_id = 1233 AND channel = 'email' AND account_id = 52 AND contact_id = 120 AND case_id = 1204 AND status = 'handled'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Interaction",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (1233 after 1232); the only interaction the task creates",
+        "a new interaction, not an update of the open chat interaction 1204 already on the case: the correspondence is a new communication and the tools only register interactions",
+        "channel = email kept from the benchmark check: 'online correspondence' from an email address reads as email (web would also fit the words); the policy sets no default interaction channel",
+        "contact 120 and account 52 resolved from the email via user 238 and contact.portal_user_id",
+        "'having been addressed' read as status = handled (enumeration: open, handled, closed)",
+        "interacted_user not fixed by request or policy; not tested"
+      ]
+    },
+    {
+      "text": "the Tomcat product case (boundary: the account's other Tomcat 9 Variant 32 cases)",
+      "kind": "stay",
+      "table": "customer_case",
+      "selector": "account_id = 52 AND product_id = 52 AND case_id <> 1204",
+      "cells": {
+        "escalation": 0
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE account_id = 52 AND product_id = 52 AND case_id <> 1204 AND escalation = 0",
+      "expected": 2,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 2,
+      "assumptions": [
+        "cases 1201 (contact 121) and 1216 (contact 122) are the same account's other cases on product 52; a reading of 'the Tomcat product case' by account rather than by contact would sweep them in",
+        "disagreement: selector: A account_id = 52 AND product_id = 52 AND case_id <> 1204 AND escalation = 0 (expected 2), B case_id IN (1201, 1216) AND escalation = 1 (expected 0); the same two rows; chose A's because it finds the rows by the description a loose reading would use and counts them at their seed value"
+      ]
+    },
+    {
+      "text": "ensure it is no longer presented in the case context (boundary: the knowledge links on the contact's other cases)",
+      "kind": "stay",
+      "table": "case_knowledge",
+      "selector": "case_id IN (1205, 1215) AND knowledge_id = 306",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_id IN (1205, 1215) AND knowledge_id = 306",
+      "expected": 2,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 2,
+      "assumptions": [
+        "516 (case 1205) and 521 (case 1215) are the only links on contact 120's eight other cases; a reading that picks the wrong case of hers would delete one of them; the other Tomcat cases 1201 and 1216 have no links"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify no knowledge linkage": {
+      "disposition": "kept"
+    },
+    "Verify Case Escalation": {
+      "disposition": "kept"
+    },
+    "Verify Interaction": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on the three things the request asks (unlink article 77 from case 1204, escalate 1204 for impact, record the email as a handled interaction 1233) and on all three dispositions (kept). disagreement: link-removal row: A anchors case_kb_id = 515, B selects case_id = 1204 AND knowledge_id = 77; kept B's as the tighter form (logged in the requirement). disagreement: stay on the account's other product 52 cases: A selects by description with expected 2, B by case_id IN (1201, 1216) AND escalation = 1 with expected 0; kept A's (logged in the requirement). disagreement: stay on case_knowledge 516 and 521 (B only); kept because it is the boundary of the 'guidance material currently associated with the case' selector: the links on the contact's other cases are what a wrong-case reading would delete. The contact is found through user 238's email (contact has no email column). The policy's 'justification in case notes' has no table in this schema. No tool updates the existing open chat interaction 1204, so it is left as is and not tested.\nrevised: the removal's assumption no longer says its kind is change; the kind is remove, which the format has.\nrevised: escalation = 0 left the selector of the stay on the account's other product 52 cases, since the cells already test it and a column is not fixed twice; the query is unchanged.\nrevised: the stay on the contact's other knowledge links selects them by case and article (cases 1205 and 1215, article 306) instead of by link id, since existing rows are found by their natural key; corrected reason: under this selector a link deleted and relinked to the same case and article still counts as kept, as the final state is the same.",
+  "minutes": 10
+}

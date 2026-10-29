@@ -1,0 +1,181 @@
+{
+ "task_id": "task_20251226_102334_184_b25153b4_08c0849c",
+ "policy_sha1": "9ffbbf7e",
+ "requirements": [
+  {
+   "text": "Start by creating a new topic category called Hybrid Workforce Operations under Workforce Administration.",
+   "kind": "create",
+   "table": "topic_category",
+   "anchor": {
+    "topic_category_id": 13
+   },
+   "cells": {
+    "name": "Hybrid Workforce Operations",
+    "coe_type": "Workforce Administration",
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM topic_category WHERE topic_category_id = 13 AND name = 'Hybrid Workforce Operations' AND coe_type = 'Workforce Administration' AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "Verify topic category Hybrid Workforce Operations under Workforce Administration",
+    "Verify topic detail Hybrid Role Structure Change exists and is linked to that category"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (topic category 13 after 12)",
+    "under Workforce Administration read as coe_type, the only grouping column topic_category has",
+    "active kept from the benchmark check; not fixed by request or policy",
+    "disagreement: active: A 1, B true; chose 1 because the seed stores active as the integer 1 and SQLite reads true as 1, so both test the same value",
+    "disagreement: source: A also lists the topic detail check, B this requirement's own check alone; chose both because that check joins to this row by a cell this requirement carries, so it is carried jointly"
+   ]
+  },
+  {
+   "text": "Then add a topic detail named Hybrid Role Structure Change within that category.",
+   "kind": "create",
+   "table": "topic_detail",
+   "anchor": {
+    "topic_detail_id": 36
+   },
+   "cells": {
+    "name": "Hybrid Role Structure Change",
+    "topic_category": 13,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM topic_detail WHERE topic_detail_id = 36 AND name = 'Hybrid Role Structure Change' AND topic_category = 13 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "Verify topic detail Hybrid Role Structure Change exists and is linked to that category",
+    "Verify HR service Hybrid Role Structure Change Request exists"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (topic detail 36 after 35)",
+    "within that category: topic_category is the new category 13",
+    "active kept from the benchmark check; not fixed by request or policy",
+    "disagreement: active: A 1, B true; chose 1 because the seed stores active as the integer 1 and SQLite reads true as 1, so both test the same value",
+    "disagreement: source: A also lists the HR service check, B this requirement's own check alone; chose both because that check joins to this row by a cell this requirement carries, so it is carried jointly"
+   ]
+  },
+  {
+   "text": "Please create an HR criteria record named Hybrid Workforce Review Access, type set to approval, and associate it with the Global Service Desk group.",
+   "kind": "create",
+   "table": "hr_criteria",
+   "anchor": {
+    "hr_criteria_id": 8
+   },
+   "cells": {
+    "name": "Hybrid Workforce Review Access",
+    "type": "approval",
+    "user_group": 3,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_criteria WHERE hr_criteria_id = 8 AND name = 'Hybrid Workforce Review Access' AND type = 'approval' AND user_group = 3 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "Verify HR criteria \"Hybrid Workforce Review Access\" (type=approval) is linked to Global Service Desk AND includes all 3 reviewer emails",
+    "Verify HR service Hybrid Role Structure Change Request exists"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (hr criteria 8 after 7)",
+    "Global Service Desk is group 3, active on the seed",
+    "active kept from the benchmark check; not fixed by request or policy",
+    "the three reviewers are not a cell: the users JSON column is null on every seed criteria row, so its storage format is not shown",
+    "disagreement: active: A 1, B true; chose 1 because the seed stores active as the integer 1 and SQLite reads true as 1, so both test the same value",
+    "disagreement: source: A also lists the HR service check, B this requirement's own check alone; chose both because that check joins to this row by a cell this requirement carries, so it is carried jointly"
+   ]
+  },
+  {
+   "text": "create a new service template titled Hybrid Workforce Transition Template with the JSON below. ... Ensure this template is aligned to Workforce Administration.",
+   "kind": "create",
+   "table": "service_template",
+   "anchor": {
+    "service_template_id": 7
+   },
+   "cells": {
+    "name": "Hybrid Workforce Transition Template",
+    "coe_type": "Workforce Administration",
+    "active": 1,
+    "json_extract(change_request_values, '$.workflow_brief')": "Defines structured hybrid-role transitions with configurable checkpoints.",
+    "json_extract(change_request_values, '$.category')": "hybrid_transition",
+    "json_array_length(json_extract(change_request_values, '$.milestones'))": 3,
+    "json_extract(change_request_values, '$.milestones[0].step')": 1,
+    "json_extract(change_request_values, '$.milestones[0].label')": "Role Impact Mapping",
+    "json_extract(change_request_values, '$.milestones[0].required')": 1,
+    "json_extract(change_request_values, '$.milestones[1].step')": 2,
+    "json_extract(change_request_values, '$.milestones[1].label')": "Technology Access Revalidation",
+    "json_extract(change_request_values, '$.milestones[1].required')": 0,
+    "json_extract(change_request_values, '$.milestones[2].step')": 3,
+    "json_extract(change_request_values, '$.milestones[2].label')": "Manager Alignment Review",
+    "json_extract(change_request_values, '$.milestones[2].required')": 1
+   },
+   "sql": "SELECT COUNT(*) FROM service_template WHERE service_template_id = 7 AND name = 'Hybrid Workforce Transition Template' AND coe_type = 'Workforce Administration' AND active = 1 AND json_extract(change_request_values, '$.workflow_brief') = 'Defines structured hybrid-role transitions with configurable checkpoints.' AND json_extract(change_request_values, '$.category') = 'hybrid_transition' AND json_array_length(json_extract(change_request_values, '$.milestones')) = 3 AND json_extract(change_request_values, '$.milestones[0].step') = 1 AND json_extract(change_request_values, '$.milestones[0].label') = 'Role Impact Mapping' AND json_extract(change_request_values, '$.milestones[0].required') = 1 AND json_extract(change_request_values, '$.milestones[1].step') = 2 AND json_extract(change_request_values, '$.milestones[1].label') = 'Technology Access Revalidation' AND json_extract(change_request_values, '$.milestones[1].required') = 0 AND json_extract(change_request_values, '$.milestones[2].step') = 3 AND json_extract(change_request_values, '$.milestones[2].label') = 'Manager Alignment Review' AND json_extract(change_request_values, '$.milestones[2].required') = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "Verify service template Hybrid Workforce Transition Template is aligned to Workforce Administration",
+    "Verify HR service Hybrid Role Structure Change Request exists"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (service template 7 after 6)",
+    "the JSON is stored in change_request_values; the seed stores that column as JSON object text with true/false booleans, so each key and milestone is tested by path",
+    "aligned to Workforce Administration read as coe_type",
+    "active kept from the benchmark check; not fixed by request or policy",
+    "disagreement: active: A 1, B true; chose 1 because the seed stores active as the integer 1 and SQLite reads true as 1, so both test the same value",
+    "disagreement: source: A also lists the HR service check, B this requirement's own check alone; chose both because that check joins to this row by a cell this requirement carries, so it is carried jointly"
+   ]
+  },
+  {
+   "text": "create a new HR service named Hybrid Role Structure Change Request, fulfilled as a lifecycle event, and link it to the topic detail, the service template, and the new approval criteria.",
+   "kind": "create",
+   "table": "hr_service",
+   "anchor": {
+    "hr_service_id": 55
+   },
+   "cells": {
+    "service_name": "Hybrid Role Structure Change Request",
+    "fulfillment_type": "lifecycle event",
+    "topic_detail": 36,
+    "service_template": 7,
+    "hr_criteria": 8,
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 55 AND service_name = 'Hybrid Role Structure Change Request' AND fulfillment_type = 'lifecycle event' AND topic_detail = 36 AND service_template = 7 AND hr_criteria = 8 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify HR service Hybrid Role Structure Change Request exists",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (hr service 55 after 54)",
+    "links are to the new rows: topic detail 36, service template 7, hr criteria 8",
+    "fulfillment_type 'lifecycle event' in the request's words; the policy's fulfillment_type list does not include it",
+    "active kept from the benchmark check; not fixed by request or policy",
+    "disagreement: active: A 1, B true; chose 1 because the seed stores active as the integer 1 and SQLite reads true as 1, so both test the same value"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Verify topic category Hybrid Workforce Operations under Workforce Administration": {
+   "disposition": "kept"
+  },
+  "Verify topic detail Hybrid Role Structure Change exists and is linked to that category": {
+   "disposition": "kept"
+  },
+  "Verify HR criteria \"Hybrid Workforce Review Access\" (type=approval) is linked to Global Service Desk AND includes all 3 reviewer emails": {
+   "disposition": "repaired",
+   "evidence": "the three reviewer predicates read hr_criteria.users as a JSON array of user ids, but users is null on every seed criteria row, so its stored form (user ids, emails, or the request's review_panel object) is not shown and those predicates are undecidable; they are dropped and the name, type, active and Global Service Desk (group 3) predicates are carried unchanged"
+  },
+  "Verify service template Hybrid Workforce Transition Template is aligned to Workforce Administration": {
+   "disposition": "kept"
+  },
+  "Verify HR service Hybrid Role Structure Change Request exists": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "disagreement: value: the active cell on all five created rows: one pass writes 1, the other true; chose 1, the seed's stored form, since SQLite reads true as 1 and both test the same value (resolved on each requirement).\ndisagreement: value: the source of the topic category requirement: one pass lists the topic category check and the topic detail check, the other the category check alone; chose both, since the topic detail check joins to the category by its name, coe_type and active, which only the category requirement carries (resolved on that requirement).\ndisagreement: value: the sources of the topic detail, HR criteria and service template requirements: one pass adds the HR service check to each, the other gives each its own check alone; chose the joint carriage, since the HR service check joins to the topic detail, template and criteria by their names, which those three requirements carry (resolved on each).\nThe two passes otherwise agree on every requirement, id, cell and disposition (four kept, one repaired); their texts and assumptions differ in wording only.\nThe reviewers to include on the criteria are users 4 (joanne.simpson@servicenow.com), 3 (tabitha.bullock@servicenow.com) and 13 (jonathan.martinez67@servicenow.com), all active; they are untestable because the users JSON column has no populated example in the seed.\nThe policy's fulfillment_type list (workflow, approval, manual, integration) excludes 'lifecycle event', and the policy says to halt on a request that breaks it; the request names lifecycle event, the benchmark tests it, and the policy's lists diverge from the stored values elsewhere (the seed's case priorities and user roles use other words), so the request's value is required and the conflict is recorded only.\nThe policy's 30-character minimum for titles is not applied to record names: the request fixes the category and topic detail names, which are shorter.\nCreated rows are anchored by the next id in each table, and the service's links use those ids; each table gains exactly one row. org_id is not a cell on any row: neither the request nor the policy fixes it.\nThe acting user, Karen Watkins (user 39), is an administrator, whom the policy allows to create HR services and configuration tables.",
+ "minutes": 41
+}

@@ -1,0 +1,177 @@
+{
+ "task_id": "task_20251225_124750_039_7e2e0039_de8a9d94",
+ "policy_sha1": "c99239b6",
+ "requirements": [
+  {
+   "text": "Create a new HR service called Laptop Provisioning ..., using a new service template",
+   "kind": "create",
+   "table": "hr_service",
+   "anchor": {
+    "hr_service_id": 6
+   },
+   "cells": {
+    "service_name": "Laptop Provisioning",
+    "service_template": 6
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 6 AND service_name = 'Laptop Provisioning' AND service_template = 6",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "Service created with correct fulfillment",
+    "Created service references the criteria and template"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (the seed's highest hr_service_id is 5)",
+    "'a new service template' is the template this task creates, service_template_id 6, not an existing one"
+   ]
+  },
+  {
+   "text": "Call the new service template Laptop Provisioning Template with center of excellence type HRIT",
+   "kind": "create",
+   "table": "service_template",
+   "anchor": {
+    "service_template_id": 6
+   },
+   "cells": {
+    "name": "Laptop Provisioning Template",
+    "coe_type": "HRIT"
+   },
+   "sql": "SELECT COUNT(*) FROM service_template WHERE service_template_id = 6 AND name = 'Laptop Provisioning Template' AND coe_type = 'HRIT'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Service template created with the correct details",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (the seed's highest service_template_id is 5)"
+   ]
+  },
+  {
+   "text": "link it to new employee setup topic in onboarding category",
+   "kind": "create",
+   "table": "hr_service",
+   "anchor": {
+    "hr_service_id": 6
+   },
+   "cells": {
+    "topic_detail": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 6 AND topic_detail = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Service linked to correct topic_detail",
+   "seed_count": 0,
+   "assumptions": [
+    "'it' read as the HR service: service_template has no topic column, hr_service.topic_detail does",
+    "New Employee Setup is topic_detail 1, in the Onboarding category (topic_category 1); Equipment Request (topic_detail 2) is the other Onboarding topic and is not the one named"
+   ]
+  },
+  {
+   "text": "Ensure the existence of visibility criteria IT Support Visibility for the IT Support group",
+   "kind": "create",
+   "table": "hr_criteria",
+   "anchor": {
+    "hr_criteria_id": 4
+   },
+   "cells": {
+    "name": "IT Support Visibility",
+    "user_group": 1,
+    "type": "LIKE '%visibility%'"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_criteria WHERE hr_criteria_id = 4 AND name = 'IT Support Visibility' AND user_group = 1 AND type LIKE '%visibility%'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "HR criteria includes Sarah and IT Support group",
+   "seed_count": 0,
+   "assumptions": [
+    "no criteria named IT Support Visibility exists on the seed, so it must be created; id assumed next in sequence (highest hr_criteria_id is 3)",
+    "IT Support is user_group 1",
+    "'visibility criteria' fixes a visibility type; the seed's visibility criteria have type case_visibility, and the cell accepts that or any other type naming visibility",
+    "disagreement: type: A LIKE '%visibility%', B 'case_visibility'; chose LIKE '%visibility%' because the request says only 'visibility criteria', the benchmark does not test the type, and nothing fixes the stored value beyond the seed's example, so a type such as 'visibility' must not fail"
+   ]
+  },
+  {
+   "text": "The HR criteria IT Support Visibility should include sarah.chen@techcorp.com",
+   "kind": "create",
+   "table": "hr_criteria",
+   "anchor": {
+    "hr_criteria_id": 4
+   },
+   "cells": {
+    "users": "GLOB '*[[, \"]1[]\", ]*'"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_criteria WHERE hr_criteria_id = 4 AND users GLOB '*[[, \"]1[]\", ]*'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "HR criteria includes Sarah and IT Support group",
+   "seed_count": 0,
+   "assumptions": [
+    "sarah.chen@techcorp.com is user 1, Sarah Chen",
+    "users holds a JSON array of user ids, as the seed's criteria show ('[1, 2]'); the cell matches 1 as a whole element, bare or quoted, and not 10 to 15",
+    "disagreement: users: A a GLOB on 1 as a whole element, B a json_each membership test; chose the GLOB because it is a predicate on the column itself, does not raise an error when users holds text that is not valid JSON, and still rejects ids 10 to 15"
+   ]
+  },
+  {
+   "text": "Ensure the existence of visibility criteria IT Support Visibility for the IT Support group",
+   "kind": "create",
+   "table": "hr_service",
+   "anchor": {
+    "hr_service_id": 6
+   },
+   "cells": {
+    "hr_criteria": 4
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 6 AND hr_criteria = 4",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Created service references the criteria and template",
+   "seed_count": 0,
+   "assumptions": [
+    "implied by the request, not stated: the visibility criteria is set up for this service, and hr_service.hr_criteria is where a service names its criteria"
+   ]
+  },
+  {
+   "text": "fulfillment for the HR service is set to a service activity so downstream automation can run",
+   "kind": "create",
+   "table": "hr_service",
+   "anchor": {
+    "hr_service_id": 6
+   },
+   "cells": {
+    "fulfillment_type": "service_activity"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_service WHERE hr_service_id = 6 AND fulfillment_type = 'service_activity'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Service created with correct fulfillment",
+   "seed_count": 0,
+   "assumptions": [
+    "'a service activity' is the fulfillment_type value service_activity, which the seed's Payroll Support service uses"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Service created with correct fulfillment": {
+   "disposition": "kept"
+  },
+  "Service template created with the correct details": {
+   "disposition": "kept"
+  },
+  "Onboarding topic linkage": {
+   "disposition": "weak",
+   "evidence": "tests only that the Onboarding category and its New Employee Setup detail exist and are linked (topic_detail 1 under topic_category 1), which holds on the seed"
+  },
+  "HR criteria includes Sarah and IT Support group": {
+   "disposition": "repaired",
+   "evidence": "its fallback users LIKE '%1%' also matches user ids 10 to 15, which exist on the seed, so criteria holding only user 10 would pass without Sarah Chen; the seed stores users as a JSON array of ids ('[1, 2]'), so membership is tested as the whole element 1. disagreement: disposition: A repaired, B kept; chose repaired because the requirement changes the users predicate on seed evidence, which is a repair rather than a copy"
+  },
+  "Created service references the criteria and template": {
+   "disposition": "kept"
+  },
+  "Service linked to correct topic_detail": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "disagreement: disposition of 'HR criteria includes Sarah and IT Support group': one pass kept it, the other repaired it; repaired, because both replace its users LIKE fallback, which accepts user ids 10 to 15 on this seed, with a whole-element membership test.\ndisagreement: the criteria type cell: one pass required case_visibility exactly, the other any type naming visibility; the looser predicate is kept because only 'visibility criteria' is stated and the benchmark does not test the type.\ndisagreement: the users cell: one pass tested membership with json_each, the other with a GLOB on 1 as a whole element; the GLOB is kept because it reads the column directly and cannot raise an error on text that is not valid JSON.\nThe two passes otherwise agree on every row, id and cell: service 6, template 6 and criteria 4, each the next id and the only row the task creates in its table, with the service naming topic_detail 1, template 6, criteria 4 and fulfillment service_activity. One grouped the service's cells in a single requirement and the criteria's in another; they are split here by the request's sentences.\nThe acting user, Sarah Chen, is an administrator, and the policy gives administrators the creation of HR services and system configuration.\nThe policy's list of fulfillment types (workflow, approval, manual, integration) omits service_activity, but the request asks for a service activity and the seed already holds a service with that value, so the request's words decide; the policy's other lists also differ from the seed's values (roles, case states), so they are not read as the stored values.\nThe check that the Onboarding category holds the New Employee Setup topic is weak: both rows and their link exist on the seed and the task does not change them.\nThe service's and criteria's active flags, the template's change_request_values and the new rows' organization are not fixed by the request or policy and are not tested.",
+ "minutes": 34
+}

@@ -1,0 +1,194 @@
+{
+  "task_id": "task_20260116_112648_773_99ba2325_c572f123",
+  "policy_sha1": "4ab1193b",
+  "requirements": [
+    {
+      "text": "David Hopps (david.hopps@servicenow.com, +447681029344), who is currently working in an Agent role, will be assuming responsibility for her work",
+      "kind": "create",
+      "table": "user",
+      "anchor": {
+        "user_id": 101
+      },
+      "cells": {
+        "first_name": "David",
+        "last_name": "Hopps",
+        "email": "david.hopps@servicenow.com",
+        "phone": "+447681029344",
+        "role": "agent",
+        "active": 1
+      },
+      "sql": "SELECT COUNT(*) FROM user WHERE user_id = 101 AND first_name = 'David' AND last_name = 'Hopps' AND email = 'david.hopps@servicenow.com' AND phone = '+447681029344' AND role = 'agent' AND active = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify New User ",
+      "seed_count": 0,
+      "assumptions": [
+        "no user named Hopps or with this email exists on the seed, so David must be created; id assumed next in sequence (highest user_id is 100); the only user the task creates",
+        "the benchmark check selects by name, email, phone and role; the id anchor is added because its group-member and case checks assume user_id 101",
+        "role 'agent' is the seed's role.name for the request's 'Agent role' (the policy enum lists hr_specialist, but the seed's role table and the benchmark check use agent; the seed wins)",
+        "active = 1 added from policy 3.2 (the assigned_to user must be active); not in the benchmark check",
+        "disagreement: active cell form: A '= true' (predicate), B true (boolean); chose the plain value 1 because the column is BOOLEAN stored as 1/0 and the repository's check files write it so; same meaning in both passes",
+        "org_id not fixed by the request or policy; not tested"
+      ]
+    },
+    {
+      "text": "ensure that David is a member of the relevant assignment groups",
+      "kind": "create",
+      "table": "user_group_member",
+      "anchor": {
+        "member_id": 45
+      },
+      "cells": {
+        "group_id": 7,
+        "user_id": 101
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 45 AND group_id = 7 AND user_id = 101",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Group Member",
+      "seed_count": 0,
+      "assumptions": [
+        "the relevant groups are the assignment groups of Stephanie's open cases: only case 4, whose assignment_group is 7 (Network Infrastructure)",
+        "id assumed next in sequence (highest member_id is 44); the only membership the task creates; the benchmark check selects by group and user only",
+        "David's user_id 101 assumed next in sequence",
+        "policy 3.2: the assigned_to user must be a current member of the case's assignment_group"
+      ]
+    },
+    {
+      "text": "review the cases that are still open and currently assigned to Stephanie, and reassign those cases to David",
+      "kind": "change",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 4
+      },
+      "cells": {
+        "assigned_to": 101
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 4 AND assigned_to = 101",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Case",
+      "seed_count": 0,
+      "assumptions": [
+        "case 4 (HRC0000714, work_in_progress, assignment_group 7) is the only case assigned to Stephanie (user 6) on the seed, so the open set has one row and is anchored by id",
+        "open read per policy 5.1 as not closed (closed_complete, closed_incomplete) or cancelled; David's user_id 101 assumed next in sequence",
+        "assignment_group not tested: the request does not ask to change it"
+      ]
+    },
+    {
+      "text": "Stephanie Todd has exited the organization",
+      "kind": "change",
+      "table": "user",
+      "anchor": {
+        "user_id": 6
+      },
+      "cells": {
+        "active": 0
+      },
+      "sql": "SELECT COUNT(*) FROM user WHERE user_id = 6 AND active = 0",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify User Deactivation",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by the request (she has exited), not stated; kept from the benchmark check; update_user_details is listed",
+        "policy 5.1's leaver rule names unassignment, group removal and skill deletion but not deactivation",
+        "disagreement: active cell form: A '= false' (predicate), B false (boolean); chose the plain value 0, as above"
+      ]
+    },
+    {
+      "text": "Stephanie Todd has exited the organization",
+      "kind": "remove",
+      "table": "user_skill",
+      "anchor": {
+        "user_skill_id": 223
+      },
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM user_skill WHERE user_skill_id = 223",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "Verify Removed Skills 1",
+      "seed_count": 1,
+      "assumptions": [
+        "policy 5.1: when someone leaves, all their skills should be deleted; row 223 (skill 12, user 6) is one of Stephanie's two user_skill rows on the seed",
+        "a deletion: the row must no longer exist, so cells is empty and expected is 0"
+      ]
+    },
+    {
+      "text": "Stephanie Todd has exited the organization",
+      "kind": "remove",
+      "table": "user_skill",
+      "anchor": {
+        "user_skill_id": 224
+      },
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM user_skill WHERE user_skill_id = 224",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "Verify Removed Skills 2",
+      "seed_count": 1,
+      "assumptions": [
+        "policy 5.1: all skills deleted on leaving; row 224 (skill 13, user 6) is the other of Stephanie's two user_skill rows, so the two checks together cover all her skills",
+        "a deletion, so expected is 0"
+      ]
+    },
+    {
+      "text": "Stephanie Todd has exited the organization",
+      "kind": "remove",
+      "table": "user_group_member",
+      "selector": "group_id = 7 AND user_id = 6",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE group_id = 7 AND user_id = 6",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "Verify Group Member removed",
+      "seed_count": 1,
+      "assumptions": [
+        "policy 5.1: a leaver must be removed from the assignment group; read as the group of her open case (7, seed row member_id 17), as the benchmark check does",
+        "a deletion, so expected is 0",
+        "her other membership (group 2, IT Support L2, member_id 4) is not tested: the policy writes 'the assignment group' (singular) against 'all' for skills, and the benchmark tests only group 7"
+      ]
+    },
+    {
+      "text": "ensure that David is a member of the relevant assignment groups",
+      "kind": "stay",
+      "table": "user_group_member",
+      "selector": "group_id = 2 AND user_id = 101",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE group_id = 2 AND user_id = 101",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "boundary of 'relevant assignment groups': group 2 (IT Support L2) is Stephanie's other group but holds none of her open cases, so a reading that copies all her memberships to David over-reaches",
+        "David's user_id 101 assumed next in sequence"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify Group Member": {
+      "disposition": "kept"
+    },
+    "Verify Case": {
+      "disposition": "kept"
+    },
+    "Verify User Deactivation": {
+      "disposition": "kept"
+    },
+    "Verify Removed Skills 1": {
+      "disposition": "kept"
+    },
+    "Verify Removed Skills 2": {
+      "disposition": "kept"
+    },
+    "Verify Group Member removed": {
+      "disposition": "kept"
+    },
+    "Verify New User ": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on every requirement, value and disposition: the seven benchmark checks are all kept, the task creates user 101 (the id the benchmark's own checks assume) and membership 45, reassigns case 4, deactivates user 6, deletes skills 223 and 224 and membership (7, 6), and one new stay guards group 2. disagreement: the form of the boolean cells on user.active: A writes the predicates '= true' / '= false', B the JSON booleans true / false; chose the plain values 1 / 0 (the seed stores the BOOLEAN column as 1/0 and the repository's other check files write it so); the meaning is identical, so no value changed (logged on each requirement). The benchmark check name 'Verify New User ' carries a trailing space, kept verbatim. Two judgements both passes made the same way and the merge keeps: policy 5.1's 'removed from the assignment group' is read as the case's group only (Stephanie's group 2 membership is left untested either way), and David joining group 2 is treated as a loose reading and guarded by the one new stay. The acting user (Karen Watkins, 39) is an admin, whom the policy lets create users and manage groups; the case reassignment is routine HR case work the policy reserves to HR roles, but the request asks for it and the benchmark expects it. The new user's active = 1 comes from policy 3.2, which the benchmark check does not test.",
+  "minutes": 11
+}

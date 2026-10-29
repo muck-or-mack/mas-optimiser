@@ -1,0 +1,99 @@
+{
+  "task_id": "task_20251208_035402_755_ad5a67e3_8ca9a646",
+  "policy_sha1": "10503d62",
+  "requirements": [
+    {
+      "text": "Please update the case with the product details",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {"case_id": 101},
+      "cells": {"product_id": 35, "channel": "phone", "state": "IN ('new', 'in_progress')"},
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 101 AND product_id = 35 AND channel = 'phone' AND state IN ('new', 'in_progress')",
+      "expected": 1,
+      "comparison": "equals",
+      "source": ["Case updated with correct product", "Knowledge Link Verification"],
+      "seed_count": 0,
+      "assumptions": [
+        "the case is CS-0000101 (case 101): Thomas Bailey's (contact 5, Initech) only phone case that is unresolved and has no product",
+        "Docker Enterprise Variant 15 is product 35 (active; not product 15, 'Docker Enterprise')",
+        "channel phone is the seed value and matches the request's call; it must not change",
+        "the request asks no state change and the case is new on the seed; new -> in_progress is a valid step for a case being worked on, so either state is accepted, and 'still unresolved' rules out the rest"
+      ]
+    },
+    {
+      "text": "Please update the case with the product details",
+      "kind": "stay",
+      "table": "customer_case",
+      "anchor": {"case_id": 101},
+      "cells": {"installed_product_id": "IS NULL"},
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 101 AND installed_product_id IS NULL",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "Initech has no installed Docker Enterprise Variant 15, and the policy requires a case's installed product to belong to the account and match the case product, so none may be attached"
+      ]
+    },
+    {
+      "text": "I got a call from Thomas Bailey at Initech about an issue with Docker Enterprise Variant 15, and I created a case for it",
+      "kind": "stay",
+      "table": "customer_case",
+      "selector": "contact_id = 5 AND case_id <> 101",
+      "cells": {"product_id": 35},
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE contact_id = 5 AND case_id <> 101 AND product_id = 35",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "Thomas Bailey's other cases (the resolved phone case CS-0000108, the product-less cases 100 email, 105 community, 112 closed and 116 canceled, and the rest) are not the call's unresolved case and must not receive the product",
+        "disagreement: selector and cells: A contact_id = 5 AND case_id <> 101 with product_id = 35 expected 0, B case_id IN (100, 105, 112, 116) with product_id IS NULL expected 4; chose the former because it tests the request's own action (adding product 35) on every other case of the contact, including the other phone case CS-0000108 that the latter omits, while holding the latter's four product-less cases to their other values would be a general invariant the request does not state"
+      ]
+    },
+    {
+      "text": "link the guideline article I used",
+      "kind": "create",
+      "table": "case_knowledge",
+      "anchor": {"case_kb_id": 528},
+      "cells": {"case_id": 101, "knowledge_id": 54, "used_as": "applied"},
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_kb_id = 528 AND case_id = 101 AND knowledge_id = 54 AND used_as = 'applied'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Knowledge Link Verification",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence",
+        "the guideline article is KB-0000054 (knowledge 54), the only published article for Docker Enterprise Variant 15",
+        "the article was used while working but did not fix the problem and was not found by automated search, so the policy's usage is applied"
+      ]
+    },
+    {
+      "text": "link the guideline article I used",
+      "kind": "stay",
+      "table": "case_knowledge",
+      "selector": "case_id = 101 AND knowledge_id <> 54",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_id = 101 AND knowledge_id <> 54",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "the request names one article; the other Docker Enterprise articles (23 and 24 for the plain product, 81, 113, 142, 143 and 176 for other variants) are near matches outside it, and the case has no links on the seed"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Case updated with correct product": {
+      "disposition": "repaired",
+      "evidence": "the check's own description says the case should still match its original attributes, state included, but case 101 is new on the seed, not in_progress; the request asks no state change while new -> in_progress is a valid step for a case being worked on, so state = 'in_progress' is widened to new or in_progress"
+    },
+    "Knowledge Link Verification": {
+      "disposition": "repaired",
+      "evidence": "it repeats the case cells of 'Case updated with correct product', including state = 'in_progress', which on the seed is new; the state cell is widened to new or in_progress as there, and the link cells (article 54 for product 35, used_as applied, which the policy gives an article used without fixing the problem) are carried unchanged"
+    }
+  },
+  "notes": "disagreement: missing requirement: the stay on installed_product_id of case 101, present in one pass only; kept because the policy forbids attaching an installed product that does not match the account and the case product, and Initech has no installed Docker Enterprise Variant 15\ndisagreement: missing requirement: the stay that no article other than 54 is linked to case 101, present in one pass only; kept because the request names one article and the other Docker Enterprise articles are the near matches a loose search would also link\ndisagreement: value: the boundary of Thomas Bailey's other cases: one pass tests that none of the contact's other cases receives product 35, the other that four product-less cases keep a null product; kept the former as the test of the request's own action (logged in the requirement)\nThe state cell is undecided between the benchmark's in_progress and the seed's new: the request only says the issue is unresolved and the case was being worked, so either open state passes and resolved, closed, canceled or pending fail.\nThe policy's short-description template would give 'Product: Docker Enterprise Variant 15, Issue: is not working as expected.' once the product is set; the benchmark does not test it, so it is not a cell.\nThe acting user, Thomas Green (user 1), is an agent marked inactive on the seed; the policy names no rule that the acting user be active (only assignees must be), and the request is taken as permitted under the policy's default admin role.\nIf the case moves to in_progress, the policy's SLA alignment for a new case would apply, but the request does not ask for it and no listed tool writes case_sla, so it is not required.\nInitech's account-wide active entitlements (37, 39, 42) cover the product, so the policy's entitlement check does not block the update.",
+  "minutes": 34
+}

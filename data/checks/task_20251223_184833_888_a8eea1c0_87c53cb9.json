@@ -1,0 +1,208 @@
+{
+  "task_id": "task_20251223_184833_888_a8eea1c0_87c53cb9",
+  "policy_sha1": "b2da3f42",
+  "requirements": [
+    {
+      "text": "Self-service case HRC0000711 was logged, but it actually came via email",
+      "kind": "change",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 1
+      },
+      "cells": {
+        "source": "email"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 1 AND source = 'email'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "hr_case_update_verification",
+        "comprehensive_transaction_integrity_check"
+      ],
+      "assumptions": [
+        "HRC0000711 is hr_case 1 (org 1), source self-service on the seed; 'email' is a policy 7 source value",
+        "the check's number and org_id are the row's server-kept and existing values, not cells"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "move it to the Field Ops - North Technicians Support Group",
+      "kind": "change",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 1
+      },
+      "cells": {
+        "assignment_group": 5
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 1 AND assignment_group = 5",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "hr_case_update_verification",
+        "comprehensive_transaction_integrity_check"
+      ],
+      "assumptions": [
+        "'Field Ops - North Technicians Support Group' is user_group 5 'Field Ops - North' (type Field Support Technicians, active, org 1), the only Field Ops group; 'Onsite Support HQ' (6) shares the type but not the name",
+        "assigned_to not stated and not tested: policy 3.2 wants the assignee in the group but the request names no one, though the current assignee Travis Wood (11) is not a member of group 5",
+        "the acting user Joanne Simpson is a manager, who may reassign cases across groups (policy 2)"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "set the priority to high",
+      "kind": "change",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 1
+      },
+      "cells": {
+        "priority": "high"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 1 AND priority = 'high'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "hr_case_update_verification",
+        "comprehensive_transaction_integrity_check"
+      ],
+      "assumptions": [
+        "the seed has critical, so this is a downgrade; the manager role may override priority (policy 2)"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "transition to next status as work is under way",
+      "kind": "change",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 1
+      },
+      "cells": {
+        "status": "work_in_progress"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 1 AND status = 'work_in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "hr_case_update_verification",
+        "comprehensive_transaction_integrity_check"
+      ],
+      "assumptions": [
+        "'next status as work is under way' from draft is work_in_progress, the only working transition policy 3.3 lists for draft"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "create a Strategic Onboarding Skill",
+      "kind": "create",
+      "table": "skill",
+      "anchor": {
+        "skill_id": 20
+      },
+      "cells": {
+        "name": "Strategic Onboarding",
+        "active": 1,
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM skill WHERE skill_id = 20 AND name = 'Strategic Onboarding' AND active = 1 AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "skill_creation_verification",
+        "comprehensive_transaction_integrity_check"
+      ],
+      "assumptions": [
+        "id assumed next in sequence (skill_id 20 after 19)",
+        "a new skill, not the existing 'Employee Onboarding' (2): the request says create and no skill of that name exists",
+        "active and org_id 1 kept from the benchmark check; not fixed by request or policy (every seed skill is active in org 1)"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "assign it to Casey Green",
+      "kind": "create",
+      "table": "user_skill",
+      "anchor": {
+        "user_skill_id": 336
+      },
+      "cells": {
+        "skill": 20,
+        "user": 52,
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM user_skill WHERE user_skill_id = 336 AND skill = 20 AND user = 52 AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "user_skill_assignment_verification",
+        "comprehensive_transaction_integrity_check"
+      ],
+      "assumptions": [
+        "id assumed next in sequence (user_skill_id 336 after 335); the only user_skill row the task creates",
+        "Casey Green is user 52 (active agent, org 1); Thomas Green (1) is inactive and not named",
+        "org_id 1 kept from the benchmark check; Casey's other user_skill rows are org 1"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "establish a High Priority Talent Email Routing active assignment rule that routes high priority cases with this skill to that same Field Ops group",
+      "kind": "create",
+      "table": "assignment_rules",
+      "anchor": {
+        "assignment_rule_id": 9
+      },
+      "cells": {
+        "name": "High Priority Talent Email Routing",
+        "based_on_priority": "high",
+        "based_on_skills": "LIKE '%Strategic Onboarding%'",
+        "user_group": 5,
+        "active": 1,
+        "org_id": 1
+      },
+      "sql": "SELECT COUNT(*) FROM assignment_rules WHERE assignment_rule_id = 9 AND name = 'High Priority Talent Email Routing' AND based_on_priority = 'high' AND based_on_skills LIKE '%Strategic Onboarding%' AND user_group = 5 AND active = 1 AND org_id = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": [
+        "assignment_rule_creation_verification",
+        "comprehensive_transaction_integrity_check"
+      ],
+      "assumptions": [
+        "id assumed next in sequence (assignment_rule_id 9 after 8)",
+        "'with this skill' fixes based_on_skills, which the benchmark check omits; the seed stores a JSON list of skill names, so the cell is a LIKE on the name (a rule storing the skill id 20 instead would fail it)",
+        "'active', 'high priority' and 'that same Field Ops group' fix active, based_on_priority and user_group 5",
+        "based_on_country and users not stated and not tested",
+        "org_id 1 kept from the benchmark check; every seed rule is org 1"
+      ],
+      "seed_count": 0
+    }
+  ],
+  "original_checks": {
+    "hr_case_update_verification": {
+      "disposition": "kept"
+    },
+    "skill_creation_verification": {
+      "disposition": "kept"
+    },
+    "user_skill_assignment_verification": {
+      "disposition": "kept"
+    },
+    "assignment_rule_creation_verification": {
+      "disposition": "kept"
+    },
+    "user_existence_verification": {
+      "disposition": "weak",
+      "evidence": "tests only the seed: user 52 Casey Green is already an active agent in org 1 with that email, so the count is 1 before the agent acts"
+    },
+    "assignment_group_existence_verification": {
+      "disposition": "weak",
+      "evidence": "tests only the seed: user_group 5 'Field Ops - North' already exists, active, type Field Support Technicians, org 1"
+    },
+    "comprehensive_transaction_integrity_check": {
+      "disposition": "kept",
+      "evidence": "a composite of the four kept checks above (four EXISTS subqueries with fewer cells each), carried jointly by requirements 1 to 7 (named in their source). disagreement: A kept, B excluded as a composite duplicate; chose kept because a composite whose cells are all carried is kept jointly, not excluded"
+    }
+  },
+  "notes": "Merged from two passes that agree on every id and value (case 1: source email, group 5, priority high, status work_in_progress; skill 20 'Strategic Onboarding'; user_skill 336 for Casey Green 52; rule 9 on priority high, the skill by name, group 5, active) and on six of seven dispositions. disagreement: granularity: A tests the move, priority and status in one change requirement, B in three; kept B's split because the sentence asks three things (one requirement per thing). disagreement: stay on user_skill (user = 52 AND skill = 2, expected 0) guarding the near-match 'Employee Onboarding' skill (A only); dropped because a stay is only what the request or policy forbids or the boundary of a selector, and neither applies: the skill and its assignment are anchored by id (skill 20 with its name, user_skill 336 with skill = 20), so assigning skill 2 instead fails the creates directly, and assigning it as well is collateral change, measured separately. disagreement: comprehensive_transaction_integrity_check: A kept, B excluded; chose kept, carried jointly (logged in its evidence). The based_on_skills cell is the one addition beyond the benchmark: the request fixes it ('with this skill'), but the stored form (JSON names on the seed) is a convention the tool may not follow. The two existence checks are weak: they test seed facts. The case's assigned_to (Travis Wood, not a member of the new group) is left untested as the request does not mention him.",
+  "minutes": 8
+}

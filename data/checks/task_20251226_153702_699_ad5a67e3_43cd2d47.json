@@ -1,0 +1,79 @@
+{
+  "task_id": "task_20251226_153702_699_ad5a67e3_43cd2d47",
+  "policy_sha1": "0bfb012b",
+  "requirements": [
+    {
+      "text": "Christina ... needs to formally request a Leave of Absence (LOA) through HR. The request case using account no. HRC0000772 must be created",
+      "kind": "create",
+      "table": "hr_case",
+      "anchor": {"hr_case_id": 61},
+      "cells": {
+        "hr_service": 6,
+        "account_number": "HRC0000772",
+        "opened_for": 2,
+        "status": "draft",
+        "priority": "moderate"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND hr_service = 6 AND account_number = 'HRC0000772' AND opened_for = 2 AND status = 'draft' AND priority = 'moderate'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "HR Case Creation",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest hr_case_id is 60)",
+        "hr_service 6 is the active 'Leave Of Absence' service, the only leave-of-absence service",
+        "account no. HRC0000772 is stored in account_number, the column the request names; the case number itself is set by the server",
+        "opened_for 2 is the HR profile of Christina Oliver (user 2), the only user named Christina; opened_for references hr_profile",
+        "status not stated; the policy sets every new case to draft, and nothing asked (creating the case, assigning a group, notifying Christina) moves it on",
+        "priority not stated; the policy's default is moderate"
+      ]
+    },
+    {
+      "text": "assign this to HR service desk team",
+      "kind": "create",
+      "table": "hr_case",
+      "anchor": {"hr_case_id": 61},
+      "cells": {"assignment_group": 4, "status": "draft"},
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND assignment_group = 4 AND status = 'draft'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "HR Case Assignment Update",
+      "seed_count": 0,
+      "assumptions": [
+        "assignment_group 4 is 'HR Service Desk', the only group of that name",
+        "no individual assignee is asked for; the policy allows assignment to a group alone",
+        "status draft: the policy's default for a new case, unchanged by the assignment"
+      ]
+    },
+    {
+      "text": "Update Christina once done.",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {"notification_id": 61},
+      "cells": {"hr_case_id": 61, "email": "christina.oliver@carsonllc.com", "type": "update"},
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 61 AND hr_case_id = 61 AND email = 'christina.oliver@carsonllc.com' AND type = 'update'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Notification Sent to Christina",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (highest notification_id is 60); the task creates one notification",
+        "type update, from the request's 'Update Christina'",
+        "email kept from the benchmark check; not fixed by request or policy: it is Christina Oliver's user email, which the listed user lookup returns and which the benchmark matches through the user table"
+      ]
+    }
+  ],
+  "original_checks": {
+    "HR Case Creation": {
+      "disposition": "repaired",
+      "evidence": "the check expects status ready, but the policy sets every new case to status draft, lists no transition from draft to ready, and the request names no status; nothing it asks moves the case on, so status is repaired to draft. The service join on 'Leave Of Absence' is written as hr_service = 6; every other cell is kept"
+    },
+    "HR Case Assignment Update": {
+      "disposition": "repaired",
+      "evidence": "the check expects status ready, but the policy sets every new case to status draft and an assignment to a group does not change it; status is repaired to draft. The group join on 'HR Service Desk' is written as assignment_group = 4; every other cell is kept"
+    },
+    "Notification Sent to Christina": {"disposition": "kept"}
+  },
+  "notes": "disagreement: missing requirement: one pass tests the group assignment as its own requirement ('assign this to HR service desk team'), the other folds assignment_group = 4 into the case-creation requirement, which then carries both benchmark checks; kept the separate requirement, one per thing asked, so that each benchmark check is carried by its own requirement; the cells tested are the same either way.\nThe two passes otherwise agree on every cell and value (case 61 on service 6 for profile 2 with account number HRC0000772, group 4, status draft, priority moderate; notification 61 to Christina Oliver's user email, type update) and on all three dispositions (two repaired to draft, one kept).\nStatus: the benchmark expects ready in two checks, which matches a policy or server whose default status is ready; this policy sets new cases to draft, so draft is required. The policy also says a case needing external authorisation such as time off transitions to awaiting_approval and triggers an approval record; the request does not ask for approval, names no approver, no listed tool records approvals and the seed has no approval table, so that transition is not required, though a reviewer may weigh it.\nHRC0000772 has the form of a case number (the seed's highest is HRC0000770), while the seed's account numbers have the form ACC-n-n; the request calls it the account number and the case number is kept by the server, so it is tested in account_number.\nChristine Torres (user 26, inactive) and Christopher Meza (user 98) are the nearest other names; Christina Oliver is the only Christina.\nEvery notification in the seed is addressed to the case subject's personal email, whereas the benchmark expects the work email; the listed tools return only the work email, so it is kept.\nThe policy's priority list (critical, high, medium, low) disagrees with its own default of moderate; the seed's cases use moderate, so moderate is required.\nThe short description's template ('Service: , Subject: , Detail: .') and its 30 to 120 character limit come only from the policy's format rules, which the benchmark does not test, so they are left out.\ncoe_type, account_type, opened_by and source are fixed by neither the request nor the policy and are left out; the Leave Of Absence service sits in the Benefits category, whose coe_type is Total Rewards.\nChristina Oliver's profile is in org 2 while the service and the group are in org 1, so org_id is not tested.",
+  "minutes": 32
+}

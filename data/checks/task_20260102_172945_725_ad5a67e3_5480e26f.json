@@ -1,0 +1,187 @@
+{
+ "task_id": "task_20260102_172945_725_ad5a67e3_5480e26f",
+ "policy_sha1": "88641769",
+ "requirements": [
+  {
+   "text": "the install should be registered to Umbrella with warranty through 31-Dec-2026",
+   "kind": "create",
+   "table": "installed_product",
+   "anchor": {
+    "installed_product_id": 301
+   },
+   "cells": {
+    "account_id": 6,
+    "product_id": 3,
+    "location_id": 814,
+    "serial_number": "RHEL-UMB-4500",
+    "status": "in_use",
+    "warranty_end": "2026-12-31"
+   },
+   "sql": "SELECT COUNT(*) FROM installed_product WHERE installed_product_id = 301 AND account_id = 6 AND product_id = 3 AND location_id = 814 AND serial_number = 'RHEL-UMB-4500' AND status = 'in_use' AND warranty_end = '2026-12-31'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verifier 1 - Verify installed product registration at Umbrella's Tokyo site",
+   "assumptions": [
+    "id assumed next in sequence (highest installed_product_id in the seed is 300)",
+    "Umbrella is account 6; 'Red Hat Enterprise Linux 9' is product 3 by exact name, not one of its 'Variant' products",
+    "'Tokyo office' is location 814 'Umbrella Site A - Tokyo', Umbrella's only Tokyo location",
+    "status in_use: the node has been rolled out and the policy requires installed products attached to cases to be in_use",
+    "warranty through 31-Dec-2026 stored as the date 2026-12-31"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "Travis Wood should have access via the Proactive Case Monitoring group",
+   "kind": "create",
+   "table": "user_group_member",
+   "anchor": {
+    "member_id": 960
+   },
+   "cells": {
+    "group_id": 11,
+    "user_id": 11
+   },
+   "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 960 AND group_id = 11 AND user_id = 11",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verifier 2 - Verify Travis Wood group membership",
+   "assumptions": [
+    "id assumed next in sequence (highest member_id in the seed is 959)",
+    "Travis Wood is user 11, the only user of that name; 'Proactive Case Monitoring' is group 11 by exact name",
+    "he is not a member of group 11 on the seed, so one membership row is created"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "via the Proactive Case Monitoring group",
+   "kind": "stay",
+   "table": "user_group_member",
+   "selector": "user_id = 11 AND group_id IN (31, 51, 71)",
+   "cells": {},
+   "sql": "SELECT COUNT(*) FROM user_group_member WHERE user_id = 11 AND group_id IN (31, 51, 71)",
+   "expected": 0,
+   "comparison": "equals",
+   "source": "new",
+   "assumptions": [
+    "groups 31, 51 and 71 ('Proactive Case Monitoring_2', '_3', '_4') nearly match the named group; the request names only the exact group, so Travis Wood is not added to them"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "captured as a high-priority phone case titled 'Product: Red Hat Enterprise Linux 9, Issue: node crashes frequently.' under Umbrella's primary contact, linked to the new install and product",
+   "kind": "create",
+   "table": "customer_case",
+   "anchor": {
+    "case_id": 1233
+   },
+   "cells": {
+    "account_id": 6,
+    "contact_id": 7,
+    "product_id": 3,
+    "installed_product_id": 301,
+    "channel": "phone",
+    "priority": "high",
+    "short_description": "Product: Red Hat Enterprise Linux 9, Issue: node crashes frequently.",
+    "state": "in_progress"
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1233 AND account_id = 6 AND contact_id = 7 AND product_id = 3 AND installed_product_id = 301 AND channel = 'phone' AND priority = 'high' AND short_description = 'Product: Red Hat Enterprise Linux 9, Issue: node crashes frequently.' AND state = 'in_progress'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "Verifier 3 - Verify case with active primary contact",
+    "Verifier 5 - Verify case state transition to in_progress"
+   ],
+   "assumptions": [
+    "id assumed next in sequence (highest case_id in the seed is 1232)",
+    "Umbrella's primary contact is contact 7 (Michelle Smith), the account's only primary contact, and active",
+    "installed_product_id 301 is the install created by this request",
+    "state in_progress: the policy requires a new case to move from new to in_progress before an SLA is linked and tracking begins",
+    "assignment group and assignee not stated and not tested"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "the issue should be captured as a high-priority phone case",
+   "kind": "create",
+   "table": "interaction",
+   "anchor": {
+    "interaction_id": 1233
+   },
+   "cells": {
+    "case_id": 1233,
+    "channel": "phone",
+    "account_id": 6,
+    "contact_id": 7
+   },
+   "sql": "SELECT COUNT(*) FROM interaction WHERE interaction_id = 1233 AND case_id = 1233 AND channel = 'phone' AND account_id = 6 AND contact_id = 7",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "assumptions": [
+    "the policy makes an interaction mandatory whenever a new case is registered",
+    "id assumed next in sequence (highest interaction_id in the seed is 1232)",
+    "channel phone, account and contact follow the case the interaction records; interacted_user and status not fixed by request or policy",
+    "no tool writes this table: none of the listed tools is an interaction tool, so the row exists only if case creation writes it"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "governed by the active high response sla with tracking started",
+   "kind": "create",
+   "table": "case_sla",
+   "anchor": {
+    "case_sla_id": 2465
+   },
+   "cells": {
+    "case_id": 1233,
+    "sla_def_id": 2,
+    "stage": "in_progress"
+   },
+   "sql": "SELECT COUNT(*) FROM case_sla WHERE case_sla_id = 2465 AND case_id = 1233 AND sla_def_id = 2 AND stage = 'in_progress'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verifier 4 - Verify SLA linkage and tracking",
+   "assumptions": [
+    "id assumed next in sequence (highest case_sla_id in the seed is 2464)",
+    "two active high-priority response SLAs exist: 2 'SLA Response - High' and 11 'SLA Response - High (No Pause)'; sla_def_id 2 kept from the benchmark check, since neither the request nor the policy decides between them",
+    "'tracking started' is stage in_progress, as the policy requires when an SLA is linked to a new case"
+   ],
+   "seed_count": 0
+  },
+  {
+   "text": "governed by the active high response sla",
+   "kind": "stay",
+   "table": "case_sla",
+   "selector": "case_id = 1233 AND sla_def_id = 11",
+   "cells": {},
+   "sql": "SELECT COUNT(*) FROM case_sla WHERE case_id = 1233 AND sla_def_id = 11",
+   "expected": 0,
+   "comparison": "equals",
+   "source": "new",
+   "assumptions": [
+    "the request names one SLA; 'SLA Response - High (No Pause)' (11) also fits a loose reading of 'the active high response sla' and is not linked as well"
+   ],
+   "seed_count": 0
+  }
+ ],
+ "original_checks": {
+  "Verifier 1 - Verify installed product registration at Umbrella's Tokyo site": {
+   "disposition": "kept"
+  },
+  "Verifier 2 - Verify Travis Wood group membership": {
+   "disposition": "kept"
+  },
+  "Verifier 3 - Verify case with active primary contact": {
+   "disposition": "kept"
+  },
+  "Verifier 4 - Verify SLA linkage and tracking": {
+   "disposition": "kept"
+  },
+  "Verifier 5 - Verify case state transition to in_progress": {
+   "disposition": "repaired",
+   "evidence": "the predicate sys_updated_on > sys_created_on tests server-kept timestamps only and is dropped; its other cells (Umbrella's case with the requested short description, state in_progress) are tested on case 1233"
+  }
+ },
+ "notes": "Two active high-priority response SLAs fit 'the active high response sla' (2 'SLA Response - High' and 11 'SLA Response - High (No Pause)'); the request and policy do not decide between them, so the file follows the benchmark's choice of 2 and holds linking 11 as well at zero.\nThe interaction row is a policy requirement (an interaction is mandatory for every new case) that no listed tool is dedicated to.\nThe policy's entitlement verification is a read and leaves no row to check.\ndisagreement: missing requirement: a stay holding Travis Wood out of 'Proactive Case Monitoring_2', '_3' and '_4' (groups 31, 51, 71), present in one pass only; kept because these near-namesakes are the rows a loose reading of 'the Proactive Case Monitoring group' would sweep in, the boundary of the group the request names exactly, and he belongs to none of them on the seed.",
+ "minutes": 32
+}

@@ -1,0 +1,108 @@
+{
+  "task_id": "task_20251202_052822_939_66392a82_0479926e",
+  "policy_sha1": "10503d62",
+  "requirements": [
+    {
+      "text": "establish Lumina Healthcare as an account ... set up as an active customer",
+      "kind": "create",
+      "table": "account",
+      "anchor": {"account_id": 53},
+      "cells": {"name": "Lumina Healthcare", "account_type": "customer", "active": 1},
+      "sql": "SELECT COUNT(*) FROM account WHERE account_id = 53 AND name = 'Lumina Healthcare' AND account_type = 'customer' AND active = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Lumina Healthcare Customer Account Creation",
+      "seed_count": 0,
+      "assumptions": [
+        "no account named Lumina Healthcare exists in the seed, so it is created; id assumed next in sequence (53 after 52)",
+        "account_type customer and active 1 from the request's 'an active customer'"
+      ]
+    },
+    {
+      "text": "create a dedicated coordination group for their implementation work as \"Lumina Implementation Coordination\"",
+      "kind": "create",
+      "table": "user_group",
+      "anchor": {"group_id": 81},
+      "cells": {"name": "Lumina Implementation Coordination", "type": "support", "active": 1},
+      "sql": "SELECT COUNT(*) FROM user_group WHERE group_id = 81 AND name = 'Lumina Implementation Coordination' AND type = 'support' AND active = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Creation of Lumina Implementation Coordination Group",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (81 after 80)",
+        "type support kept from the benchmark check; not fixed by request or policy, and consistent with 'our internal support structure'",
+        "active 1 kept from the benchmark check; not fixed by request or policy"
+      ]
+    },
+    {
+      "text": "add that small core team into the new group",
+      "kind": "create",
+      "table": "user_group_member",
+      "selector": "group_id = 81",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE group_id = 81",
+      "expected": 3,
+      "comparison": "equals",
+      "source": "Verify Exactly Three Members Assigned to the New Coordination Group",
+      "seed_count": 0,
+      "assumptions": [
+        "the core team is one manager and 2 non-managers, so the new group holds exactly three members",
+        "the new group is selected by its assumed id 81; member ids are not anchored because the request fixes neither the people nor their order"
+      ]
+    },
+    {
+      "text": "selecting one of our managers ... who all have prior experience with installed base operations",
+      "kind": "create",
+      "table": "user_group_member",
+      "selector": "group_id = 81",
+      "cells": {
+        "user_id": [
+          "IN (SELECT user_id FROM user WHERE role = 'manager')",
+          "IN (SELECT user_id FROM user_group_member WHERE group_id = 10)"
+        ]
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE group_id = 81 AND user_id IN (SELECT user_id FROM user WHERE role = 'manager') AND user_id IN (SELECT user_id FROM user_group_member WHERE group_id = 10)",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify One Manager from Installed Base Support Assigned",
+      "seed_count": 0,
+      "assumptions": [
+        "'prior experience with installed base operations' read as membership of the group named Installed Base Support (group 10), kept from the benchmark check; the request names no group",
+        "group 10 has exactly one manager in the seed (user 111, Patricia Miller), so the choice is fixed",
+        "the members are added, not moved: they must still belong to group 10 afterwards, as the benchmark check tests"
+      ]
+    },
+    {
+      "text": "with 2 of non-managers who all have prior experience with installed base operations",
+      "kind": "create",
+      "table": "user_group_member",
+      "selector": "group_id = 81",
+      "cells": {
+        "user_id": [
+          "IN (SELECT user_id FROM user WHERE role != 'manager')",
+          "IN (SELECT user_id FROM user_group_member WHERE group_id = 10)"
+        ]
+      },
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE group_id = 81 AND user_id IN (SELECT user_id FROM user WHERE role != 'manager') AND user_id IN (SELECT user_id FROM user_group_member WHERE group_id = 10)",
+      "expected": 2,
+      "comparison": "equals",
+      "source": "Verify Two Non-Managers from Installed Base Support Assigned",
+      "seed_count": 0,
+      "assumptions": [
+        "'prior experience with installed base operations' read as membership of the group named Installed Base Support (group 10), kept from the benchmark check; the request names no group",
+        "non-manager read as any role other than manager, kept from the benchmark check; all fourteen such members of group 10 are active agents",
+        "which two agents is not fixed by the request; any two of the fourteen satisfy it"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify Lumina Healthcare Customer Account Creation": {"disposition": "kept"},
+    "Verify Creation of Lumina Implementation Coordination Group": {"disposition": "kept"},
+    "Verify Exactly Three Members Assigned to the New Coordination Group": {"disposition": "kept"},
+    "Verify One Manager from Installed Base Support Assigned": {"disposition": "kept"},
+    "Verify Two Non-Managers from Installed Base Support Assigned": {"disposition": "kept"}
+  },
+  "notes": "The seed holds four groups whose names start with Installed Base Support: group 10 (Installed Base Support, support, active), group 30 (_2, support, active), group 50 (_3, backoffice, inactive) and group 70 (_4, support, active). The request says only 'prior experience with installed base operations', so a looser reading would accept members of groups 30, 50 or 70; the requirements keep the benchmark's narrower reading (group 10 alone), which the seed can satisfy (one manager, fourteen active agents), and whose single manager makes the manager choice unambiguous. The three membership counts together require all three members of the new group to come from group 10. Experience is tested on the final state, so a core-team member moved out of group 10 rather than added to the new group fails, consistent with the request's 'add'. The membership requirements depend on the new group taking id 81; the benchmark's own checks find the group by name instead. The new account's email_domain is not stated by the request and is not tested. The acting user (user 32, admin) is inactive in the seed; the policy grants admin responsibilities by default and does not bar an inactive user from acting, so the creations are still expected.",
+  "minutes": 28
+}

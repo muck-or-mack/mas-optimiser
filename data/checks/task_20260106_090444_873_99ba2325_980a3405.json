@@ -1,0 +1,93 @@
+{
+ "task_id": "task_20260106_090444_873_99ba2325_980a3405",
+ "policy_sha1": "6288a530",
+ "requirements": [
+  {
+   "text": "Update the case with an escalation flag and set the escalation reason to breach risk",
+   "kind": "change",
+   "table": "customer_case",
+   "anchor": {
+    "case_id": 842
+   },
+   "cells": {
+    "escalation": 1,
+    "escalation_reason": "breach_risk"
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 842 AND escalation = 1 AND escalation_reason = 'breach_risk'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify case update",
+   "seed_count": 0,
+   "assumptions": [
+    "CS-0000842 is case_id 842",
+    "the escalation is made whatever the breach check finds: the resolution SLA (case_sla 1684, breach_time 2026-01-15 11:44:13, has_breached 0) has not breached on 1 Jan 2026, which is the breach risk the policy names as a ground for escalation",
+    "escalation = true is stored as 1 in this INTEGER column"
+   ]
+  },
+  {
+   "text": "share the approach based on our analysis with the client's main contact for communication",
+   "kind": "create",
+   "table": "notification",
+   "anchor": {
+    "notification_id": 734
+   },
+   "cells": {
+    "case_id": 842,
+    "email": "carl.brown91@cainryanandduncan.com",
+    "type": "solution_proposal"
+   },
+   "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 734 AND case_id = 842 AND email = 'carl.brown91@cainryanandduncan.com' AND type = 'solution_proposal'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify notification",
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (733 is the highest notification_id); the task sends exactly one notification",
+    "the client's main contact is account 37's primary contact, Carl Brown (contact 81, is_primary 1), not the case's reporting contact George Hawkins (contact 83)",
+    "type solution_proposal: the message shares the plan to resolve the issue for the client to review; kept from the benchmark check"
+   ]
+  },
+  {
+   "text": "share the approach based on our analysis with the client's main contact for communication",
+   "kind": "stay",
+   "table": "notification",
+   "selector": "case_id = 842 AND email = 'george.hawkins@cainryanandduncan.com' AND type = 'solution_proposal'",
+   "cells": {},
+   "sql": "SELECT COUNT(*) FROM notification WHERE case_id = 842 AND email = 'george.hawkins@cainryanandduncan.com' AND type = 'solution_proposal'",
+   "expected": 0,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 0,
+   "assumptions": [
+    "boundary of the recipient: the case's reporting contact (contact 83, George Hawkins, is_primary 0) is the contact a loose reading of 'the client's main contact' would pick, and he is not the main contact"
+   ]
+  },
+  {
+   "text": "Please attach related KB if its not already there",
+   "kind": "stay",
+   "table": "case_knowledge",
+   "selector": "case_id = 842 AND knowledge_id = 257",
+   "cells": {},
+   "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_id = 842 AND knowledge_id = 257",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 1,
+   "assumptions": [
+    "the related KB is KB-0000257 (knowledge 257, product 173, published): its steps are the engineering team's suggested fix (collect tech-support and crashinfo, validate IOS-XE and roll back, upgrade)",
+    "it is already linked to case 842 (case_kb_id 358, used_as applied), so the request forbids attaching it again: the link must stay single",
+    "no tool writes this table"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Verify case update": {
+   "disposition": "kept"
+  },
+  "Verify notification": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "Documenting the engineering team's suggestion and logging the escalation justification in case notes (which the policy asks for) are untestable: customer_case has no notes column and the schema has no work-note table.\nChecking whether the SLA has breached is a read: the resolution SLA (case_sla 1684, breach_time 2026-01-15 11:44:13) has not breached on 1 Jan 2026, and no tool writes case_sla.\nThe notification's knowledge_id is not fixed by the request or the policy and is not tested.\nKB-0000258 is also on product 173 but describes a different fix (reverting features, stack power tuning, an engineering special); it is not the related KB the request means, and linking it is neither required nor forbidden.\nThe acting user (user 32, Jose Roberson) is an admin whose user row is inactive; the policy does not bar an inactive user from acting and the benchmark expects the changes, so the file expects them.\nThe benchmark tests escalation = true; escalation is an INTEGER column limited to 0 and 1, so the file tests escalation = 1.\ndisagreement: missing requirement: a stay that no solution_proposal notification for case 842 goes to George Hawkins, the case's reporting contact; one pass has it, the other does not; kept because he is the contact a loose reading of 'the client's main contact' would pick, the boundary of that description, not a generic invariant.",
+ "minutes": 33
+}

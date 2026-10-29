@@ -1,0 +1,134 @@
+{
+ "task_id": "task_20260106_155841_121_e6427839_fa425cbe",
+ "policy_sha1": "10503d62",
+ "requirements": [
+  {
+   "text": "check for any relevant published knowledge article and send it to the case contact for their reference",
+   "kind": "create",
+   "table": "notification",
+   "anchor": {
+    "notification_id": 734
+   },
+   "cells": {
+    "case_id": 1015,
+    "email": "andrew.bell58@averyltd.com",
+    "knowledge_id": 22,
+    "type": "solution_proposal"
+   },
+   "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 734 AND case_id = 1015 AND email = 'andrew.bell58@averyltd.com' AND knowledge_id = 22 AND type = 'solution_proposal'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Check if the notification is sent with proper KB article.",
+   "seed_count": 0,
+   "assumptions": [
+    "notification id assumed next in sequence (734 after 733); exactly one notification is asked for",
+    "the resolved case is CS-0001015 (case 1015): Avery Ltd (account 44), product 54 'VMware vSphere Enterprise Plus Variant 34', with draft article 80 attached; the account's other cases on the product are new (1005) or canceled (1021)",
+    "the case contact is contact 101, Andrew Bell, andrew.bell58@averyltd.com",
+    "product 54 has no published article (79 retired, 80 draft); article 22 is the published, external guide for the parent product 'VMware vSphere Enterprise Plus' (product 14) and the closest relevant one a customer may view",
+    "the article goes to a customer, and the policy lets customers see only external articles",
+    "type solution_proposal kept from the benchmark check; not fixed by request or policy"
+   ]
+  },
+  {
+   "text": "update the case knowledge",
+   "kind": "create",
+   "table": "case_knowledge",
+   "anchor": {
+    "case_kb_id": 528
+   },
+   "cells": {
+    "case_id": 1015,
+    "knowledge_id": 22,
+    "used_as": "suggested"
+   },
+   "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_kb_id = 528 AND case_id = 1015 AND knowledge_id = 22 AND used_as = 'suggested'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify if KB article is linked to the case.",
+   "seed_count": 0,
+   "assumptions": [
+    "link id assumed next in sequence (528 after 527); exactly one link is asked for",
+    "'update the case knowledge' read as linking the article sent to case 1015; no listed tool edits an existing link",
+    "used_as suggested: the policy links knowledge found by search as suggested (also the benchmark check's value)"
+   ]
+  },
+  {
+   "text": "send it to the case contact",
+   "kind": "stay",
+   "table": "notification",
+   "selector": "case_id = 1015",
+   "cells": {
+    "knowledge_id": "IN (SELECT knowledge_id FROM knowledge WHERE state <> 'published' UNION SELECT knowledge_id FROM knowledge WHERE visibility <> 'external')"
+   },
+   "sql": "SELECT COUNT(*) FROM notification WHERE case_id = 1015 AND knowledge_id IN (SELECT knowledge_id FROM knowledge WHERE state <> 'published' UNION SELECT knowledge_id FROM knowledge WHERE visibility <> 'external')",
+   "expected": 0,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 0,
+   "assumptions": [
+    "the request asks for a published article and the policy shows customers only external ones, so no notification on case 1015 may carry an unpublished or internal article (the attached draft 80 or retired 79 above all)",
+    "the unsuitable articles are the union of unpublished and non-external ones, so the cell is one membership condition on knowledge_id",
+    "disagreement: knowledge predicate: A visibility <> 'external', B visibility = 'internal'; chose visibility <> 'external' because visibility takes only internal and external on the seed, so both agree there, and the inequality also catches any value outside the enumeration, which makes it the tighter of the two"
+   ]
+  },
+  {
+   "text": "the knowledge article attached to it is in still in draft",
+   "kind": "stay",
+   "table": "case_knowledge",
+   "selector": "case_id = 1015",
+   "cells": {
+    "knowledge_id": "IN (SELECT knowledge_id FROM knowledge WHERE state <> 'published')"
+   },
+   "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_id = 1015 AND knowledge_id IN (SELECT knowledge_id FROM knowledge WHERE state <> 'published')",
+   "expected": 2,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 2,
+   "assumptions": [
+    "the policy links only published articles, so case 1015's links to unpublished articles stay at their two seed rows (80 draft, 79 retired) and no new one is added"
+   ]
+  },
+  {
+   "text": "a case on this issue but it is in resolved state",
+   "kind": "stay",
+   "table": "case_knowledge",
+   "selector": "case_id IN (1005, 1021)",
+   "cells": {},
+   "sql": "SELECT COUNT(*) FROM case_knowledge WHERE case_id IN (1005, 1021)",
+   "expected": 0,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 0,
+   "assumptions": [
+    "boundary of the case: Avery Ltd's other cases on the same product (1005 new, 1021 canceled) are not the resolved case, so they gain no knowledge links"
+   ]
+  },
+  {
+   "text": "a case on this issue but it is in resolved state",
+   "kind": "stay",
+   "table": "notification",
+   "selector": "case_id IN (1005, 1021)",
+   "cells": {
+    "knowledge_id": "IS NOT NULL"
+   },
+   "sql": "SELECT COUNT(*) FROM notification WHERE case_id IN (1005, 1021) AND knowledge_id IS NOT NULL",
+   "expected": 0,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 0,
+   "assumptions": [
+    "boundary of the case: no article is sent against Avery Ltd's other cases on the same product (1005 new, 1021 canceled)"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Check if the notification is sent with proper KB article.": {
+   "disposition": "kept"
+  },
+  "Verify if KB article is linked to the case.": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "No published article exists for VMware vSphere Enterprise Plus Variant 34 itself (product 54; its articles 79 and 80 are retired and draft). Two published external articles cover the product family: 22, for the base product VMware vSphere Enterprise Plus, and 141, for Variant 74; 22 is the closer match for a variant of the base product and is the benchmark's choice, so it is required.\nThe published vSphere articles 52 (product 34, Variant 14), 112 and 175 are internal, which the policy keeps from customers, so none is a candidate.\nThe benchmark's checks write integer ids as quoted strings; the requirements use integer literals, which compare the same way on these integer columns.\nThe request does not ask to reopen case 1015, remove the existing draft or retired links, or open a new case; none is required, and the case stays resolved (no listed tool updates cases).\nThe entitlement check is read-only: Avery Ltd holds an active product entitlement for product 54 (364) and an active account-wide one (362).\nThe notification's status is set when the message is sent and is not tested.\ndisagreement: missing requirement: a stay that Avery Ltd's other cases on the product (1005 new, 1021 canceled) gain no knowledge links; one pass wrote it, the other did not; kept because a loose reading of 'a case on this issue' would sweep those two cases in, which is the selector boundary a stay records.\ndisagreement: missing requirement: a stay that no article is sent against cases 1005 and 1021; one pass wrote it, the other did not; kept for the same boundary reason, since the notification names its case and the request means only the resolved one.\ndisagreement: the knowledge predicate of the stay on unsuitable articles sent for case 1015; resolved on that requirement.",
+ "minutes": 33
+}

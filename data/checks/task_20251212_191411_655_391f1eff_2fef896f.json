@@ -1,0 +1,107 @@
+{
+  "task_id": "task_20251212_191411_655_391f1eff_2fef896f",
+  "policy_sha1": "c56705c3",
+  "requirements": [
+    {
+      "text": "a high business impact that should be updated accordingly. Progress the work on this incident",
+      "kind": "change",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_016"
+      },
+      "cells": {
+        "impact": "high",
+        "priority": "high",
+        "status": "in_progress"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_016' AND impact = 'high' AND priority = 'high' AND status = 'in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Incident update",
+      "seed_count": 0,
+      "assumptions": [
+        "INC0000011 is INC_016, the only row with that number in the seed ('WiFi connection drops frequently', caller USER_003 Carlos Rodriguez, ORG_001)",
+        "priority follows the policy 3.1 matrix: impact high x urgency medium (seed value, unchanged by the request) = high",
+        "'progress the work' is the policy 3.3 transition new -> in_progress; resolved is not reachable because the request gives no resolution_code or resolution_notes",
+        "the policy calls the column state; the table's column is status",
+        "urgency is not a cell: the request does not touch it, and the priority cell already fails if it were changed"
+      ]
+    },
+    {
+      "text": "check if there are any SLAs already linked, if not provide a valid and appropriate SLA and align it to the incident",
+      "kind": "create",
+      "table": "incident_sla",
+      "anchor": {
+        "incident_sla_id": "TSLA_011"
+      },
+      "cells": {
+        "incident_id": "INC_016",
+        "sla_def_id": "SLA_002",
+        "stage": "in_progress"
+      },
+      "sql": "SELECT COUNT(*) FROM incident_sla WHERE incident_sla_id = 'TSLA_011' AND incident_id = 'INC_016' AND sla_def_id = 'SLA_002' AND stage = 'in_progress'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "SLA link",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (TSLA_011 after TSLA_010)",
+        "the seed has no incident_sla row for INC_016, so the 'if not' branch applies and one link is created",
+        "SLA_002 is the only active sla_definition with applies_to_priority = high in the incident's org ORG_001 (policy 6: SLAs align to priority, which is high after the update)",
+        "stage in_progress: a fresh timer on an incident being progressed; policy 6 pauses the timer only for on_hold with a listed reason, and the other stages describe finished timers"
+      ]
+    },
+    {
+      "text": "Also notify Carlos regarding the same",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": "NOTIF_008"
+      },
+      "cells": {
+        "incident_id": "INC_016",
+        "email": "carlos.rodriguez@techcorp.com",
+        "type": "update"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 'NOTIF_008' AND incident_id = 'INC_016' AND email = 'carlos.rodriguez@techcorp.com' AND type = 'update'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Notification sent",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (NOTIF_008 after NOTIF_007)",
+        "Carlos is USER_003 (carlos.rodriguez@techcorp.com), the only Carlos Rodriguez in the seed and the incident's caller",
+        "type update is not stated by the request or policy; kept from the benchmark check because the seed uses type update for the same kind of message (NOTIF_003, an incident being progressed) and nothing contradicts it"
+      ]
+    },
+    {
+      "text": "provide a valid and appropriate SLA and align it to the incident",
+      "kind": "stay",
+      "table": "incident_sla",
+      "selector": "incident_id = 'INC_016' AND sla_def_id <> 'SLA_002'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM incident_sla WHERE incident_id = 'INC_016' AND sla_def_id <> 'SLA_002'",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "selector boundary: one appropriate SLA, not the critical one (SLA_001), not ORG_001's definition for the seed's stale priority (SLA_004, moderate), and not ORG_002's high-priority one (SLA_008, which shares SLA_002's name)",
+        "disagreement: selector: A excludes every definition but SLA_002, B lists SLA_004 and SLA_008; kept A's tighter form because both are zero on the seed and policy 6 aligns SLAs to priority, so no other definition may be linked"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Incident update": {
+      "disposition": "kept"
+    },
+    "SLA link": {
+      "disposition": "kept"
+    },
+    "Notification sent": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two independent passes that agree on every disposition and every value. disagreement: A's stay that INC_004 ('Network connectivity issues', Carlos's other open network incident) keeps status new, impact high, urgency high and priority high (B considered it and dropped it); dropped because the request names the incident by number, INC0000011 is unique in the seed and the tools include find_incident_by_number, so no loose reading of the selector reaches INC_004 and the stay is a generic invariant. disagreement: A's stay that INC_004 keeps its one SLA link TSLA_005 (B had no such requirement); dropped for the same reason. disagreement: form: the stay on other SLAs linked to INC_016 is sla_def_id <> 'SLA_002' in A and sla_def_id IN ('SLA_004', 'SLA_008') in B; A's is kept as the tighter predicate (both are zero on the seed, and policy 6 aligns SLAs to priority). policy_sha1 is c56705c3, the SHA-1 of this task's policy text; the 391f1eff in the task id is not that hash. Acting user USER_002 Priya Sharma is an active manager (full CRUD on incident), so the policy allows every step. The two values not fixed by the request or policy are the SLA link's stage (in_progress) and the notification type (update); both passes kept them from the original checks with the reasoning in assumptions. No work note is required: the request does not ask for one and nothing in the policy adds one for an impact change.\nrevised: the stay on other SLAs linked to INC_016 now has empty cells: its selector already fixes sla_def_id <> 'SLA_002', so repeating that predicate in cells restated the selector; its sql and count are unchanged.\nrevised: the notes on the dropped INC_004 stays and on policy_sha1 now give their reasons directly (the incident is named by a unique number; c56705c3 is the hash of this task's policy text) rather than pointing elsewhere.",
+  "minutes": 8
+}

@@ -1,0 +1,113 @@
+{
+  "task_id": "task_20251208_102635_187_c4ad7a70_43753a9a",
+  "policy_sha1": "49afc889",
+  "requirements": [
+    {
+      "text": "move their primary point of contact over to Natalie Sanders",
+      "kind": "change",
+      "table": "contact",
+      "anchor": {
+        "contact_id": 51
+      },
+      "cells": {
+        "account_id": 26,
+        "portal_user_id": 539,
+        "is_primary": 1
+      },
+      "sql": "SELECT COUNT(*) FROM contact WHERE contact_id = 51 AND account_id = 26 AND portal_user_id = 539 AND is_primary = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Primary Contact Updated",
+      "seed_count": 0,
+      "assumptions": [
+        "Ramos-Case is account 26; Natalie Sanders is user 539, whose contact on that account is contact 51 (not primary in the seed)"
+      ]
+    },
+    {
+      "text": "move their primary point of contact over to Natalie Sanders",
+      "kind": "change",
+      "table": "contact",
+      "anchor": {
+        "contact_id": 50
+      },
+      "cells": {
+        "account_id": 26,
+        "is_primary": 0
+      },
+      "sql": "SELECT COUNT(*) FROM contact WHERE contact_id = 50 AND account_id = 26 AND is_primary = 0",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Old Primary Contact No Longer Marked Primary",
+      "seed_count": 0,
+      "assumptions": [
+        "contact 50 (Theresa Fisher, user 64) is the account's primary contact in the seed",
+        "the policy requires exactly one primary contact per account, so moving the role to Natalie clears it on contact 50",
+        "the benchmark counts contact 50 as primary and expects none; written positively as contact 50 remaining on account 26 with is_primary 0, since the request moves the role and does not ask for the old contact to be removed"
+      ]
+    },
+    {
+      "text": "move their primary point of contact over to Natalie Sanders",
+      "kind": "stay",
+      "table": "contact",
+      "selector": "account_id = 26",
+      "cells": {
+        "is_primary": 1
+      },
+      "sql": "SELECT COUNT(*) FROM contact WHERE account_id = 26 AND is_primary = 1",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "the policy requires an account to have exactly one primary contact at any time; Ramos-Case has exactly one in the seed and must still have exactly one",
+        "disagreement: form: one pass puts is_primary = 1 in the selector with empty cells, the other selects the account's contacts and tests is_primary = 1 as a cell; chose the second because the selector names the rows and cells carry the tested predicate; the sql is the same in both"
+      ]
+    },
+    {
+      "text": "a new problem with their Pure Storage FlashArray//X Variant 47 ... open a case, ensuring Natalie is set as the person to follow up with",
+      "kind": "create",
+      "table": "customer_case",
+      "anchor": {
+        "case_id": 1233
+      },
+      "cells": {
+        "account_id": 26,
+        "contact_id": 51,
+        "product_id": 179,
+        "installed_product_id": 139,
+        "channel": "alert",
+        "priority": "moderate",
+        "state": "new",
+        "short_description": "LIKE '%Product: Pure Storage FlashArray//X Variant 47, Issue:%'"
+      },
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1233 AND account_id = 26 AND contact_id = 51 AND product_id = 179 AND installed_product_id = 139 AND channel = 'alert' AND priority = 'moderate' AND state = 'new' AND short_description LIKE '%Product: Pure Storage FlashArray//X Variant 47, Issue:%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "New Case Created",
+      "seed_count": 0,
+      "assumptions": [
+        "case_id 1233 assumed next in sequence",
+        "contact 51 (Natalie Sanders) from 'ensuring Natalie is set as the person to follow up with'",
+        "product 179 is 'Pure Storage FlashArray//X Variant 47', not the base model or the other variants",
+        "installed product 139 is Ramos-Case's only unit of product 179 and is in_use; unit 74 of the same product belongs to account 15",
+        "channel alert from 'notified us through one of their system alerts'",
+        "priority not stated; the policy's default is moderate",
+        "state not stated; the policy's default for a new case is new",
+        "short_description prefix kept from the benchmark check; it follows the policy's 'Product: <name>, Issue: ...' template"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Primary Contact Updated": {
+      "disposition": "kept"
+    },
+    "Old Primary Contact No Longer Marked Primary": {
+      "disposition": "kept"
+    },
+    "New Case Created": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "disagreement: form of the one-primary-contact stay: one pass puts is_primary = 1 in the selector with empty cells, the other selects the account's contacts and tests is_primary = 1 as a cell; chose the second because the selector names the rows and cells carry the tested predicate; the sql is the same in both\nNo acting user is named, so the policy's default (act with an admin's responsibilities) applies; it covers contact updates.\nThe reported symptom (unusually high hardware temperatures) is not tested in short_description: the policy's template ends 'Issue: is not working as expected', so the issue wording is open, and the requirement holds only the template prefix the benchmark tests.\nNo assignment, entitlement or interaction row is required: the request asks for none and no listed tool writes interactions.",
+  "minutes": 28
+}

@@ -1,0 +1,161 @@
+{
+ "task_id": "task_20260106_133642_894_66392a82_3e083fa5",
+ "policy_sha1": "cde519b2",
+ "requirements": [
+  {
+   "text": "If his account has been deactivated, reactivate it",
+   "kind": "change",
+   "table": "user",
+   "anchor": {
+    "user_id": 622
+   },
+   "cells": {
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM user WHERE user_id = 622 AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Derek Blake User Reactivated",
+   "seed_count": 0,
+   "assumptions": [
+    "Derek Blake is user 622 (derek.blake7@globex.com, role customer), the only user of that name",
+    "his user row is inactive on the seed (active 0), so the condition holds and he must be reactivated"
+   ]
+  },
+  {
+   "text": "locate the case associated with him, reopen it",
+   "kind": "change",
+   "table": "customer_case",
+   "anchor": {
+    "case_id": 88
+   },
+   "cells": {
+    "account_id": 4,
+    "contact_id": 3,
+    "product_id": 170,
+    "state": "in_progress",
+    "reopen_count": 1
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 88 AND account_id = 4 AND contact_id = 3 AND product_id = 170 AND state = 'in_progress' AND reopen_count = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Case Reopened and Assigned to an Account Management Manager",
+   "seed_count": 0,
+   "assumptions": [
+    "the case is CS-0000088 (case_id 88): of the five cases of Derek's contact (contact 3, account 4) it is the only closed one and the only one handled by Alexandra Hansen (user 392)",
+    "reopen means closed -> in_progress, the only transition the policy allows out of closed",
+    "reopen_count goes from 0 to 1: implied by the request's 'reopen', not stated; kept from the benchmark check",
+    "account_id, contact_id and product_id are case 88's seed values, which the request leaves unchanged; kept from the benchmark check"
+   ]
+  },
+  {
+   "text": "reassign it to a manager from the Account Management group",
+   "kind": "change",
+   "table": "customer_case",
+   "anchor": {
+    "case_id": 88
+   },
+   "cells": {
+    "assignment_group_id": 7,
+    "assigned_to": "IN (37, 72, 116, 663)"
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 88 AND assignment_group_id = 7 AND assigned_to IN (37, 72, 116, 663)",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Case Reopened and Assigned to an Account Management Manager",
+   "seed_count": 0,
+   "assumptions": [
+    "the Account Management group is group 7, the only group with exactly that name (Account Management_2, _3 and _4 are groups 27, 47 and 67)",
+    "the request names no manager, so any active manager who is a member of group 7 satisfies it: users 37, 72, 116 and 663 on the seed",
+    "the policy requires the assignee to be a member of the assignment group, so the case's group becomes 7",
+    "disagreement: assigned_to: one pass lists users 37, 72, 116 and 663, the other uses the benchmark's subquery for active managers in group 7 evaluated on the final state; chose the list because it is the same set on the seed and cannot be met by promoting a group member to manager during the task"
+   ]
+  },
+  {
+   "text": "locate the case associated with him, reopen it, and reassign it",
+   "kind": "stay",
+   "table": "customer_case",
+   "selector": "contact_id = 3 AND case_id = 80",
+   "cells": {
+    "state": "in_progress",
+    "reopen_count": 0,
+    "assignment_group_id": "IS NOT 7"
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE contact_id = 3 AND case_id = 80 AND state = 'in_progress' AND reopen_count = 0 AND assignment_group_id IS NOT 7",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 1,
+   "assumptions": [
+    "boundary of 'the case associated with him': Derek's other four cases (80 in_progress, 81 pending in Account Management_4, 84 resolved with closed_on set, 90 canceled) are not the prematurely closed case Alexandra Hansen handled, so none is reopened or moved to group 7"
+   ]
+  },
+  {
+   "text": "locate the case associated with him, reopen it, and reassign it",
+   "kind": "stay",
+   "table": "customer_case",
+   "selector": "contact_id = 3 AND case_id = 81",
+   "cells": {
+    "state": "pending",
+    "reopen_count": 0,
+    "assignment_group_id": "IS NOT 7"
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE contact_id = 3 AND case_id = 81 AND state = 'pending' AND reopen_count = 0 AND assignment_group_id IS NOT 7",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 1,
+   "assumptions": [
+    "boundary of 'the case associated with him': Derek's other four cases (80 in_progress, 81 pending in Account Management_4, 84 resolved with closed_on set, 90 canceled) are not the prematurely closed case Alexandra Hansen handled, so none is reopened or moved to group 7"
+   ]
+  },
+  {
+   "text": "locate the case associated with him, reopen it, and reassign it",
+   "kind": "stay",
+   "table": "customer_case",
+   "selector": "contact_id = 3 AND case_id = 84",
+   "cells": {
+    "state": "resolved",
+    "reopen_count": 0,
+    "assignment_group_id": "IS NOT 7"
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE contact_id = 3 AND case_id = 84 AND state = 'resolved' AND reopen_count = 0 AND assignment_group_id IS NOT 7",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 1,
+   "assumptions": [
+    "boundary of 'the case associated with him': Derek's other four cases (80 in_progress, 81 pending in Account Management_4, 84 resolved with closed_on set, 90 canceled) are not the prematurely closed case Alexandra Hansen handled, so none is reopened or moved to group 7"
+   ]
+  },
+  {
+   "text": "locate the case associated with him, reopen it, and reassign it",
+   "kind": "stay",
+   "table": "customer_case",
+   "selector": "contact_id = 3 AND case_id = 90",
+   "cells": {
+    "state": "canceled",
+    "reopen_count": 0,
+    "assignment_group_id": "IS NOT 7"
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE contact_id = 3 AND case_id = 90 AND state = 'canceled' AND reopen_count = 0 AND assignment_group_id IS NOT 7",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 1,
+   "assumptions": [
+    "boundary of 'the case associated with him': Derek's other four cases (80 in_progress, 81 pending in Account Management_4, 84 resolved with closed_on set, 90 canceled) are not the prematurely closed case Alexandra Hansen handled, so none is reopened or moved to group 7"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Derek Blake User Reactivated": {
+   "disposition": "kept"
+  },
+  "Case Reopened and Assigned to an Account Management Manager": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "The benchmark's case check is one conjunction; this file splits it into the reopen (state, reopen count and the case's identity cells) and the reassignment (group and manager), and both requirements carry it, so the check holds exactly when both hold.\nClearing closed_on on reopen is neither asked by the request nor stated by the policy (which names closed_on only as the closure timestamp), so it is not tested.\nDerek's contact row (contact 3) is already active; the request concerns his user record.\nThe acting user, Jose Roberson (user 32), is an admin whose user row is inactive; the policy grants the admin role by default and does not bar an inactive user from acting, and the benchmark expects the changes, so the file expects them.\ndisagreement: value: the assignee cell: one pass lists the four active managers of group 7, the other keeps the benchmark's membership subquery; chose the list, which selects the same users on the seed and cannot be met by changing a member's role during the task.\ndisagreement: missing requirement: the boundary of Derek's other cases: one pass has two stays (none of cases 80, 81, 84, 90 moved to group 7; cases 84 and 90 still resolved or canceled with reopen_count 0), the other one stay on all four cases testing each case's exact seed state, reopen_count 0 and a group other than 7; kept the single stay because it tests everything the two stays test and also catches case 80 or 81 being reopened or moved, the rows a loose reading of 'the case associated with him' would sweep in.\nrevised: the stay on Derek's other cases matched each case to its seed state with a CASE expression, which the CSM server's read-only filter rejects, so it is now one stay per seed state, each naming its case and holding exactly when the single stay held for that case.",
+ "minutes": 37
+}

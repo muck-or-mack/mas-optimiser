@@ -1,0 +1,116 @@
+{
+  "task_id": "task_20251218_132315_968_66392a82_d610f253",
+  "policy_sha1": "4afd943b",
+  "requirements": [
+    {
+      "text": "update the configuration item associated with serial number SRV-ORC-9981 to set its cost to 14000",
+      "kind": "change",
+      "table": "configuration_item",
+      "anchor": {
+        "configuration_item_id": "CI_001"
+      },
+      "cells": {
+        "cost": 14000
+      },
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE configuration_item_id = 'CI_001' AND cost = 14000",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Cost Corrected",
+      "seed_count": 0,
+      "assumptions": [
+        "CI_001 (SAP-DB-01 (Oracle Database)) resolved from serial SRV-ORC-9981, the only CI with that serial in the seed; its seed cost is 15000"
+      ]
+    },
+    {
+      "text": "while leaving it in in_use state",
+      "kind": "stay",
+      "table": "configuration_item",
+      "anchor": {
+        "configuration_item_id": "CI_001"
+      },
+      "cells": {
+        "status": "in_use"
+      },
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE configuration_item_id = 'CI_001' AND status = 'in_use'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "the request forbids a status change on the cost update; CI_001 is in_use on the seed and must stay so"
+      ]
+    },
+    {
+      "text": "open a high-impact, high-urgency incident ... with short description \"Recurring connection failures and performance issues on SAP-DB-01 (Oracle Database)\"",
+      "kind": "create",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_101"
+      },
+      "cells": {
+        "short_description": "Recurring connection failures and performance issues on SAP-DB-01 (Oracle Database)",
+        "caller_id": "USER_001",
+        "configuration_item": "CI_001",
+        "status": "new",
+        "impact": "high",
+        "urgency": "high",
+        "priority": "critical"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_101' AND short_description = 'Recurring connection failures and performance issues on SAP-DB-01 (Oracle Database)' AND caller_id = 'USER_001' AND configuration_item = 'CI_001' AND status = 'new' AND impact = 'high' AND urgency = 'high' AND priority = 'critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "New Incident created",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (INC_101 after INC_100); the only incident the task creates",
+        "caller is Thomas Green, 'the contact for this device', resolved to USER_001 in the seed (also the CI's owner_id); Casey Green (USER_052) and Thomas Bailey (USER_063) are the near-matches and are not him",
+        "the incident is linked to the server (configuration_item = CI_001): the benchmark's incident check joins the CI without naming it and its problem check then requires this serial; CI_001 is in_use so policy 5.1 allows the link",
+        "priority critical from the policy's impact x urgency matrix (high, high)",
+        "status new: the policy's default for new incidents; kept from the benchmark check",
+        "short_description taken verbatim from the request's quoted text"
+      ]
+    },
+    {
+      "text": "register a high-impact, high-urgency database Problem to formally track this as a recurring issue",
+      "kind": "create",
+      "table": "problem",
+      "anchor": {
+        "problem_id": "PRB_011"
+      },
+      "cells": {
+        "original_task": "INC_101",
+        "status": "new",
+        "impact": "high",
+        "urgency": "high",
+        "priority": "critical",
+        "category": "database"
+      },
+      "sql": "SELECT COUNT(*) FROM problem WHERE problem_id = 'PRB_011' AND original_task = 'INC_101' AND status = 'new' AND impact = 'high' AND urgency = 'high' AND priority = 'critical' AND category = 'database'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "New Problem created",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (PRB_011 after PRB_010); the only problem the task creates",
+        "the problem links to the new incident through original_task = INC_101, as the benchmark check joins; the policy's incident_to_problem related list has no table in this schema, and no tool updates an incident's problem column after creation",
+        "priority critical from the policy's problem impact x urgency matrix (high, high)",
+        "status new: the policy's default for new problems; kept from the benchmark check",
+        "category database from the request's words 'database Problem'; an existing problem category in the seed (PRB_001)",
+        "opened_by, configuration_item and short_description of the problem are not fixed by the request or the benchmark check and are not cells"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Cost Corrected": {
+      "disposition": "kept"
+    },
+    "New Incident created": {
+      "disposition": "kept"
+    },
+    "New Problem created": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on every requirement, value and disposition: the cost change on CI_001, the stay the request states in words ('leaving it in in_use state'), the critical incident INC_101 for Thomas Green on the server with the quoted short description, and the critical database problem PRB_011 linked to it by original_task; all three benchmark checks kept; no disagreements. The incident requirement adds caller_id and configuration_item, which the benchmark's incident check joins on but does not filter; both follow from the request and from the problem check's join on the CI serial. PRB_001 is an existing critical database problem on CI_001 (fix_in_progress, original_task INC_001); the new problem is anchored by id, so it needs no boundary stay. The only SAP knowledge article in the seed (KB_006) is about a locked login session, not connection failures, so policy 7's suggested-link rule adds no requirement, and no listed tool searches or links knowledge. No further stays: the serial matches one CI and nothing else is forbidden.",
+  "minutes": 23
+}

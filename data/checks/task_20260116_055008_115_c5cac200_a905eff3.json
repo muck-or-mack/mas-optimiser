@@ -1,0 +1,176 @@
+{
+  "task_id": "task_20260116_055008_115_c5cac200_a905eff3",
+  "policy_sha1": "fee2d241",
+  "requirements": [
+    {
+      "text": "Anne Medina from IT Support is having trouble accessing the HR portal ... set the priority to moderate ... use account number HRIT-AM-2025 and account type other ... coming through the self-service portal",
+      "kind": "create",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 61
+      },
+      "cells": {
+        "opened_for": 29,
+        "coe_type": "HRIT",
+        "priority": "moderate",
+        "account_number": "HRIT-AM-2025",
+        "account_type": "other",
+        "source": "IN ('self-service', 'web_portal')"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND opened_for = 29 AND coe_type = 'HRIT' AND priority = 'moderate' AND account_number = 'HRIT-AM-2025' AND account_type = 'other' AND source IN ('self-service', 'web_portal')",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Valid Task Type Verification",
+      "assumptions": [
+        "id assumed next in sequence (hr_case 61 after 60); the only case the task creates",
+        "opened_for = 29 is Anne Medina's hr_profile_id (user 29, the seed's only Anne and only Medina)",
+        "coe_type = 'HRIT' kept from the benchmark checks; not fixed by request or policy, but the request calls it a technical support case about the HR portal and the seed's HR portal cases are HRIT",
+        "priority = 'moderate' is stated by the request; it is also the Valid Task Type Verification check's join condition on the case (hr_case_task has no priority column), so that check is carried by this requirement and the task requirement jointly",
+        "disagreement: source: A IN ('self-service', 'web_portal'), B 'self-service'; chose A's because the request's 'self-service portal' matches the seed's value self-service, but policy section 7's channel enumeration names web_portal and no self-service, and the benchmark's own channel check in this domain lists both as valid; nothing decides between them",
+        "short_description, status and hr_service are not fixed by the request (closing the case is not asked; policy 3.1 makes new cases draft) and not tested"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "Assign this case ... to HR Service Desk group",
+      "kind": "create",
+      "table": "hr_case",
+      "anchor": {
+        "hr_case_id": 61
+      },
+      "cells": {
+        "assignment_group": 4
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 61 AND assignment_group = 4",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Correct Assignment Group Verification",
+      "assumptions": [
+        "assignment_group = 4 resolved from the seed: user_group 'HR Service Desk' is group_id 4, active (the check's join, made literal)",
+        "the check's description mentions an 'IT Support L1' group the request never asks for; its query is kept as written",
+        "no assigned_to user is asked for; this policy version lets an admin (the acting user) perform group assignment"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "Create a case task with a checklist to track the troubleshooting steps",
+      "kind": "create",
+      "table": "hr_case_task",
+      "anchor": {
+        "hr_case_task_id": 150
+      },
+      "cells": {
+        "parent_case": 61,
+        "task_type": "checklist"
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case_task WHERE hr_case_task_id = 150 AND parent_case = 61 AND task_type = 'checklist'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Valid Task Type Verification",
+      "assumptions": [
+        "id assumed next in sequence (hr_case_task 150 after 149); the request asks for one task",
+        "task_type = 'checklist' is stated by the request and is a valid type under policy 3.2; the check's description mentions a 'ticket' type the request never uses",
+        "the check's priority = 'moderate' condition is on the parent case and is tested by the case requirement",
+        "policy 3.2's automatic task generation on work_in_progress is taken as narrative; if the server did generate tasks the id anchor would miss"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "Assign this case and its tasks to HR Service Desk group",
+      "kind": "create",
+      "table": "hr_case_task",
+      "anchor": {
+        "hr_case_task_id": 150
+      },
+      "cells": {
+        "assignment_group": 4
+      },
+      "sql": "SELECT COUNT(*) FROM hr_case_task WHERE hr_case_task_id = 150 AND assignment_group = 4",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "assumptions": [
+        "the request assigns the tasks as well as the case; 'its tasks' is read as the one task the request creates, and no benchmark check tests the task's group",
+        "assignment_group = 4 is 'HR Service Desk' in the seed"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "a checklist to track the troubleshooting steps - check her account status",
+      "kind": "create",
+      "table": "checklist",
+      "selector": "case_task_id = 150 AND checklist_item_description LIKE '%account status%'",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM checklist WHERE case_task_id = 150 AND checklist_item_description LIKE '%account status%'",
+      "expected": 0,
+      "comparison": "greater_than",
+      "source": "Checklist Items Completion Verification",
+      "assumptions": [
+        "the request fixes no number of items, so rows are selected by task and wording, not by id, and the count must exceed zero as in the benchmark check",
+        "the one step the request names is 'check her account status'; the item's description must carry those words (the benchmark check tests only that items exist)",
+        "disagreement: checklist_item_description: A LIKE '%account%', B LIKE '%account status%'; chose B's because both match the request's words and it is the tighter"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "Once the troubleshooting is complete, send her an update notification",
+      "kind": "change",
+      "table": "checklist",
+      "selector": "case_task_id = 150 AND checklist_item_description LIKE '%account status%'",
+      "cells": {
+        "checked": 1
+      },
+      "sql": "SELECT COUNT(*) FROM checklist WHERE case_task_id = 150 AND checklist_item_description LIKE '%account status%' AND checked = 1",
+      "expected": 0,
+      "comparison": "greater_than",
+      "source": "new",
+      "assumptions": [
+        "implied by the request, not stated: the notification follows completion of the troubleshooting, so the account-status item is checked; update_checklist is in the tools",
+        "the benchmark check's description says items were 'created and completed' but its query tests only creation; completion is tested here as its own requirement"
+      ],
+      "seed_count": 0
+    },
+    {
+      "text": "send her an update notification",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": 61
+      },
+      "cells": {
+        "hr_case_id": 61,
+        "email": "anne.medina@servicenow.com",
+        "type": "update"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 61 AND hr_case_id = 61 AND email = 'anne.medina@servicenow.com' AND type = 'update'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Employee Notification Verification",
+      "assumptions": [
+        "id assumed next in sequence (notification 61 after 60); the only notification the task creates",
+        "disagreement: anchor: A notification_id = 61, B a selector on case, recipient and type; chose the id anchor because a created row is anchored by id when it is the only row the task creates in that table",
+        "type = 'update' from the request's 'update notification'; 'update' is a type the seed uses, and the benchmark check does not test type",
+        "recipient address kept from the benchmark check (user.email of user 29); every seed notification goes to hr_profile.personal_email instead (anne.medina.29@personal.example.com), but the request and policy fix no address",
+        "one notification is asked for, so the count is exactly one (the check counts greater_than 0)"
+      ],
+      "seed_count": 0
+    }
+  ],
+  "original_checks": {
+    "Valid Task Type Verification": {
+      "disposition": "kept",
+      "evidence": "a join over the task's type and the case's priority, carried jointly by the task requirement and the case requirement (both name it)"
+    },
+    "Correct Assignment Group Verification": {
+      "disposition": "kept"
+    },
+    "Checklist Items Completion Verification": {
+      "disposition": "kept"
+    },
+    "Employee Notification Verification": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on every id and most values (case 61 for Anne Medina 29, COE HRIT, priority moderate, account HRIT-AM-2025 of type other, group 4 HR Service Desk; task 150 of type checklist in group 4; an account-status checklist item, checked; an update notification to anne.medina@servicenow.com) and on all four dispositions (all kept). disagreement: source: A IN ('self-service', 'web_portal'), B 'self-service'; chose A's because the request's words match the seed's self-service but policy section 7 enumerates web_portal and the benchmark's channel check in this domain lists both as valid, so nothing decides between them. disagreement: granularity: A tests the case's cells and its group in one requirement under Correct Assignment Group Verification, B in two; kept B's split because the request asks the assignment in its own sentence, and named Valid Task Type Verification as the base requirement's source because its priority = 'moderate' cell is that check's join condition on the case. disagreement: checklist item wording: A LIKE '%account%', B LIKE '%account status%'; chose B's as the tighter of two right predicates. disagreement: checklist completion: A folds checked = 1 into the create requirement, B tests it as its own change requirement; kept B's split (one requirement per thing: the item is created, then completed). disagreement: notification anchor: A notification_id = 61, B a selector; chose the id anchor because the task creates one notification. This policy version lets an admin (the acting user Karen Watkins) do case work and group assignment, lists moderate as a priority and drops the short-description template, so the acting user's role, the priority value and the case's short description raise no policy conflict. The check descriptions mention a 'ticket' task type and an 'IT Support L1' group that the request never asks for; the queries test what the request does ask and are kept as written. The request does not ask that the task or case be closed, so no status is tested. No stay requirements: nothing is forbidden and no selector has a boundary (one Medina, one Anne, one HR Service Desk group in the seed). Least sure: the case's source, accepted as either self-service (seed spelling) or web_portal (policy enumeration). revised: the checklist requirements no longer repeat case_task_id and the item wording in cells, since the selector already fixes both; the completion requirement's selector now names the item by task and wording only, with checked = 1 moved to its cells. revised: the note on policy conflicts now states why none arise rather than pointing to another task.",
+  "minutes": 9
+}

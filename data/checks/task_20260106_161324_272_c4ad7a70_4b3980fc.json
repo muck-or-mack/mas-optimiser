@@ -1,0 +1,112 @@
+{
+ "task_id": "task_20260106_161324_272_c4ad7a70_4b3980fc",
+ "policy_sha1": "042672c4",
+ "requirements": [
+  {
+   "text": "Given Acme Systems’ VIP customer status and business criticality, this existing new case must be escalated immediately",
+   "kind": "change",
+   "table": "customer_case",
+   "anchor": {
+    "case_id": 71
+   },
+   "cells": {
+    "account_id": 3,
+    "product_id": 25,
+    "state": "new",
+    "priority": "high",
+    "escalation": 1,
+    "escalation_reason": "vip"
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 71 AND account_id = 3 AND product_id = 25 AND state = 'new' AND priority = 'high' AND escalation = 1 AND escalation_reason = 'vip'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Case CS-0000071 is escalated as VIP for Acme Systems SUSE boot issue",
+   "seed_count": 0,
+   "assumptions": [
+    "the case is CS-0000071 (case 71): Acme Systems (account 3), product 25 'SUSE Linux Enterprise Server 15 Variant 5', contact 1 (Michael Ward), the account's only new case on that product; its other cases on the product are 57 (in_progress) and 64 (closed)",
+    "the policy records an escalation as escalation = 1 with an escalation_reason; 'VIP customer status' maps to the enumerated reason vip",
+    "state new and priority high are the case's seed values; the request asks for escalation only (kept from the benchmark check; not fixed by request or policy)"
+   ]
+  },
+  {
+   "text": "make sure Tabitha Bullock (tabitha.bullock@servicenow.com) will take up the case going forward",
+   "kind": "change",
+   "table": "customer_case",
+   "anchor": {
+    "case_id": 71
+   },
+   "cells": {
+    "assigned_to": 3,
+    "assignment_group_id": 30
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 71 AND assigned_to = 3 AND assignment_group_id = 30",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Case ownership moved to Tabitha Bullock in the correct support group",
+   "seed_count": 0,
+   "assumptions": [
+    "Tabitha Bullock resolved by email to user 3, an active agent; the old assignee is user 294, a member of group 30",
+    "assignment_group_id 30 (Installed Base Support_2) is the case's seed group: the request moves the assignee only and names no group (kept from the benchmark check; not fixed by request or policy)"
+   ]
+  },
+  {
+   "text": "make sure Tabitha Bullock (tabitha.bullock@servicenow.com) will take up the case going forward",
+   "kind": "create",
+   "table": "user_group_member",
+   "anchor": {
+    "member_id": 960
+   },
+   "cells": {
+    "group_id": 30,
+    "user_id": 3
+   },
+   "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 960 AND group_id = 30 AND user_id = 3",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Tabitha is now a member of the Installed Base Support_2 group",
+   "seed_count": 0,
+   "assumptions": [
+    "implied by the request, not stated: the policy requires the assignee to be a member of the case's assignment group, and Tabitha belongs only to group 67 on the seed",
+    "membership id assumed next in sequence (960 after 959); exactly one membership is created",
+    "the acting user, Karen Watkins (user 39), is an admin, whom the policy allows to create group memberships"
+   ]
+  },
+  {
+   "text": "this existing new case must be escalated immediately",
+   "kind": "stay",
+   "table": "customer_case",
+   "selector": "case_id IN (52, 53, 54, 57, 64, 70, 72)",
+   "cells": {
+    "escalation": 0,
+    "assigned_to": "IS NOT 3"
+   },
+   "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id IN (52, 53, 54, 57, 64, 70, 72) AND escalation = 0 AND assigned_to IS NOT 3",
+   "expected": 7,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 7,
+   "assumptions": [
+    "boundary of 'this existing new case': Acme Systems' other cases on the same product (57 in_progress, 64 closed) and its other new cases on other products (52, 53, 54, 70, 72) are neither escalated nor given to Tabitha",
+    "disagreement: selector: A case_id IN (52, 53, 54, 57, 64, 70, 72), B account_id = 3 AND product_id = 25 AND case_id <> 71 (cases 57 and 64); chose the seven cases because a loose reading of the case's description sweeps in both the account's other cases on the product and its other new cases, and the seven include the two",
+    "disagreement: cells: A escalation = 0 and assigned_to IS NOT 3 (expected 7), B escalation = 1 (expected 0); chose A's because both test the escalation boundary alike on these rows (none is escalated on the seed), and the assignee cell also bounds the reassignment to case 71"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Case CS-0000071 is escalated as VIP for Acme Systems SUSE boot issue": {
+   "disposition": "kept"
+  },
+  "Case ownership moved to Tabitha Bullock in the correct support group": {
+   "disposition": "kept"
+  },
+  "Tabitha is now a member of the Installed Base Support_2 group": {
+   "disposition": "kept"
+  },
+  "Case is still correctly tied to Michael Ward’s contact for Acme Systems": {
+   "disposition": "weak",
+   "evidence": "case 71 is already tied on the seed to contact 1 of account 3, whose portal user is 47 (Michael Ward), so the count is 1 before the agent acts; the request asks no change to the contact"
+  }
+ },
+ "notes": "Tabitha Bullock is not a member of the case's assignment group 30 on the seed, and the policy requires an assignee to belong to the case's group. The file follows the benchmark in keeping the case in group 30 and adding her to it; moving the case to her own group 67 (Account Management_4, a backoffice group) would also meet the membership rule but would change the case's routing, which the request does not ask for.\nThe old assignee (user 294) keeps the group membership: the request does not ask to remove it.\nThe policy asks for the escalation's justification to be logged in case notes, but the schema has no case-notes table, so nothing can be tested.\nThe entitlement validation the policy requires after assignment is read-only: the product entitlement for product 25 (26) is inactive, but Acme Systems holds active account-wide entitlements 15, 18 and 21.\ndisagreement: the boundary stay on Acme Systems' other cases differs in its selector and its cells; resolved on that requirement.",
+ "minutes": 32
+}

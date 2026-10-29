@@ -1,0 +1,118 @@
+{
+ "task_id": "task_20260121_162252_344_1afb323a_f878fac7",
+ "policy_sha1": "190cb331",
+ "requirements": [
+  {
+   "text": "their premium support contract ... so finance wants the amount rebalanced to around 33.414 grand dollar",
+   "kind": "change",
+   "table": "contract",
+   "anchor": {
+    "contract_id": 101
+   },
+   "cells": {
+    "contract_price": 33414
+   },
+   "sql": "SELECT COUNT(*) FROM contract WHERE contract_id = 101 AND contract_price = 33414",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify Contract price",
+   "seed_count": 0,
+   "assumptions": [
+    "Russell, Johnson and Clark is account 40, the only account of that name",
+    "the premium support contract is contract 101, the account's only support contract (seed price 2537)",
+    "'33.414 grand' read as 33,414 dollars, a whole number, so the policy's rounding rule for contract prices changes nothing"
+   ]
+  },
+  {
+   "text": "when you look at their warranty contract, the price needs to be lifted by about twenty-five percent of whatever value is currently stored",
+   "kind": "change",
+   "table": "contract",
+   "anchor": {
+    "contract_id": 100
+   },
+   "cells": {
+    "contract_price": 2678
+   },
+   "sql": "SELECT COUNT(*) FROM contract WHERE contract_id = 100 AND contract_price = 2678",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify Contract",
+   "seed_count": 0,
+   "assumptions": [
+    "the warranty contract is contract 100, the account's only warranty contract, stored at 2142 on the seed",
+    "'about twenty-five percent' read as exactly 25%: 2142 x 1.25 = 2677.5",
+    "2677.5 rounded off to 2678 by the policy's rule that a contract price with decimals is rounded (half rounded up)"
+   ]
+  },
+  {
+   "text": "be sure the contact is associated with the correct location Smith Llc Hq - London",
+   "kind": "change",
+   "table": "user",
+   "anchor": {
+    "user_id": 55
+   },
+   "cells": {
+    "location_id": 903
+   },
+   "sql": "SELECT COUNT(*) FROM \"user\" WHERE user_id = 55 AND location_id = 903",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify User location",
+   "seed_count": 0,
+   "assumptions": [
+    "the primary contact of account 40 is contact 89 (is_primary 1), whose portal user is user 55 (Bethany Barnes); the contact table has no location column, so the association is the portal user's location_id",
+    "Smith Llc Hq - London is location 903, the only location of that name (user 55's seed location is 55, in Sydney)",
+    "read as unconditional, as the benchmark check has it: the request calls 903 the correct location, independent of the phone condition"
+   ]
+  },
+  {
+   "text": "only if that’s the case, go ahead and replace it with their new uk number, as +44-8911-982-441",
+   "kind": "stay",
+   "table": "user",
+   "anchor": {
+    "user_id": 55
+   },
+   "cells": {
+    "phone": "+12125516299"
+   },
+   "sql": "SELECT COUNT(*) FROM \"user\" WHERE user_id = 55 AND phone = '+12125516299'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": "Verify User location",
+   "seed_count": 1,
+   "assumptions": [
+    "user 55's phone on the seed is +12125516299, a US number rather than an India (+91) one, so the request's condition fails and the number must not be replaced"
+   ]
+  },
+  {
+   "text": "check their primary contact the team said the profile might still be carrying that old India branch number",
+   "kind": "stay",
+   "table": "user",
+   "selector": "user_id IN (681, 726)",
+   "cells": {
+    "phone": "LIKE '+91%'"
+   },
+   "sql": "SELECT COUNT(*) FROM \"user\" WHERE user_id IN (681, 726) AND phone LIKE '+91%'",
+   "expected": 2,
+   "comparison": "equals",
+   "source": "new",
+   "seed_count": 2,
+   "assumptions": [
+    "boundary of 'primary contact': the account's non-primary contacts 90 and 91 (users 681 and 726) do carry India (+91) numbers, so a loose reading would replace theirs; the request limits the check to the primary contact"
+   ]
+  }
+ ],
+ "original_checks": {
+  "Verify Contract": {
+   "disposition": "kept"
+  },
+  "Verify User location": {
+   "disposition": "kept"
+  },
+  "Verify Contract price": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "The phone replacement is conditional on the primary contact carrying an India number; on the seed it carries a US number, so the benchmark's location check, which also requires the phone unchanged, is carried by a location change and a phone stay.\nThe location clause could be read as part of the same condition, which would leave the location unchanged; the benchmark reads it as unconditional, the request calls London HQ 'the correct location', and nothing in the request or policy contradicts that reading, so it is kept.\nNo contract of account 40 is labelled premium; the account's premium entitlement 344 sits under warranty contract 100, but the request names the warranty contract separately for the 25% uplift, so 'premium support contract' is support contract 101, the account's only support contract.\nContract 101 is in draft; the request asks only for its amount, so its status is not tested. The closing request to realign everything so it stays consistent adds no change beyond the three named ones.",
+ "minutes": 34
+}

@@ -1,0 +1,107 @@
+{
+  "task_id": "task_20251218_183819_272_99ba2325_dd71c332",
+  "policy_sha1": "4afd943b",
+  "requirements": [
+    {
+      "text": "The cost recorded for this device is incorrect and should be updated to $9,50",
+      "kind": "change",
+      "table": "configuration_item",
+      "anchor": {
+        "configuration_item_id": "CI_092"
+      },
+      "cells": {
+        "cost": 950
+      },
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE configuration_item_id = 'CI_092' AND cost = 950",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify CMDB",
+      "seed_count": 0,
+      "assumptions": [
+        "the device is the CI with serial PLY-INI-001 = CI_092 (Conference Polycom - Initech, owner USER_008 James Hill, LOC_008 Initech Office Park in Dallas), seed cost 800",
+        "'$9,50' read as 950 (a dollar figure with a misplaced separator); 9.50 is implausible for a conference system recorded at 800, and the original check reads it the same way"
+      ]
+    },
+    {
+      "text": "After correcting the cost, please create a problem record with high impact and high urgency",
+      "kind": "create",
+      "table": "problem",
+      "anchor": {
+        "problem_id": "PRB_011"
+      },
+      "cells": {
+        "configuration_item": "CI_092",
+        "status": "new",
+        "impact": "high",
+        "urgency": "high",
+        "priority": "critical"
+      },
+      "sql": "SELECT COUNT(*) FROM problem WHERE problem_id = 'PRB_011' AND configuration_item = 'CI_092' AND status = 'new' AND impact = 'high' AND urgency = 'high' AND priority = 'critical'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Problem creation",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (PRB_011 after PRB_010), added to the original check's selector, which had no key",
+        "priority critical from policy 4.2's matrix (high impact, high urgency); status new from policy 4.2's default",
+        "the problem is recorded against the Polycom CI_092, as the original check has it",
+        "opened_by (NOT NULL) is untested: the request does not say whether the acting user (USER_039) or the reporter James Hill (USER_008) opens it",
+        "org_id and category are untested: the request implies Initech (ORG_004) but the acting user is in ORG_001, and call drops could be hardware or network",
+        "'After correcting the cost' is an ordering constraint with no final-state trace"
+      ]
+    },
+    {
+      "text": "that clearly documents the recurring call drops and audio quality issues",
+      "kind": "create",
+      "table": "problem",
+      "anchor": {
+        "problem_id": "PRB_011"
+      },
+      "cells": {
+        "problem_statement": [
+          "LIKE '%call%'",
+          "LIKE '%audio%'"
+        ]
+      },
+      "sql": "SELECT COUNT(*) FROM problem WHERE problem_id = 'PRB_011' AND problem_statement LIKE '%call%' AND problem_statement LIKE '%audio%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "the wording is free, so the test is two keywords ('call', 'audio') that any such statement must use, on problem_statement, the mandatory narrative column; short_description is not tested",
+        "kept separate from the problem row so wording does not fail the original check's requirement"
+      ]
+    },
+    {
+      "text": "The device is owned by James Hill",
+      "kind": "stay",
+      "table": "configuration_item",
+      "anchor": {
+        "configuration_item_id": "CI_048"
+      },
+      "cells": {
+        "cost": 900
+      },
+      "sql": "SELECT COUNT(*) FROM configuration_item WHERE configuration_item_id = 'CI_048' AND cost = 900",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "boundary of the selector: CI_048 (Initech Workstation - James Hill, WS-JH-008, cost 900) is James Hill's other CI at the same Dallas office, so a reading by owner and office rather than by serial would re-cost it with update_configuration_item; it must keep its cost"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify Problem creation": {
+      "disposition": "kept",
+      "evidence": "carried with the anchor problem_id = PRB_011 added; its cells are unchanged"
+    },
+    "Verify CMDB": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on the cost change, the problem row, the problem-statement wording test and the stay on CI_048, and on both dispositions. disagreement: change on INC_029 (problem = PRB_011; B only, from policy 4.2's 'must link all affected Incidents'); dropped because the request names no incident, INC_029's symptom ('Polycom Offline', 'Not connected.') is not the recurring call drops and audio distortion so whether it is an affected incident is undecidable, and no tool in the task writes the incident table. disagreement: problem requirement text: A keeps 'After correcting the cost', B drops it; kept A's because the words are the request's, and the ordering has no final-state trace as both passes note. The wording test holds its two keyword conditions on problem_statement as two separate predicates on the one column, so each word is required on its own. The owner is not tested as a stay: the request restates the owner rather than asking for a change, though get_user_using_name on 'James' could also match James Wilson (USER_095).\nrevised: the reason for dropping the INC_029 link now rests on the request, the incident's symptom and the tool list alone; the note on the wording test's two predicates now states why they are separate instead of citing a format rule.",
+  "minutes": 8
+}

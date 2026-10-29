@@ -1,0 +1,1926 @@
+{
+  "name": "haiku-20-40-40",
+  "seed": 0,
+  "proportions": {
+    "training": 0.2,
+    "validation": 0.4,
+    "test": 0.4
+  },
+  "strata": "domain x outcome (all, some or none of the baseline attempts passed)",
+  "source": {
+    "experiment": "baseline-haiku",
+    "evaluations": {
+      "itsm": "20261027-052820-itsm",
+      "csm": "20261027-055013-csm",
+      "hr": "20261027-061153-hr"
+    },
+    "code_version": "v0.5.0-1-gfdde1f5"
+  },
+  "forced_training": {
+    "task_20251201_164641_724_109c89c0_1b29acb9": "contradicting \"Transition Case Created\" verifiers (state)",
+    "task_20251205_154853_044_d4a463c3_fce76046": "contradicting \"Verify Notification Sent\" verifiers (email)",
+    "task_20251206_091748_833_a8eea1c0_7775ff15": "same-name verifiers overwrite each other upstream (2 of 10 kept); verdicts differ between conventions, inspected 27/10",
+    "task_20251208_153512_199_46ca2862_3f951375": "contradicting \"remove_group_member\" verifiers (group id); passed once, so the pair may not contradict",
+    "task_20251209_122452_734_d4a463c3_e5f1961c": "contradicting \"Verify link new case SLA\" verifiers (SLA definition id)",
+    "task_20251210_205620_593_391f1eff_ad65c160": "one of the first five ITSM tasks (smoke test, 20/10); the worked example; contradicting \"Report incident\" verifiers (channel)",
+    "task_20251212_172511_458_e6427839_47076c15": "one of the first five ITSM tasks (smoke test, 20/10)",
+    "task_20251212_184405_886_e6427839_6413728a": "one of the first five ITSM tasks (smoke test, 20/10); contradicting verifiers (priority, notification type)",
+    "task_20251212_191411_655_391f1eff_2fef896f": "one of the first five ITSM tasks (smoke test, 20/10)",
+    "task_20251212_191815_314_391f1eff_c23d76df": "one of the first five ITSM tasks (smoke test, 20/10)",
+    "task_20251219_155215_361_00364ece_c1c6ffc8": "contradicting verifiers (assignment group, assignee, notification email)",
+    "task_20251223_224508_138_97d7df7d_b4505336": "attempt 1 crashed on the benchmark's bare raise (unknown tool name), record inspected 27/10",
+    "task_20251226_104747_127_30600918_559da326": "contradicting \"Verify Knowledge\" verifiers (used_as)",
+    "task_20251231_162628_797_a8eea1c0_0a53db6c": "same-name verifiers overwrite each other upstream (7 of 12 kept); verdicts differ between conventions, inspected 27/10",
+    "task_20260101_202840_239_a8eea1c0_0f425b23": "contradicting \"link_new_case_sla\" verifiers (SLA definition id)",
+    "task_20260106_151754_319_d4a463c3_41f0af13": "contradicting \"Update Installed Product ID of Case\" verifiers (case id)",
+    "task_20260114_171738_367_a8eea1c0_3f57db74": "attempt 3 crashed on the benchmark's bare raise (unknown tool name), record inspected 27/10",
+    "task_20260121_143201_590_1afb323a_5a03bf03": "count verifiers expecting the string '1'; verdicts differ between conventions, inspected 27/10",
+    "task_20260121_150447_596_1afb323a_0a1e4085": "count verifiers expecting the string '1'; verdicts differ between conventions, inspected 27/10",
+    "task_20260121_163208_054_1afb323a_7f40ee66": "count verifiers expecting the string '1'; verdicts differ between conventions, inspected 27/10"
+  },
+  "counts": {
+    "training": {
+      "csm/all": 2,
+      "csm/none": 15,
+      "csm/some": 4,
+      "hr/all": 2,
+      "hr/none": 16,
+      "hr/some": 2,
+      "itsm/all": 3,
+      "itsm/none": 16,
+      "itsm/some": 2
+    },
+    "validation": {
+      "csm/all": 4,
+      "csm/none": 30,
+      "csm/some": 8,
+      "hr/all": 4,
+      "hr/none": 32,
+      "hr/some": 5,
+      "itsm/all": 6,
+      "itsm/none": 31,
+      "itsm/some": 5
+    },
+    "test": {
+      "csm/all": 3,
+      "csm/none": 29,
+      "csm/some": 8,
+      "hr/all": 4,
+      "hr/none": 32,
+      "hr/some": 5,
+      "itsm/all": 5,
+      "itsm/none": 31,
+      "itsm/some": 4
+    }
+  },
+  "tasks": {
+    "task_20251125_152842_063_b393a327_9622ac64": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251126_182216_326_66392a82_d3ff64ca": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20251127_070938_325_b393a327_a40b1f4e": {
+      "domain": "csm",
+      "outcome": "all",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251127_152838_396_99ba2325_8391501f": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251128_072831_616_6cd2e092_426f7c81": {
+      "domain": "csm",
+      "outcome": "some",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251128_204735_353_66392a82_3f8ef4a1": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251201_164641_724_109c89c0_1b29acb9": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "training",
+      "forced": true
+    },
+    "task_20251202_041242_095_99ba2325_a63db5e8": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251202_052822_939_66392a82_0479926e": {
+      "domain": "csm",
+      "outcome": "some",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251202_100743_745_109c89c0_958a07c1": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20251203_051113_560_99ba2325_1ff9b6e5": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251203_064555_149_66392a82_d124b805": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251203_194626_202_391f1eff_1336fae8": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251204_132620_055_5c0cd3a2_048c6e95": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251204_160336_295_5c0cd3a2_26d1b04a": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251204_161024_294_46ca2862_1cc82f4c": {
+      "domain": "csm",
+      "outcome": "all",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251204_231522_245_e6427839_5d09c3c2": {
+      "domain": "csm",
+      "outcome": "all",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251205_060649_946_66392a82_354af85a": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20251205_072016_336_46ca2862_e9006fbb": {
+      "domain": "csm",
+      "outcome": "some",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251205_075543_102_46ca2862_7ba653d0": {
+      "domain": "csm",
+      "outcome": "some",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251205_095558_939_5c0cd3a2_4af4214c": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251205_101915_742_d4a463c3_8eac8077": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251205_135905_848_391f1eff_9344499e": {
+      "domain": "csm",
+      "outcome": "some",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251205_153330_906_a8eea1c0_8c7a6205": {
+      "domain": "csm",
+      "outcome": "some",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251205_154853_044_d4a463c3_fce76046": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "training",
+      "forced": true
+    },
+    "task_20251205_194841_224_391f1eff_136bedae": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251206_091748_833_a8eea1c0_7775ff15": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "training",
+      "forced": true
+    },
+    "task_20251206_113950_467_6cd2e092_1a268d87": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251206_114027_879_5c0cd3a2_904991cc": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251206_130444_802_6cd2e092_8979087f": {
+      "domain": "csm",
+      "outcome": "some",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251207_012657_395_accab84d_6ec27d2f": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251207_174704_642_5c0cd3a2_c124578d": {
+      "domain": "csm",
+      "outcome": "some",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251208_035402_755_ad5a67e3_8ca9a646": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251208_072220_004_99ba2325_74403162": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251208_102635_187_c4ad7a70_43753a9a": {
+      "domain": "csm",
+      "outcome": "all",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251208_123126_960_c4ad7a70_f974dae7": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251208_153512_199_46ca2862_3f951375": {
+      "domain": "csm",
+      "outcome": "some",
+      "set": "training",
+      "forced": true
+    },
+    "task_20251209_063042_139_66392a82_81ffc0b0": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251209_085836_811_a8eea1c0_6bbced3d": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251209_122452_734_d4a463c3_e5f1961c": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "training",
+      "forced": true
+    },
+    "task_20251210_002938_761_897c3e0b_f075229a": {
+      "domain": "csm",
+      "outcome": "all",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251210_051952_801_99ba2325_a136867b": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251210_113549_827_d4a463c3_47b48a98": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251210_145940_356_accab84d_c16e9916": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251210_161511_924_2aa6b0ad_1446c2b4": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251210_183114_382_99ba2325_071a72ab": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251210_205620_593_391f1eff_ad65c160": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "training",
+      "forced": true
+    },
+    "task_20251211_021838_048_accab84d_a511ee6e": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251211_192109_853_99ba2325_b21298a0": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20251212_011224_384_accab84d_4ad9b557": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251212_081413_439_66392a82_7eb34f57": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251212_114043_514_b25153b4_e98b68ff": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251212_172511_458_e6427839_47076c15": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "training",
+      "forced": true
+    },
+    "task_20251212_175622_173_d61a01c6_62164687": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251212_184405_886_e6427839_6413728a": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "training",
+      "forced": true
+    },
+    "task_20251212_191411_655_391f1eff_2fef896f": {
+      "domain": "itsm",
+      "outcome": "some",
+      "set": "training",
+      "forced": true
+    },
+    "task_20251212_191815_314_391f1eff_c23d76df": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "training",
+      "forced": true
+    },
+    "task_20251212_194942_087_761f6b82_451ef3b7": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251212_222304_435_66392a82_815cd745": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251216_123530_079_ec0cb5dd_3b89aab7": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251216_131651_690_764e5ead_f8619b02": {
+      "domain": "itsm",
+      "outcome": "all",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251217_030654_663_99ba2325_f931fd42": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251217_073807_153_761f6b82_cba63024": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251217_153037_688_97d7df7d_be0bd794": {
+      "domain": "itsm",
+      "outcome": "all",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251217_161056_114_d9bcd1e5_c8f3ccb9": {
+      "domain": "hr",
+      "outcome": "all",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251217_183416_700_764e5ead_4c46beb0": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251217_205244_161_764e5ead_20429ef8": {
+      "domain": "itsm",
+      "outcome": "all",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251217_211242_026_391f1eff_27934d6b": {
+      "domain": "itsm",
+      "outcome": "all",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251217_211723_514_87437950_3bbbb519": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251217_231709_248_b25153b4_4c5f9bde": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251218_055646_898_97d7df7d_be7218cc": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251218_061956_641_109c89c0_423ed8ee": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20251218_063226_501_97d7df7d_8fd400d1": {
+      "domain": "itsm",
+      "outcome": "some",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251218_082708_201_99ba2325_51726f9c": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20251218_093719_611_764e5ead_5817d09a": {
+      "domain": "itsm",
+      "outcome": "all",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251218_104259_233_66392a82_74b17170": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251218_114039_038_66392a82_c66d4f22": {
+      "domain": "itsm",
+      "outcome": "all",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251218_121722_423_1d219d93_8218da6c": {
+      "domain": "itsm",
+      "outcome": "all",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251218_124419_383_66392a82_52c8290e": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251218_132315_968_66392a82_d610f253": {
+      "domain": "itsm",
+      "outcome": "some",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251218_143555_095_97d7df7d_ece487bd": {
+      "domain": "itsm",
+      "outcome": "all",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251218_155314_617_c5ca08eb_3ce3c52f": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251218_164829_676_97d7df7d_893f6b2c": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251218_171924_336_ad5a67e3_af252cf6": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251218_183102_136_391f1eff_ac9a6986": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251218_183819_272_99ba2325_dd71c332": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20251218_184224_139_764e5ead_e6e42358": {
+      "domain": "itsm",
+      "outcome": "some",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251218_193035_592_391f1eff_5293f595": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251218_220134_063_391f1eff_30369342": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251218_234518_453_d9bcd1e5_72c94403": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251218_234602_633_391f1eff_09a746e7": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251219_062202_346_66392a82_1d2065dd": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251219_081545_939_99ba2325_887f5580": {
+      "domain": "itsm",
+      "outcome": "all",
+      "set": "training",
+      "forced": false
+    },
+    "task_20251219_091707_306_ad5a67e3_a76dbe57": {
+      "domain": "itsm",
+      "outcome": "some",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251219_111409_528_c5ca08eb_db61cf35": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251219_111447_756_66392a82_1c69521d": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251219_114935_971_a8eea1c0_188fc892": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20251219_115925_475_1d219d93_53d34d23": {
+      "domain": "itsm",
+      "outcome": "some",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251219_130920_558_99ba2325_7f9481df": {
+      "domain": "itsm",
+      "outcome": "all",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251219_134543_563_fa1836dc_00dab62f": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251219_144431_663_97d7df7d_a52988e5": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251219_155215_361_00364ece_c1c6ffc8": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "training",
+      "forced": true
+    },
+    "task_20251219_155520_685_a8eea1c0_c6fb88a1": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251219_174851_846_764e5ead_250f05e1": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251219_205632_335_cd46e60f_4db23138": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251220_074606_220_0be70e35_6bb33392": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251221_045452_579_99ba2325_0e601eac": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251221_191123_397_97d7df7d_7196ef19": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251221_222834_884_97d7df7d_c088062a": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251221_231733_401_66392a82_514cea3c": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251221_233237_652_66392a82_c1a599bb": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251222_072805_599_99ba2325_ae6b0778": {
+      "domain": "itsm",
+      "outcome": "all",
+      "set": "training",
+      "forced": false
+    },
+    "task_20251222_075116_761_30600918_a7f0a69a": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20251222_084449_326_66392a82_cadddb04": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20251222_105710_498_391f1eff_8b25dbef": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251222_133355_087_30600918_e9215c57": {
+      "domain": "itsm",
+      "outcome": "some",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251222_140957_029_c5ca08eb_3c4271f0": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251222_181355_411_764e5ead_48850a98": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20251222_190928_391_391f1eff_8cb006f5": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251222_195853_743_0be70e35_0916fba8": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20251223_044459_066_97d7df7d_6de880ec": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251223_061756_991_a8eea1c0_e497a345": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251223_063905_655_30600918_3e736be9": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251223_064316_340_01395ded_9c6f3e01": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20251223_064932_736_01395ded_eff85dae": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251223_081019_100_d4a463c3_f8774fe4": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251223_101136_983_1d219d93_d1ba6c2d": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251223_132605_091_764e5ead_dd00cc8f": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251223_135402_072_c5ca08eb_67009578": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251223_150001_549_d9bcd1e5_475d93ab": {
+      "domain": "hr",
+      "outcome": "some",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251223_151555_341_764e5ead_9648644d": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251223_153021_454_66392a82_0d6d8897": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251223_174414_238_a8eea1c0_0c3b20c1": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251223_184833_888_a8eea1c0_87c53cb9": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20251223_194142_190_46ca2862_d9cae434": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251223_194912_450_46ca2862_0084047c": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251223_201118_525_46ca2862_e3f79e09": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251223_224508_138_97d7df7d_b4505336": {
+      "domain": "itsm",
+      "outcome": "some",
+      "set": "training",
+      "forced": true
+    },
+    "task_20251224_030218_157_00364ece_79650819": {
+      "domain": "hr",
+      "outcome": "some",
+      "set": "training",
+      "forced": false
+    },
+    "task_20251224_064352_705_ec0cb5dd_46d83d4e": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251224_074251_092_46ca2862_b5b99f66": {
+      "domain": "hr",
+      "outcome": "all",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251224_094258_495_c4ad7a70_42fbe372": {
+      "domain": "hr",
+      "outcome": "some",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251224_133749_739_c4ad7a70_9df76270": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251224_150114_483_a8eea1c0_d44f97ad": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251224_195437_497_e6427839_6357fed2": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251224_234036_267_accab84d_f26a18f7": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251225_062927_003_d9bcd1e5_d996901a": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251225_124750_039_7e2e0039_de8a9d94": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251225_180047_141_a8eea1c0_002e725f": {
+      "domain": "hr",
+      "outcome": "all",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251226_010313_969_accab84d_77306049": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251226_041218_355_d9bcd1e5_bc84c9d5": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20251226_072511_447_4f1a62dd_cdc0e960": {
+      "domain": "hr",
+      "outcome": "some",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251226_090527_363_b25153b4_6caf1a47": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251226_094920_495_99ba2325_627386b2": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251226_101143_297_99ba2325_75b99d9a": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251226_102334_184_b25153b4_08c0849c": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251226_104747_127_30600918_559da326": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "training",
+      "forced": true
+    },
+    "task_20251226_110144_731_b25153b4_773380f8": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251226_114207_539_30600918_6211eb4b": {
+      "domain": "hr",
+      "outcome": "all",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251226_121423_362_c4ad7a70_4be55408": {
+      "domain": "hr",
+      "outcome": "all",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251226_132052_338_e6427839_727d852c": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251226_133552_038_99ba2325_71415006": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20251226_135729_497_c4ad7a70_788f5baf": {
+      "domain": "hr",
+      "outcome": "some",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251226_153702_699_ad5a67e3_43cd2d47": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251226_173040_372_95fd9f79_c7e85ec1": {
+      "domain": "hr",
+      "outcome": "all",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251231_123548_425_8cd8e61e_9303271e": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20251231_152332_133_ad5a67e3_2a4e226c": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20251231_162628_797_a8eea1c0_0a53db6c": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "training",
+      "forced": true
+    },
+    "task_20251231_164213_376_00364ece_724e98d5": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260101_043715_660_a8eea1c0_7304e48e": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260101_074825_586_a8eea1c0_e596bab2": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20260101_111750_695_30600918_80637585": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260101_122222_300_ad5a67e3_3757206c": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260101_162109_100_a8eea1c0_e88250ef": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260101_191529_659_a8eea1c0_27d3bf1b": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260101_202840_239_a8eea1c0_0f425b23": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "training",
+      "forced": true
+    },
+    "task_20260101_233731_695_00364ece_187f2808": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260102_002012_363_00364ece_a3936446": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260102_012109_160_accab84d_686b76ff": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260102_031908_712_accab84d_886a7365": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260102_063731_186_d4a463c3_f1c4df9b": {
+      "domain": "csm",
+      "outcome": "all",
+      "set": "training",
+      "forced": false
+    },
+    "task_20260102_080409_151_d4a463c3_56c32265": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260102_080520_113_d4a463c3_90b440a8": {
+      "domain": "csm",
+      "outcome": "all",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260102_094108_584_a8eea1c0_34a39e46": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20260102_100510_709_66392a82_3d301c18": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260102_155148_014_accab84d_910b176a": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260102_162857_012_391f1eff_39478d55": {
+      "domain": "csm",
+      "outcome": "all",
+      "set": "training",
+      "forced": false
+    },
+    "task_20260102_165223_158_99ba2325_67a4a1e9": {
+      "domain": "csm",
+      "outcome": "some",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260102_171008_763_ad5a67e3_cb101d3b": {
+      "domain": "csm",
+      "outcome": "some",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260102_172945_725_ad5a67e3_5480e26f": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260102_210829_972_2aa6b0ad_e3d70e04": {
+      "domain": "csm",
+      "outcome": "some",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260105_191634_257_2aa6b0ad_ea0bbd82": {
+      "domain": "csm",
+      "outcome": "some",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260105_221816_258_00364ece_50f56980": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260106_070321_497_accab84d_6f4a8da8": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20260106_073527_320_e6427839_e2e2ac8d": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260106_075904_098_a8eea1c0_a6cfe625": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260106_090444_873_99ba2325_980a3405": {
+      "domain": "csm",
+      "outcome": "some",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260106_133642_894_66392a82_3e083fa5": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260106_134616_649_e6427839_7dba5a00": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260106_145907_700_a8eea1c0_f5bae698": {
+      "domain": "csm",
+      "outcome": "some",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260106_151754_319_d4a463c3_41f0af13": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "training",
+      "forced": true
+    },
+    "task_20260106_155841_121_e6427839_fa425cbe": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260106_161324_272_c4ad7a70_4b3980fc": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260106_161816_678_a8eea1c0_1ef46cba": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260106_161859_265_00364ece_0e836ce8": {
+      "domain": "csm",
+      "outcome": "some",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260106_185201_238_00364ece_8ab4fd80": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260106_192119_816_ad5a67e3_87a5a87c": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260107_111503_670_2aa6b0ad_e9611a77": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260107_162554_472_accab84d_41d2e871": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20260107_164033_273_a8eea1c0_c0de2fed": {
+      "domain": "csm",
+      "outcome": "all",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260108_160928_699_391f1eff_905701cb": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260109_133046_369_391f1eff_7e44fdca": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20260109_162344_706_95fd9f79_85a7972c": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260109_172559_279_e6427839_f711406f": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260109_180543_808_391f1eff_02357fea": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260109_185510_803_a8eea1c0_b51123d7": {
+      "domain": "hr",
+      "outcome": "some",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260109_192935_678_e6427839_4c081ddc": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20260109_202436_533_a8eea1c0_755eabdd": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260111_151647_667_a8eea1c0_c7c264ba": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260111_161750_847_a8eea1c0_3649940a": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260111_190744_927_a8eea1c0_17bea726": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260111_204619_117_a8eea1c0_b69d59bc": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260112_124137_537_761f6b82_9e1a6b99": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260112_141226_936_7aad91c1_61df8f2b": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260112_181636_272_c4ad7a70_c9cdfa29": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260112_183416_157_a8eea1c0_0d6acfd0": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20260112_194743_238_a8eea1c0_a4b1468a": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260113_031046_703_99ba2325_54f35603": {
+      "domain": "itsm",
+      "outcome": "all",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260113_032200_394_ad5a67e3_5e3873b8": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260113_125933_225_accab84d_d7ec710e": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260113_143610_437_46ca2862_56a4f834": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260113_151550_104_a8eea1c0_7e9733a5": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260113_153008_006_46ca2862_c5083638": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260113_182216_716_a8eea1c0_7a0619e9": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260113_182602_664_46ca2862_b6ef60ca": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260113_183935_893_e6427839_03a04c19": {
+      "domain": "itsm",
+      "outcome": "all",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260113_212050_548_a8eea1c0_73a73ce7": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260114_073658_459_78a5b71e_cab5cc9f": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260114_081229_036_78a5b71e_a4fb07a9": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260114_085016_654_e6427839_ca9119ec": {
+      "domain": "itsm",
+      "outcome": "all",
+      "set": "training",
+      "forced": false
+    },
+    "task_20260114_090455_089_accab84d_0032df92": {
+      "domain": "hr",
+      "outcome": "all",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260114_091008_897_accab84d_786931e4": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260114_094327_107_46ca2862_796e7685": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260114_134336_659_e6427839_91142068": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20260114_170216_532_accab84d_9dc7ddd5": {
+      "domain": "hr",
+      "outcome": "all",
+      "set": "training",
+      "forced": false
+    },
+    "task_20260114_171738_367_a8eea1c0_3f57db74": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "training",
+      "forced": true
+    },
+    "task_20260114_172823_954_a8eea1c0_b725e936": {
+      "domain": "hr",
+      "outcome": "some",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260114_173716_566_46ca2862_301e0b47": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260114_173911_329_a8eea1c0_b687c646": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260114_174427_042_99ba2325_7915481a": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260114_180423_838_00364ece_9f2ad35c": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20260114_180601_485_99ba2325_2dc8b3ce": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260114_181932_082_99ba2325_92ddef90": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260114_220447_370_00364ece_0c9c7534": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260115_034527_380_66392a82_a172d90d": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260115_041440_817_ad5a67e3_07f8ca42": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260115_043251_808_ad5a67e3_2a60bc82": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260115_043503_499_a8eea1c0_4b943c9b": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260115_064627_351_66392a82_cd4009dd": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260115_124602_090_accab84d_91ac1840": {
+      "domain": "hr",
+      "outcome": "some",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260115_125430_649_fa1836dc_e02d5824": {
+      "domain": "itsm",
+      "outcome": "some",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260115_130330_068_00364ece_cf2e9cf1": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260115_130852_498_a8eea1c0_e9192d7e": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260115_143541_964_fa1836dc_dc6652fd": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20260115_151312_690_57529556_9fca8861": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20260115_152733_296_46ca2862_55f848d3": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260115_153041_899_d4a463c3_cab6d59b": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260115_172636_260_fa1836dc_7a703e50": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260115_190725_477_a8eea1c0_eba3a1c5": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260115_201951_323_391f1eff_659b9dae": {
+      "domain": "itsm",
+      "outcome": "some",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260116_055008_115_c5cac200_a905eff3": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20260116_055513_891_99ba2325_849991b8": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20260116_070521_300_a8eea1c0_d9458bf7": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260116_081645_096_66392a82_fd509f97": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20260116_084548_120_fa1836dc_679067bc": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260116_085958_358_a8eea1c0_6d7f242a": {
+      "domain": "hr",
+      "outcome": "some",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260116_091935_817_d4a463c3_3f20bdca": {
+      "domain": "itsm",
+      "outcome": "some",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260116_094554_219_c5cac200_82f2d2a8": {
+      "domain": "hr",
+      "outcome": "some",
+      "set": "training",
+      "forced": false
+    },
+    "task_20260116_095609_650_c5cac200_741831a8": {
+      "domain": "hr",
+      "outcome": "all",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260116_101840_488_e6427839_81df8ba3": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260116_104653_444_99ba2325_320d5ca4": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260116_105748_962_99ba2325_dcc658fa": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20260116_112336_208_c5cac200_da33db0a": {
+      "domain": "hr",
+      "outcome": "all",
+      "set": "training",
+      "forced": false
+    },
+    "task_20260116_112648_773_99ba2325_c572f123": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20260116_122712_166_d4a463c3_196fe24f": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260116_124300_245_1d219d93_76cd5b4d": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260116_124631_826_d4a463c3_0319223c": {
+      "domain": "hr",
+      "outcome": "some",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260116_125449_931_e6427839_50663277": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260116_134415_018_fa1836dc_d8efb574": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260116_143750_504_a8eea1c0_7d91efa1": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260116_150213_342_a8eea1c0_6d6fe792": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260116_160908_725_46ca2862_923e672e": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260116_165226_829_46ca2862_ff6cdacb": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260116_170758_750_d4a463c3_3885de59": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260116_185136_779_46ca2862_2b77b852": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260116_192842_208_46ca2862_04093fc7": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260116_203855_584_57529556_7b20a1d8": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "training",
+      "forced": false
+    },
+    "task_20260116_224538_330_66392a82_10d0806e": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260116_235649_372_66392a82_ccb66a9a": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260117_000130_134_2aa6b0ad_a20f3a61": {
+      "domain": "itsm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260119_022056_842_ad5a67e3_964df197": {
+      "domain": "hr",
+      "outcome": "some",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260119_045416_534_ad5a67e3_78445838": {
+      "domain": "hr",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260121_143201_590_1afb323a_5a03bf03": {
+      "domain": "csm",
+      "outcome": "some",
+      "set": "training",
+      "forced": true
+    },
+    "task_20260121_145409_648_1afb323a_4e203caa": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "test",
+      "forced": false
+    },
+    "task_20260121_150447_596_1afb323a_0a1e4085": {
+      "domain": "csm",
+      "outcome": "some",
+      "set": "training",
+      "forced": true
+    },
+    "task_20260121_162252_344_1afb323a_f878fac7": {
+      "domain": "csm",
+      "outcome": "some",
+      "set": "validation",
+      "forced": false
+    },
+    "task_20260121_163208_054_1afb323a_7f40ee66": {
+      "domain": "csm",
+      "outcome": "some",
+      "set": "training",
+      "forced": true
+    },
+    "task_20260121_183027_058_1afb323a_c53cb400": {
+      "domain": "csm",
+      "outcome": "none",
+      "set": "validation",
+      "forced": false
+    }
+  }
+}

@@ -1,0 +1,151 @@
+{
+  "task_id": "task_20251223_063905_655_30600918_3e736be9",
+  "policy_sha1": "69ddd920",
+  "requirements": [
+    {
+      "text": "I would need a standard change to be created so that the deployment can be managed during the change window",
+      "kind": "create",
+      "table": "change",
+      "anchor": {
+        "change_id": "CHG_026"
+      },
+      "cells": {
+        "requested_by": "USER_004",
+        "status": "new",
+        "category": "other",
+        "cab_required": false,
+        "impact": "low",
+        "risk": "low",
+        "priority": "low"
+      },
+      "sql": "SELECT COUNT(*) FROM change WHERE change_id = 'CHG_026' AND requested_by = 'USER_004' AND status = 'new' AND category = 'other' AND cab_required = false AND impact = 'low' AND risk = 'low' AND priority = 'low'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Change",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (CHG_026 after CHG_025); the only change the task creates",
+        "the change table has no type column, so 'standard' (pre-approved, low risk, bypasses CAB) shows only as risk = low and cab_required = false (policy: standard changes are auto-approved and may bypass CAB; cab_required default false)",
+        "impact not stated; the policy's default is low; priority low from the policy's Impact x Risk matrix (low, low), which is also its default",
+        "status new is the policy's default state for a new change; the request asks only for creation",
+        "category not stated; the policy's default is other, kept from the benchmark check (the linked incident's category is database, and the policy's 'Map to Incident/Problem category' line is ambiguous)",
+        "requested_by is the acting user USER_004 ('I would need a standard change to be created'); added beyond the benchmark check",
+        "disagreement: cells: A tests requested_by = USER_004, B does not; chose A's because the acting user is the one asking for the change and the change table records requested_by, so the tighter predicate is right",
+        "disagreement: form of the cab_required cell: A the predicate '= false', B the plain value false; kept B's, a plain value meaning equality, the SQL being identical",
+        "short_description and org_id are not tested: neither the request nor the benchmark check fixes their values"
+      ]
+    },
+    {
+      "text": "a standard change to be created ... for incident INC-000057 (link the change to the incident)",
+      "kind": "create",
+      "table": "change_request_mapping",
+      "anchor": {
+        "change_request_mapping_id": "CRM_017"
+      },
+      "cells": {
+        "change_id": "CHG_026",
+        "incident_id": "INC_057"
+      },
+      "sql": "SELECT COUNT(*) FROM change_request_mapping WHERE change_request_mapping_id = 'CRM_017' AND change_id = 'CHG_026' AND incident_id = 'INC_057'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Change Mapping",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (CRM_017 after CRM_016); the only mapping the task creates",
+        "INC-000057 is the number of INC_057 on the seed, the only incident whose number contains 57",
+        "implied by the request, not stated: a change raised for an incident is mapped to it (map_change_request is in the tools); INC_057 already has mappings to CHG_006 and CHG_015, which are not this one"
+      ]
+    },
+    {
+      "text": "so the issue can be resolved ... the incident resolution is being handled as part of this change (incident put on hold awaiting the change)",
+      "kind": "change",
+      "table": "incident",
+      "anchor": {
+        "incident_id": "INC_057"
+      },
+      "cells": {
+        "change_request": "CHG_026",
+        "status": "on_hold",
+        "on_hold_reason": "Awaiting Change"
+      },
+      "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_057' AND change_request = 'CHG_026' AND status = 'on_hold' AND on_hold_reason = 'Awaiting Change'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Incident",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by the request, not stated: the policy's lifecycle puts an incident associated to a change on_hold and requires on_hold_reason before the transition; new -> on_hold is valid (INC_057 is new on the seed)",
+        "on_hold_reason 'Awaiting Change' is the policy's enumeration value for a pending change",
+        "change_request set to the new change CHG_026, kept from the benchmark check"
+      ]
+    },
+    {
+      "text": "the incident resolution is being handled as part of this change (policy: the SLA timer must be paused when the Incident is on_hold with on_hold_reason Awaiting Change)",
+      "kind": "change",
+      "table": "incident_sla",
+      "anchor": {
+        "incident_sla_id": "TSLA_022"
+      },
+      "cells": {
+        "incident_id": "INC_057",
+        "sla_def_id": "SLA_001",
+        "stage": "paused"
+      },
+      "sql": "SELECT COUNT(*) FROM incident_sla WHERE incident_sla_id = 'TSLA_022' AND incident_id = 'INC_057' AND sla_def_id = 'SLA_001' AND stage = 'paused'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "SLA paused",
+      "seed_count": 0,
+      "assumptions": [
+        "from the policy's SLA pause rule, not the request: the SLA timer must be paused (stage = paused) when the incident is on_hold with reason Awaiting Change",
+        "TSLA_022 (SLA_001, stage in_progress) is the only incident_sla row for INC_057 on the seed"
+      ]
+    },
+    {
+      "text": "Please inform the caller that the incident resolution is being handled as part of this change",
+      "kind": "create",
+      "table": "notification",
+      "anchor": {
+        "notification_id": "NOTIF_031"
+      },
+      "cells": {
+        "incident_id": "INC_057",
+        "email": "richard.lopez@servicenow.com",
+        "type": "update",
+        "message": "LIKE '%change%'"
+      },
+      "sql": "SELECT COUNT(*) FROM notification WHERE notification_id = 'NOTIF_031' AND incident_id = 'INC_057' AND email = 'richard.lopez@servicenow.com' AND type = 'update' AND LOWER(message) LIKE '%change%'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "Verify Notification",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (NOTIF_031 after NOTIF_030); the only notification the task creates",
+        "the caller of INC_057 is USER_057 Richard Lopez, richard.lopez@servicenow.com (seed)",
+        "type = update kept from the benchmark check: 'inform the caller' about the incident's handling reads as an update; the policy's default type other applies only when nothing fixes the type",
+        "message must mention the change ('handled as part of this change'); added beyond the benchmark check, which tests no message; no fixed wording beyond that",
+        "subject and status are not tested: neither the request nor the benchmark check fixes them"
+      ]
+    }
+  ],
+  "original_checks": {
+    "Verify Change": {
+      "disposition": "kept"
+    },
+    "Verify Change Mapping": {
+      "disposition": "kept"
+    },
+    "Verify Incident": {
+      "disposition": "kept"
+    },
+    "SLA paused": {
+      "disposition": "kept"
+    },
+    "Verify Notification": {
+      "disposition": "kept"
+    }
+  },
+  "notes": "Merged from two passes that agree on the five benchmark checks (all kept) and their values: the change CHG_026 (low impact, risk and priority, new, cab_required false, category other), the mapping CRM_017 to INC_057, INC_057 on hold Awaiting Change with change_request CHG_026, TSLA_022 paused, and the update NOTIF_031 to the caller Richard Lopez mentioning the change. The request states only the change creation and the caller notification; the mapping, the incident's on-hold state and the SLA pause are the policy's consequences of raising a change for an incident, which the benchmark tests, carried as 'implied, not stated'. Two judgement calls a reviewer may disagree with, on which both passes agree: change.category = other (the policy default) versus the incident's database, and notification.type = update (benchmark) versus the policy default other. INC_057 already has two mappings (CRM_007 to CHG_006, CRM_015 to CHG_015) on the seed; no stay is written for them, as nothing in the request touches them. No selector boundary: INC_057 is the only incident whose number contains 57.\ndisagreement: cells of the change requirement: A tests requested_by = USER_004, B does not; kept A's (the tighter predicate) because the acting user Joanne Simpson USER_004 is the one asking for the change and the change table records requested_by (logged on the requirement).\ndisagreement: form of the cab_required cell: A the predicate '= false', B the plain value false; kept B's, a plain value meaning equality, the SQL being identical (logged on the requirement).\ndisagreement: form of the message predicate: A 'LOWER(message) LIKE', B the bare 'LIKE' on the column; kept B's, the convention of every other check file, the SQL being identical.",
+  "minutes": 28
+}

@@ -1,0 +1,145 @@
+{
+  "task_id": "task_20251205_072016_336_46ca2862_e9006fbb",
+  "policy_sha1": "53601b01",
+  "requirements": [
+    {
+      "text": "Could you transfer ownership of those open cases to me?",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {"case_id": 1142},
+      "cells": {"assigned_to": 5, "assignment_group_id": 67},
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1142 AND assigned_to = 5 AND assignment_group_id = 67",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "update_case",
+      "seed_count": 0,
+      "assumptions": [
+        "Tabitha Bullock is user 3; the requester Mckenzie Mendez is user 5 (active agent, so a valid assignee); ownership of a case is its assigned_to",
+        "open means new, in_progress or pending; of user 3's three cases, 1142 (in_progress) and 251 (new) are open and 1088 (canceled) is not",
+        "assignment_group_id stays 67: the policy has an assignee outside the case's group added to that group, so the group is kept",
+        "disagreement: assignment_group_id: A 67, B untested; chose 67 because the policy's assignment rule keeps the case's group and adds the assignee to it, which the benchmark's membership check in group 67 also reads"
+      ]
+    },
+    {
+      "text": "Could you transfer ownership of those open cases to me?",
+      "kind": "change",
+      "table": "customer_case",
+      "anchor": {"case_id": 251},
+      "cells": {"assigned_to": 5, "assignment_group_id": 67},
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 251 AND assigned_to = 5 AND assignment_group_id = 67",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "update_case (2)",
+      "seed_count": 0,
+      "assumptions": [
+        "case 251 (new) is the second open case assigned to user 3",
+        "assignment_group_id stays 67: the policy has an assignee outside the case's group added to that group, so the group is kept",
+        "disagreement: assignment_group_id: A 67, B untested; chose 67 because the policy's assignment rule keeps the case's group and adds the assignee to it, which the benchmark's membership check in group 67 also reads"
+      ]
+    },
+    {
+      "text": "Bullock left the company yesterday",
+      "kind": "change",
+      "table": "user",
+      "anchor": {"user_id": 3},
+      "cells": {"active": 0},
+      "sql": "SELECT COUNT(*) FROM user WHERE user_id = 3 AND active = 0",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "update_user_details",
+      "seed_count": 0,
+      "assumptions": [
+        "implied by the request, not stated: the policy says that when an employee leaves, their account is deactivated"
+      ]
+    },
+    {
+      "text": "Bullock left the company yesterday",
+      "kind": "remove",
+      "table": "user_group_member",
+      "selector": "user_id = 3 AND group_id = 67",
+      "cells": {},
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE user_id = 3 AND group_id = 67",
+      "expected": 0,
+      "comparison": "equals",
+      "source": "remove_group_member",
+      "seed_count": 1,
+      "assumptions": [
+        "implied by the request, not stated: the policy says that when an employee leaves, they are removed from their assigned group",
+        "Bullock's only group membership is group 67 (Account Management_4, member 407)"
+      ]
+    },
+    {
+      "text": "transfer ownership of those open cases to me",
+      "kind": "create",
+      "table": "user_group_member",
+      "anchor": {"member_id": 960},
+      "cells": {"user_id": 5, "group_id": 67},
+      "sql": "SELECT COUNT(*) FROM user_group_member WHERE member_id = 960 AND user_id = 5 AND group_id = 67",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "add_new_group_member",
+      "seed_count": 0,
+      "assumptions": [
+        "id assumed next in sequence (959 is the highest on the seed)",
+        "implied by the request, not stated: both open cases sit in group 67, Mendez belongs only to groups 27, 29 and 46, and the policy adds an assignee outside the case's group to that group"
+      ]
+    },
+    {
+      "text": "Please update me for each cases it has been taken care of",
+      "kind": "create",
+      "table": "notification",
+      "selector": "case_id = 1142 AND email = 'mckenzie.mendez@servicenow.com'",
+      "cells": {"type": "update"},
+      "sql": "SELECT COUNT(*) FROM notification WHERE case_id = 1142 AND email = 'mckenzie.mendez@servicenow.com' AND type = 'update'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "send_notification",
+      "seed_count": 0,
+      "assumptions": [
+        "two notifications are created, one per transferred case, so each is selected by case and recipient rather than by id",
+        "the request asks to be updated, so type = update; the recipient is the email the requester gives"
+      ]
+    },
+    {
+      "text": "Please update me for each cases it has been taken care of",
+      "kind": "create",
+      "table": "notification",
+      "selector": "case_id = 251 AND email = 'mckenzie.mendez@servicenow.com'",
+      "cells": {"type": "update"},
+      "sql": "SELECT COUNT(*) FROM notification WHERE case_id = 251 AND email = 'mckenzie.mendez@servicenow.com' AND type = 'update'",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 0,
+      "assumptions": [
+        "'for each cases' asks for one notification per transferred case; the benchmark tests only case 1142",
+        "the request asks to be updated, so type = update, as for case 1142"
+      ]
+    },
+    {
+      "text": "those open cases",
+      "kind": "stay",
+      "table": "customer_case",
+      "anchor": {"case_id": 1088},
+      "cells": {"assigned_to": 3},
+      "sql": "SELECT COUNT(*) FROM customer_case WHERE case_id = 1088 AND assigned_to = 3",
+      "expected": 1,
+      "comparison": "equals",
+      "source": "new",
+      "seed_count": 1,
+      "assumptions": [
+        "boundary of the case set: case 1088 is also assigned to Bullock but is canceled, so it is not one of the open cases to transfer"
+      ]
+    }
+  ],
+  "original_checks": {
+    "update_case": {"disposition": "kept"},
+    "update_case (2)": {"disposition": "kept"},
+    "update_user_details": {"disposition": "kept"},
+    "add_new_group_member": {"disposition": "kept"},
+    "remove_group_member": {"disposition": "kept"},
+    "send_notification": {"disposition": "kept"}
+  },
+  "notes": "disagreement: cells: one pass tests assignment_group_id = 67 on the transferred cases, the other leaves the group untested; kept the tighter cell because the policy's assignment rule keeps the case's group and adds the assignee to it, and the benchmark's membership check adds Mendez to group 67, which only makes sense if the cases stay there.\ndisagreement: form: one pass tests the transfer as one set (cases 251 and 1142, expected 2), the other as one anchored requirement per case; chose one requirement per case so that each benchmark check is carried by its own requirement and each case is scored on its own.\nThe deactivation, the group removal and the group addition are not asked for in the request; they follow from the policy's leaving-employee rule and its rule that an assignee outside the case's group is added to it, and a listed tool covers each. The acting user (user 5) is an agent; the policy's default is to act with an admin's responsibilities, so deactivating Bullock and changing group memberships are in scope. The request names the departing teammate with 'he'; the user record is unambiguous (user 3 is the only Tabitha or Bullock). 'This is critical for our operations' describes the urgency of the request and asks no change to the cases' priority. The notifications' status and knowledge_id are fixed by neither the request nor the policy and are not tested.",
+  "minutes": 26
+}

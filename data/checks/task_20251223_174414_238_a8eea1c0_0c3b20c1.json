@@ -1,0 +1,208 @@
+{
+ "task_id": "task_20251223_174414_238_a8eea1c0_0c3b20c1",
+ "policy_sha1": "b2da3f42",
+ "requirements": [
+  {
+   "text": "It was incorrectly logged as a walk-in; it actually came through via email.",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 11
+   },
+   "cells": {
+    "source": "email"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 11 AND source = 'email'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_case_update_verification",
+    "complete_workflow_state_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "HRC0000721 is hr_case 11 (opened for Andrew Bell, hr_profile 21), source walk-in on the seed"
+   ]
+  },
+  {
+   "text": "please update it to work in progress",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 11
+   },
+   "cells": {
+    "status": "work_in_progress"
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 11 AND status = 'work_in_progress'",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_case_update_verification",
+    "complete_workflow_state_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "the case is ready on the seed; the policy allows ready to work_in_progress",
+    "its service (New Hire Onboarding, hr_service 11) has no service template, so the move generates no fulfillment tasks"
+   ]
+  },
+  {
+   "text": "move it to the IT Support L1 Group for technical handling",
+   "kind": "change",
+   "table": "hr_case",
+   "anchor": {
+    "hr_case_id": 11
+   },
+   "cells": {
+    "assignment_group": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = 11 AND assignment_group = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_case_update_verification",
+    "complete_workflow_state_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "IT Support L1 is user_group 1, the only group of that name; the case is in group 4 (HR Service Desk) on the seed"
+   ]
+  },
+  {
+   "text": "track a Hardware Provisioning Skill ... Create it",
+   "kind": "create",
+   "table": "skill",
+   "anchor": {
+    "skill_id": 20
+   },
+   "cells": {
+    "name": "Hardware Provisioning",
+    "active": 1,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM skill WHERE skill_id = 20 AND name = 'Hardware Provisioning' AND active = 1 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "skill_creation_verification",
+    "complete_workflow_state_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (highest skill_id on the seed is 19)",
+    "'Skill' read as the record type, not part of the name; no seed skill name carries the word",
+    "active = 1 kept from the benchmark check; not fixed by request or policy, and the skill is to be tracked and used for routing",
+    "org_id 1 is the acting manager's organisation and that of every seed skill"
+   ]
+  },
+  {
+   "text": "assign it to Travis Wood",
+   "kind": "create",
+   "table": "user_skill",
+   "anchor": {
+    "user_skill_id": 336
+   },
+   "cells": {
+    "skill": 20,
+    "user": 11
+   },
+   "sql": "SELECT COUNT(*) FROM user_skill WHERE user_skill_id = 336 AND skill = 20 AND user = 11",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "user_skill_assignment_verification",
+    "complete_workflow_state_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (highest user_skill_id on the seed is 335)",
+    "Travis Wood is user 11 (travis.wood@servicenow.com), the only user of that name; skill 20 is the new Hardware Provisioning skill"
+   ]
+  },
+  {
+   "text": "establish a Critical Tech Onboarding active assignment rule so future critical Talent Management cases with this new skill automatically route to the the group",
+   "kind": "create",
+   "table": "assignment_rules",
+   "anchor": {
+    "assignment_rule_id": 9
+   },
+   "cells": {
+    "name": "Critical Tech Onboarding",
+    "based_on_priority": "critical",
+    "based_on_skills": "LIKE '%Hardware Provisioning%'",
+    "active": 1,
+    "user_group": 1,
+    "org_id": 1
+   },
+   "sql": "SELECT COUNT(*) FROM assignment_rules WHERE assignment_rule_id = 9 AND name = 'Critical Tech Onboarding' AND based_on_priority = 'critical' AND based_on_skills LIKE '%Hardware Provisioning%' AND active = 1 AND user_group = 1 AND org_id = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "assignment_rule_creation_verification",
+    "complete_workflow_state_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (highest assignment_rule_id on the seed is 8)",
+    "'the group' is IT Support L1 (user_group 1), the group the case moves to",
+    "based_on_skills holds a JSON list of skill names on the seed, so the new skill is tested by name; other skills in the list are allowed",
+    "org_id 1 kept from the benchmark check; it is the acting manager's organisation and that of every seed rule"
+   ]
+  },
+  {
+   "text": "add a Configure Laptop mark when complete task to the case so the team can start",
+   "kind": "create",
+   "table": "hr_case_task",
+   "anchor": {
+    "hr_case_task_id": 150
+   },
+   "cells": {
+    "parent_case": 11,
+    "short_description": "Configure Laptop",
+    "task_type": "mark when complete",
+    "assignment_group": 1,
+    "status": "ready",
+    "active": 1
+   },
+   "sql": "SELECT COUNT(*) FROM hr_case_task WHERE hr_case_task_id = 150 AND parent_case = 11 AND short_description = 'Configure Laptop' AND task_type = 'mark when complete' AND assignment_group = 1 AND status = 'ready' AND active = 1",
+   "expected": 1,
+   "comparison": "equals",
+   "source": [
+    "hr_case_task_creation_verification",
+    "complete_workflow_state_verification"
+   ],
+   "seed_count": 0,
+   "assumptions": [
+    "id assumed next in sequence (highest hr_case_task_id on the seed is 149); it is the only task the request creates",
+    "short_description is the request's name for the task, kept exact from the benchmark check; 134 of the 149 seed tasks have short descriptions under 30 characters, so the policy's 30-120 character limit is not applied to task titles in this system",
+    "assignment_group 1: implied by the request, not stated ('the team' is IT Support L1, the group taking the case); kept from the benchmark check",
+    "status ready and active = 1 kept from the benchmark check; not fixed by request or policy, and the case's existing tasks are ready and active on the seed",
+    "disagreement: short_description: A = 'Configure Laptop', B LIKE '%Configure Laptop%'; chose the exact name because the benchmark's check is the prior and the seed's task titles (134 of 149 under 30 characters) show the policy's minimum length is not applied to tasks, so nothing contradicts it"
+   ]
+  }
+ ],
+ "original_checks": {
+  "hr_case_update_verification": {
+   "disposition": "kept"
+  },
+  "skill_creation_verification": {
+   "disposition": "kept"
+  },
+  "user_skill_assignment_verification": {
+   "disposition": "kept"
+  },
+  "assignment_rule_creation_verification": {
+   "disposition": "kept"
+  },
+  "hr_case_task_creation_verification": {
+   "disposition": "kept",
+   "evidence": "the exact short_description 'Configure Laptop' is the request's own name for the task; the policy's 30-120 character limit does not contradict it, since 134 of the 149 seed tasks carry titles under 30 characters"
+  },
+  "complete_workflow_state_verification": {
+   "disposition": "kept"
+  }
+ },
+ "notes": "disagreement: value: the task's short_description: one pass tests 'Configure Laptop' exactly, the other LIKE '%Configure Laptop%' to allow a text extended to the policy's 30-character minimum; kept the exact name, the benchmark's value, because the seed's task titles (134 of 149 under 30 characters) show the minimum is not applied to tasks.\ndisagreement: disposition: hr_case_task_creation_verification: one pass kept, the other repaired; kept, for the reason above.\nThe two passes otherwise agree on every requirement, id and cell: case 11, group 1, skill 20, user skill 336 for user 11, rule 9 and task 150.\ncomplete_workflow_state_verification is a conjunction over cells the other five checks test, so it is carried jointly by every requirement.\nThe request's 'critical Talent Management cases' describes the cases the rule should catch (case 11 is critical with coe_type Talent Management); assignment_rules has no COE column, so only the priority, skill and group are tested; whether the rule also lists other skills is left open.\nThe policy says cases and tasks must be assigned to an active user in their assignment group, but the request names no assignee, no listed tool looks up group members, and the case's current assignee (user 54) belongs to no group, so assigned_to is not tested on the case or the task.\nThe acting user, Joanne Simpson (user 4), is a manager in org 1; the policy bars managers from modifying system configuration and lists assignment_rule among the admin's tables, so creating the rule (and possibly the skill) may conflict with the policy; the request asks for both explicitly, so they are required.\nCase 11 belongs to org 11 while the group, skills and rules belong to org 1; org_id is not tested on the case, the user_skill row or the task.\nNo work note is requested, and the case's two existing tasks (with HR Service Desk) are not asked to move.",
+ "minutes": 37
+}
