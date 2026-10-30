@@ -84,7 +84,7 @@ runs/<experiment>/
     summary.md                   how the run went and what went wrong, one page
     run.json                     every setting, the task list and the totals
     tasks.csv                    one row per attempt: verdict, checks, tool errors, tokens, cost
-    verifiers.csv                one row per attempt and check: verdict, diagnosis, kind, step
+    checks.csv                one row per attempt and check: verdict, diagnosis, kind, step
     cells.csv                    one row per failed check, touched row and condition
     changes.csv                  one row per attempt and changed table
     run.log                      the benchmark's log of every request
@@ -112,19 +112,20 @@ also carries the run's cost in US dollars, priced with the table in the model
 file (`configs/models/<model>.yaml`, which records when the prices were
 checked), and `run.json` and `index.csv` carry the evaluation's total.
 
-A task passes when every one of its verifiers passes. Two things differ from
+A task passes when every one of its checks (the benchmark's "verifiers") passes.
+Two things differ from
 the benchmark's own count, and the `upstream_` columns of `tasks.csv` and
-`verifiers.csv` give that count alongside. The benchmark keys verdicts by
-verifier name, so where a task gives two verifiers the same name only the
+`checks.csv` give that count alongside. The benchmark keys verdicts by
+name, so where a task gives two checks the same name only the
 last one counts; in 59 of the 308 oracle tasks names clash, and in 27 of
 those the shared name hides different checks. Here an exact copy of a check
-(32 tasks simply repeat their verifier list) counts once, and every distinct
+(32 tasks simply repeat their list) counts once, and every distinct
 check counts. And 33 count checks in seven tasks give their expected value as
 the string `'1'`, which the benchmark compares with `==` against the integer
 the database returns, so they can never pass; here count checks are compared
 as numbers.
 
-A failed verifier says only that its whole SQL condition did not hold. Before
+A failed check says only that its whole SQL condition did not hold. Before
 the run's database is deleted, the runner reads the final state and compares
 it with the seed (`attempt-<n>.changes.json`: every row inserted, updated or
 deleted), then takes each failed count check apart at its top-level ANDs and
@@ -139,7 +140,7 @@ which of them set each wrong cell, and the `step` the check failed at:
 `skipped` (no call wrote the table), `failed` (a call returned an error),
 `wrong` (the row is there with wrong cells) or `attempted` (the calls
 succeeded and the row is still not what the check wants). The `kind` column
-of `verifiers.csv` says what the diagnosis found: `cells`, `no_rows`,
+of `checks.csv` says what the diagnosis found: `cells`, `no_rows`,
 `too_many_rows`, `value` or `unsupported`.
 
 An evaluation folder is named by its start time and domain, then anything
@@ -157,7 +158,7 @@ Every evaluation folder is written to be read without a tracing server:
 
 - `summary.md`: a page on how the run went and what went wrong, by table and
   column, with the worst tasks and where the files are;
-- `tasks.csv` (one row per attempt), `verifiers.csv` (one per attempt and
+- `tasks.csv` (one row per attempt), `checks.csv` (one per attempt and
   check, with the failure's kind and step), `cells.csv` (one per failed
   check, touched row and condition, with the turn that set a wrong cell) and
   `changes.csv` (one per attempt and changed table);
@@ -235,8 +236,8 @@ as it was. The record keeps the verdicts the run first produced as
 
 [Langfuse](https://langfuse.com) shows each task as a tree: the task, every
 model call with the messages sent and the reply, its tool calls, token usage
-and cost, and the verifier verdict as two scores (`task_success` and
-`verifier_fraction`). Tasks from one run share a session named after the run
+and cost, and the check verdict as two scores (`task_success` and
+`check_fraction`). Tasks from one run share a session named after the run
 folder, and traces are tagged with the domain, mode, arm and model.
 
 One command installs and starts a self-hosted copy with Docker, outside this

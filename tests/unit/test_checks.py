@@ -1,4 +1,4 @@
-from mas_optimiser.benchmarks.enterpriseops import verifiers
+from mas_optimiser.benchmarks.enterpriseops import checks
 
 
 def check(name, query, expected=1):
@@ -13,7 +13,7 @@ def check(name, query, expected=1):
 
 
 def test_clashing_names_are_made_unique_and_mapped_back():
-    renamed, names = verifiers.unique_names(
+    renamed, names = checks.unique_names(
         [
             check("Add CI", "q1"),
             check("Add CI", "q2"),
@@ -40,7 +40,7 @@ def test_clashing_names_are_made_unique_and_mapped_back():
 def test_exact_copies_are_one_check():
     # A dataset task whose verifier list is repeated: [a, b, a, b, a'] where a'
     # shares a's name but asks something else.
-    renamed, names = verifiers.unique_names(
+    renamed, names = checks.unique_names(
         [
             check("a", "q1"),
             check("b", "q2"),
@@ -53,7 +53,7 @@ def test_exact_copies_are_one_check():
     assert names.original == {"a": "a", "b": "b", "a (2)": "a"}
     assert names.upstream == {"a": "a (2)", "b": "b"}
     # The same query with a different expected value is a different check.
-    renamed, _ = verifiers.unique_names([check("a", "q1", 1), check("a", "q1", 0)])
+    renamed, _ = checks.unique_names([check("a", "q1", 1), check("a", "q1", 0)])
     assert len(renamed) == 2
 
 
@@ -64,7 +64,7 @@ def test_recheck_compares_a_numeric_string_as_a_number():
         "actual": 1,
         "comparison_type": "equals",
     }
-    verifiers.recheck(result)
+    checks.recheck(result)
     assert result["passed"] is True and result["upstream_passed"] is False
 
     unchanged = {
@@ -73,16 +73,16 @@ def test_recheck_compares_a_numeric_string_as_a_number():
         "actual": 0,
         "comparison_type": "equals",
     }
-    verifiers.recheck(unchanged)
+    checks.recheck(unchanged)
     assert unchanged["passed"] is False
 
     text = {"passed": True, "expected": "in_progress", "actual": "in_progress"}
-    verifiers.recheck(text)
+    checks.recheck(text)
     assert text["passed"] is True and text["upstream_passed"] is True
 
 
 def test_upstream_verdict_keeps_only_the_last_of_a_name():
-    _, names = verifiers.unique_names(
+    _, names = checks.unique_names(
         [check("a", "q1"), check("a", "q2"), check("b", "q3")]
     )
     results = {
@@ -90,15 +90,15 @@ def test_upstream_verdict_keeps_only_the_last_of_a_name():
         "a (2)": {"passed": False, "upstream_passed": False},
         "b": {"passed": True, "upstream_passed": True},
     }
-    assert verifiers.upstream_verdict(results, names) == (1, 2, False)
+    assert checks.upstream_verdict(results, names) == (1, 2, False)
     results["a (2)"]["upstream_passed"] = True
-    assert verifiers.upstream_verdict(results, names) == (2, 2, True)
-    # A run that raised before the verifiers ran still counts them all.
-    assert verifiers.upstream_verdict({}, names) == (0, 2, False)
+    assert checks.upstream_verdict(results, names) == (2, 2, True)
+    # A run that raised before the checks ran still counts them all.
+    assert checks.upstream_verdict({}, names) == (0, 2, False)
 
 
-def test_verifier_records_use_the_original_names_in_order():
-    _, names = verifiers.unique_names([check("a", "q1"), check("a", "q2")])
+def test_check_records_use_the_original_names_in_order():
+    _, names = checks.unique_names([check("a", "q1"), check("a", "q2")])
     results = {
         "a": {"passed": True, "upstream_passed": True, "expected": 1, "actual": 1},
         "a (2)": {
@@ -110,7 +110,7 @@ def test_verifier_records_use_the_original_names_in_order():
         },
     }
     results["a (2)"]["diagnosis"] = {"kind": "no_rows", "table": "t"}
-    rows = verifiers.verifier_records("t", 2, results, names)
+    rows = checks.check_records("t", 2, results, names)
     assert [(r["position"], r["name"], r["passed"]) for r in rows] == [
         (1, "a", True),
         (2, "a", False),

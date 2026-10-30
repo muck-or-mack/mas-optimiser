@@ -5,7 +5,7 @@ proposing model reading the results. Beside each record, ``attempt-<n>.md``:
 the request, what the agent did turn by turn, what changed against the seed,
 and every check with, under a failure, each condition marked ok or WRONG
 against the row the agent wrote and the turn that wrote it. Beside
-``tasks.csv`` and ``verifiers.csv``, ``cells.csv`` (one row per failed
+``tasks.csv`` and ``checks.csv``, ``cells.csv`` (one row per failed
 check, touched row and condition, with the turn that set a wrong cell) and
 ``changes.csv`` (one row per attempt and changed table). And ``summary.md``,
 a page that says how the run went and what went wrong, by table and column.
@@ -359,8 +359,8 @@ def summary(
     for r in records:
         by_task.setdefault(r["task_id"], []).append(r)
     every = sum(all(r["success"] for r in rs) for rs in by_task.values())
-    checks_passed = sum(r["verifiers_passed"] for r in records)
-    checks_total = sum(r["verifiers_total"] for r in records)
+    checks_passed = sum(r["checks_passed"] for r in records)
+    checks_total = sum(r["checks_total"] for r in records)
     errored = sum(r.get("tool_errors", 0) > 0 for r in records)
     unasked = {(c["task_id"], c["attempt"]) for c in change_list if not c["mentioned"]}
     failed = [c for c in check_rows if not c["passed"]]
@@ -434,7 +434,7 @@ def summary(
         "",
         "## Where things are",
         "",
-        "`tasks.csv` one row per attempt; `verifiers.csv` one row per attempt and check with its kind and step; "
+        "`tasks.csv` one row per attempt; `checks.csv` one row per attempt and check with its kind and step; "
         "`cells.csv` one row per failed check, touched row and condition, with the turn that set a wrong cell; "
         "`changes.csv` one row per attempt and changed table; `tasks/<task_id>/attempt-<n>.md` the attempt as a "
         "page, beside its full record (`.json`) and its changes against the seed (`.changes.json`).",

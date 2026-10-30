@@ -3,7 +3,7 @@
 The runner loads one domain's tasks, runs each with the benchmark's ReAct
 agent against the Docker domain servers, and writes one evaluation folder
 under ``runs/<experiment>/``: ``summary.md`` (how the run went and what went
-wrong), ``tasks.csv`` with a row per attempt, ``verifiers.csv``,
+wrong), ``tasks.csv`` with a row per attempt, ``checks.csv``,
 ``cells.csv`` and ``changes.csv`` (see ``report``), ``run.json`` with the
 settings and totals, ``run.log``, and per attempt under
 ``tasks/<task_id>/`` the executor's full record (``attempt-<n>.json``), its
@@ -22,7 +22,7 @@ table away.
 Tasks come from the Hugging Face dataset at a pinned revision; in oracle mode
 the submodule's corrected copies in ``data/revised`` replace the dataset's
 versions of the same tasks. Each task gets a fresh ``BenchmarkExecutor``,
-which seeds a database, runs the agent once, runs every verifier against the
+which seeds a database, runs the agent once, runs every check against the
 final database state and deletes the database. ``score`` flattens the
 executor's record into the CSV row.
 
@@ -34,10 +34,10 @@ scored as a failure, where ``evaluate.py`` retries the task up to five times
 and ``compute_score.py`` averages whatever is left, counting a still-failing
 run as zero and silently dropping a task that raised before any run started.
 
-Scoring counts every verifier of a task and compares count checks numerically,
-where the executor loses verifiers that share a name and fails checks whose
+Scoring counts every check of a task and compares count checks numerically,
+where the executor loses checks that share a name and fails checks whose
 expected value is a number written as a string; the executor's own verdict is
-kept beside the corrected one (see ``verifiers``).
+kept beside the corrected one (see ``checks``).
 
 An experiment file in ``configs/experiments/`` names the model, the domain or
 domains, mode, task limit, label and tracing options, and is referred to by
@@ -70,11 +70,11 @@ from mas_optimiser import tracing
 from mas_optimiser.benchmarks.enterpriseops import (
     GYM_ROOT,
     REPO_ROOT,
+    checks,
     diagnosis,
     report,
     splits,
     states,
-    verifiers,
 )
 
 from benchmark.executor import BenchmarkExecutor
@@ -131,14 +131,14 @@ THINKING_SUMMARY = {"type": "adaptive", "display": "summarized"}
 
 
 class TaskExecutor(BenchmarkExecutor):
-    """The benchmark's executor with tracing attached, every verifier counted and the changes kept.
+    """The benchmark's executor with tracing attached, every check counted and the changes kept.
 
     The executor constructs its model client inside ``initialize()``, which
     ``execute_benchmark()`` calls itself, so that is the first point at which
     the model object exists and the callback can be set on it. The task's
-    verifiers are renamed before the run so that none overwrites another, and
+    checks are renamed before the run so that none overwrites another, and
     each verdict is rechecked after they run, with the executor's own verdict
-    kept beside it (see ``verifiers``); ``names`` maps the unique names back
+    kept beside it (see ``checks``); ``names`` maps the unique names back
     to the task's. Before the executor deletes the run's database, its final
     state is read and compared with the seed, so ``changes`` holds what the
     attempt did (see ``states``) and each failed verdict is diagnosed against
@@ -165,8 +165,8 @@ class TaskExecutor(BenchmarkExecutor):
         domain: str,
         **kwargs,
     ):
-        config.verifiers, self.names = verifiers.unique_names(config.verifiers)
-        self.verifier_gyms = {v["name"]: v.get("gym_name") for v in config.verifiers}
+        config.verifiers, self.names = checks.unique_names(config.verifiers)
+        self.check_gyms = {v["name"]: v.get("gym_name") for v in config.verifiers}
         super().__init__(config, *args, **kwargs)
         self.trace = trace
         self.thinking = thinking
@@ -189,7 +189,7 @@ class TaskExecutor(BenchmarkExecutor):
         # diagnosed here, while it still exists.
         results = await super()._run_verifiers(task_result)
         for result in results.values():
-            verifiers.recheck(result)
+            checks.recheck(result)
         try:
             self.changes = await self.read_changes()
             for name, result in results.items():
@@ -218,12 +218,12 @@ class TaskExecutor(BenchmarkExecutor):
         return states.diff(self.seed, state, self.layout["keys"], self.skip)
 
     def sql_runner(self, name: str) -> diagnosis.RunSQL:
-        """A query function on the database of the gym the named verifier checks.
+        """A query function on the database of the gym the named check queries.
 
         Goes through the verifier engine's own SQL runner, so queries reach
-        the same server, database and headers as the verifier did.
+        the same server, database and headers as the check did.
         """
-        gym_name = self.verifier_gyms[name]
+        gym_name = self.check_gyms[name]
         engine = self.verifier_engine
 
         async def run_sql(query: str):
@@ -467,13 +467,13 @@ def task_record(
     task_id: str,
     attempt: int,
     run: dict,
-    names: verifiers.Names,
+    names: checks.Names,
     pricing: dict,
 ) -> dict:
     """Flatten the executor's record of one task run into a ``tasks.csv`` row.
 
-    A run that raised has no verifier results, so it counts as a failed task
-    with none of its verifiers passed, rather than being dropped. The
+    A run that raised has no check results, so it counts as a failed task
+    with none of its checks passed, rather than being dropped. The
     ``upstream_`` columns give the benchmark's own count for the run.
 
     Args:
@@ -482,7 +482,7 @@ def task_record(
         run: One entry of the ``runs`` list that
             ``BenchmarkExecutor.execute_benchmark`` returns, or a stand-in
             holding the error if it raised before the run started.
-        names: The executor's verifier name maps; one entry per kept verifier.
+        names: The executor's check name maps; one entry per kept check.
         pricing: The model's price table, for ``cost``.
 
     Returns:
@@ -496,18 +496,18 @@ def task_record(
     ]
     details = [u.get("input_token_details") or {} for u in usage]
     results = run.get("verification_results", {})
-    upstream_passed, upstream_total, upstream_success = verifiers.upstream_verdict(
+    upstream_passed, upstream_total, upstream_success = checks.upstream_verdict(
         results, names
     )
     return {
         "task_id": task_id,
         "attempt": attempt,
         "success": bool(run.get("overall_success")),
-        "verifiers_passed": sum(r["passed"] for r in results.values()),
-        "verifiers_total": len(names.original),
+        "checks_passed": sum(r["passed"] for r in results.values()),
+        "checks_total": len(names.original),
         "upstream_success": upstream_success,
-        "upstream_verifiers_passed": upstream_passed,
-        "upstream_verifiers_total": upstream_total,
+        "upstream_checks_passed": upstream_passed,
+        "upstream_checks_total": upstream_total,
         "error": run.get("error", ""),
         "tool_errors": sum(
             not (step.get("result") or {}).get("success")
@@ -530,7 +530,7 @@ def outputs(
     run: dict,
     changes: dict | None,
     keys: dict,
-    names: verifiers.Names,
+    names: checks.Names,
     pricing: dict,
 ) -> tuple[dict, list[dict], list[dict], list[dict]]:
     """Trace each failed check, then build one attempt's rows for every table.
@@ -539,7 +539,7 @@ def outputs(
     so the record, the CSVs and the page agree.
 
     Returns:
-        The ``tasks.csv`` row and the ``verifiers.csv``, ``cells.csv`` and
+        The ``tasks.csv`` row and the ``checks.csv``, ``cells.csv`` and
         ``changes.csv`` rows.
     """
     results = run.get("verification_results", {})
@@ -550,7 +550,7 @@ def outputs(
     queries = [r.get("query", "") for r in results.values()]
     return (
         task_record(task_id, attempt, run, names, pricing),
-        verifiers.verifier_records(task_id, attempt, results, names),
+        checks.check_records(task_id, attempt, results, names),
         report.cell_rows(task_id, attempt, results),
         report.change_rows(task_id, attempt, changes, queries),
     )
@@ -577,11 +577,11 @@ def write_tables(
     out: Path,
     settings: dict,
     records: list[dict],
-    verifier_rows: list[dict],
+    check_rows: list[dict],
     cell_rows: list[dict],
     change_rows: list[dict],
 ) -> None:
-    """Write an evaluation's ``tasks.csv``, ``verifiers.csv``, ``cells.csv``, ``changes.csv`` and ``summary.md``.
+    """Write an evaluation's ``tasks.csv``, ``checks.csv``, ``cells.csv``, ``changes.csv`` and ``summary.md``.
 
     Args:
         out: The evaluation folder.
@@ -593,7 +593,7 @@ def write_tables(
         model = model.get("llm_model", "?")
     for name, columns, rows in (
         ("tasks.csv", list(records[0]) if records else [], records),
-        ("verifiers.csv", verifiers.COLUMNS, verifier_rows),
+        ("checks.csv", checks.COLUMNS, check_rows),
         ("cells.csv", report.CELL_COLUMNS, cell_rows),
         ("changes.csv", report.CHANGE_COLUMNS, change_rows),
     ):
@@ -610,7 +610,7 @@ def write_tables(
                 "model": model,
             },
             records,
-            verifier_rows,
+            check_rows,
             cell_rows,
             change_rows,
         )
@@ -646,7 +646,7 @@ async def run_task(
         tags: Labels put on the trace, such as the domain and model.
 
     Returns:
-        The row from ``task_record``, the rows from ``verifier_records``, and
+        The row from ``task_record``, the rows from ``check_records``, and
         the attempt's ``cells.csv`` and ``changes.csv`` rows (see ``report``).
     """
     # One executor call per attempt, so that each run is its own trace and its
@@ -699,29 +699,27 @@ async def run_task(
         results = run.get("verification_results", {})
         if span is not None:
             fraction = (
-                record["verifiers_passed"] / record["verifiers_total"]
-                if record["verifiers_total"]
+                record["checks_passed"] / record["checks_total"]
+                if record["checks_total"]
                 else 0.0
             )
             span.score_trace(
                 name="task_success", value=float(record["success"]), data_type="BOOLEAN"
             )
-            span.score_trace(
-                name="verifier_fraction", value=fraction, data_type="NUMERIC"
-            )
+            span.score_trace(name="check_fraction", value=fraction, data_type="NUMERIC")
             span.update(
                 output={
                     k: record[k]
                     for k in (
                         "success",
-                        "verifiers_passed",
-                        "verifiers_total",
+                        "checks_passed",
+                        "checks_total",
                         "upstream_success",
                         "error",
                     )
                 }
                 | {
-                    "verifiers": {
+                    "checks": {
                         f"{row['position']} {row['name']}": {
                             "passed": row["passed"],
                             "expected": row["expected"],
@@ -776,7 +774,7 @@ async def run_tasks(
 
     Returns:
         One ``tasks.csv`` row per run, in task order and then attempt order,
-        and the ``verifiers.csv``, ``cells.csv`` and ``changes.csv`` rows of
+        and the ``checks.csv``, ``cells.csv`` and ``changes.csv`` rows of
         every run in the same order.
     """
     semaphore = asyncio.Semaphore(concurrency)
@@ -803,8 +801,8 @@ async def run_tasks(
             "error" if record["error"] else "pass" if record["success"] else "fail"
         )
         print(
-            f"[{done}/{total}] {task_id} attempt {attempt} {outcome}: verifiers "
-            f"{record['verifiers_passed']}/{record['verifiers_total']}, "
+            f"[{done}/{total}] {task_id} attempt {attempt} {outcome}: checks "
+            f"{record['checks_passed']}/{record['checks_total']}, "
             f"{record['model_calls']} calls, {record['input_tokens']:,} in / "
             f"{record['output_tokens']:,} out tokens, ${record['cost_usd']:.4f}, "
             f"{record['seconds']:.0f} s"
@@ -967,7 +965,7 @@ def evaluate(
 
     tags = [domain, experiment["mode"], "arm:default", model.llm_model]
     try:
-        records, verifier_rows, cell_rows, change_rows = asyncio.run(
+        records, check_rows, cell_rows, change_rows = asyncio.run(
             run_tasks(
                 tasks,
                 model,
@@ -989,7 +987,7 @@ def evaluate(
         out,
         {"domain": domain, "mode": experiment["mode"], "model": model.llm_model},
         records,
-        verifier_rows,
+        check_rows,
         cell_rows,
         change_rows,
     )
@@ -1003,13 +1001,11 @@ def evaluate(
         "successes": sum(r["success"] for r in records),
         "tasks_passed_every_attempt": sum(all(v) for v in by_task.values()),
         "errors": sum(bool(r["error"]) for r in records),
-        "verifiers_passed": sum(r["verifiers_passed"] for r in records),
-        "verifiers_total": sum(r["verifiers_total"] for r in records),
+        "checks_passed": sum(r["checks_passed"] for r in records),
+        "checks_total": sum(r["checks_total"] for r in records),
         "upstream_successes": sum(r["upstream_success"] for r in records),
-        "upstream_verifiers_passed": sum(
-            r["upstream_verifiers_passed"] for r in records
-        ),
-        "upstream_verifiers_total": sum(r["upstream_verifiers_total"] for r in records),
+        "upstream_checks_passed": sum(r["upstream_checks_passed"] for r in records),
+        "upstream_checks_total": sum(r["upstream_checks_total"] for r in records),
         "input_tokens": sum(r["input_tokens"] for r in records),
         "output_tokens": sum(r["output_tokens"] for r in records),
         "cache_read_tokens": sum(r["cache_read_tokens"] for r in records),
@@ -1063,8 +1059,8 @@ def evaluate(
     print(
         f"\n{totals['successes']}/{totals['runs']} runs passed, "
         f"{totals['tasks_passed_every_attempt']}/{totals['tasks']} tasks passed every "
-        f"attempt ({totals['errors']} errors, counted as failures); verifiers "
-        f"{totals['verifiers_passed']}/{totals['verifiers_total']}; "
+        f"attempt ({totals['errors']} errors, counted as failures); checks "
+        f"{totals['checks_passed']}/{totals['checks_total']}; "
         f"{totals['input_tokens']:,} input and {totals['output_tokens']:,} output "
         f"tokens. Results in {out}"
         + (

@@ -215,15 +215,15 @@ def test_summary_counts_steps_and_names_the_worst_tasks():
         {
             "task_id": "t1",
             "success": False,
-            "verifiers_passed": 1,
-            "verifiers_total": 4,
+            "checks_passed": 1,
+            "checks_total": 4,
             "tool_errors": 1,
         },
         {
             "task_id": "t2",
             "success": True,
-            "verifiers_passed": 2,
-            "verifiers_total": 2,
+            "checks_passed": 2,
+            "checks_total": 2,
             "tool_errors": 0,
         },
     ]

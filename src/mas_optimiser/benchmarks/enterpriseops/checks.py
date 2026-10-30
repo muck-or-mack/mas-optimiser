@@ -1,10 +1,10 @@
-"""Count every distinct verifier of a task, and keep the benchmark's own count beside it.
+"""Count every distinct check of a task, and keep the benchmark's own count beside it.
 
-The benchmark's executor runs each task's verifiers (SQL checks on the final
-database state) and keeps their verdicts in a dict keyed by verifier name, so
+The benchmark's executor runs each task's checks (its "verifiers": SQL queries
+on the final database state) and keeps their verdicts in a dict keyed by name, so
 the task passes only if every verdict does. Three details of the data make
 that count wrong for the purpose here. In 59 of the 308 oracle tasks two or
-more verifiers share a name: in 32 of them the verifier list is simply
+more checks share a name: in 32 of them the list is simply
 repeated, so the copies are one check counted several times, and in 27 the
 shared name hides different checks, of which the executor's dict keeps only
 the last. And 33 count checks in seven tasks give their expected value as the
@@ -17,8 +17,8 @@ before a run, so the executor keeps every distinct check once, and
 own verdict stays beside the corrected one as ``upstream_passed``.
 ``upstream_verdict`` then recovers what the benchmark would have reported for
 the task, so both conventions can be shown side by side, and
-``verifier_records`` flattens one run's verdicts into the rows of
-``verifiers.csv``.
+``check_records`` flattens one run's verdicts into the rows of
+``checks.csv``.
 """
 
 import contextlib
@@ -45,10 +45,10 @@ COLUMNS = (
 
 
 class Names(NamedTuple):
-    """How a task's verifiers were kept.
+    """How a task's checks were kept.
 
     Attributes:
-        original: Each kept verifier's unique name to the name the task gave
+        original: Each kept check's unique name to the name the task gave
             it (``verifier_<n>`` for an unnamed one, as the executor names
             them).
         upstream: Each task-given name to the unique name of the copy the
@@ -60,14 +60,14 @@ class Names(NamedTuple):
 
 
 def unique_names(verifiers: list[dict]) -> tuple[list[dict], Names]:
-    """Keep each distinct verifier once, under a name no other verifier has.
+    """Keep each distinct check once, under a name no other check has.
 
     An exact copy (same name, query, expected value and comparison) is one
-    check, not two, and is dropped. A verifier that only shares its name gets
+    check, not two, and is dropped. A check that only shares its name gets
     the name suffixed with a count, so that the executor keeps it.
 
     Args:
-        verifiers: The task config's verifier dicts, in order.
+        verifiers: The task config's check dicts (its ``verifiers``), in order.
 
     Returns:
         Copies of the kept dicts with unique names, and the ``Names`` maps.
@@ -123,16 +123,16 @@ def recheck(result: dict) -> None:
 def upstream_verdict(results: dict[str, dict], names: Names) -> tuple[int, int, bool]:
     """What the benchmark's executor would have reported for one run.
 
-    The executor keys verdicts by name, so of verifiers sharing a name only the
+    The executor keys verdicts by name, so of checks sharing a name only the
     last one counts, and it compares values with ``==``.
 
     Args:
         results: The run's ``verification_results``, keyed by unique name in
-            the order the verifiers ran.
+            the order the checks ran.
         names: The maps from ``unique_names``.
 
     Returns:
-        Verifiers passed, verifiers counted (the distinct names, whether or
+        Checks passed, checks counted (the distinct names, whether or
         not the run got as far as running them), and whether the task passed.
     """
     verdicts = {
@@ -148,10 +148,10 @@ def upstream_verdict(results: dict[str, dict], names: Names) -> tuple[int, int, 
     )
 
 
-def verifier_records(
+def check_records(
     task_id: str, attempt: int, results: dict[str, dict], names: Names
 ) -> list[dict]:
-    """Flatten one run's verdicts into ``verifiers.csv`` rows (``COLUMNS``), one per verifier.
+    """Flatten one run's verdicts into ``checks.csv`` rows (``COLUMNS``), one per check.
 
     A failed verdict carries the ``kind`` and ``table`` of its diagnosis and
     the ``step`` its trace gave it (see ``report``); a passed one leaves them

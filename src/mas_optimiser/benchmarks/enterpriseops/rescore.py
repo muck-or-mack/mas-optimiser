@@ -4,7 +4,7 @@ Each attempt's record (``attempt-<n>.json``) and its changes against the seed
 (``attempt-<n>.changes.json``) are enough to rebuild the final database
 locally and run every check again: the task's checks as they now stand, the
 same diagnosis and trace, and the same files the runner writes
-(``summary.md``, ``tasks.csv``, ``verifiers.csv``, ``cells.csv``,
+(``summary.md``, ``tasks.csv``, ``checks.csv``, ``cells.csv``,
 ``changes.csv`` and ``attempt-<n>.md``). Use it after a change to the
 diagnosis or to the checks. An attempt with no saved changes (a run that
 raised before it finished) is left as it was.
@@ -31,10 +31,10 @@ from collections import Counter
 from pathlib import Path
 
 from mas_optimiser.benchmarks.enterpriseops import (
+    checks,
     diagnosis,
     runner,
     states,
-    verifiers,
 )
 
 DESCRIPTION = __doc__.split("\n\n")[0]
@@ -70,13 +70,11 @@ def compare(actual: object, expected: object, comparison: str) -> bool:
     return False
 
 
-async def check_locally(
-    checks: list[dict], final: sqlite3.Connection
-) -> dict[str, dict]:
+async def check_locally(kept: list[dict], final: sqlite3.Connection) -> dict[str, dict]:
     """Run each check's query on the rebuilt database and give its verdict as the executor would."""
     run_sql = local_runner(final)
     results = {}
-    for check in checks:
+    for check in kept:
         config = check["validation_config"]
         query = config.get("query", "")
         try:
@@ -92,7 +90,7 @@ async def check_locally(
             "comparison_type": comparison,
             "query": query,
         }
-        verifiers.recheck(result)
+        checks.recheck(result)
         results[check["name"]] = result
     return results
 
@@ -117,8 +115,8 @@ async def rescore_attempt(
         Path(config["gym_servers_config"][0]["seed_database_file"]), domain
     )
     final = states.rebuild(seed, changes, layout["keys"])
-    checks, names = verifiers.unique_names(config["verifiers"])
-    results = await check_locally(checks, final)
+    kept, names = checks.unique_names(config["verifiers"])
+    results = await check_locally(kept, final)
     run_sql = local_runner(final)
     for result in results.values():
         if not result["passed"] and result.get("query"):
