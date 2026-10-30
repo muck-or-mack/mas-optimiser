@@ -4,7 +4,7 @@ Langfuse records every model call the agent makes (the messages sent, the
 reply, its tool calls, token usage and cost) and shows them as a tree under
 one trace per task, so a run can be followed step by step in the browser. The
 runner opens a trace for each task, attaches Langfuse's LangChain callback to
-the model the benchmark builds, and after the run attaches the verifier
+the model the benchmark builds, and after the run attaches the check
 verdicts to the trace as scores, so pass or fail sits beside the transcript.
 
 Tracing is on when the three ``LANGFUSE_*`` variables in ``.env.example`` are

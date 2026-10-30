@@ -2,31 +2,9 @@
 
 import pytest
 
-from mas_optimiser.benchmarks.enterpriseops import runner, seeds
+from mas_optimiser.benchmarks.enterpriseops import runner, seeds, states
 
 pytestmark = pytest.mark.integration
-
-# The CSM server returns at most 100 rows unless a query sets its own limit.
-PAGE = 1000
-# In many rows the HR server replaces these columns with the time it loads
-# the seed, so they are left out of the comparison there.
-STAMPED = {"hr": {"created_at", "updated_at"}}
-
-
-def server_rows(server_url, database_id, table, columns):
-    """Every row of a server-side table, read a page at a time."""
-    names = ", ".join(f'"{c}"' for c in columns)
-    rows, offset = [], 0
-    while True:
-        page = seeds.run_sql(
-            server_url,
-            database_id,
-            f'SELECT {names} FROM "{table}" ORDER BY rowid LIMIT {PAGE} OFFSET {offset}',
-        )
-        rows += [tuple(row[c] for c in columns) for row in page]
-        if len(page) < PAGE:
-            return rows
-        offset += PAGE
 
 
 def canonical(rows):
@@ -44,16 +22,17 @@ def canonical(rows):
 @pytest.mark.parametrize("domain", runner.DOMAINS)
 def test_every_local_copy_matches_its_server_database_row_for_row(domain):
     schema = (seeds.SCHEMAS_DIR / f"{domain}.sql").read_text()
+    # In many rows the HR server replaces these columns with the time it loads
+    # the seed, so they are left out of the comparison there.
+    skip = states.STAMPED.get(domain, frozenset())
     for server_url, seed_paths in seeds.domain_seeds(domain).items():
         for seed_path in sorted(seed_paths):
             local = seeds.build_seed_database(seed_path, schema)
-            tables = [
-                name
-                for (name,) in local.execute(
-                    "SELECT name FROM sqlite_master WHERE type = 'table' "
-                    "AND name NOT LIKE 'sqlite_%' ORDER BY name"
-                )
-            ]
+            keys = states.primary_keys(local)
+            columns = {
+                table: [c for c in states.columns_of(local, table) if c not in skip]
+                for table in keys
+            }
             with seeds.server_database(server_url, seed_path) as database_id:
                 server_schema = seeds.run_sql(
                     server_url, database_id, seeds.SCHEMA_QUERY
@@ -62,19 +41,11 @@ def test_every_local_copy_matches_its_server_database_row_for_row(domain):
                     "\n\n".join(f"{row['sql']};" for row in server_schema) + "\n"
                     == schema
                 ), f"{seed_path.name}: the server's schema differs from {domain}.sql"
-                for table in tables:
-                    columns = [
-                        name
-                        for (_, name, *_) in local.execute(
-                            f'PRAGMA table_info("{table}")'
-                        )
-                        if name not in STAMPED.get(domain, set())
-                    ]
-                    names = ", ".join(f'"{c}"' for c in columns)
-                    local_rows = local.execute(
-                        f'SELECT {names} FROM "{table}"'
-                    ).fetchall()
-                    remote = server_rows(server_url, database_id, table, columns)
-                    assert canonical(remote) == canonical(local_rows), (
-                        f"{seed_path.name}: table {table} differs from the server"
-                    )
+                remote = states.read_state(server_url, database_id, columns, keys)
+            for table, names in columns.items():
+                listed = ", ".join(f'"{c}"' for c in names)
+                local_rows = local.execute(f'SELECT {listed} FROM "{table}"').fetchall()
+                remote_rows = [tuple(row[c] for c in names) for row in remote[table]]
+                assert canonical(remote_rows) == canonical(local_rows), (
+                    f"{seed_path.name}: table {table} differs from the server"
+                )

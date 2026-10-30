@@ -1,290 +1,187 @@
-import json
-import re
-
-import pytest
+import asyncio
 
 from mas_optimiser.benchmarks.enterpriseops import checks
 
 
-def document(**overrides):
-    requirement = {
-        "text": "log an incident",
-        "kind": "create",
-        "table": "incident",
-        "anchor": {"incident_id": "INC_024"},
-        "cells": {"channel": "chat"},
-        "sql": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_024'",
-        "expected": 1,
-        "comparison": "equals",
-        "source": "Report incident",
-        "seed_count": 0,
-        "assumptions": [],
-    }
-    requirement.update(overrides)
+def check(name, query, expected=1):
     return {
-        "task_id": "task_x",
-        "policy_sha1": "4afd943b",
-        "requirements": [requirement],
-        "original_checks": {"Report incident": {"disposition": "kept"}},
+        "name": name,
+        "validation_config": {
+            "query": query,
+            "expected_value": expected,
+            "comparison_type": "equals",
+        },
     }
 
 
-def test_a_well_formed_file_has_no_problems():
-    assert checks.validate(document()) == []
-    assert checks.validate(document(kind="remove", expected=0)) == []
-    assert checks.validate(document(kind="stay", expected=3, seed_count=3)) == []
-    assert (
-        checks.validate(document(anchor=None, selector="priority = 'moderate'")) == []
+def test_clashing_names_are_made_unique_and_mapped_back():
+    renamed, names = checks.unique_names(
+        [
+            check("Add CI", "q1"),
+            check("Add CI", "q2"),
+            check(None, "q3"),
+            check("Add CI", "q4"),
+        ]
     )
-
-
-@pytest.mark.parametrize(
-    "overrides, problem",
-    [
-        ({"kind": "update"}, "kind: not one of"),
-        ({"sql": "SELECT * FROM incident"}, "sql: must be a single SELECT COUNT"),
-        ({"sql": "SELECT COUNTRY FROM incident"}, "sql: must be a single"),
-        (
-            {"sql": "SELECT COUNT(*) FROM incident; DELETE FROM incident"},
-            "sql: must be a single",
-        ),
-        (
-            {"sql": "SELECT COUNT(*) FROM incident WHERE note LIKE '%a; b%'"},
-            "inner semicolons",
-        ),
-        (
-            {"sql": "SELECT COUNT(*) FROM incident -- the user's row\n; DELETE FROM t"},
-            "without comments",
-        ),
-        ({"sql": 'SELECT COUNT(*) FROM t WHERE a = "it\'s"; DELETE FROM t'}, "sql:"),
-        ({"sql": "SELECT COUNT(*) FROM incident -- a note"}, "without comments"),
-        ({"sql": "SELECT COUNT(*) FROM incident /* a note */"}, "without comments"),
-        ({"seed_count": None}, "seed_count: missing or wrong type"),
-        ({"kind": "stay", "expected": 2, "seed_count": 5}, "a stay must expect"),
-        ({"kind": "stay", "comparison": "greater_than"}, "a stay must expect"),
-        ({"expected": "1"}, "expected: missing or wrong type"),
-        ({"expected": True}, "expected: missing or wrong type"),
-        ({"comparison": "at_least"}, "comparison: not one of"),
-        ({"cells": ["channel"]}, "cells: missing or not a mapping"),
-        ({"assumptions": "none"}, "assumptions: must be a list"),
-    ],
-)
-def test_a_bad_requirement_is_named(overrides, problem):
-    assert any(problem in p for p in checks.validate(document(**overrides)))
-
-
-@pytest.mark.parametrize(
-    "sql",
-    [
-        "select count(*) from incident",
-        "SELECT\n  COUNT(*) FROM incident WHERE note LIKE '%a b%'",
-        "SELECT COUNT(*) FROM incident;",
-    ],
-)
-def test_a_count_query_in_any_case_or_layout_is_accepted(sql):
-    assert checks.validate(document(sql=sql)) == []
-
-
-@pytest.mark.parametrize(
-    "anchor, selector",
-    [
-        ("absent", "absent"),
-        (None, "absent"),
-        ({}, "absent"),
-        (None, "  "),
-        ({"incident_id": "INC_024"}, "priority = 'moderate'"),
-        ("INC_024", "priority = 'moderate'"),
-        (["INC_024"], "priority = 'moderate'"),
-        ({"incident_id": "INC_024"}, 5),
-        ({"incident_id": "INC_024"}, ""),
-    ],
-)
-def test_a_requirement_needs_exactly_one_well_formed_anchor_or_selector(
-    anchor, selector
-):
-    doc = document()
-    requirement = doc["requirements"][0]
-    del requirement["anchor"]
-    if anchor != "absent":
-        requirement["anchor"] = anchor
-    if selector != "absent":
-        requirement["selector"] = selector
-    problems = checks.validate(doc)
-    assert any(
-        "needs exactly one" in p or ".anchor:" in p or ".selector:" in p
-        for p in problems
-    )
-
-
-def test_original_checks_need_a_disposition_and_evidence_when_repaired():
-    doc = document()
-    doc["original_checks"] = {"Report incident": {"disposition": "repaired"}}
-    assert checks.validate(doc) == [
-        "original_checks['Report incident'].evidence: required when repaired"
+    assert [v["name"] for v in renamed] == [
+        "Add CI",
+        "Add CI (2)",
+        "verifier_3",
+        "Add CI (3)",
     ]
-    doc["original_checks"] = {"Report incident": {"disposition": "fixed"}}
-    assert any("disposition" in p for p in checks.validate(doc))
-
-
-def test_a_requirement_may_carry_several_checks_as_a_list():
-    doc = document(source=["Report incident", "Report incident, again "])
-    doc["original_checks"]["Report incident, again "] = {"disposition": "kept"}
-    assert checks.validate(doc) == []
-
-
-@pytest.mark.parametrize(
-    "source",
-    ["", [], ["Report incident", "new"], ["Report incident", "Report incident"], 3],
-)
-def test_a_malformed_source_is_named(source):
-    assert any("source: must be" in p for p in checks.validate(document(source=source)))
-
-
-def test_a_source_must_name_an_original_check_exactly():
-    joined = document(source="Report incident, Add CI")
-    assert any("names no original check" in p for p in checks.validate(joined))
-    spaced = document(source=" Report incident")
-    assert any("names no original check" in p for p in checks.validate(spaced))
-
-
-def test_a_source_may_not_name_an_excluded_check():
-    doc = document(source=["Report incident", "Report incident (2)"])
-    doc["original_checks"]["Report incident (2)"] = {
-        "disposition": "excluded",
-        "evidence": "contradicts the policy default",
+    assert names.original == {
+        "Add CI": "Add CI",
+        "Add CI (2)": "Add CI",
+        "verifier_3": "verifier_3",
+        "Add CI (3)": "Add CI",
     }
-    assert any("names excluded check" in p for p in checks.validate(doc))
+    # The executor's dict would end up holding the last "Add CI".
+    assert names.upstream == {"Add CI": "Add CI (3)", "verifier_3": "verifier_3"}
 
 
-def test_every_kept_or_repaired_check_must_be_carried():
-    doc = document(source="new")
-    assert checks.validate(doc) == [
-        "original_checks['Report incident']: kept but no requirement names it"
-    ]
-    doc["original_checks"]["Report incident"] = {"disposition": "weak"}
-    assert checks.validate(doc) == []
-
-
-def test_a_remove_requirement_counts_zero_rows():
-    assert checks.validate(document(kind="remove", expected=0.0)) == []
-    assert any("count zero rows" in p for p in checks.validate(document(kind="remove")))
-    assert any(
-        "count zero rows" in p
-        for p in checks.validate(
-            document(kind="remove", expected=0, comparison="less_than")
-        )
+def test_exact_copies_are_one_check():
+    # A dataset task whose verifier list is repeated: [a, b, a, b, a'] where a'
+    # shares a's name but asks something else.
+    renamed, names = checks.unique_names(
+        [
+            check("a", "q1"),
+            check("b", "q2"),
+            check("a", "q1 "),
+            check("b", "q2"),
+            check("a", "q9"),
+        ]
     )
+    assert [v["name"] for v in renamed] == ["a", "b", "a (2)"]
+    assert names.original == {"a": "a", "b": "b", "a (2)": "a"}
+    assert names.upstream == {"a": "a (2)", "b": "b"}
+    # The same query with a different expected value is a different check.
+    renamed, _ = checks.unique_names([check("a", "q1", 1), check("a", "q1", 0)])
+    assert len(renamed) == 2
 
 
-@pytest.mark.parametrize("record", [None, "kept", ["kept"], 3])
-def test_a_malformed_original_record_is_reported_not_raised(record):
-    doc = document()
-    doc["original_checks"] = {"Report incident": record}
-    assert any("disposition: not one of" in p for p in checks.validate(doc))
+def test_recheck_compares_a_numeric_string_as_a_number():
+    result = {
+        "passed": False,
+        "expected": "1",
+        "actual": 1,
+        "comparison_type": "equals",
+    }
+    checks.recheck(result)
+    assert result["passed"] is True and result["upstream_passed"] is False
+
+    unchanged = {
+        "passed": False,
+        "expected": "1",
+        "actual": 0,
+        "comparison_type": "equals",
+    }
+    checks.recheck(unchanged)
+    assert unchanged["passed"] is False
+
+    text = {"passed": True, "expected": "in_progress", "actual": "in_progress"}
+    checks.recheck(text)
+    assert text["passed"] is True and text["upstream_passed"] is True
 
 
-def test_malformed_documents_and_requirements_are_reported_not_raised():
-    assert checks.validate([]) == ["document: not a mapping"]
-    assert checks.validate(None) == ["document: not a mapping"]
-    doc = document()
-    doc["requirements"] = ["log an incident"]
-    assert checks.validate(doc) == ["requirements[0]: not a mapping"]
-    doc = document()
-    doc["original_checks"] = "not a mapping"
-    assert "original_checks: missing or not a mapping" in checks.validate(doc)
+def test_upstream_verdict_keeps_only_the_last_of_a_name():
+    _, names = checks.unique_names(
+        [check("a", "q1"), check("a", "q2"), check("b", "q3")]
+    )
+    results = {
+        "a": {"passed": True, "upstream_passed": True},
+        "a (2)": {"passed": False, "upstream_passed": False},
+        "b": {"passed": True, "upstream_passed": True},
+    }
+    assert checks.upstream_verdict(results, names) == (1, 2, False)
+    results["a (2)"]["upstream_passed"] = True
+    assert checks.upstream_verdict(results, names) == (2, 2, True)
+    # A run that raised before the checks ran still counts them all.
+    assert checks.upstream_verdict({}, names) == (0, 2, False)
 
 
-def test_an_excluded_check_needs_evidence():
-    doc = document(source="new")
-    doc["original_checks"] = {"Report incident": {"disposition": "excluded"}}
-    assert checks.validate(doc) == [
-        "original_checks['Report incident'].evidence: required when excluded"
+def test_check_records_use_the_original_names_in_order():
+    _, names = checks.unique_names([check("a", "q1"), check("a", "q2")])
+    results = {
+        "a": {"passed": True, "upstream_passed": True, "expected": 1, "actual": 1},
+        "a (2)": {
+            "passed": False,
+            "upstream_passed": False,
+            "comparison_type": "equals",
+            "expected": 1,
+            "actual": 0,
+        },
+    }
+    results["a (2)"]["diagnosis"] = {"kind": "no_rows", "table": "t"}
+    rows = checks.check_records("t", 2, results, names)
+    assert [(r["position"], r["name"], r["passed"]) for r in rows] == [
+        (1, "a", True),
+        (2, "a", False),
     ]
+    assert rows[1] == {
+        "task_id": "t",
+        "attempt": 2,
+        "position": 2,
+        "name": "a",
+        "passed": False,
+        "upstream_passed": False,
+        "comparison": "equals",
+        "expected": 1,
+        "actual": 0,
+        "diagnosis": "no row inserted or updated in t",
+        "kind": "no_rows",
+        "table": "t",
+        "step": "",
+        "patch": "",
+    }
+    assert rows[0]["diagnosis"] == ""
 
 
-def test_a_repaired_check_without_evidence_or_carrier_gets_both_problems():
-    doc = document(source="new")
-    doc["original_checks"] = {"Report incident": {"disposition": "repaired"}}
-    assert checks.validate(doc) == [
-        "original_checks['Report incident'].evidence: required when repaired",
-        "original_checks['Report incident']: repaired but no requirement names it",
+def test_patches_drop_excluded_checks_and_swap_repaired_queries(monkeypatch):
+    monkeypatch.setattr(
+        checks,
+        "load_patches",
+        lambda: {
+            "t": {
+                "a": {
+                    "disposition": "excluded",
+                    "evidence": "names another seed's record",
+                },
+                "b (2)": {
+                    "disposition": "repaired",
+                    "evidence": "wrong id",
+                    "query": "q2 fixed",
+                    "expected_value": 1,
+                    "comparison_type": "equals",
+                },
+            }
+        },
+    )
+    kept, names = checks.unique_names(
+        [check("a", "qa"), check("b", "q1"), check("b", "q2")]
+    )
+    to_run, names = checks.apply_patches("t", kept, names)
+    assert [c["name"] for c in to_run] == ["b", "b (2)"]
+    assert to_run[1]["validation_config"]["query"] == "q2 fixed"
+    assert names.patched["a"]["disposition"] == "excluded"
+    assert names.patched["b (2)"]["query"] == "q2"
+    assert names.original == {"a": "a", "b": "b", "b (2)": "b"}
+
+    async def run_sql(query):
+        return {"qa": 0, "q2": 0, "q2 fixed": 1}[query]
+
+    results = {
+        "b": {"passed": True, "upstream_passed": True},
+        "b (2)": {"passed": True, "upstream_passed": True, "query": "q2 fixed"},
+    }
+    asyncio.run(checks.original_verdicts(results, names, lambda name: run_sql))
+    # The repaired check passes here and fails for the benchmark; the excluded
+    # one is listed with no verdict of ours.
+    assert results["b (2)"]["patch"] == "repaired"
+    assert results["b (2)"]["upstream_passed"] is False
+    assert results["a"]["passed"] is None and results["a"]["upstream_passed"] is False
+    rows = checks.check_records("t", 1, results, names)
+    assert [(r["name"], r["passed"], r["patch"]) for r in rows] == [
+        ("b", True, ""),
+        ("b", True, "repaired"),
+        ("a", None, "excluded"),
     ]
-
-
-def test_a_repeated_source_name_gives_one_problem():
-    problems = checks.validate(document(source=["Report incident", "Report incident"]))
-    assert len(problems) == 1 and "distinct check names" in problems[0]
-
-
-def test_a_partly_readable_source_still_carries_the_names_it_gives():
-    doc = document(source=["Report incident", "Report incident"])
-    doc["original_checks"]["Assign group"] = {"disposition": "kept"}
-    assert checks.validate(doc) == [
-        "requirements[0].source: must be 'new', one check name, or a list of "
-        "distinct check names without 'new'",
-        "original_checks['Assign group']: kept but no requirement names it",
-    ]
-
-
-@pytest.mark.parametrize("source", ["", 3, [], ["new"]])
-def test_an_unreadable_source_reports_no_check_as_uncarried(source):
-    problems = checks.validate(document(source=source))
-    assert len(problems) == 1 and "source: must be" in problems[0]
-
-
-def test_load_checks_reads_valid_files_and_rejects_a_mismatched_name(tmp_path):
-    (tmp_path / "task_x.json").write_text(json.dumps(document()))
-    assert list(checks.load_checks(tmp_path)) == ["task_x"]
-    (tmp_path / "task_y.json").write_text(json.dumps(document()))
-    with pytest.raises(ValueError, match="task_id"):
-        checks.load_checks(tmp_path)
-
-
-@pytest.mark.parametrize(
-    "content, problem",
-    [
-        (
-            json.dumps(
-                {
-                    **document(),
-                    "requirements": [
-                        {**document()["requirements"][0], "kind": "update"}
-                    ],
-                }
-            ),
-            "kind: not one of",
-        ),
-        ("{not json", "not valid JSON"),
-        (b'{"task_id": "\xe9"}', "not valid JSON"),
-        ("[]", "document: not a mapping"),
-    ],
-)
-def test_load_checks_names_the_file_and_the_problem(tmp_path, content, problem):
-    path = tmp_path / "task_x.json"
-    if isinstance(content, bytes):
-        path.write_bytes(content)
-    else:
-        path.write_text(content)
-    with pytest.raises(ValueError, match=re.escape(problem)) as raised:
-        checks.load_checks(tmp_path)
-    assert "task_x.json" in str(raised.value)
-
-
-def test_the_readme_example_is_a_valid_check_file():
-    readme = (checks.CHECKS_DIR / "README.md").read_text()
-    example = json.loads(readme.split("```json\n", 1)[1].split("```", 1)[0])
-    assert checks.validate(example) == []
-
-
-def test_load_checks_reads_the_repository_files_from_any_working_directory(
-    tmp_path, monkeypatch
-):
-    monkeypatch.chdir(tmp_path)
-    loaded = checks.load_checks()
-    assert len(loaded) == 308
-    assert all(task_id.startswith("task_") for task_id in loaded)
-
-
-def test_load_checks_refuses_a_missing_folder(tmp_path):
-    with pytest.raises(FileNotFoundError, match="no check files folder"):
-        checks.load_checks(tmp_path / "nowhere")

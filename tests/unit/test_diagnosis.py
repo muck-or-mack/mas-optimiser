@@ -9,15 +9,38 @@ INCIDENT_QUERY = (
     "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_024' AND "
     "channel = 'phone' AND status = 'new' AND priority = 'moderate';"
 )
+KEYS = {"incident": ["incident_id"], "users": ["user_id"]}
+# The attempt inserted INC_024; INC_025 was in the seed.
+CHANGES = {
+    "incident": {
+        "inserted": [
+            {
+                "incident_id": "INC_024",
+                "channel": "chat",
+                "priority": None,
+                "status": "new",
+                "caller": "U2",
+            }
+        ],
+        "deleted": [],
+        "updated": [],
+    }
+}
 
 
 @pytest.fixture
 def run_sql():
     """A query function over an in-memory database, shaped like the executor's."""
     conn = sqlite3.connect(":memory:")
-    conn.execute("CREATE TABLE incident (incident_id, channel, priority, status)")
-    conn.execute("INSERT INTO incident VALUES ('INC_024', 'chat', NULL, 'new')")
-    conn.execute("INSERT INTO incident VALUES ('INC_025', 'phone', 'high', 'new')")
+    conn.execute(
+        "CREATE TABLE incident (incident_id, channel, priority, status, caller)"
+    )
+    conn.execute("INSERT INTO incident VALUES ('INC_024', 'chat', NULL, 'new', 'U2')")
+    conn.execute(
+        "INSERT INTO incident VALUES ('INC_025', 'phone', 'high', 'new', 'U1')"
+    )
+    conn.execute("CREATE TABLE users (user_id, email)")
+    conn.execute("INSERT INTO users VALUES ('U1', 'a@b.c')")
 
     async def run(query):
         cursor = conn.execute(query)
@@ -30,6 +53,15 @@ def run_sql():
         return rows
 
     return run
+
+
+def verdict(query, expected=1, actual=0, comparison="equals"):
+    return {
+        "query": query,
+        "expected": expected,
+        "actual": actual,
+        "comparison_type": comparison,
+    }
 
 
 def test_conditions_split_at_top_level_and_only():
@@ -66,18 +98,22 @@ def test_count_queries_parse_with_aliases_and_joins():
     )
 
 
-def test_failing_conditions_are_named_with_the_values_found(run_sql):
-    verdict = {
-        "query": INCIDENT_QUERY,
-        "expected": 1,
-        "actual": 0,
-        "comparison_type": "equals",
-    }
-    found = asyncio.run(diagnosis.diagnose(verdict, run_sql))
-    assert found["kind"] == "conditions" and found["held"] == 1
-    assert found["failed"] == [
-        {"condition": "channel = 'phone'", "actual": ["chat"]},
-        {"condition": "priority = 'moderate'", "actual": [None]},
+def test_each_condition_is_tested_on_the_rows_the_attempt_touched(run_sql):
+    found = asyncio.run(
+        diagnosis.diagnose(verdict(INCIDENT_QUERY), CHANGES, KEYS, run_sql)
+    )
+    key = {"incident_id": "INC_024"}
+    assert found["kind"] == "cells"
+    assert found["rows"] == [
+        {"row": key, "condition": "incident_id = 'INC_024'", "ok": True},
+        {"row": key, "condition": "channel = 'phone'", "ok": False, "actual": ["chat"]},
+        {"row": key, "condition": "status = 'new'", "ok": True},
+        {
+            "row": key,
+            "condition": "priority = 'moderate'",
+            "ok": False,
+            "actual": [None],
+        },
     ]
     assert (
         diagnosis.describe(found)
@@ -85,51 +121,78 @@ def test_failing_conditions_are_named_with_the_values_found(run_sql):
     )
 
 
-def test_a_missing_row_is_reported_as_no_match(run_sql):
-    verdict = {
-        "query": INCIDENT_QUERY.replace("INC_024", "INC_099"),
-        "expected": "1",
-        "actual": 0,
-        "comparison_type": "equals",
-    }
-    found = asyncio.run(diagnosis.diagnose(verdict, run_sql))
-    assert found == {"kind": "no_match", "condition": "incident_id = 'INC_099'"}
-    assert diagnosis.describe(found) == "nothing matches incident_id = 'INC_099'"
+def test_an_untouched_row_that_matches_is_not_credited(run_sql):
+    # INC_025 has channel = 'phone', but the attempt never touched it.
+    query = "SELECT COUNT(*) FROM incident WHERE channel = 'phone' AND priority = 'moderate'"
+    found = asyncio.run(diagnosis.diagnose(verdict(query), CHANGES, KEYS, run_sql))
+    assert [cell["ok"] for cell in found["rows"]] == [False, False]
+    assert found["rows"][0]["actual"] == ["chat"]
+
+
+def test_a_table_the_attempt_never_touched_says_so(run_sql):
+    found = asyncio.run(diagnosis.diagnose(verdict(INCIDENT_QUERY), {}, KEYS, run_sql))
+    assert found == {"kind": "no_rows", "table": "incident"}
+    assert diagnosis.describe(found) == "no row inserted or updated in incident"
+
+
+def test_a_condition_on_a_joined_table_is_tested_through_the_join(run_sql):
+    query = (
+        "SELECT COUNT(*) FROM incident i JOIN users u ON i.caller = u.user_id "
+        "WHERE i.incident_id = 'INC_024' AND u.email = 'a@b.c'"
+    )
+    found = asyncio.run(diagnosis.diagnose(verdict(query), CHANGES, KEYS, run_sql))
+    # The inserted incident's caller has no users row, so the join finds
+    # nothing; the condition on the incident itself still holds.
+    assert [(cell["condition"], cell["ok"]) for cell in found["rows"]] == [
+        ("i.incident_id = 'INC_024'", True),
+        ("u.email = 'a@b.c'", False),
+    ]
+    assert found["rows"][1]["actual"] == []
 
 
 def test_surplus_rows_are_shown_for_a_check_expecting_none(run_sql):
-    verdict = {
-        "query": "SELECT COUNT(*) FROM incident WHERE status = 'new'",
-        "expected": 0,
-        "actual": 2,
-        "comparison_type": "equals",
-    }
-    found = asyncio.run(diagnosis.diagnose(verdict, run_sql))
+    query = "SELECT COUNT(*) FROM incident WHERE status = 'new'"
+    found = asyncio.run(
+        diagnosis.diagnose(verdict(query, 0, 2), CHANGES, KEYS, run_sql)
+    )
     assert found["kind"] == "too_many_rows"
     assert [row["incident_id"] for row in found["rows"]] == ["INC_024", "INC_025"]
     assert diagnosis.describe(found).startswith("too many rows match; 2 shown")
 
 
-def test_greater_than_walks_with_its_own_threshold(run_sql):
-    verdict = {
-        "query": "SELECT COUNT(*) FROM incident WHERE status = 'new' AND channel = 'phone'",
-        "expected": 1,
-        "actual": 1,
-        "comparison_type": "greater_than",
+def test_a_value_check_is_wanted_against_actual(run_sql):
+    found = asyncio.run(
+        diagnosis.diagnose(
+            verdict(
+                "SELECT status FROM incident WHERE incident_id = 'INC_024'",
+                "resolved",
+                "new",
+            ),
+            CHANGES,
+            KEYS,
+            run_sql,
+        )
+    )
+    assert found == {
+        "kind": "value",
+        "table": "incident",
+        "rows": [{"condition": "status = 'resolved'", "ok": False, "actual": ["new"]}],
     }
-    found = asyncio.run(diagnosis.diagnose(verdict, run_sql))
-    assert found["kind"] == "conditions" and found["held"] == 1
-    assert found["failed"][0]["condition"] == "channel = 'phone'"
-    assert sorted(found["failed"][0]["actual"]) == ["chat", "phone"]
 
 
-def test_other_verdicts_are_left_alone(run_sql):
-    verdict = {
-        "query": "SELECT status FROM incident WHERE incident_id = 'INC_024'",
-        "expected": "resolved",
-        "actual": "new",
-        "comparison_type": "equals",
+def test_other_shapes_and_older_records_are_left_alone(run_sql):
+    query = "SELECT COUNT(*) FROM incident WHERE channel = 'phone' OR status = 'new'"
+    assert asyncio.run(diagnosis.diagnose(verdict(query), CHANGES, KEYS, run_sql)) == {
+        "kind": "unsupported"
     }
-    assert asyncio.run(diagnosis.diagnose(verdict, run_sql)) == {"kind": "unsupported"}
     assert diagnosis.describe({"kind": "unsupported"}) == ""
-    assert diagnosis.describe(None) == ""
+    assert diagnosis.describe({"kind": "no_match", "condition": "x = 1"}) == ""
+
+
+def test_a_source_that_is_not_a_table_is_left_alone(run_sql):
+    query = (
+        "SELECT COUNT(*) FROM (SELECT incident_id FROM incident WHERE status = 'new') x "
+        "WHERE x.incident_id = 'INC_024'"
+    )
+    found = asyncio.run(diagnosis.diagnose(verdict(query), CHANGES, KEYS, run_sql))
+    assert found == {"kind": "unsupported"}

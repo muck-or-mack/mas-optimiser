@@ -83,6 +83,15 @@ def test_experiment_file_is_validated(tmp_path):
     settings = runner.load_experiment("smoke", no_overrides | {"concurrency": 2})
     assert (settings["attempts"], settings["concurrency"]) == (1, 2)
 
+    with pytest.raises(SystemExit, match="split"):
+        runner.load_experiment("smoke", no_overrides | {"split": "haiku-20-40-40:all"})
+    with pytest.raises(SystemExit, match="split"):
+        runner.load_experiment("smoke", no_overrides | {"split": "training"})
+    assert (
+        runner.load_experiment("smoke", no_overrides | {"split": "s:training"})["split"]
+        == "s:training"
+    )
+
 
 def test_evaluation_name_says_what_was_run():
     no_overrides = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
@@ -98,6 +107,13 @@ def test_evaluation_name_says_what_was_run():
     assert (
         runner.evaluation_name(changed, "csm", started)
         == "20261027-093012-csm-retry-model=haiku-5-5-limit5"
+    )
+    one_set = runner.load_experiment(
+        "smoke", no_overrides | {"split": "haiku-20-40-40:training", "limit": None}
+    )
+    assert (
+        runner.evaluation_name(one_set, "hr", started)
+        == "20261027-093012-hr-training-limit5"
     )
 
 

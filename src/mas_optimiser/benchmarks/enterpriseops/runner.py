@@ -2,12 +2,15 @@
 
 The runner loads one domain's tasks, runs each with the benchmark's ReAct
 agent against the Docker domain servers, and writes one evaluation folder
-under ``runs/<experiment>/``: ``tasks.csv`` with a row per task run,
-``run.json`` with the settings and totals, ``run.log``, and
-``tasks/<task_id>/attempt-<n>.json`` with the executor's full record of every
-model message, tool call, tool result and verifier verdict. Each experiment
-folder keeps an ``index.csv`` with one row per evaluation, so the evaluations
-of one experiment can be compared without opening them.
+under ``runs/<experiment>/``: ``summary.md`` (how the run went and what went
+wrong), ``tasks.csv`` with a row per attempt, ``checks.csv``,
+``cells.csv`` and ``changes.csv`` (see ``report``), ``run.json`` with the
+settings and totals, ``run.log``, and per attempt under
+``tasks/<task_id>/`` the executor's full record (``attempt-<n>.json``), its
+changes against the seed (``attempt-<n>.changes.json``) and a readable page
+(``attempt-<n>.md``). Each experiment folder keeps an ``index.csv`` with one
+row per evaluation, so the evaluations of one experiment can be compared
+without opening them.
 
 An experiment is a named question (``baseline-haiku``); an evaluation is one
 model on one domain's tasks, named by its start time and domain plus anything
@@ -19,7 +22,7 @@ table away.
 Tasks come from the Hugging Face dataset at a pinned revision; in oracle mode
 the submodule's corrected copies in ``data/revised`` replace the dataset's
 versions of the same tasks. Each task gets a fresh ``BenchmarkExecutor``,
-which seeds a database, runs the agent once, runs every verifier against the
+which seeds a database, runs the agent once, runs every check against the
 final database state and deletes the database. ``score`` flattens the
 executor's record into the CSV row.
 
@@ -31,10 +34,10 @@ scored as a failure, where ``evaluate.py`` retries the task up to five times
 and ``compute_score.py`` averages whatever is left, counting a still-failing
 run as zero and silently dropping a task that raised before any run started.
 
-Scoring counts every verifier of a task and compares count checks numerically,
-where the executor loses verifiers that share a name and fails checks whose
+Scoring counts every check of a task and compares count checks numerically,
+where the executor loses checks that share a name and fails checks whose
 expected value is a number written as a string; the executor's own verdict is
-kept beside the corrected one (see ``verifiers``).
+kept beside the corrected one (see ``checks``).
 
 An experiment file in ``configs/experiments/`` names the model, the domain or
 domains, mode, task limit, label and tracing options, and is referred to by
@@ -67,8 +70,11 @@ from mas_optimiser import tracing
 from mas_optimiser.benchmarks.enterpriseops import (
     GYM_ROOT,
     REPO_ROOT,
+    checks,
     diagnosis,
-    verifiers,
+    report,
+    splits,
+    states,
 )
 
 from benchmark.executor import BenchmarkExecutor
@@ -97,6 +103,7 @@ EXPERIMENT_DEFAULTS = {
     "domain": None,
     "mode": "oracle",
     "limit": None,
+    "split": None,
     "attempts": 1,
     "concurrency": 4,
     "label": None,
@@ -124,15 +131,18 @@ THINKING_SUMMARY = {"type": "adaptive", "display": "summarized"}
 
 
 class TaskExecutor(BenchmarkExecutor):
-    """The benchmark's executor with tracing attached and every verifier counted.
+    """The benchmark's executor with tracing attached, every check counted and the changes kept.
 
     The executor constructs its model client inside ``initialize()``, which
     ``execute_benchmark()`` calls itself, so that is the first point at which
     the model object exists and the callback can be set on it. The task's
-    verifiers are renamed before the run so that none overwrites another, and
+    checks are renamed before the run so that none overwrites another, and
     each verdict is rechecked after they run, with the executor's own verdict
-    kept beside it (see ``verifiers``); ``names`` maps the unique names back
-    to the task's.
+    kept beside it (see ``checks``); ``names`` maps the unique names back
+    to the task's. Before the executor deletes the run's database, its final
+    state is read and compared with the seed, so ``changes`` holds what the
+    attempt did (see ``states``) and each failed verdict is diagnosed against
+    those rows.
 
     Args:
         config: The task's ``BenchmarkConfig``.
@@ -141,6 +151,9 @@ class TaskExecutor(BenchmarkExecutor):
             leave the benchmark's default. Changes the agent's behaviour and
             cost, so it stays ``None`` for any run that produces a reported
             number.
+        seed: The task's seed copy and its layout, from ``states.seed_copy``.
+        domain: The task's domain, for the columns its server stamps.
+        task_id: The task's dataset ID, for its entry in the patch list.
     """
 
     def __init__(
@@ -149,13 +162,23 @@ class TaskExecutor(BenchmarkExecutor):
         *args,
         trace: bool,
         thinking: dict | None,
+        seed: tuple,
+        domain: str,
+        task_id: str,
         **kwargs,
     ):
-        config.verifiers, self.names = verifiers.unique_names(config.verifiers)
-        self.verifier_gyms = {v["name"]: v.get("gym_name") for v in config.verifiers}
+        config.verifiers, self.names = checks.unique_names(config.verifiers)
+        self.check_gyms = {v["name"]: v.get("gym_name") for v in config.verifiers}
+        config.verifiers, self.names = checks.apply_patches(
+            task_id, config.verifiers, self.names
+        )
         super().__init__(config, *args, **kwargs)
         self.trace = trace
         self.thinking = thinking
+        self.seed, self.layout = seed
+        self.skip = states.STAMPED.get(domain, frozenset())
+        self.changes = None
+        self.diagnosis_error = None
 
     async def initialize(self):
         await super().initialize()
@@ -167,23 +190,46 @@ class TaskExecutor(BenchmarkExecutor):
 
     async def _run_verifiers(self, task_result):
         # The executor deletes the run's database once execute_benchmark
-        # returns, so a failed verdict is diagnosed here, while it still exists.
+        # returns, so the final state is read and each failed verdict
+        # diagnosed here, while it still exists.
         results = await super()._run_verifiers(task_result)
-        for name, result in results.items():
-            verifiers.recheck(result)
-            if not result["passed"] and result.get("query"):
-                result["diagnosis"] = await diagnosis.diagnose(
-                    result, self.sql_runner(name)
-                )
+        for result in results.values():
+            checks.recheck(result)
+        try:
+            await checks.original_verdicts(results, self.names, self.sql_runner)
+            self.changes = await self.read_changes()
+            for name, result in results.items():
+                if result["passed"] is False and result.get("query"):
+                    result["diagnosis"] = await diagnosis.diagnose(
+                        result, self.changes, self.layout["keys"], self.sql_runner(name)
+                    )
+        except Exception as exc:  # noqa: BLE001
+            # An exception here would reach the executor's own catch, which
+            # keeps only the error and drops the whole run; the run's record
+            # is worth more than its diagnosis, so the failure is kept on it.
+            self.diagnosis_error = repr(exc)
         return results
 
+    async def read_changes(self) -> dict:
+        """What the run changed against the seed, read from its database on the server."""
+        # One gym per task in this dataset, so one database per run.
+        [database] = self.auto_created_databases
+        state = await asyncio.to_thread(
+            states.read_state,
+            database["gym_url"],
+            database["database_id"],
+            self.layout["columns"],
+            self.layout["keys"],
+        )
+        return states.diff(self.seed, state, self.layout["keys"], self.skip)
+
     def sql_runner(self, name: str) -> diagnosis.RunSQL:
-        """A query function on the database of the gym the named verifier checks.
+        """A query function on the database of the gym the named check queries.
 
         Goes through the verifier engine's own SQL runner, so queries reach
-        the same server, database and headers as the verifier did.
+        the same server, database and headers as the check did.
         """
-        gym_name = self.verifier_gyms[name]
+        gym_name = self.check_gyms[name]
         engine = self.verifier_engine
 
         async def run_sql(query: str):
@@ -298,6 +344,13 @@ def load_experiment(spec: str, overrides: dict) -> dict:
         )
     if settings["limit"] is not None and settings["limit"] < 1:
         raise SystemExit("error: limit must be at least 1")
+    if settings["split"] is not None:
+        name, _, subset = str(settings["split"]).partition(":")
+        if not name or subset not in splits.SETS:
+            raise SystemExit(
+                f"error: split must be <name>:<set> with set one of {splits.SETS}, "
+                f"not {settings['split']!r}"
+            )
     for key in ("attempts", "concurrency"):
         if not isinstance(settings[key], int) or settings[key] < 1:
             raise SystemExit(f"error: {key} must be a whole number of at least 1")
@@ -319,7 +372,8 @@ def evaluation_name(settings: dict, domain: str, started: datetime) -> str:
     The start time orders the evaluations of an experiment, then the domain,
     the label if any, every overridden key in ``NAMED_OVERRIDES`` as
     ``key=value`` so that an experiment folder never silently holds a
-    different model or mode, and ``limitN`` when only the first N tasks ran.
+    different model or mode, the set when one set of a split ran, and
+    ``limitN`` when only the first N tasks ran.
     """
     parts = [f"{started:%Y%m%d-%H%M%S}", domain]
     if settings["label"]:
@@ -327,6 +381,8 @@ def evaluation_name(settings: dict, domain: str, started: datetime) -> str:
     for key in NAMED_OVERRIDES:
         if key in settings["overrides"]:
             parts.append(f"{key}={Path(str(settings[key])).stem}")
+    if settings["split"] is not None:
+        parts.append(str(settings["split"]).partition(":")[2])
     if settings["limit"] is not None:
         parts.append(f"limit{settings['limit']}")
     return "-".join(parts)
@@ -417,13 +473,13 @@ def task_record(
     task_id: str,
     attempt: int,
     run: dict,
-    names: verifiers.Names,
+    names: checks.Names,
     pricing: dict,
 ) -> dict:
     """Flatten the executor's record of one task run into a ``tasks.csv`` row.
 
-    A run that raised has no verifier results, so it counts as a failed task
-    with none of its verifiers passed, rather than being dropped. The
+    A run that raised has no check results, so it counts as a failed task
+    with none of its checks passed, rather than being dropped. The
     ``upstream_`` columns give the benchmark's own count for the run.
 
     Args:
@@ -432,7 +488,7 @@ def task_record(
         run: One entry of the ``runs`` list that
             ``BenchmarkExecutor.execute_benchmark`` returns, or a stand-in
             holding the error if it raised before the run started.
-        names: The executor's verifier name maps; one entry per kept verifier.
+        names: The executor's check name maps; one entry per kept check.
         pricing: The model's price table, for ``cost``.
 
     Returns:
@@ -446,19 +502,25 @@ def task_record(
     ]
     details = [u.get("input_token_details") or {} for u in usage]
     results = run.get("verification_results", {})
-    upstream_passed, upstream_total, upstream_success = verifiers.upstream_verdict(
+    upstream_passed, upstream_total, upstream_success = checks.upstream_verdict(
         results, names
     )
     return {
         "task_id": task_id,
         "attempt": attempt,
         "success": bool(run.get("overall_success")),
-        "verifiers_passed": sum(r["passed"] for r in results.values()),
-        "verifiers_total": len(names.original),
+        "checks_passed": sum(bool(r["passed"]) for r in results.values()),
+        "checks_total": len(names.original)
+        - sum(p["disposition"] == "excluded" for p in names.patched.values()),
         "upstream_success": upstream_success,
-        "upstream_verifiers_passed": upstream_passed,
-        "upstream_verifiers_total": upstream_total,
+        "upstream_checks_passed": upstream_passed,
+        "upstream_checks_total": upstream_total,
         "error": run.get("error", ""),
+        "tool_errors": sum(
+            not (step.get("result") or {}).get("success")
+            for step in run.get("conversation_flow", [])
+            if step["type"] == "tool_result"
+        ),
         "model_calls": len(usage),
         "input_tokens": sum(u["input_tokens"] for u in usage),
         "output_tokens": sum(u["output_tokens"] for u in usage),
@@ -469,6 +531,99 @@ def task_record(
     }
 
 
+def outputs(
+    task_id: str,
+    attempt: int,
+    run: dict,
+    changes: dict | None,
+    keys: dict,
+    names: checks.Names,
+    pricing: dict,
+) -> tuple[dict, list[dict], list[dict], list[dict]]:
+    """Trace each failed check, then build one attempt's rows for every table.
+
+    The trace is attached to the check's result before anything is written,
+    so the record, the CSVs and the page agree.
+
+    Returns:
+        The ``tasks.csv`` row and the ``checks.csv``, ``cells.csv`` and
+        ``changes.csv`` rows.
+    """
+    results = run.get("verification_results", {})
+    agent_calls = report.calls(run)
+    for check in results.values():
+        if not check["passed"] and check.get("diagnosis"):
+            check["trace"] = report.trace(check, agent_calls, keys)
+    queries = [r.get("query", "") for r in results.values()]
+    return (
+        task_record(task_id, attempt, run, names, pricing),
+        checks.check_records(task_id, attempt, results, names),
+        report.cell_rows(task_id, attempt, results),
+        report.change_rows(task_id, attempt, changes, queries),
+    )
+
+
+def save_attempt(
+    folder: Path, attempt: int, result: dict, changes: dict | None
+) -> None:
+    """Write an attempt's record, its changes against the seed and its page into the task's folder."""
+    folder.mkdir(exist_ok=True)
+    (folder / f"attempt-{attempt}.json").write_text(
+        json.dumps(result, indent=2, default=str)
+    )
+    if changes is not None:
+        (folder / f"attempt-{attempt}.changes.json").write_text(
+            json.dumps({"changes": changes}, indent=1, default=str)
+        )
+    (folder / f"attempt-{attempt}.md").write_text(
+        report.attempt_text(folder.name, attempt, result["runs"][0], changes)
+    )
+
+
+def write_tables(
+    out: Path,
+    settings: dict,
+    records: list[dict],
+    check_rows: list[dict],
+    cell_rows: list[dict],
+    change_rows: list[dict],
+) -> None:
+    """Write an evaluation's ``tasks.csv``, ``checks.csv``, ``cells.csv``, ``changes.csv`` and ``summary.md``.
+
+    Args:
+        out: The evaluation folder.
+        settings: Its settings; ``domain``, ``mode`` and ``model`` (a name, or
+            the model config as ``run.json`` keeps it) head the summary.
+    """
+    model = settings.get("model")
+    if isinstance(model, dict):
+        model = model.get("llm_model", "?")
+    for name, columns, rows in (
+        ("tasks.csv", list(records[0]) if records else [], records),
+        ("checks.csv", checks.COLUMNS, check_rows),
+        ("cells.csv", report.CELL_COLUMNS, cell_rows),
+        ("changes.csv", report.CHANGE_COLUMNS, change_rows),
+    ):
+        with (out / name).open("w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=columns)
+            writer.writeheader()
+            writer.writerows(rows)
+    (out / "summary.md").write_text(
+        report.summary(
+            out.name,
+            {
+                "domain": settings.get("domain"),
+                "mode": settings.get("mode"),
+                "model": model,
+            },
+            records,
+            check_rows,
+            cell_rows,
+            change_rows,
+        )
+    )
+
+
 async def run_task(
     task_id: str,
     config: dict,
@@ -477,6 +632,7 @@ async def run_task(
     pricing: dict,
     out: Path,
     *,
+    domain: str,
     trace: bool,
     thinking: dict | None,
     tags: list[str],
@@ -489,13 +645,16 @@ async def run_task(
         attempt: Which attempt this is, from 1; names the saved record.
         model: The agent's model config.
         pricing: The model's price table.
-        out: Evaluation folder; the record goes to ``out/tasks/<task_id>``.
+        out: Evaluation folder; the record goes to ``out/tasks/<task_id>``,
+            with the run's changes against the seed beside it.
+        domain: The task's domain.
         trace: Send the run to Langfuse as one trace, scored with its verdict.
         thinking: Model ``thinking`` setting, or ``None`` for the default.
         tags: Labels put on the trace, such as the domain and model.
 
     Returns:
-        The row from ``task_record`` and the rows from ``verifier_records``.
+        The row from ``task_record``, the rows from ``check_records``, and
+        the attempt's ``cells.csv`` and ``changes.csv`` rows (see ``report``).
     """
     # One executor call per attempt, so that each run is its own trace and its
     # own unit of concurrency; the executor's own run loop stays at one.
@@ -505,6 +664,11 @@ async def run_task(
         orchestrator_class=ReactOrchestrator,
         trace=trace,
         thinking=thinking,
+        seed=states.seed_copy(
+            Path(config["gym_servers_config"][0]["seed_database_file"]), domain
+        ),
+        domain=domain,
+        task_id=task_id,
     )
     # The evaluation's experiment and folder name group the traces as one session.
     span_context = (
@@ -528,38 +692,42 @@ async def run_task(
             # Raised before the run started, e.g. a server that is not up.
             result = {"runs": [{"run_number": 1, "error": repr(exc)}]}
         run = result["runs"][0]
-        record = task_record(task_id, attempt, run, executor.names, pricing)
-        rows = verifiers.verifier_records(
+        if executor.diagnosis_error:
+            run["diagnosis_error"] = executor.diagnosis_error
+        changes = executor.changes
+        record, rows, cells, changed = outputs(
             task_id,
             attempt,
-            run.get("verification_results", {}),
+            run,
+            changes,
+            executor.layout["keys"],
             executor.names,
+            pricing,
         )
+        results = run.get("verification_results", {})
         if span is not None:
             fraction = (
-                record["verifiers_passed"] / record["verifiers_total"]
-                if record["verifiers_total"]
+                record["checks_passed"] / record["checks_total"]
+                if record["checks_total"]
                 else 0.0
             )
             span.score_trace(
                 name="task_success", value=float(record["success"]), data_type="BOOLEAN"
             )
-            span.score_trace(
-                name="verifier_fraction", value=fraction, data_type="NUMERIC"
-            )
+            span.score_trace(name="check_fraction", value=fraction, data_type="NUMERIC")
             span.update(
                 output={
                     k: record[k]
                     for k in (
                         "success",
-                        "verifiers_passed",
-                        "verifiers_total",
+                        "checks_passed",
+                        "checks_total",
                         "upstream_success",
                         "error",
                     )
                 }
                 | {
-                    "verifiers": {
+                    "checks": {
                         f"{row['position']} {row['name']}": {
                             "passed": row["passed"],
                             "expected": row["expected"],
@@ -567,15 +735,18 @@ async def run_task(
                             "why": row["diagnosis"],
                         }
                         for row in rows
-                    }
+                    },
+                    "changes": (
+                        states.summary(
+                            changes, [r.get("query", "") for r in results.values()]
+                        )
+                        if changes is not None
+                        else None
+                    ),
                 }
             )
-    folder = out / "tasks" / task_id
-    folder.mkdir(exist_ok=True)
-    (folder / f"attempt-{attempt}.json").write_text(
-        json.dumps(result, indent=2, default=str)
-    )
-    return record, rows
+    save_attempt(out / "tasks" / task_id, attempt, result, changes)
+    return record, rows, cells, changed
 
 
 async def run_tasks(
@@ -584,6 +755,7 @@ async def run_tasks(
     pricing: dict,
     out: Path,
     *,
+    domain: str,
     attempts: int,
     concurrency: int,
     trace: bool,
@@ -601,6 +773,7 @@ async def run_tasks(
         model: The agent's model config.
         pricing: The model's price table.
         out: Evaluation folder.
+        domain: The tasks' domain.
         attempts: Runs per task.
         concurrency: Runs in flight at once.
         trace: Send each run to Langfuse as one trace.
@@ -609,22 +782,24 @@ async def run_tasks(
 
     Returns:
         One ``tasks.csv`` row per run, in task order and then attempt order,
-        and the ``verifiers.csv`` rows of every run in the same order.
+        and the ``checks.csv``, ``cells.csv`` and ``changes.csv`` rows of
+        every run in the same order.
     """
     semaphore = asyncio.Semaphore(concurrency)
     total = len(tasks) * attempts
     done = 0
 
-    async def run_one(task_id: str, config: dict, attempt: int) -> tuple[dict, list]:
+    async def run_one(task_id: str, config: dict, attempt: int) -> tuple:
         nonlocal done
         async with semaphore:
-            record, rows = await run_task(
+            record, rows, cells, changed = await run_task(
                 task_id,
                 config,
                 attempt,
                 model,
                 pricing,
                 out,
+                domain=domain,
                 trace=trace,
                 thinking=thinking,
                 tags=tags,
@@ -634,13 +809,13 @@ async def run_tasks(
             "error" if record["error"] else "pass" if record["success"] else "fail"
         )
         print(
-            f"[{done}/{total}] {task_id} attempt {attempt} {outcome}: verifiers "
-            f"{record['verifiers_passed']}/{record['verifiers_total']}, "
+            f"[{done}/{total}] {task_id} attempt {attempt} {outcome}: checks "
+            f"{record['checks_passed']}/{record['checks_total']}, "
             f"{record['model_calls']} calls, {record['input_tokens']:,} in / "
             f"{record['output_tokens']:,} out tokens, ${record['cost_usd']:.4f}, "
             f"{record['seconds']:.0f} s"
         )
-        return record, rows
+        return record, rows, cells, changed
 
     results = await asyncio.gather(
         *(
@@ -650,8 +825,10 @@ async def run_tasks(
         )
     )
     return (
-        [record for record, _ in results],
-        [row for _, rows in results for row in rows],
+        [r[0] for r in results],
+        [row for r in results for row in r[1]],
+        [cell for r in results for cell in r[2]],
+        [change for r in results for change in r[3]],
     )
 
 
@@ -677,6 +854,11 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         help="oracle gives the agent only the task's own tools; plus_N_tools adds N distractors",
     )
     parser.add_argument("--limit", type=int, help="run only the first N tasks")
+    parser.add_argument(
+        "--split",
+        help="run only one set of a split in configs/splits/, as <name>:<set>, "
+        "e.g. haiku-20-40-40:training",
+    )
     parser.add_argument("--attempts", type=int, help="runs per task")
     parser.add_argument("--concurrency", type=int, help="runs in flight at once")
     parser.add_argument(
@@ -751,6 +933,14 @@ def evaluate(
             the run began, recorded in ``run.json`` and the index.
     """
     tasks = load_tasks(domain, experiment["mode"])
+    if experiment["split"]:
+        name, _, subset = experiment["split"].partition(":")
+        members = splits.load_split(name)["tasks"]
+        tasks = {
+            task_id: config
+            for task_id, config in tasks.items()
+            if members.get(task_id, {}).get("set") == subset
+        }
     tasks = dict(list(tasks.items())[: experiment["limit"]])
     check_servers(
         {
@@ -783,12 +973,13 @@ def evaluate(
 
     tags = [domain, experiment["mode"], "arm:default", model.llm_model]
     try:
-        records, verifier_rows = asyncio.run(
+        records, check_rows, cell_rows, change_rows = asyncio.run(
             run_tasks(
                 tasks,
                 model,
                 pricing,
                 out,
+                domain=domain,
                 attempts=experiment["attempts"],
                 concurrency=experiment["concurrency"],
                 trace=trace,
@@ -800,14 +991,14 @@ def evaluate(
         root.removeHandler(handler)
         handler.close()
 
-    with (out / "tasks.csv").open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=list(records[0]))
-        writer.writeheader()
-        writer.writerows(records)
-    with (out / "verifiers.csv").open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=verifiers.COLUMNS)
-        writer.writeheader()
-        writer.writerows(verifier_rows)
+    write_tables(
+        out,
+        {"domain": domain, "mode": experiment["mode"], "model": model.llm_model},
+        records,
+        check_rows,
+        cell_rows,
+        change_rows,
+    )
     by_task: dict[str, list[bool]] = {}
     for r in records:
         by_task.setdefault(r["task_id"], []).append(r["success"])
@@ -818,13 +1009,11 @@ def evaluate(
         "successes": sum(r["success"] for r in records),
         "tasks_passed_every_attempt": sum(all(v) for v in by_task.values()),
         "errors": sum(bool(r["error"]) for r in records),
-        "verifiers_passed": sum(r["verifiers_passed"] for r in records),
-        "verifiers_total": sum(r["verifiers_total"] for r in records),
+        "checks_passed": sum(r["checks_passed"] for r in records),
+        "checks_total": sum(r["checks_total"] for r in records),
         "upstream_successes": sum(r["upstream_success"] for r in records),
-        "upstream_verifiers_passed": sum(
-            r["upstream_verifiers_passed"] for r in records
-        ),
-        "upstream_verifiers_total": sum(r["upstream_verifiers_total"] for r in records),
+        "upstream_checks_passed": sum(r["upstream_checks_passed"] for r in records),
+        "upstream_checks_total": sum(r["upstream_checks_total"] for r in records),
         "input_tokens": sum(r["input_tokens"] for r in records),
         "output_tokens": sum(r["output_tokens"] for r in records),
         "cache_read_tokens": sum(r["cache_read_tokens"] for r in records),
@@ -878,8 +1067,8 @@ def evaluate(
     print(
         f"\n{totals['successes']}/{totals['runs']} runs passed, "
         f"{totals['tasks_passed_every_attempt']}/{totals['tasks']} tasks passed every "
-        f"attempt ({totals['errors']} errors, counted as failures); verifiers "
-        f"{totals['verifiers_passed']}/{totals['verifiers_total']}; "
+        f"attempt ({totals['errors']} errors, counted as failures); checks "
+        f"{totals['checks_passed']}/{totals['checks_total']}; "
         f"{totals['input_tokens']:,} input and {totals['output_tokens']:,} output "
         f"tokens. Results in {out}"
         + (

@@ -2,10 +2,10 @@ import json
 
 import pytest
 
-from mas_optimiser.benchmarks.enterpriseops import GYM_ROOT, runner, verifiers
+from mas_optimiser.benchmarks.enterpriseops import GYM_ROOT, checks, runner
 
 # A task the submodule's data/revised folder corrects (its dataset copy attempts
-# the same verifiers four times).
+# the same checks four times).
 REVISED_ID = "task_20251212_172511_458_e6427839_47076c15"
 SEED = "Domain Wise DBs and Task-DB Mappings/itsm/dbs/db_1765301900121_3mwjj54xy.sql"
 # Haiku 5.5's rates, in dollars per million tokens.
@@ -90,8 +90,8 @@ def test_cost_prices_cached_and_long_prompts_at_their_own_rates():
 
 
 def test_task_record_counts_an_errored_run_as_a_failed_task():
-    # Two verifiers share a name: three count here, two in the benchmark's count.
-    _, names = verifiers.unique_names(
+    # Two checks share a name: three count here, two in the benchmark's count.
+    _, names = checks.unique_names(
         [{"name": "a", "validation_config": {"query": q}} for q in ("q1", "q2")]
         + [{"name": "b", "validation_config": {"query": "q3"}}]
     )
@@ -100,11 +100,11 @@ def test_task_record_counts_an_errored_run_as_a_failed_task():
     )
     assert not record["success"] and record["attempt"] == 2
     assert record["cost_usd"] == 0
-    assert (record["verifiers_passed"], record["verifiers_total"]) == (0, 3)
+    assert (record["checks_passed"], record["checks_total"]) == (0, 3)
     assert not record["upstream_success"]
     assert (
-        record["upstream_verifiers_passed"],
-        record["upstream_verifiers_total"],
+        record["upstream_checks_passed"],
+        record["upstream_checks_total"],
     ) == (
         0,
         2,
@@ -112,8 +112,8 @@ def test_task_record_counts_an_errored_run_as_a_failed_task():
     assert record["error"] == "down"
 
 
-def test_task_record_counts_every_verifier_and_sums_the_agents_token_use():
-    _, names = verifiers.unique_names(
+def test_task_record_counts_every_check_and_sums_the_agents_token_use():
+    _, names = checks.unique_names(
         [{"name": "a", "validation_config": {"query": q}} for q in ("q1", "q2")]
         + [{"name": "b", "validation_config": {"query": "q3"}}]
     )
@@ -139,10 +139,10 @@ def test_task_record_counts_every_verifier_and_sums_the_agents_token_use():
     assert not record["success"] and record["upstream_success"]
     assert record["cost_usd"] == pytest.approx(2000 * 0.10e-6 + 100 * 0.50e-6)
     assert (record["cache_read_tokens"], record["cache_write_tokens"]) == (0, 0)
-    assert (record["verifiers_passed"], record["verifiers_total"]) == (2, 3)
+    assert (record["checks_passed"], record["checks_total"]) == (2, 3)
     assert (
-        record["upstream_verifiers_passed"],
-        record["upstream_verifiers_total"],
+        record["upstream_checks_passed"],
+        record["upstream_checks_total"],
     ) == (
         2,
         2,

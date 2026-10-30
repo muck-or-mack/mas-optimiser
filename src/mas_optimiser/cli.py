@@ -6,18 +6,23 @@ module, which defines the options once (``add_arguments``) and the work
 (``run``), and still runs on its own with ``python -m``:
 
     mas-optimiser run --model configs/models/haiku-5-5.yaml --domain itsm --limit 5
-    mas-optimiser replay runs/<stamp>/tasks/<task_id>.json
+    mas-optimiser rescore runs/<experiment>/<evaluation>
     mas-optimiser split --experiment baseline-haiku --name haiku-20-40-40
     mas-optimiser schema
 """
 
 import argparse
 
-from mas_optimiser.benchmarks.enterpriseops import replay, runner, seeds, splits
+from mas_optimiser.benchmarks.enterpriseops import (
+    rescore,
+    runner,
+    seeds,
+    splits,
+)
 
 COMMANDS = {
     "run": runner,
-    "replay": replay,
+    "rescore": rescore,
     "split": splits,
     "schema": seeds,
 }

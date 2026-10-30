@@ -1,224 +1,297 @@
-"""Load and validate the project's own check files, one per task, under ``data/checks/``.
+"""Count every distinct check of a task, and keep the benchmark's own count beside it.
 
-The benchmark grades a task mostly with count queries over the final database
-state (about 95% of its checks; the rest compare a returned value), and those
-checks test only what their authors thought to test. A check file lists
-everything the task's request asks of the final state, each requirement as a
-count query the cell audit can test, with the benchmark check it came from or
-``new`` where none existed, and records by name what became of every
-benchmark check: kept as it was, repaired with the evidence that decided it,
-excluded as undecidable, or weak because it already held before the agent
-acted. The benchmark's checks themselves are not copied in; the runner scores
-them from the dataset for the benchmark's own verdict.
+The benchmark's executor runs each task's checks (its "verifiers": SQL queries
+on the final database state) and keeps their verdicts in a dict keyed by name, so
+the task passes only if every verdict does. Three details of the data make
+that count wrong for the purpose here. In 59 of the 308 oracle tasks two or
+more checks share a name: in 32 of them the list is simply
+repeated, so the copies are one check counted several times, and in 27 the
+shared name hides different checks, of which the executor's dict keeps only
+the last. And 33 count checks in seven tasks give their expected value as the
+string ``'1'`` where the SQL runner returns the integer ``1``; the executor
+compares the two with ``==``, so those checks can never pass.
 
-``validate`` checks one file against the format described in
-``data/checks/README.md``; ``load_checks`` reads and validates a folder of them.
+``unique_names`` drops exact copies and renames the clashes that remain
+before a run, so the executor keeps every distinct check once, and
+``recheck`` compares count checks numerically after it, while the executor's
+own verdict stays beside the corrected one as ``upstream_passed``.
+``upstream_verdict`` then recovers what the benchmark would have reported for
+the task, so both conventions can be shown side by side, and
+``check_records`` flattens one run's verdicts into the rows of
+``checks.csv``.
+
+A few of the benchmark's checks are wrong in themselves: no correct attempt
+can satisfy them, or they name the wrong record. ``data/check_patches.json``
+lists those, each with the evidence, as excluded or repaired (the query
+corrected). ``apply_patches`` takes a task's list through it before the run,
+and ``original_verdicts`` runs each patched check's original query afterwards,
+so the benchmark's own verdict on every check stays beside the one used here.
 """
 
+import contextlib
+import functools
 import json
-import re
-from pathlib import Path
+from typing import NamedTuple
 
-from mas_optimiser.benchmarks.enterpriseops import REPO_ROOT
+from mas_optimiser.benchmarks.enterpriseops import REPO_ROOT, diagnosis
 
-CHECKS_DIR = REPO_ROOT / "data" / "checks"
-KINDS = ("create", "change", "remove", "stay")
-COMPARISONS = ("equals", "greater_than", "less_than")
-DISPOSITIONS = ("kept", "repaired", "excluded", "weak")
-REQUIRED = {
-    "text": str,
-    "kind": str,
-    "table": str,
-    "sql": str,
-    "expected": (int, float),
-    "comparison": str,
-    "seed_count": (int, float),
-}
-COUNT_QUERY = re.compile(r"\s*SELECT\s+COUNT\s*\(", re.IGNORECASE)
+NUMBER_TYPES = (int, float)
+PATCHES_FILE = REPO_ROOT / "data" / "check_patches.json"
+COLUMNS = (
+    "task_id",
+    "attempt",
+    "position",
+    "name",
+    "passed",
+    "upstream_passed",
+    "comparison",
+    "expected",
+    "actual",
+    "diagnosis",
+    "kind",
+    "table",
+    "step",
+    "patch",
+)
 
 
-def source_names(source: object) -> list[str] | None:
-    """The benchmark check names in a requirement's ``source``, or ``None`` if it is malformed.
+class Names(NamedTuple):
+    """How a task's checks were kept.
 
-    A source is ``"new"`` (no benchmark check, so no names), one check's exact
-    name, or a list of distinct names when one requirement carries several
-    checks. Names are kept exactly, whitespace included, because benchmark
-    check names may contain commas and stray spaces.
+    Attributes:
+        original: Each kept check's unique name to the name the task gave
+            it (``verifier_<n>`` for an unnamed one, as the executor names
+            them).
+        upstream: Each task-given name to the unique name of the copy the
+            executor's own dict would have ended up holding, the last one.
+        patched: Each patched check's unique name to its disposition and
+            the original query, expected value and comparison.
     """
-    if source == "new":
-        return []
-    if isinstance(source, str) and source:
-        return [source]
-    if (
-        isinstance(source, list)
-        and source
-        and all(isinstance(name, str) and name and name != "new" for name in source)
-        and len(set(source)) == len(source)
-    ):
-        return list(source)
-    return None
+
+    original: dict[str, str]
+    upstream: dict[str, str]
+    patched: dict[str, dict] = {}
 
 
-def validate(document: object) -> list[str]:
-    """Name every way a check file departs from the format; an empty list means none.
+def unique_names(verifiers: list[dict]) -> tuple[list[dict], Names]:
+    """Keep each distinct check once, under a name no other check has.
 
-    Beyond each field's type, the file must hang together: every requirement
-    finds its rows by exactly one of an anchor or a selector, every check a
-    requirement names as its source exists in ``original_checks`` and is not
-    excluded, every check kept or repaired is carried by at least one
-    requirement, a ``remove`` requirement counts zero rows, and a ``stay``
-    expects the count it has on the seed. Malformed parts are reported, never
-    raised, so ``load_checks`` can name the file and the problem rather than
-    fail with a traceback.
+    An exact copy (same name, query, expected value and comparison) is one
+    check, not two, and is dropped. A check that only shares its name gets
+    the name suffixed with a count, so that the executor keeps it.
 
     Args:
-        document: One task's check file, parsed.
+        verifiers: The task config's check dicts (its ``verifiers``), in order.
 
     Returns:
-        Problems as ``"<where>: <what>"`` strings, in file order.
+        Copies of the kept dicts with unique names, and the ``Names`` maps.
     """
-    if not isinstance(document, dict):
-        return ["document: not a mapping"]
-    problems = []
-    originals = document.get("original_checks")
-    if not isinstance(originals, dict):
-        originals = None
-    carried = set()
-    # A requirement whose source cannot be read may carry any check, so no
-    # check is then reported as uncarried on its account.
-    sources_unreadable = False
-    for field in ("task_id", "policy_sha1"):
-        if not isinstance(document.get(field), str):
-            problems.append(f"{field}: missing or not a string")
-    requirements = document.get("requirements")
-    if not isinstance(requirements, list) or not requirements:
-        problems.append("requirements: missing or empty")
-        requirements = []
-    for i, requirement in enumerate(requirements):
-        where = f"requirements[{i}]"
-        if not isinstance(requirement, dict):
-            problems.append(f"{where}: not a mapping")
-            sources_unreadable = True
+    renamed = []
+    original = {}
+    upstream = {}
+    seen = {}
+    for i, verifier in enumerate(verifiers, start=1):
+        name = verifier.get("name") or f"verifier_{i}"
+        check = verifier.get("validation_config", {})
+        key = (
+            name,
+            " ".join(str(check.get("query", "")).split()),
+            repr(check.get("expected_value")),
+            check.get("comparison_type"),
+        )
+        if key in seen:
+            upstream[name] = seen[key]
             continue
-        for field, kind in REQUIRED.items():
-            if not isinstance(requirement.get(field), kind) or isinstance(
-                requirement.get(field), bool
-            ):
-                problems.append(f"{where}.{field}: missing or wrong type")
-        if requirement.get("kind") not in KINDS:
-            problems.append(f"{where}.kind: not one of {KINDS}")
-        if requirement.get("comparison", "equals") not in COMPARISONS:
-            problems.append(f"{where}.comparison: not one of {COMPARISONS}")
-        source = requirement.get("source")
-        names = source_names(source)
-        if names is None:
-            problems.append(
-                f"{where}.source: must be 'new', one check name, or a list of "
-                "distinct check names without 'new'"
-            )
-            names = [
-                name
-                for name in (source if isinstance(source, list) else [])
-                if isinstance(name, str) and name and name != "new"
-            ]
-            sources_unreadable = sources_unreadable or not names
-        if originals is not None:
-            for name in dict.fromkeys(names):
-                record = originals.get(name)
-                if name not in originals:
-                    problems.append(f"{where}.source: names no original check {name!r}")
-                elif (
-                    isinstance(record, dict) and record.get("disposition") == "excluded"
-                ):
-                    problems.append(f"{where}.source: names excluded check {name!r}")
-                else:
-                    carried.add(name)
-        if requirement.get("kind") == "remove" and (
-            requirement.get("expected") != 0
-            or requirement.get("comparison", "equals") != "equals"
-        ):
-            problems.append(f"{where}: a remove requirement must count zero rows")
-        if requirement.get("kind") == "stay" and (
-            requirement.get("expected") != requirement.get("seed_count")
-            or requirement.get("comparison", "equals") != "equals"
-        ):
-            problems.append(f"{where}: a stay must expect the count it has on the seed")
-        if not isinstance(requirement.get("cells"), dict):
-            problems.append(f"{where}.cells: missing or not a mapping")
-        # A field given must be well formed, and exactly one must be given.
-        anchor, selector = requirement.get("anchor"), requirement.get("selector")
-        if anchor is not None and not (isinstance(anchor, dict) and anchor):
-            problems.append(
-                f"{where}.anchor: must be a non-empty mapping of key to value"
-            )
-        if selector is not None and not (
-            isinstance(selector, str) and selector.strip()
-        ):
-            problems.append(f"{where}.selector: must be a non-empty WHERE clause")
-        if (anchor is None) == (selector is None):
-            problems.append(
-                f"{where}: needs exactly one of an anchor (the row's key) or a selector"
-            )
-        # The CSM server refuses a semicolon anywhere but at the end, even
-        # inside a quoted value, and a comment could hide one; both are
-        # refused here so that every query runs on every server.
-        sql = str(requirement.get("sql", ""))
-        body = sql.rstrip().removesuffix(";")
-        if not COUNT_QUERY.match(sql) or any(
-            mark in body for mark in (";", "--", "/*")
-        ):
-            problems.append(
-                f"{where}.sql: must be a single SELECT COUNT(...) query without "
-                "comments or inner semicolons"
-            )
-        assumptions = requirement.get("assumptions", [])
-        if not isinstance(assumptions, list) or not all(
-            isinstance(a, str) for a in assumptions
-        ):
-            problems.append(f"{where}.assumptions: must be a list of strings")
-    if originals is None:
-        problems.append("original_checks: missing or not a mapping")
-        originals = {}
-    for name, record in originals.items():
-        where = f"original_checks[{name!r}]"
-        disposition = record.get("disposition") if isinstance(record, dict) else None
-        if disposition not in DISPOSITIONS:
-            problems.append(f"{where}.disposition: not one of {DISPOSITIONS}")
-            continue
-        if disposition in ("repaired", "excluded") and not record.get("evidence"):
-            problems.append(f"{where}.evidence: required when {disposition}")
-        if (
-            disposition in ("kept", "repaired")
-            and name not in carried
-            and not sources_unreadable
-        ):
-            problems.append(f"{where}: {disposition} but no requirement names it")
-    return problems
+        unique = name
+        n = 1
+        while unique in original:
+            n += 1
+            unique = f"{name} ({n})"
+        renamed.append(verifier | {"name": unique})
+        original[unique] = name
+        upstream[name] = unique
+        seen[key] = unique
+    return renamed, Names(original, upstream)
 
 
-def load_checks(directory: Path = CHECKS_DIR) -> dict[str, dict]:
-    """Read every check file in ``directory``, keyed by task id.
+@functools.cache
+def load_patches() -> dict:
+    """The patch list: for each task, its excluded and repaired checks by unique name."""
+    return json.loads(PATCHES_FILE.read_text()) if PATCHES_FILE.exists() else {}
 
-    Raises:
-        FileNotFoundError: If ``directory`` does not exist, so a wrong path
-            is not mistaken for a folder with no check files.
-        ValueError: If any file is not valid JSON, fails ``validate``, or has
-            a ``task_id`` that differs from its name; the message names the file.
+
+def apply_patches(
+    task_id: str, kept: list[dict], names: Names
+) -> tuple[list[dict], Names]:
+    """Drop a task's excluded checks and swap in its repaired queries.
+
+    Args:
+        task_id: The task's dataset ID.
+        kept: Its checks after ``unique_names``.
+        names: The maps from ``unique_names``.
+
+    Returns:
+        The checks to run, and ``names`` with ``patched`` filled from the
+        originals, so that ``original_verdicts`` can run them afterwards.
     """
-    if not directory.is_dir():
-        raise FileNotFoundError(f"no check files folder at {directory}")
-    checks = {}
-    for path in sorted(directory.glob("task_*.json")):
-        try:
-            document = json.loads(path.read_text())
-        except (UnicodeDecodeError, json.JSONDecodeError) as error:
-            raise ValueError(f"{path}: not valid JSON ({error})") from error
-        problems = validate(document)
-        if isinstance(document, dict) and document.get("task_id") != path.stem:
-            problems.append(
-                f"task_id: {document.get('task_id')!r} is not {path.stem!r}"
+    patches = load_patches().get(task_id, {})
+    if not patches:
+        return kept, names
+    patched, to_run = {}, []
+    for check in kept:
+        patch = patches.get(check["name"])
+        if patch is None:
+            to_run.append(check)
+            continue
+        config = check.get("validation_config", {})
+        patched[check["name"]] = {
+            "disposition": patch["disposition"],
+            "evidence": patch.get("evidence", ""),
+            "query": config.get("query", ""),
+            "expected_value": config.get("expected_value"),
+            "comparison_type": config.get("comparison_type", "equals"),
+        }
+        if patch["disposition"] == "repaired":
+            repaired = {
+                "query": patch["query"],
+                "expected_value": patch["expected_value"],
+                "comparison_type": patch["comparison_type"],
+            }
+            to_run.append(check | {"validation_config": config | repaired})
+    return to_run, Names(names.original, names.upstream, patched)
+
+
+def compare(actual: object, expected: object, comparison: str) -> bool:
+    """The executor's own comparison of a check's value with its expected value."""
+    try:
+        if comparison == "equals":
+            return actual == expected
+        if comparison == "greater_than":
+            return actual > expected  # type: ignore[operator]
+        if comparison == "less_than":
+            return actual < expected  # type: ignore[operator]
+        if comparison == "contains":
+            return str(expected) in str(actual)
+    except TypeError:
+        return False
+    return False
+
+
+async def original_verdicts(results: dict[str, dict], names: Names, runner_for) -> None:
+    """Run each patched check's original query and keep the benchmark's verdict beside ours.
+
+    A repaired check's result gets ``upstream_passed`` from its original
+    query and ``patch`` "repaired". An excluded check, which did not run,
+    gets a result of its own with ``passed`` ``None``, so it is listed but
+    counts for neither side's total here and for the benchmark's own verdict
+    only.
+
+    Args:
+        results: The run's ``verification_results``, edited in place.
+        names: The maps from ``apply_patches``.
+        runner_for: Gives a query function for a check's name.
+    """
+    for unique, patch in names.patched.items():
+        actual = await runner_for(unique)(patch["query"])
+        verdict = compare(actual, patch["expected_value"], patch["comparison_type"])
+        if patch["disposition"] == "excluded":
+            results[unique] = {
+                "passed": None,
+                "upstream_passed": verdict,
+                "expected": patch["expected_value"],
+                "actual": actual,
+                "comparison_type": patch["comparison_type"],
+                "query": patch["query"],
+                "patch": "excluded",
+            }
+        elif unique in results:
+            results[unique]["upstream_passed"] = verdict
+            results[unique]["patch"] = "repaired"
+            results[unique]["original_query"] = patch["query"]
+
+
+def recheck(result: dict) -> None:
+    """Record the executor's verdict and correct it for a numeric string.
+
+    Sets ``result["upstream_passed"]`` to the verdict as the executor gave it,
+    then, for an equality check whose expected value is a number written as a
+    string and whose actual value is a number, replaces ``result["passed"]``
+    with the numeric comparison.
+    """
+    result["upstream_passed"] = result["passed"]
+    expected, actual = result.get("expected"), result.get("actual")
+    if (
+        result.get("comparison_type", "equals") == "equals"
+        and isinstance(expected, str)
+        and isinstance(actual, NUMBER_TYPES)
+        and not isinstance(actual, bool)
+    ):
+        with contextlib.suppress(ValueError):
+            result["passed"] = float(actual) == float(expected)
+
+
+def upstream_verdict(results: dict[str, dict], names: Names) -> tuple[int, int, bool]:
+    """What the benchmark's executor would have reported for one run.
+
+    The executor keys verdicts by name, so of checks sharing a name only the
+    last one counts, and it compares values with ``==``.
+
+    Args:
+        results: The run's ``verification_results``, keyed by unique name in
+            the order the checks ran.
+        names: The maps from ``unique_names``.
+
+    Returns:
+        Checks passed, checks counted (the distinct names, whether or
+        not the run got as far as running them), and whether the task passed.
+    """
+    verdicts = {
+        name: results[unique]["upstream_passed"]
+        for name, unique in names.upstream.items()
+        if unique in results
+    }
+    total = len(names.upstream)
+    return (
+        sum(verdicts.values()),
+        total,
+        len(verdicts) == total and all(verdicts.values()),
+    )
+
+
+def check_records(
+    task_id: str, attempt: int, results: dict[str, dict], names: Names
+) -> list[dict]:
+    """Flatten one run's verdicts into ``checks.csv`` rows (``COLUMNS``), one per check.
+
+    A failed verdict carries the ``kind`` and ``table`` of its diagnosis and
+    the ``step`` its trace gave it (see ``report``); a passed one leaves them
+    empty.
+    """
+    rows = []
+    for position, (unique, result) in enumerate(results.items(), start=1):
+        found = result.get("diagnosis") or {}
+        rows.append(
+            dict(
+                zip(
+                    COLUMNS,
+                    (
+                        task_id,
+                        attempt,
+                        position,
+                        names.original[unique],
+                        result["passed"],
+                        result["upstream_passed"],
+                        result.get("comparison_type", ""),
+                        result.get("expected"),
+                        result.get("actual"),
+                        diagnosis.describe(found),
+                        found.get("kind", ""),
+                        found.get("table", ""),
+                        (result.get("trace") or {}).get("step", ""),
+                        result.get("patch", ""),
+                    ),
+                    strict=True,
+                )
             )
-        if problems:
-            raise ValueError(f"{path}: " + "; ".join(problems))
-        checks[path.stem] = document
-    return checks
+        )
+    return rows
