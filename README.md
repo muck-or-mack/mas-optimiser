@@ -59,7 +59,9 @@ mas-optimiser run smoke
 ```
 
 Any option on the command line overrides the file, so `mas-optimiser run
-smoke --limit 1 --domain csm` is a quick variant without editing anything.
+smoke --limit 1 --domain csm` is a quick variant without editing anything,
+and `--split haiku-20-40-40:training` runs only that set of a split (see
+below).
 To define a new experiment, copy `smoke.yaml` under a new name. Models are
 named the same way: `model: haiku-5-5` means `configs/models/haiku-5-5.yaml`,
 and a path works in place of any name. The run checks that the domain's
@@ -79,13 +81,27 @@ evaluation, where an evaluation is one model on one domain's tasks:
 runs/<experiment>/
   index.csv                      one row per evaluation: settings and totals
   <evaluation>/
+    summary.md                   how the run went and what went wrong, one page
     run.json                     every setting, the task list and the totals
-    tasks.csv                    one row per task run
-    verifiers.csv                one row per verifier per run
+    tasks.csv                    one row per attempt: verdict, checks, tool errors, tokens, cost
+    verifiers.csv                one row per attempt and check: verdict, diagnosis, kind, step
+    cells.csv                    one row per failed check, touched row and condition
+    changes.csv                  one row per attempt and changed table
     run.log                      the benchmark's log of every request
-    tasks/<task_id>/attempt-<n>.json  the executor's complete record of one run
-    checks.csv, requirements.csv  the check files' verdicts, from `rescore`
+    tasks/<task_id>/
+      attempt-<n>.md             the attempt as a page: request, turns, changes, checks
+      attempt-<n>.json           the executor's complete record of the attempt
+      attempt-<n>.changes.json   every row the attempt inserted, updated or deleted
 ```
+
+To read a run, open `summary.md` first: the headline table, then the failed
+checks by step and the cells wrong by column, then the worst tasks with
+their dominant failure. For a task on that list, open its `attempt-<n>.md`:
+under each failed check, the row the agent wrote, which turn wrote it, and
+each condition marked `ok` or `WRONG` with the value found and the turn that
+set it. `cells.csv` holds the same conditions as data, for filtering across
+an evaluation (every wrong `status`, say), and `changes.csv` shows what each
+attempt touched, including tables no check mentions.
 
 `attempts` in the experiment file (or `--attempts`) runs every task that many
 times, each run from a freshly seeded database, so that a task the agent
@@ -109,16 +125,22 @@ the database returns, so they can never pass; here count checks are compared
 as numbers.
 
 A failed verifier says only that its whole SQL condition did not hold. Before
-the run's database is deleted, each failed count check is taken apart
-condition by condition: the query is re-run with its first one, two, three
-conditions until the count falls short, every remaining condition is then
-tested on top of the ones that hold, and for a failing `column = value` the
-value actually found is fetched. The result is the `diagnosis` column of
-`verifiers.csv` and the `why:` line of a replay, such as
-`channel = 'phone' (actual: chat); priority = 'moderate' (actual: None)` or
-`nothing matches incident_id = 'INC_024'`. A check expecting no rows gets the
-surplus rows instead. About 95% of the verifiers are count checks this
-applies to; the rest keep expected and actual only.
+the run's database is deleted, the runner reads the final state and compares
+it with the seed (`attempt-<n>.changes.json`: every row inserted, updated or
+deleted), then takes each failed count check apart at its top-level ANDs and
+tests every condition on its own against the rows the agent inserted or
+updated in the check's table, fetching the value actually found where a
+condition fails. A check expecting no rows gets the surplus rows instead; a
+check that reads one value is already wanted against actual; the few queries
+with a top-level OR or another shape keep expected and actual only. Each
+failed check is then traced back to the agent's turns: the calls that write
+the check's table (a writing verb and the table's name in the tool's name),
+which of them set each wrong cell, and the `step` the check failed at:
+`skipped` (no call wrote the table), `failed` (a call returned an error),
+`wrong` (the row is there with wrong cells) or `attempted` (the calls
+succeeded and the row is still not what the check wants). The `kind` column
+of `verifiers.csv` says what the diagnosis found: `cells`, `no_rows`,
+`too_many_rows`, `value` or `unsupported`.
 
 An evaluation folder is named by its start time and domain, then anything
 that makes it differ from the experiment file: a `--label` word, an
@@ -131,17 +153,19 @@ results is one table away. A task whose run raises an error counts as failed
 and the error count is reported separately; the benchmark keeps no token
 counts for such a run.
 
-Each `attempt-<n>.json` file is the executor's complete record of one task
-run, but as a single JSON document it is hard to read. Print it as a
-transcript instead: the policy and request the agent was given, each model
-turn with its tool calls, each tool result, and the verifier table at the end:
+Every evaluation folder is written to be read without a tracing server:
 
-```bash
-mas-optimiser replay runs/<experiment>/<evaluation>/tasks/<task_id>/attempt-1.json
-```
-
-`--full-policy` prints the whole policy rather than its first lines, and
-`--max-chars N` changes where long tool results and model text are clipped.
+- `summary.md`: a page on how the run went and what went wrong, by table and
+  column, with the worst tasks and where the files are;
+- `tasks.csv` (one row per attempt), `verifiers.csv` (one per attempt and
+  check, with the failure's kind and step), `cells.csv` (one per failed
+  check, touched row and condition, with the turn that set a wrong cell) and
+  `changes.csv` (one per attempt and changed table);
+- `tasks/<task_id>/attempt-<n>.md`: the attempt as a page, the request, what
+  the agent did turn by turn, the changes against the seed, and every check
+  with, under a failure, each condition marked ok or WRONG and the turn
+  behind it, beside the full record (`.json`) and the changes
+  (`.changes.json`).
 
 ## Splitting the tasks
 

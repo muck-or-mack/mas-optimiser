@@ -38,6 +38,9 @@ COLUMNS = (
     "expected",
     "actual",
     "diagnosis",
+    "kind",
+    "table",
+    "step",
 )
 
 
@@ -148,25 +151,36 @@ def upstream_verdict(results: dict[str, dict], names: Names) -> tuple[int, int, 
 def verifier_records(
     task_id: str, attempt: int, results: dict[str, dict], names: Names
 ) -> list[dict]:
-    """Flatten one run's verdicts into ``verifiers.csv`` rows (``COLUMNS``), one per verifier."""
-    return [
-        dict(
-            zip(
-                COLUMNS,
-                (
-                    task_id,
-                    attempt,
-                    position,
-                    names.original[unique],
-                    result["passed"],
-                    result["upstream_passed"],
-                    result.get("comparison_type", ""),
-                    result.get("expected"),
-                    result.get("actual"),
-                    diagnosis.describe(result.get("diagnosis")),
-                ),
-                strict=True,
+    """Flatten one run's verdicts into ``verifiers.csv`` rows (``COLUMNS``), one per verifier.
+
+    A failed verdict carries the ``kind`` and ``table`` of its diagnosis and
+    the ``step`` its trace gave it (see ``report``); a passed one leaves them
+    empty.
+    """
+    rows = []
+    for position, (unique, result) in enumerate(results.items(), start=1):
+        found = result.get("diagnosis") or {}
+        rows.append(
+            dict(
+                zip(
+                    COLUMNS,
+                    (
+                        task_id,
+                        attempt,
+                        position,
+                        names.original[unique],
+                        result["passed"],
+                        result["upstream_passed"],
+                        result.get("comparison_type", ""),
+                        result.get("expected"),
+                        result.get("actual"),
+                        diagnosis.describe(found),
+                        found.get("kind", ""),
+                        found.get("table", ""),
+                        (result.get("trace") or {}).get("step", ""),
+                    ),
+                    strict=True,
+                )
             )
         )
-        for position, (unique, result) in enumerate(results.items(), start=1)
-    ]
+    return rows

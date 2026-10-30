@@ -16,6 +16,9 @@ domain: itsm
 mode: oracle
 # Run only the first N tasks of the domain; remove the line for all of them.
 limit: 5
+# Run only one set of a split in configs/splits/, as split-name:set, for
+# example haiku-20-40-40:training; the default is every task of the domain.
+# split: haiku-20-40-40:training
 # Runs per task. One run cannot tell a task the agent always fails from one it
 # fails half the time; three runs can, and are the pilot for the final number.
 attempts: 1
