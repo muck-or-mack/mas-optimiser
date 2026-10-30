@@ -153,6 +153,7 @@ class TaskExecutor(BenchmarkExecutor):
             number.
         seed: The task's seed copy and its layout, from ``states.seed_copy``.
         domain: The task's domain, for the columns its server stamps.
+        task_id: The task's dataset ID, for its entry in the patch list.
     """
 
     def __init__(
@@ -163,10 +164,14 @@ class TaskExecutor(BenchmarkExecutor):
         thinking: dict | None,
         seed: tuple,
         domain: str,
+        task_id: str,
         **kwargs,
     ):
         config.verifiers, self.names = checks.unique_names(config.verifiers)
         self.check_gyms = {v["name"]: v.get("gym_name") for v in config.verifiers}
+        config.verifiers, self.names = checks.apply_patches(
+            task_id, config.verifiers, self.names
+        )
         super().__init__(config, *args, **kwargs)
         self.trace = trace
         self.thinking = thinking
@@ -191,9 +196,10 @@ class TaskExecutor(BenchmarkExecutor):
         for result in results.values():
             checks.recheck(result)
         try:
+            await checks.original_verdicts(results, self.names, self.sql_runner)
             self.changes = await self.read_changes()
             for name, result in results.items():
-                if not result["passed"] and result.get("query"):
+                if result["passed"] is False and result.get("query"):
                     result["diagnosis"] = await diagnosis.diagnose(
                         result, self.changes, self.layout["keys"], self.sql_runner(name)
                     )
@@ -503,8 +509,9 @@ def task_record(
         "task_id": task_id,
         "attempt": attempt,
         "success": bool(run.get("overall_success")),
-        "checks_passed": sum(r["passed"] for r in results.values()),
-        "checks_total": len(names.original),
+        "checks_passed": sum(bool(r["passed"]) for r in results.values()),
+        "checks_total": len(names.original)
+        - sum(p["disposition"] == "excluded" for p in names.patched.values()),
         "upstream_success": upstream_success,
         "upstream_checks_passed": upstream_passed,
         "upstream_checks_total": upstream_total,
@@ -661,6 +668,7 @@ async def run_task(
             Path(config["gym_servers_config"][0]["seed_database_file"]), domain
         ),
         domain=domain,
+        task_id=task_id,
     )
     # The evaluation's experiment and folder name group the traces as one session.
     span_context = (

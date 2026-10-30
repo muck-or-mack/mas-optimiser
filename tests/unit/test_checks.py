@@ -1,3 +1,5 @@
+import asyncio
+
 from mas_optimiser.benchmarks.enterpriseops import checks
 
 
@@ -129,5 +131,57 @@ def test_check_records_use_the_original_names_in_order():
         "kind": "no_rows",
         "table": "t",
         "step": "",
+        "patch": "",
     }
     assert rows[0]["diagnosis"] == ""
+
+
+def test_patches_drop_excluded_checks_and_swap_repaired_queries(monkeypatch):
+    monkeypatch.setattr(
+        checks,
+        "load_patches",
+        lambda: {
+            "t": {
+                "a": {
+                    "disposition": "excluded",
+                    "evidence": "names another seed's record",
+                },
+                "b (2)": {
+                    "disposition": "repaired",
+                    "evidence": "wrong id",
+                    "query": "q2 fixed",
+                    "expected_value": 1,
+                    "comparison_type": "equals",
+                },
+            }
+        },
+    )
+    kept, names = checks.unique_names(
+        [check("a", "qa"), check("b", "q1"), check("b", "q2")]
+    )
+    to_run, names = checks.apply_patches("t", kept, names)
+    assert [c["name"] for c in to_run] == ["b", "b (2)"]
+    assert to_run[1]["validation_config"]["query"] == "q2 fixed"
+    assert names.patched["a"]["disposition"] == "excluded"
+    assert names.patched["b (2)"]["query"] == "q2"
+    assert names.original == {"a": "a", "b": "b", "b (2)": "b"}
+
+    async def run_sql(query):
+        return {"qa": 0, "q2": 0, "q2 fixed": 1}[query]
+
+    results = {
+        "b": {"passed": True, "upstream_passed": True},
+        "b (2)": {"passed": True, "upstream_passed": True, "query": "q2 fixed"},
+    }
+    asyncio.run(checks.original_verdicts(results, names, lambda name: run_sql))
+    # The repaired check passes here and fails for the benchmark; the excluded
+    # one is listed with no verdict of ours.
+    assert results["b (2)"]["patch"] == "repaired"
+    assert results["b (2)"]["upstream_passed"] is False
+    assert results["a"]["passed"] is None and results["a"]["upstream_passed"] is False
+    rows = checks.check_records("t", 1, results, names)
+    assert [(r["name"], r["passed"], r["patch"]) for r in rows] == [
+        ("b", True, ""),
+        ("b", True, "repaired"),
+        ("a", None, "excluded"),
+    ]

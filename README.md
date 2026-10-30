@@ -84,7 +84,7 @@ runs/<experiment>/
     summary.md                   how the run went and what went wrong, one page
     run.json                     every setting, the task list and the totals
     tasks.csv                    one row per attempt: verdict, checks, tool errors, tokens, cost
-    checks.csv                one row per attempt and check: verdict, diagnosis, kind, step
+    checks.csv                one row per attempt and check: verdict, diagnosis, kind, step, patch
     cells.csv                    one row per failed check, touched row and condition
     changes.csv                  one row per attempt and changed table
     run.log                      the benchmark's log of every request
@@ -113,7 +113,7 @@ file (`configs/models/<model>.yaml`, which records when the prices were
 checked), and `run.json` and `index.csv` carry the evaluation's total.
 
 A task passes when every one of its checks (the benchmark's "verifiers") passes.
-Two things differ from
+Three things differ from
 the benchmark's own count, and the `upstream_` columns of `tasks.csv` and
 `checks.csv` give that count alongside. The benchmark keys verdicts by
 name, so where a task gives two checks the same name only the
@@ -123,7 +123,11 @@ those the shared name hides different checks. Here an exact copy of a check
 check counts. And 33 count checks in seven tasks give their expected value as
 the string `'1'`, which the benchmark compares with `==` against the integer
 the database returns, so they can never pass; here count checks are compared
-as numbers.
+as numbers. And a short patch list (`data/check_patches.json`) excludes the
+few checks that no correct attempt can satisfy and repairs the few whose query
+names the wrong record, each entry with its evidence; the benchmark's own
+verdict on every patched check is still recorded beside ours (the
+`upstream_passed` and `patch` columns of `checks.csv`).
 
 A failed check says only that its whole SQL condition did not hold. Before
 the run's database is deleted, the runner reads the final state and compares

@@ -1,7 +1,7 @@
 import asyncio
 import sqlite3
 
-from mas_optimiser.benchmarks.enterpriseops import rescore
+from mas_optimiser.benchmarks.enterpriseops import checks, rescore
 
 
 def database():
@@ -38,12 +38,12 @@ def test_the_local_runner_shapes_results_as_the_executor_does():
 
 
 def test_compare_follows_the_executor_including_its_type_strictness():
-    assert rescore.compare(1, 1, "equals")
-    assert not rescore.compare(1, "1", "equals")
-    assert rescore.compare(2, 1, "greater_than")
-    assert not rescore.compare("a", 1, "greater_than")
-    assert rescore.compare("abc", "b", "contains")
-    assert not rescore.compare(1, 1, "unknown")
+    assert checks.compare(1, 1, "equals")
+    assert not checks.compare(1, "1", "equals")
+    assert checks.compare(2, 1, "greater_than")
+    assert not checks.compare("a", 1, "greater_than")
+    assert checks.compare("abc", "b", "contains")
+    assert not checks.compare(1, 1, "unknown")
 
 
 def test_checks_run_locally_keep_the_executor_verdict_beside_the_corrected_one():

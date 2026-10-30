@@ -286,9 +286,20 @@ def attempt_text(
         lines += [f"- {line}" for line in states.summary(changes, queries)]
     lines += ["", "## Checks", ""]
     for name, result in results.items():
+        if result.get("patch") == "excluded":
+            verdict = "pass" if result["upstream_passed"] else "fail"
+            lines.append(
+                f"### EXCLUDED  {name} (no correct attempt can satisfy it; "
+                f"the benchmark's own verdict: {verdict})"
+            )
+            if result.get("query"):
+                lines.append(f"    {' '.join(result['query'].split())}")
+            lines.append("")
+            continue
         flag = "PASS" if result["passed"] else "FAIL"
+        patched = " (repaired)" if result.get("patch") == "repaired" else ""
         lines.append(
-            f"### {flag}  {name} (expected {result.get('expected')!r}, got {result.get('actual')!r})"
+            f"### {flag}  {name}{patched} (expected {result.get('expected')!r}, got {result.get('actual')!r})"
         )
         if result.get("query"):
             lines.append(f"    {' '.join(result['query'].split())}")
@@ -363,7 +374,7 @@ def summary(
     checks_total = sum(r["checks_total"] for r in records)
     errored = sum(r.get("tool_errors", 0) > 0 for r in records)
     unasked = {(c["task_id"], c["attempt"]) for c in change_list if not c["mentioned"]}
-    failed = [c for c in check_rows if not c["passed"]]
+    failed = [c for c in check_rows if c["passed"] is False]
     steps = Counter(c["step"] for c in failed if c["step"])
     skipped = Counter(c["table"] for c in failed if c["step"] == "skipped")
     broke = Counter(c["table"] for c in failed if c["step"] == "failed")

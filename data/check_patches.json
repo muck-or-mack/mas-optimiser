@@ -1,0 +1,188 @@
+{
+ "task_20251201_164641_724_109c89c0_1b29acb9": {
+  "Transition Case Created (2)": {
+   "disposition": "excluded",
+   "evidence": "the copy with state = resolved: the policy's default state for a new case is new and the request does not ask to resolve the handover case; one created case cannot satisfy both copies, so this one is excluded and the state = new copy kept"
+  },
+  "Notification Sent to New Primary (2)": {
+   "disposition": "excluded",
+   "evidence": "the duplicate of Notification Sent to New Primary whose subquery selects a resolved handover case, which the request does not ask for"
+  }
+ },
+ "task_20251210_205620_593_391f1eff_ad65c160": {
+  "Report incident (2)": {
+   "disposition": "excluded",
+   "evidence": "a copy of 'Report incident' differing only in channel = phone; the request names no channel and policy 3.1 defaults it to chat, so the two cannot both hold and the chat copy is the one the policy supports"
+  }
+ },
+ "task_20251212_184405_886_e6427839_6413728a": {
+  "Verify if the incident is created correctly. (2)": {
+   "disposition": "excluded",
+   "evidence": "its priority = high contradicts the policy 3.1 matrix, where impact high x urgency high = critical; the first copy is the one kept"
+  },
+  "Verify if the notification is sent correctly. (2)": {
+   "disposition": "excluded",
+   "evidence": "a copy of the notification check differing only in type (reminder vs other); nothing in the request, policy or seed decides the type, so the first copy is carried repaired without it and this one is its duplicate"
+  }
+ },
+ "task_20251217_030654_663_99ba2325_f931fd42": {
+  "Verify Incident Creation": {
+   "disposition": "excluded",
+   "evidence": "its ids belong to a different seed database: INC_024 is an existing incident here ('Mixer Hum', caller USER_063, in_progress) and the next id is INC_101; USER_006 is Stephanie Todd, and no Elena Petrov exists; SVCOFF_004 is 'Cafeteria Menu - Digital', and no 'Dev Server Access' offering exists; GROUP_002 is 'L2 IT Support', and no 'Service Desk Operations' group exists (the eight groups are L1/L2 IT Support, Service Desk, Field Support and Infra Team); the request's named rows are absent, so the check cannot be repaired by resolving names on this seed"
+  },
+  "Verify KB INC linking": {
+   "disposition": "excluded",
+   "evidence": "its ids belong to a different seed database: INC_024 is an existing unrelated incident here and KB_003 is 'VPN Error 412 Fix'; no article titled 'Desktop Boot Failure Troubleshooting' exists on this seed (no title contains 'Boot' or 'Desktop'), so the link the check tests cannot be made"
+  }
+ },
+ "task_20251219_155215_361_00364ece_c1c6ffc8": {
+  "Send Notification (2)": {
+   "disposition": "excluded",
+   "evidence": "a copy from another seed database: lauren.diaz70@acme.com is user 100 Lauren Diaz (employee, org 14), the requester of case 47 here and no one on case 1; the request says alert the task handler, Travis Wood"
+  },
+  "Verify Case priority and State (2)": {
+   "disposition": "excluded",
+   "evidence": "a copy from another seed database: hr_case 47 is HRC0000757 (org 7) on this seed; HRC0000711 is hr_case 1"
+  },
+  "Send Notification (3)": {
+   "disposition": "excluded",
+   "evidence": "a copy from another seed database: hr_case 47 is HRC0000757 (org 7) and lauren.diaz70@acme.com is Lauren Diaz (org 14); here the case is 1 and the task handler is Travis Wood"
+  },
+  "Verify task Creation (3)": {
+   "disposition": "excluded",
+   "evidence": "a copy from another seed database: parent_case 47 is HRC0000757 (org 7) on this seed; HRC0000711 is hr_case 1"
+  },
+  "Verify Case priority and State (3)": {
+   "disposition": "excluded",
+   "evidence": "a copy from another seed database: hr_case 47 (HRC0000757, org 7), group 18 (Stark Contractors, org 7, not Global Service Desk) and user 40 (Susan Adams, not Travis Wood); here the case is 1, the group 3 and the assignee 11"
+  },
+  "Verify task Creation (4)": {
+   "disposition": "excluded",
+   "evidence": "a copy from another seed database: parent_case 47 (HRC0000757), group 18 (Stark Contractors) and assignee 40 (Susan Adams); here the case is 1, the group 3 and Travis Wood is user 11"
+  },
+  "Verify Case priority and State (4)": {
+   "disposition": "excluded",
+   "evidence": "a copy from another seed database: hr_case 47 (HRC0000757) and group 18 (Stark Contractors); HRC0000711 is hr_case 1 and Global Service Desk is group 3"
+  },
+  "Verify task Creation (5)": {
+   "disposition": "excluded",
+   "evidence": "a copy from another seed database: parent_case 47 (HRC0000757) and group 18 (Stark Contractors); here the case is 1 and the group 3"
+  }
+ },
+ "task_20251219_205632_335_cd46e60f_4db23138": {
+  "Case Completion Verification": {
+   "disposition": "excluded",
+   "evidence": "cannot hold together with the approval checks on the same case (awaiting_approval with request_status requested); the policy lets an approval case close only once approved, the only approval given is verbal and outside the system, and the policy forbids fabricating outcomes, so the case stays awaiting approval"
+  },
+  "Checklist Task Completion Verification": {
+   "disposition": "excluded",
+   "evidence": "the request asks for a task to handle the documentation (medical certificates, approval forms) but never says the documents have arrived; closing the task would record an outcome nobody reported, and it belongs to the case-completion path that the approval rule rules out"
+  }
+ },
+ "task_20251226_101143_297_99ba2325_75b99d9a": {
+  "Verify Case (2)": {
+   "disposition": "excluded",
+   "evidence": "a copy of 'Verify Case' differing only in a short_description without the closing full stop; the policy's case short-description template 'Service: , Subject: , Detail: .' ends with a full stop, so the two cannot both hold and the policy supports 'Verify Case'"
+  }
+ },
+ "task_20251226_104747_127_30600918_559da326": {
+  "Verify Knowledge (2)": {
+   "disposition": "excluded",
+   "evidence": "the duplicate of 'Verify Knowledge' on the same row (hr_case_kb_id 13) with used_as = suggested; the two cannot both hold (one row, and the table's unique key on case and article allows one link); policy 4.2 reserves 'suggested' for the automated search at case creation, and this article is linked by hand on an existing case, so 'applied' holds"
+  }
+ },
+ "task_20260106_192119_816_ad5a67e3_87a5a87c": {
+  "Verify under 6 open cases related to group": {
+   "disposition": "excluded",
+   "evidence": "the request's limit applies before the move ('doesn't already have too many'): group 3 has 5 open cases on the seed (588, 667, 687, 1010, 1012); once case 53 moves in as in_progress, as the request asks, the correct final count is 6, so an expected count of 5 contradicts 'Case moved to Case Triage and in_progress'"
+  }
+ },
+ "task_20260116_055513_891_99ba2325_849991b8": {
+  "Personal Email Notification Absence Verification": {
+   "disposition": "excluded",
+   "evidence": "it requires no notification to any '%personal%' address, which cannot hold together with Work Email Notification Verification (a notification to kathleen.montgomery.23@personal.example.com); the request says 'send a notification to her personal email' and the policy has no work-email-only rule (5.2 restricts PII content, not the address), so the request supports the other check; every seed notification goes to personal_email"
+  }
+ },
+ "task_20260116_091935_817_d4a463c3_3f20bdca": {
+  "Verify Incident KB link": {
+   "disposition": "excluded",
+   "evidence": "the query passes only when no link between INC_101 and KB_023 exists, but the policy requires matching articles to be linked as used_as = suggested when an incident is created, and the request names KB_023 as the article for this issue and asks that it be available for the support team to reference; no rule in the request or policy forbids the link, and the check already holds on the seed, where neither the incident nor any link to KB_023 exists"
+  }
+ },
+ "task_20260114_073658_459_78a5b71e_cab5cc9f": {
+  "verify_new_db_backup_alert_sent_to_sophie": {
+   "disposition": "repaired",
+   "evidence": "the request's quoted message ends 'risk to customer-facing systems' (hyphenated); the check's literal reads 'customer facing systems', so an agent sending the message as given would fail it. Message corrected to the request's text; incident INC_021, recipient sophie.mueller@acme.com, type alert and status sent kept, and the row anchored on NOTIF_008, the next id",
+   "query": "SELECT COUNT(*) FROM notification WHERE incident_id='INC_021' AND email='sophie.mueller@acme.com' AND type='alert' AND status='sent' AND message='A backup failure has been detected for the development database, and your immediate review is required to verify backup integrity, confirm whether recent jobs are still failing, and update the incident with your findings so we can determine any further risk to customer-facing systems.';",
+   "expected_value": 1,
+   "comparison_type": "equals",
+   "note": "The quoted message's wording corrected to the request's exact text; incident, recipient, type and status kept."
+  }
+ },
+ "task_20251125_152842_063_b393a327_9622ac64": {
+  "Verify state": {
+   "disposition": "repaired",
+   "evidence": "the check tests state = 'new', but the request says 'open a case directly in in_progress state so the SLA timer starts immediately'; repaired to in_progress",
+   "query": "SELECT COUNT(*) FROM customer_case WHERE short_description = 'NGINX Plus returning 502 Bad Gateway since go-live' AND priority = 'high' AND channel = 'phone' AND state = 'in_progress';",
+   "expected_value": 1,
+   "comparison_type": "equals",
+   "note": "The expected case state replaced by the state the request asks for; other conditions kept."
+  }
+ },
+ "task_20251208_035402_755_ad5a67e3_8ca9a646": {
+  "Case updated with correct product": {
+   "disposition": "repaired",
+   "evidence": "the check's own description says the case should still match its original attributes, state included, but case 101 is new on the seed, not in_progress; the request asks no state change while new -> in_progress is a valid step for a case being worked on, so state = 'in_progress' is widened to new or in_progress",
+   "query": "SELECT COUNT(*) AS cnt\nFROM customer_case c\nJOIN contact ct\n  ON ct.contact_id = c.contact_id\nJOIN account a\n  ON a.account_id = c.account_id\nJOIN \"user\" u\n  ON u.user_id = ct.portal_user_id\nJOIN product p\n  ON p.product_id = c.product_id\nWHERE u.first_name = 'Thomas'\n  AND u.last_name  = 'Bailey'\n  AND a.name       = 'Initech'\n  AND p.name       = 'Docker Enterprise Variant 15'\n  AND c.channel    = 'phone'\n  AND c.state      IN ('new', 'in_progress');",
+   "expected_value": 1,
+   "comparison_type": "equals",
+   "note": "The single required case state widened to either open state; every other condition kept."
+  },
+  "Knowledge Link Verification": {
+   "disposition": "repaired",
+   "evidence": "it repeats the case cells of 'Case updated with correct product', including state = 'in_progress', which on the seed is new; the state cell is widened to new or in_progress as there, and the link cells (article 54 for product 35, used_as applied, which the policy gives an article used without fixing the problem) are carried unchanged",
+   "query": "SELECT COUNT(*) AS cnt\nFROM case_knowledge ck\nJOIN knowledge k\n  ON k.knowledge_id = ck.knowledge_id\nJOIN product p\n  ON p.product_id = k.product_id\nJOIN customer_case c\n  ON c.case_id = ck.case_id\nJOIN contact ct\n  ON ct.contact_id = c.contact_id\nJOIN account a\n  ON a.account_id = ct.account_id\nJOIN \"user\" u\n  ON u.user_id = ct.portal_user_id\nWHERE u.first_name = 'Thomas'\n  AND u.last_name  = 'Bailey'\n  AND a.name       = 'Initech'\n  AND c.channel    = 'phone'\n  AND c.state      IN ('new', 'in_progress')\n  AND c.product_id = p.product_id\n  AND p.name       = 'Docker Enterprise Variant 15'\n  AND ck.used_as   = 'applied'\n  AND k.title LIKE '%Docker Enterprise Variant 15%';",
+   "expected_value": 1,
+   "comparison_type": "equals",
+   "note": "The single required case state widened to either open state, as in the product check; the link conditions kept."
+  }
+ },
+ "task_20251226_010313_969_accab84d_77306049": {
+  "Verify HR Case Creation": {
+   "disposition": "repaired",
+   "evidence": "the check demands one exact description, 'Service: Employee Profile Update, Subject: David Jones, Detail: Transfer to IT Support L2 with new manager Robin Monroe'; the request fixes only what the description includes (the transfer details, the service and the new manager) and the policy's template ends with a full stop the check's string lacks, so the exact Detail wording is undecidable; the description is tested as the Service and Subject prefix plus IT Support L2 and Robin Monroe, and the check's other cells are kept",
+   "query": "SELECT COUNT(*) \nFROM hr_case \nWHERE short_description LIKE 'Service: Employee Profile Update, Subject: David Jones, Detail: %' \n  AND short_description LIKE '%IT Support L2%' \n  AND short_description LIKE '%Robin Monroe%' \n  AND status = 'ready' \n  AND coe_type = 'Workforce Administration' \n  AND hr_service = 35 \n  AND priority = 'moderate' \n  AND opened_for = 22;",
+   "expected_value": 1,
+   "comparison_type": "equals",
+   "note": "The exact description replaced by its fixed prefix plus the transfer target and new manager it must mention; other conditions kept."
+  }
+ },
+ "task_20251226_132052_338_e6427839_727d852c": {
+  "Verify if the new case is created properly.": {
+   "disposition": "repaired",
+   "evidence": "opened_for, assignment_group and assigned_to are integer id columns (referencing hr_profile, user_group and user) and every seed case stores ids there; the check compares them with the names 'Kenneth Scott', 'HR Service Desk' and 'Diana Johnson', which no id equals, so they are replaced by hr_profile 14, group 4 and user 15; every other cell is kept",
+   "query": "SELECT COUNT(*) FROM hr_case WHERE hr_case_id = '61' AND coe_type = 'Total Rewards' AND hr_service = '24' AND opened_for = 14 AND assignment_group = 4 AND assigned_to = 15 AND priority = 'moderate' AND status = 'draft' AND source = 'email';\n",
+   "expected_value": 1,
+   "comparison_type": "equals",
+   "note": "The three names compared with id columns replaced by the matching profile, group and user ids; other conditions kept."
+  }
+ },
+ "task_20260116_170758_750_d4a463c3_3885de59": {
+  "HR case created for stephanie.todd@servicenow.com": {
+   "disposition": "repaired",
+   "evidence": "the check requires the case's short description to contain 'Not working as expected', which the request never states; the request asks for a description in the policy's 'Service: , Subject: , Detail: .' format that clearly states the service, subject and issue, so that phrase is replaced by the format pattern and the service's name; other cells unchanged",
+   "query": "SELECT COUNT(*) AS cnt\nFROM hr_case c\nJOIN hr_service hs\n  ON hs.hr_service_id = c.hr_service\nJOIN user u\n  ON u.user_id = c.opened_for\nWHERE u.email = 'stephanie.todd@servicenow.com'\n  AND hs.service_name = 'Employee Transitional Support Workflow'\n  AND c.source = 'virtual-agent'\n  AND c.priority = 'high'\n  AND lower(c.short_description) LIKE 'service: %, subject: %, detail: %'\n  AND lower(c.short_description) LIKE '%employee transitional support workflow%';",
+   "expected_value": 1,
+   "comparison_type": "equals",
+   "note": "The unrequested description phrase replaced by the policy's description format and the service's name; other conditions kept."
+  },
+  "The HR agent assigned on that case has the “Lifecycle Processing” skill": {
+   "disposition": "repaired",
+   "evidence": "the check finds the case through the same 'Not working as expected' description, which the request never asks for; with that predicate replaced, its parts are the case's service and assignee, the skill and the assignee's skill row",
+   "query": "SELECT COUNT(*) AS cnt\nFROM hr_case c\nJOIN hr_service hs\n  ON hs.hr_service_id = c.hr_service\nJOIN user agent\n  ON agent.user_id = c.assigned_to\nJOIN user_skill us\n  ON us.user = agent.user_id\nJOIN skill s\n  ON s.skill_id = us.skill\nJOIN user opened\n  ON opened.user_id = c.opened_for\nWHERE opened.email = 'stephanie.todd@servicenow.com'\n  AND hs.service_name = 'Employee Transitional Support Workflow'\n  AND lower(c.short_description) LIKE 'service: %, subject: %, detail: %'\n  AND lower(c.short_description) LIKE '%employee transitional support workflow%'\n  AND s.name = 'Lifecycle Processing'\n  AND s.active = 1;",
+   "expected_value": 1,
+   "comparison_type": "equals",
+   "note": "The unrequested description phrase that finds the case replaced by the same format and service-name test as the case check; the service, assignee and skill joins kept."
+  }
+ }
+}

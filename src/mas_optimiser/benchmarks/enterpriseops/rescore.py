@@ -54,22 +54,6 @@ def local_runner(final: sqlite3.Connection) -> diagnosis.RunSQL:
     return run_sql
 
 
-def compare(actual: object, expected: object, comparison: str) -> bool:
-    """The executor's comparison of a check's value with its expected value."""
-    try:
-        if comparison == "equals":
-            return actual == expected
-        if comparison == "greater_than":
-            return actual > expected  # type: ignore[operator]
-        if comparison == "less_than":
-            return actual < expected  # type: ignore[operator]
-        if comparison == "contains":
-            return str(expected) in str(actual)
-    except TypeError:
-        return False
-    return False
-
-
 async def check_locally(kept: list[dict], final: sqlite3.Connection) -> dict[str, dict]:
     """Run each check's query on the rebuilt database and give its verdict as the executor would."""
     run_sql = local_runner(final)
@@ -84,7 +68,7 @@ async def check_locally(kept: list[dict], final: sqlite3.Connection) -> dict[str
         expected = config.get("expected_value")
         comparison = config.get("comparison_type", "equals")
         result = {
-            "passed": compare(actual, expected, comparison),
+            "passed": checks.compare(actual, expected, comparison),
             "expected": expected,
             "actual": actual,
             "comparison_type": comparison,
@@ -116,16 +100,20 @@ async def rescore_attempt(
     )
     final = states.rebuild(seed, changes, layout["keys"])
     kept, names = checks.unique_names(config["verifiers"])
+    kept, names = checks.apply_patches(folder.name, kept, names)
     results = await check_locally(kept, final)
     run_sql = local_runner(final)
+    await checks.original_verdicts(results, names, lambda name: run_sql)
     for result in results.values():
-        if not result["passed"] and result.get("query"):
+        if result["passed"] is False and result.get("query"):
             result["diagnosis"] = await diagnosis.diagnose(
                 result, changes, layout["keys"], run_sql
             )
     run.setdefault("verification_results_as_run", run.get("verification_results", {}))
     run["verification_results"] = results
-    run["overall_success"] = all(r["passed"] for r in results.values())
+    run["overall_success"] = all(
+        r["passed"] for r in results.values() if r["passed"] is not None
+    )
     outputs = runner.outputs(
         folder.name, attempt, run, changes, layout["keys"], names, pricing
     )

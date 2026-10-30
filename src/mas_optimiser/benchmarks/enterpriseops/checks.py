@@ -19,14 +19,24 @@ own verdict stays beside the corrected one as ``upstream_passed``.
 the task, so both conventions can be shown side by side, and
 ``check_records`` flattens one run's verdicts into the rows of
 ``checks.csv``.
+
+A few of the benchmark's checks are wrong in themselves: no correct attempt
+can satisfy them, or they name the wrong record. ``data/check_patches.json``
+lists those, each with the evidence, as excluded or repaired (the query
+corrected). ``apply_patches`` takes a task's list through it before the run,
+and ``original_verdicts`` runs each patched check's original query afterwards,
+so the benchmark's own verdict on every check stays beside the one used here.
 """
 
 import contextlib
+import functools
+import json
 from typing import NamedTuple
 
-from mas_optimiser.benchmarks.enterpriseops import diagnosis
+from mas_optimiser.benchmarks.enterpriseops import REPO_ROOT, diagnosis
 
 NUMBER_TYPES = (int, float)
+PATCHES_FILE = REPO_ROOT / "data" / "check_patches.json"
 COLUMNS = (
     "task_id",
     "attempt",
@@ -41,6 +51,7 @@ COLUMNS = (
     "kind",
     "table",
     "step",
+    "patch",
 )
 
 
@@ -53,10 +64,13 @@ class Names(NamedTuple):
             them).
         upstream: Each task-given name to the unique name of the copy the
             executor's own dict would have ended up holding, the last one.
+        patched: Each patched check's unique name to its disposition and
+            the original query, expected value and comparison.
     """
 
     original: dict[str, str]
     upstream: dict[str, str]
+    patched: dict[str, dict] = {}
 
 
 def unique_names(verifiers: list[dict]) -> tuple[list[dict], Names]:
@@ -98,6 +112,102 @@ def unique_names(verifiers: list[dict]) -> tuple[list[dict], Names]:
         upstream[name] = unique
         seen[key] = unique
     return renamed, Names(original, upstream)
+
+
+@functools.cache
+def load_patches() -> dict:
+    """The patch list: for each task, its excluded and repaired checks by unique name."""
+    return json.loads(PATCHES_FILE.read_text()) if PATCHES_FILE.exists() else {}
+
+
+def apply_patches(
+    task_id: str, kept: list[dict], names: Names
+) -> tuple[list[dict], Names]:
+    """Drop a task's excluded checks and swap in its repaired queries.
+
+    Args:
+        task_id: The task's dataset ID.
+        kept: Its checks after ``unique_names``.
+        names: The maps from ``unique_names``.
+
+    Returns:
+        The checks to run, and ``names`` with ``patched`` filled from the
+        originals, so that ``original_verdicts`` can run them afterwards.
+    """
+    patches = load_patches().get(task_id, {})
+    if not patches:
+        return kept, names
+    patched, to_run = {}, []
+    for check in kept:
+        patch = patches.get(check["name"])
+        if patch is None:
+            to_run.append(check)
+            continue
+        config = check.get("validation_config", {})
+        patched[check["name"]] = {
+            "disposition": patch["disposition"],
+            "evidence": patch.get("evidence", ""),
+            "query": config.get("query", ""),
+            "expected_value": config.get("expected_value"),
+            "comparison_type": config.get("comparison_type", "equals"),
+        }
+        if patch["disposition"] == "repaired":
+            repaired = {
+                "query": patch["query"],
+                "expected_value": patch["expected_value"],
+                "comparison_type": patch["comparison_type"],
+            }
+            to_run.append(check | {"validation_config": config | repaired})
+    return to_run, Names(names.original, names.upstream, patched)
+
+
+def compare(actual: object, expected: object, comparison: str) -> bool:
+    """The executor's own comparison of a check's value with its expected value."""
+    try:
+        if comparison == "equals":
+            return actual == expected
+        if comparison == "greater_than":
+            return actual > expected  # type: ignore[operator]
+        if comparison == "less_than":
+            return actual < expected  # type: ignore[operator]
+        if comparison == "contains":
+            return str(expected) in str(actual)
+    except TypeError:
+        return False
+    return False
+
+
+async def original_verdicts(results: dict[str, dict], names: Names, runner_for) -> None:
+    """Run each patched check's original query and keep the benchmark's verdict beside ours.
+
+    A repaired check's result gets ``upstream_passed`` from its original
+    query and ``patch`` "repaired". An excluded check, which did not run,
+    gets a result of its own with ``passed`` ``None``, so it is listed but
+    counts for neither side's total here and for the benchmark's own verdict
+    only.
+
+    Args:
+        results: The run's ``verification_results``, edited in place.
+        names: The maps from ``apply_patches``.
+        runner_for: Gives a query function for a check's name.
+    """
+    for unique, patch in names.patched.items():
+        actual = await runner_for(unique)(patch["query"])
+        verdict = compare(actual, patch["expected_value"], patch["comparison_type"])
+        if patch["disposition"] == "excluded":
+            results[unique] = {
+                "passed": None,
+                "upstream_passed": verdict,
+                "expected": patch["expected_value"],
+                "actual": actual,
+                "comparison_type": patch["comparison_type"],
+                "query": patch["query"],
+                "patch": "excluded",
+            }
+        elif unique in results:
+            results[unique]["upstream_passed"] = verdict
+            results[unique]["patch"] = "repaired"
+            results[unique]["original_query"] = patch["query"]
 
 
 def recheck(result: dict) -> None:
@@ -178,6 +288,7 @@ def check_records(
                         found.get("kind", ""),
                         found.get("table", ""),
                         (result.get("trace") or {}).get("step", ""),
+                        result.get("patch", ""),
                     ),
                     strict=True,
                 )
