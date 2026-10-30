@@ -524,6 +524,99 @@ def task_record(
     }
 
 
+def outputs(
+    task_id: str,
+    attempt: int,
+    run: dict,
+    changes: dict | None,
+    keys: dict,
+    names: verifiers.Names,
+    pricing: dict,
+) -> tuple[dict, list[dict], list[dict], list[dict]]:
+    """Trace each failed check, then build one attempt's rows for every table.
+
+    The trace is attached to the check's result before anything is written,
+    so the record, the CSVs and the page agree.
+
+    Returns:
+        The ``tasks.csv`` row and the ``verifiers.csv``, ``cells.csv`` and
+        ``changes.csv`` rows.
+    """
+    results = run.get("verification_results", {})
+    agent_calls = report.calls(run)
+    for check in results.values():
+        if not check["passed"] and check.get("diagnosis"):
+            check["trace"] = report.trace(check, agent_calls, keys)
+    queries = [r.get("query", "") for r in results.values()]
+    return (
+        task_record(task_id, attempt, run, names, pricing),
+        verifiers.verifier_records(task_id, attempt, results, names),
+        report.cell_rows(task_id, attempt, results),
+        report.change_rows(task_id, attempt, changes, queries),
+    )
+
+
+def save_attempt(
+    folder: Path, attempt: int, result: dict, changes: dict | None
+) -> None:
+    """Write an attempt's record, its changes against the seed and its page into the task's folder."""
+    folder.mkdir(exist_ok=True)
+    (folder / f"attempt-{attempt}.json").write_text(
+        json.dumps(result, indent=2, default=str)
+    )
+    if changes is not None:
+        (folder / f"attempt-{attempt}.changes.json").write_text(
+            json.dumps({"changes": changes}, indent=1, default=str)
+        )
+    (folder / f"attempt-{attempt}.md").write_text(
+        report.attempt_text(folder.name, attempt, result["runs"][0], changes)
+    )
+
+
+def write_tables(
+    out: Path,
+    settings: dict,
+    records: list[dict],
+    verifier_rows: list[dict],
+    cell_rows: list[dict],
+    change_rows: list[dict],
+) -> None:
+    """Write an evaluation's ``tasks.csv``, ``verifiers.csv``, ``cells.csv``, ``changes.csv`` and ``summary.md``.
+
+    Args:
+        out: The evaluation folder.
+        settings: Its settings; ``domain``, ``mode`` and ``model`` (a name, or
+            the model config as ``run.json`` keeps it) head the summary.
+    """
+    model = settings.get("model")
+    if isinstance(model, dict):
+        model = model.get("llm_model", "?")
+    for name, columns, rows in (
+        ("tasks.csv", list(records[0]) if records else [], records),
+        ("verifiers.csv", verifiers.COLUMNS, verifier_rows),
+        ("cells.csv", report.CELL_COLUMNS, cell_rows),
+        ("changes.csv", report.CHANGE_COLUMNS, change_rows),
+    ):
+        with (out / name).open("w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=columns)
+            writer.writeheader()
+            writer.writerows(rows)
+    (out / "summary.md").write_text(
+        report.summary(
+            out.name,
+            {
+                "domain": settings.get("domain"),
+                "mode": settings.get("mode"),
+                "model": model,
+            },
+            records,
+            verifier_rows,
+            cell_rows,
+            change_rows,
+        )
+    )
+
+
 async def run_task(
     task_id: str,
     config: dict,
@@ -593,18 +686,17 @@ async def run_task(
         run = result["runs"][0]
         if executor.diagnosis_error:
             run["diagnosis_error"] = executor.diagnosis_error
-        results = run.get("verification_results", {})
-        # Each failed check is traced back to the agent's turns before anything
-        # is written, so the record, the CSVs and the page agree.
-        agent_calls = report.calls(run)
-        for check in results.values():
-            if not check["passed"] and check.get("diagnosis"):
-                check["trace"] = report.trace(
-                    check, agent_calls, executor.layout["keys"]
-                )
-        record = task_record(task_id, attempt, run, executor.names, pricing)
-        rows = verifiers.verifier_records(task_id, attempt, results, executor.names)
         changes = executor.changes
+        record, rows, cells, changed = outputs(
+            task_id,
+            attempt,
+            run,
+            changes,
+            executor.layout["keys"],
+            executor.names,
+            pricing,
+        )
+        results = run.get("verification_results", {})
         if span is not None:
             fraction = (
                 record["verifiers_passed"] / record["verifiers_total"]
@@ -647,25 +739,8 @@ async def run_task(
                     ),
                 }
             )
-    folder = out / "tasks" / task_id
-    folder.mkdir(exist_ok=True)
-    (folder / f"attempt-{attempt}.json").write_text(
-        json.dumps(result, indent=2, default=str)
-    )
-    if changes is not None:
-        (folder / f"attempt-{attempt}.changes.json").write_text(
-            json.dumps({"changes": changes}, indent=1, default=str)
-        )
-    (folder / f"attempt-{attempt}.md").write_text(
-        report.attempt_text(task_id, attempt, run, changes)
-    )
-    queries = [r.get("query", "") for r in results.values()]
-    return (
-        record,
-        rows,
-        report.cell_rows(task_id, attempt, results),
-        report.change_rows(task_id, attempt, changes, queries),
-    )
+    save_attempt(out / "tasks" / task_id, attempt, result, changes)
+    return record, rows, cells, changed
 
 
 async def run_tasks(
@@ -910,35 +985,13 @@ def evaluate(
         root.removeHandler(handler)
         handler.close()
 
-    with (out / "tasks.csv").open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=list(records[0]))
-        writer.writeheader()
-        writer.writerows(records)
-    with (out / "verifiers.csv").open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=verifiers.COLUMNS)
-        writer.writeheader()
-        writer.writerows(verifier_rows)
-    for name, columns, table_rows in (
-        ("cells.csv", report.CELL_COLUMNS, cell_rows),
-        ("changes.csv", report.CHANGE_COLUMNS, change_rows),
-    ):
-        with (out / name).open("w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=columns)
-            writer.writeheader()
-            writer.writerows(table_rows)
-    (out / "summary.md").write_text(
-        report.summary(
-            out.name,
-            {
-                "domain": domain,
-                "mode": experiment["mode"],
-                "model": experiment["model"],
-            },
-            records,
-            verifier_rows,
-            cell_rows,
-            change_rows,
-        )
+    write_tables(
+        out,
+        {"domain": domain, "mode": experiment["mode"], "model": model.llm_model},
+        records,
+        verifier_rows,
+        cell_rows,
+        change_rows,
     )
     by_task: dict[str, list[bool]] = {}
     for r in records:

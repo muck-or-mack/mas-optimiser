@@ -213,41 +213,23 @@ row for row (`uv run pytest -m integration tests/integration/test_seeds.py`),
 with one exception: in many rows the HR server replaces `created_at` and
 `updated_at` with the time it loads the seed (which rows depends on the seed
 file), so those two HR columns are left out of the comparison. The CSM
-server returns at most 100 rows to a query that sets no `LIMIT` of its own. The
-project's own check files, one per task under `data/checks/`, are
-described in `data/checks/README.md`; the runner scores the benchmark's
-checks until they are complete. Both folders are found from the repository,
+server returns at most 100 rows to a query that sets no `LIMIT` of its own. Both folders are found from the repository,
 whatever the working directory.
 
-## Scoring with the check files
+## Recomputing an evaluation
 
 ```
 mas-optimiser rescore runs/<experiment>/<evaluation> [...]
 ```
 
-Scores every attempt of an evaluation against the check files, without
-running the agent again. The server deletes an attempt's database when the
-attempt ends, so the command rebuilds it: it seeds a fresh database, issues
-the attempt's recorded tool calls again in order, and requires every result
-to match the recorded one with timestamps masked. An attempt where one
-differs is reported as `not reproduced` and left unscored; one that raised
-before finishing has no final state and counts as failed. The final state is
-read back and compared with the local seed copy, and the difference (rows
-inserted, deleted and updated, a few kilobytes) is saved as
-`attempt-<n>.changes.json`, so a later run of the command applies it to the
-seed copy instead of asking the server. Every requirement's query also runs
-on the server's copy, and `server_agrees` says whether its count matched the
-local one. Those counts are saved with the changes, so a later rescore still
-checks every requirement whose query has not changed since.
-
-Each attempt gets `attempt-<n>.checks.json`: the verdict, every
-requirement's count, an audit of each failed one (the rows it names and
-which cells are wrong, a row that is missing, rows that match although they
-should not, or the changed rows that break a requirement to leave things
-as they were), the changes no requirement asked for, and a short
-explanation in plain text. The evaluation gets `checks.csv`, one row per
-attempt beside the benchmark's two verdicts, and `requirements.csv`, one row
-per requirement per attempt.
+Recomputes every attempt of an evaluation from its saved record and its
+changes against the seed, without running the agent: the final database is
+rebuilt locally, every check is run again as the benchmark's engine would run
+it, each failure is diagnosed and traced, and the tables, pages and summary
+are rewritten. Use it after a change to the diagnosis or to the checks. An
+attempt with no saved changes (a run that raised before it finished) is left
+as it was. The record keeps the verdicts the run first produced as
+`verification_results_as_run` beside the recomputed ones.
 
 ## Watching a run in Langfuse
 
