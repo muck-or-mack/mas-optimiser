@@ -177,3 +177,36 @@ def test_read_state_reads_each_table_a_page_at_a_time(seed, monkeypatch):
         'SELECT "incident_id", "number", "caller_id", "priority", "assigned_to", '
         '"state", "notes" FROM "incident" ORDER BY "incident_id" LIMIT 2 OFFSET 0'
     )
+
+
+def test_summary_counts_changes_by_table_and_names_tables_no_check_mentions():
+    changes = {
+        "incident": {
+            "inserted": [{"incident_id": "I1"}],
+            "deleted": [],
+            "updated": [
+                {
+                    "key": {"incident_id": "I0"},
+                    "changes": {
+                        "status": ["new", "closed"],
+                        "priority": ["low", "high"],
+                    },
+                }
+            ],
+        },
+        "notification": {
+            "inserted": [{"id": 1}],
+            "deleted": [{"id": 2}],
+            "updated": [],
+        },
+    }
+    queries = [
+        "SELECT COUNT(*) FROM incident i JOIN users u ON i.caller = u.user_id "
+        "WHERE i.status = 'closed'"
+    ]
+    assert states.summary(changes, queries) == [
+        "incident: 1 inserted, 1 updated (priority, status)",
+        "notification: 1 inserted, 1 deleted",
+        "no check of this task mentions: notification",
+    ]
+    assert states.summary({}, queries) == ["no rows changed"]

@@ -252,7 +252,7 @@ def test_a_query_its_parts_do_not_capture_is_explained_condition_by_condition(se
     result, _, _ = attempt(seed, [], odd)
     found = result["requirements"][0]["audit"]
     assert found["kind"] == "unstructured"
-    assert found["diagnosis"]["kind"] == "conditions"
+    assert found["diagnosis"] == {"kind": "no_rows", "table": "incident"}
 
 
 def test_unasked_changes_split_other_rows_from_other_cells_of_asked_rows(seed):

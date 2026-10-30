@@ -15,7 +15,10 @@ The local seed copy matches the server's own database row for row (see
 columns are left out of the comparison for HR. No check tests either.
 """
 
+import functools
+import re
 import sqlite3
+from pathlib import Path
 
 from mas_optimiser.benchmarks.enterpriseops import seeds
 
@@ -23,6 +26,8 @@ from mas_optimiser.benchmarks.enterpriseops import seeds
 # own, so every table is read a page at a time.
 PAGE = 1000
 STAMPED = {"hr": frozenset({"created_at", "updated_at"})}
+# The tables a query reads.
+TABLES = re.compile(r"\b(?:FROM|JOIN)\s+(\w+)", re.IGNORECASE)
 
 
 def columns_of(connection: sqlite3.Connection, table: str) -> list[str]:
@@ -51,6 +56,21 @@ def primary_keys(connection: sqlite3.Connection) -> dict[str, list[str]]:
         if not keys[table]:
             raise ValueError(f"table {table} has no primary key")
     return keys
+
+
+@functools.cache
+def seed_copy(seed_path: Path, domain: str) -> tuple[sqlite3.Connection, dict]:
+    """A local copy of a seed database, built once per seed, and its layout.
+
+    Returns:
+        The connection and the layout: each table's ``columns`` and ``keys``.
+    """
+    seed = seeds.build_seed_database(
+        seed_path, (seeds.SCHEMAS_DIR / f"{domain}.sql").read_text()
+    )
+    keys = primary_keys(seed)
+    columns = {table: columns_of(seed, table) for table in keys}
+    return seed, {"columns": columns, "keys": keys}
 
 
 def read_state(
@@ -151,6 +171,32 @@ def diff(
                 "updated": updated,
             }
     return changes
+
+
+def summary(changes: dict, queries: list[str]) -> list[str]:
+    """One line per changed table, then the changed tables no check of the task mentions.
+
+    Args:
+        changes: An attempt's changes, as ``diff`` gives them.
+        queries: The task's check queries; the tables they name are the
+            ones a check mentions.
+    """
+    mentioned = {t.lower() for q in queries for t in TABLES.findall(q)}
+    lines = []
+    for table, change in changes.items():
+        parts = []
+        if change["inserted"]:
+            parts.append(f"{len(change['inserted'])} inserted")
+        if change["updated"]:
+            columns = sorted({c for u in change["updated"] for c in u["changes"]})
+            parts.append(f"{len(change['updated'])} updated ({', '.join(columns)})")
+        if change["deleted"]:
+            parts.append(f"{len(change['deleted'])} deleted")
+        lines.append(f"{table}: {', '.join(parts)}")
+    unasked = sorted(set(changes) - mentioned)
+    if unasked:
+        lines.append(f"no check of this task mentions: {', '.join(unasked)}")
+    return lines or ["no rows changed"]
 
 
 def rebuild(seed: sqlite3.Connection, changes: dict, keys: dict) -> sqlite3.Connection:

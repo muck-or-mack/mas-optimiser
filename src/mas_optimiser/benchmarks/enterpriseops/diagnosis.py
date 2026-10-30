@@ -1,26 +1,27 @@
-"""Explain a failed count verifier condition by condition.
+"""Explain a failed check cell by cell: each condition of its query against the rows the attempt touched.
 
-A verifier in EnterpriseOps-Gym is one SQL query over the final database
-state, almost always ``SELECT COUNT(*) FROM <table> WHERE a AND b AND c``
-compared with an expected count, so a failure says only that the whole
-conjunction did not hold. Which condition failed (was the incident never
-created, or created on the wrong channel, or with no priority?) is the first
-thing a reader of the run, or an optimiser proposing a fix, needs to know.
+A check in EnterpriseOps-Gym is one SQL query over the final database state,
+almost always ``SELECT COUNT(*) FROM <table> WHERE a AND b AND c`` compared
+with an expected count, so a failure says only that the whole conjunction did
+not hold. Which condition failed, and what value the attempt left instead, is
+the first thing a reader of the run, or an optimiser proposing a fix, needs
+to know.
 
-The diagnosis keeps the query's SELECT and FROM as written and varies only the
-WHERE clause. For a verifier that found too few rows it runs the query with the
-first k conditions for k = 1, 2, ... until the count falls short: the
-conditions before that point hold and the one at it is the first to fail. It
-then tests each remaining condition on top of the holding prefix, so every
-failing condition is named, and for a failing ``column = value`` fetches the
-column's actual value the same way. A verifier that found too many rows (an
-integrity check expecting none) gets the surplus rows instead. A query that is
-not a count over a WHERE clause, or whose WHERE has a top-level OR, is left
-with expected and actual only, as the executor records them.
+The diagnosis takes the query apart at its top-level ANDs and tests each
+condition on its own against the rows the attempt inserted or updated in the
+query's table (``states.diff`` says which), so a condition that an untouched
+row happens to satisfy is never mistaken for one the attempt met. For a
+failing condition on a column, the column's value in that row is fetched. A
+check that counts too many rows (an integrity check expecting none) gets the
+surplus rows instead; a check that reads one value (``SELECT col FROM t WHERE
+key``) is already wanted against actual; a query with a top-level OR or
+another shape is left with expected and actual only, as the executor records
+them.
 
-Every query runs against the run's own database through the executor's SQL
-runner, before the executor deletes that database. A verifier with n
-conditions costs at most 2n + 1 cheap local queries, and no model is involved.
+Every query runs against the attempt's own database, on the server before
+the executor deletes it or on a local rebuild afterwards. A check with n
+conditions on r touched rows costs at most r(2n) cheap queries, and no model
+is involved.
 """
 
 import re
@@ -31,7 +32,10 @@ COUNT_QUERY = re.compile(
     r"\s+FROM\s+(?P<source>.+?)\s+WHERE\s+(?P<where>.+?)\s*;?\s*$",
     re.IGNORECASE | re.DOTALL,
 )
-# Clauses after WHERE that the prefix walk cannot keep intact.
+VALUE_QUERY = re.compile(
+    r"^\s*SELECT\s+(?P<column>[\w.]+)\s+FROM\s+(?P<table>\w+)\s+WHERE\b", re.IGNORECASE
+)
+# Clauses after WHERE that the condition tests cannot keep intact.
 TAIL = re.compile(r"\b(GROUP\s+BY|HAVING|ORDER\s+BY|LIMIT)\b", re.IGNORECASE)
 # Quoted strings are single tokens so that AND or OR inside them is skipped.
 TOKENS = re.compile(r"'[^']*'|\"[^\"]*\"|\(|\)|\bAND\b|\bOR\b", re.IGNORECASE)
@@ -40,8 +44,15 @@ COLUMN = re.compile(
     r"^\s*(\w+\([^()]*\)|[\w.]+)\s*(=|!=|<>|>=|<=|>|<|\bIS\b|\bLIKE\b|\bIN\b)",
     re.IGNORECASE,
 )
+# The first table of a FROM clause, with its alias if it has one.
+MAIN_TABLE = re.compile(
+    r"^\s*(?P<table>\w+)(?:\s+(?:AS\s+)?(?P<alias>\w+))?", re.IGNORECASE
+)
 SAMPLE_ROWS = 3
 NUMBER_TYPES = (int, float)
+# The kinds of diagnosis the renderers know; a record from an older run may
+# carry another and is shown without one.
+KINDS = ("cells", "value", "no_rows", "too_many_rows")
 
 RunSQL = Callable[[str], Awaitable[object]]
 
@@ -74,8 +85,8 @@ def parse_count_query(query: str) -> tuple[str, str, list[str]] | None:
 
     Returns:
         ``(count, source, conditions)``, or ``None`` for a query the diagnosis
-        cannot walk: not a count, no WHERE, a GROUP BY, HAVING, ORDER BY or
-        LIMIT after it, or a top-level OR.
+        cannot take apart: not a count, no WHERE, a GROUP BY, HAVING, ORDER BY
+        or LIMIT after it, or a top-level OR.
     """
     match = COUNT_QUERY.match(query)
     if not match or TAIL.search(match["where"]):
@@ -115,23 +126,51 @@ def values(result: object) -> list:
     return [result]
 
 
-async def diagnose(result: dict, run_sql: RunSQL) -> dict:
-    """Explain one failed verifier verdict.
+def literal(value: object) -> str:
+    """A key value as an SQL literal."""
+    if isinstance(value, NUMBER_TYPES) and not isinstance(value, bool):
+        return repr(value)
+    return "'" + str(value).replace("'", "''") + "'"
+
+
+def touched(changes: dict, table: str, key: list[str]) -> list[dict]:
+    """The keys of the rows the attempt inserted or updated in ``table``, inserted first."""
+    change = changes.get(table)
+    if not change:
+        return []
+    inserted = [{k: row[k] for k in key} for row in change["inserted"]]
+    return inserted + [update["key"] for update in change["updated"]]
+
+
+async def diagnose(result: dict, changes: dict, keys: dict, run_sql: RunSQL) -> dict:
+    """Explain one failed check.
 
     Args:
         result: The executor's record of the verdict: ``query``, ``expected``,
             ``actual`` and ``comparison_type``.
-        run_sql: Runs a query against the run's database and returns the value
-            the executor's runner would.
+        changes: The attempt's changes against the seed, as ``states.diff``
+            gives them.
+        keys: Each table's primary key columns.
+        run_sql: Runs a query against the attempt's database and returns the
+            value the executor's runner would.
 
     Returns:
-        A dict with ``kind`` and the evidence for it:
-        ``conditions`` (``held``, the number of leading conditions that hold,
-        and ``failed``, each failing condition with the ``actual`` values
-        found), ``no_match`` (the first ``condition`` already matches
-        nothing), ``too_many_rows`` (sample ``rows``), or ``unsupported``.
+        A dict with ``kind`` and the evidence for it: ``cells`` (``rows``: for
+        each touched row and condition, whether it holds and, when it does
+        not, the ``actual`` values found), ``no_rows`` (the attempt touched no
+        row of the ``table``), ``too_many_rows`` (sample ``rows``), ``value``
+        (one row of wanted against actual), or ``unsupported``.
     """
-    parsed = parse_count_query(result.get("query", ""))
+    query = result.get("query", "")
+    value = VALUE_QUERY.match(query)
+    if value:
+        row = {
+            "condition": f"{value['column']} = {result.get('expected')!r}",
+            "ok": False,
+            "actual": [result.get("actual")],
+        }
+        return {"kind": "value", "table": value["table"], "rows": [row]}
+    parsed = parse_count_query(query)
     expected = as_number(result.get("expected"))
     actual = as_number(result.get("actual"))
     comparison = result.get("comparison_type", "equals")
@@ -144,61 +183,56 @@ async def diagnose(result: dict, run_sql: RunSQL) -> dict:
         )
         return {
             "kind": "too_many_rows",
+            "table": MAIN_TABLE.match(source)["table"],
             "rows": rows if isinstance(rows, list) else [rows],
         }
-    if comparison == "equals":
-        enough = lambda n: n >= expected  # noqa: E731
-    elif comparison == "greater_than":
-        enough = lambda n: n > expected  # noqa: E731
-    else:
+    main = MAIN_TABLE.match(source)
+    if main is None or main["table"] not in keys:
         return {"kind": "unsupported"}
-
-    async def count_with(where: list[str]) -> bool:
-        n = as_number(
-            await run_sql(f"SELECT {count} FROM {source} WHERE {' AND '.join(where)}")
-        )
-        return n is not None and enough(n)
-
-    # Walk the conditions in order; the prefix that still returns enough rows
-    # is the ground every later test stands on.
-    held = 0
-    for k in range(1, len(conditions) + 1):
-        if not await count_with(conditions[:k]):
-            break
-        held = k
-    if held == 0:
-        return {"kind": "no_match", "condition": conditions[0]}
-    prefix = conditions[:held]
-    failed = []
-    for condition in conditions[held:]:
-        if await count_with(prefix + [condition]):
-            continue
-        entry = {"condition": condition}
-        column = COLUMN.match(condition)
-        if column:
-            found = await run_sql(
-                f"SELECT DISTINCT {column.group(1)} FROM {source} "
-                f"WHERE {' AND '.join(prefix)} LIMIT {SAMPLE_ROWS}"
+    table, alias = main["table"], main["alias"] or main["table"]
+    rows = touched(changes, table, keys[table])
+    if not rows:
+        return {"kind": "no_rows", "table": table}
+    cells = []
+    for key in rows[:SAMPLE_ROWS]:
+        where = " AND ".join(f"{alias}.{k} = {literal(v)}" for k, v in key.items())
+        for condition in conditions:
+            # A condition on another table of a join is tested through the
+            # join; one on the main table, on that table alone, so a join
+            # that finds nothing does not fail every condition at once.
+            column = COLUMN.match(condition)
+            other = (
+                column and "." in column[1] and not column[1].startswith(f"{alias}.")
             )
-            entry["actual"] = values(found)
-        failed.append(entry)
-    return {"kind": "conditions", "held": held, "failed": failed}
+            scope = source if other else f"{table} {alias}"
+            held = as_number(
+                await run_sql(
+                    f"SELECT COUNT(*) FROM {scope} WHERE {where} AND {condition}"
+                )
+            )
+            cell = {"row": key, "condition": condition, "ok": bool(held)}
+            if column and not cell["ok"]:
+                found = await run_sql(
+                    f"SELECT DISTINCT {column[1]} FROM {scope} WHERE {where}"
+                )
+                cell["actual"] = values(found)
+            cells.append(cell)
+    return {"kind": "cells", "table": table, "rows": cells}
 
 
 def describe(diagnosis: dict | None) -> str:
-    """One line for a CSV cell or a transcript: the failing conditions and what was found."""
-    if not diagnosis or diagnosis["kind"] == "unsupported":
+    """One line for a CSV cell: the failing conditions and what was found."""
+    if not diagnosis or diagnosis["kind"] not in KINDS:
         return ""
-    if diagnosis["kind"] == "no_match":
-        return f"nothing matches {diagnosis['condition']}"
+    if diagnosis["kind"] == "no_rows":
+        return f"no row inserted or updated in {diagnosis['table']}"
     if diagnosis["kind"] == "too_many_rows":
         rows = diagnosis["rows"]
         return f"too many rows match; {len(rows)} shown: {str(rows)[:120]}"
     parts = []
-    for entry in diagnosis["failed"]:
-        if "actual" in entry:
-            found = ", ".join(str(v) for v in entry["actual"]) or "no value"
-            parts.append(f"{entry['condition']} (actual: {found})")
-        else:
-            parts.append(entry["condition"])
-    return "; ".join(parts)
+    for cell in diagnosis["rows"]:
+        if cell["ok"]:
+            continue
+        found = ", ".join(str(v) for v in cell.get("actual", [])) or "no value"
+        parts.append(f"{cell['condition']} (actual: {found})")
+    return "; ".join(dict.fromkeys(parts))

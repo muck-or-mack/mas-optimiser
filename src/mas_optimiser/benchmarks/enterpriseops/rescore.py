@@ -35,10 +35,8 @@ requirement per attempt. Usage::
 import argparse
 import asyncio
 import csv
-import functools
 import json
 import re
-import sqlite3
 from collections import Counter
 from pathlib import Path
 
@@ -151,17 +149,6 @@ def server_final_state(
     return {"differs": None, "state": state, "server_counts": counts}
 
 
-@functools.cache
-def seed_copy(seed_path: Path, domain: str) -> tuple[sqlite3.Connection, dict]:
-    """A local copy of a seed database, built once, and its layout: each table's ``columns`` and ``keys``."""
-    seed = seeds.build_seed_database(
-        seed_path, (seeds.SCHEMAS_DIR / f"{domain}.sql").read_text()
-    )
-    keys = states.primary_keys(seed)
-    columns = {table: states.columns_of(seed, table) for table in keys}
-    return seed, {"columns": columns, "keys": keys}
-
-
 async def rescore_attempt(
     folder: Path,
     row: dict,
@@ -183,7 +170,7 @@ async def rescore_attempt(
     """
     (gym,) = config["gym_servers_config"]
     seed_path = Path(gym["seed_database_file"])
-    seed, layout = seed_copy(seed_path, domain)
+    seed, layout = states.seed_copy(seed_path, domain)
     stem = f"attempt-{row['attempt']}"
     saved = folder / f"{stem}.changes.json"
     run = json.loads((folder / f"{stem}.json").read_text())["runs"][0]

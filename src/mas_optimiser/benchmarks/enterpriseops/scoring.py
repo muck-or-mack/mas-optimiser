@@ -309,6 +309,8 @@ async def score(
                         "actual": count,
                         "comparison_type": requirement["comparison"],
                     },
+                    changes,
+                    keys,
                     local_runner(final),
                 )
             entry["audit"] = found
