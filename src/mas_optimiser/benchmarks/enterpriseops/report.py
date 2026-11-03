@@ -160,13 +160,18 @@ def trace(result: dict, agent_calls: list[dict], keys: dict) -> dict:
     if not table:
         return {"step": "", "related": [], "set_by": {}}
     writers = writers_of(agent_calls, table, keys.get(table, []))
+    # Only a cells diagnosis carries condition rows with the touched row's
+    # key; a too_many_rows one carries the surplus rows themselves.
+    conditions = (
+        found.get("rows", []) if found.get("kind") in ("cells", "value") else []
+    )
     # Among the calls that write the table, those that name the touched
     # row's key; all of them when none does (a result that echoes no id).
-    rows = [row["row"] for row in found.get("rows", []) if "row" in row]
+    rows = [row["row"] for row in conditions if "row" in row]
     pairs = {(k, v) for row in rows for k, v in row.items()}
     linked = [c for c in writers if any(names(c, k, v) for k, v in pairs)] or writers
     set_by = {}
-    for row in found.get("rows", []):
+    for row in conditions:
         column = column_of(row["condition"])
         if row.get("ok") or not column:
             continue

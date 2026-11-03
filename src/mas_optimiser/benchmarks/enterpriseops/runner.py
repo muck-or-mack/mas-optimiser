@@ -695,15 +695,27 @@ async def run_task(
         if executor.diagnosis_error:
             run["diagnosis_error"] = executor.diagnosis_error
         changes = executor.changes
-        record, rows, cells, changed = outputs(
-            task_id,
-            attempt,
-            run,
-            changes,
-            executor.layout["keys"],
-            executor.names,
-            pricing,
-        )
+        try:
+            record, rows, cells, changed = outputs(
+                task_id,
+                attempt,
+                run,
+                changes,
+                executor.layout["keys"],
+                executor.names,
+                pricing,
+            )
+        except Exception as exc:  # noqa: BLE001
+            # A fault in the trace or the rows must not end the evaluation;
+            # the attempt keeps its verdict and the fault is kept on the run.
+            run["report_error"] = repr(exc)
+            for check in run.get("verification_results", {}).values():
+                check.pop("trace", None)
+            record = task_record(task_id, attempt, run, executor.names, pricing)
+            rows = checks.check_records(
+                task_id, attempt, run.get("verification_results", {}), executor.names
+            )
+            cells, changed = [], []
         results = run.get("verification_results", {})
         if span is not None:
             fraction = (
