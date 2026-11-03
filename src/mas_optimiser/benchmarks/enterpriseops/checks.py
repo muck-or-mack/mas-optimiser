@@ -161,6 +161,21 @@ def apply_patches(
     return to_run, Names(names.original, names.upstream, patched)
 
 
+def prepare(task_id: str, verifiers: list[dict]) -> tuple[list[dict], Names, dict]:
+    """A task's checks ready to run: each distinct check once, the patch list applied.
+
+    Returns:
+        The checks to run, the ``Names`` maps, and each distinct check's gym
+        (the patched ones included, since their original queries run too).
+        A task whose every check is excluded gets an empty list: it cannot
+        be judged.
+    """
+    renamed, names = unique_names(verifiers)
+    gyms = {v["name"]: v.get("gym_name") for v in renamed}
+    kept, names = apply_patches(task_id, renamed, names)
+    return kept, names, gyms
+
+
 def compare(actual: object, expected: object, comparison: str) -> bool:
     """The executor's own comparison of a check's value with its expected value."""
     try:
@@ -228,6 +243,16 @@ def recheck(result: dict) -> None:
     ):
         with contextlib.suppress(ValueError):
             result["passed"] = float(actual) == float(expected)
+
+
+def passed(results: dict[str, dict]) -> bool:
+    """Whether an attempt passed: every check that counts passed, and there was at least one.
+
+    An excluded check (``passed`` ``None``) counts for neither side; the
+    executor's own ``all()`` over the verdicts would read it as a failure.
+    """
+    counted = [r["passed"] for r in results.values() if r["passed"] is not None]
+    return bool(counted) and all(counted)
 
 
 def upstream_verdict(results: dict[str, dict], names: Names) -> tuple[int, int, bool]:

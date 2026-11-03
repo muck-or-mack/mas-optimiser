@@ -109,7 +109,8 @@ database on the server, so attempts share nothing.
 `run_task` builds a `TaskExecutor` (`runner.py:125`), our subclass of the
 benchmark's `BenchmarkExecutor` (`executor.py:23`). The subclass adds three
 things: the checks are renamed and patched before the run
-(`runner.py:156-160`, section 2.5); the Langfuse callback is attached to
+(`checks.prepare`, called at `runner.py:156`, section 2.5); the Langfuse
+callback is attached to
 the model once the executor has built it (`runner.py:169`); and after the
 checks run, while the database still exists, the final state is read and
 every failed check diagnosed (`runner.py:179`, section 2.6).

@@ -153,10 +153,8 @@ class TaskExecutor(BenchmarkExecutor):
         task_id: str,
         **kwargs,
     ):
-        config.verifiers, self.names = checks.unique_names(config.verifiers)
-        self.check_gyms = {v["name"]: v.get("gym_name") for v in config.verifiers}
-        config.verifiers, self.names = checks.apply_patches(
-            task_id, config.verifiers, self.names
+        config.verifiers, self.names, self.check_gyms = checks.prepare(
+            task_id, config.verifiers
         )
         super().__init__(config, *args, **kwargs)
         self.trace = trace
@@ -431,7 +429,7 @@ def task_record(
     return {
         "task_id": task_id,
         "attempt": attempt,
-        "success": bool(run.get("overall_success")),
+        "success": checks.passed(results),
         "checks_passed": sum(bool(r["passed"]) for r in results.values()),
         "checks_total": len(names.original)
         - sum(p["disposition"] == "excluded" for p in names.patched.values()),
@@ -597,6 +595,9 @@ async def run_task(
         run = result["runs"][0]
         if executor.diagnosis_error:
             run["diagnosis_error"] = executor.diagnosis_error
+        # The executor's own verdict reads an excluded check as a failure.
+        if "verification_results" in run:
+            run["overall_success"] = checks.passed(run["verification_results"])
         changes = executor.changes
         try:
             record, rows, cells, changed = outputs(
@@ -798,6 +799,13 @@ def evaluate(
             for task_id, config in tasks.items()
             if members.get(task_id, {}).get("set") == subset
         }
+    # A task whose every check the patch list excludes cannot be judged and
+    # is not run.
+    tasks = {
+        task_id: config
+        for task_id, config in tasks.items()
+        if checks.prepare(task_id, config["verifiers"])[0]
+    }
     tasks = dict(list(tasks.items())[: experiment["limit"]])
     check_servers(
         {

@@ -44,6 +44,9 @@ COLUMN = re.compile(
     r"^\s*(\w+\([^()]*\)|[\w.]+)\s*(=|!=|<>|>=|<=|>|<|\bIS\b|\bLIKE\b|\bIN\b)",
     re.IGNORECASE,
 )
+# A quoted value, and the table or alias before a dot in a qualified column.
+QUOTED = re.compile(r"'[^']*'|\"[^\"]*\"")
+QUALIFIED = re.compile(r"\b(\w+)\.\w+")
 # The first table of a FROM clause, with its alias if it has one.
 MAIN_TABLE = re.compile(
     r"^\s*(?P<table>\w+)(?:\s+(?:AS\s+)?(?P<alias>\w+))?", re.IGNORECASE
@@ -197,14 +200,13 @@ async def diagnose(result: dict, changes: dict, keys: dict, run_sql: RunSQL) -> 
     for key in rows[:SAMPLE_ROWS]:
         where = " AND ".join(f"{alias}.{k} = {literal(v)}" for k, v in key.items())
         for condition in conditions:
-            # A condition on another table of a join is tested through the
-            # join; one on the main table, on that table alone, so a join
-            # that finds nothing does not fail every condition at once.
+            # A condition that names another table of the join (by alias or
+            # name, outside any quoted value) is tested through the join; one
+            # on the main table alone, on that table alone, so a join that
+            # finds nothing does not fail every condition at once.
             column = COLUMN.match(condition)
-            other = (
-                column and "." in column[1] and not column[1].startswith(f"{alias}.")
-            )
-            scope = source if other else f"{table} {alias}"
+            prefixes = set(QUALIFIED.findall(QUOTED.sub("", condition)))
+            scope = source if prefixes - {alias, table} else f"{table} {alias}"
             held = as_number(
                 await run_sql(
                     f"SELECT COUNT(*) FROM {scope} WHERE {where} AND {condition}"

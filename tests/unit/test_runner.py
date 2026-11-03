@@ -150,3 +150,21 @@ def test_task_record_counts_every_check_and_sums_the_agents_token_use():
     assert record["model_calls"] == 2
     assert (record["input_tokens"], record["output_tokens"]) == (2000, 100)
     assert record["seconds"] == 1.5
+
+
+def test_task_record_does_not_read_an_excluded_check_as_a_failure():
+    _, names = checks.unique_names(
+        [{"name": n, "validation_config": {"query": n}} for n in ("a", "b")]
+    )
+    run = {
+        "run_number": 1,
+        "overall_success": False,
+        "verification_results": {
+            "a": {"passed": True, "upstream_passed": True},
+            "b": {"passed": None, "upstream_passed": False, "patch": "excluded"},
+        },
+        "conversation_flow": [],
+    }
+    record = runner.task_record("t", 1, run, names, PRICING)
+    assert record["success"] is True
+    assert not record["upstream_success"]
