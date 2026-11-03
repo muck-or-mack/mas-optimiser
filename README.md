@@ -11,6 +11,10 @@ final database state.
 Status: early development. The benchmark's own agent can be run on its
 tasks; the planner and the optimiser are not written yet.
 
+How it all works, file by file, with one attempt followed from the command
+to the wrong cell and the turn that set it: `docs/how-it-works.md`, with
+its figures in `docs/figures/`.
+
 ## Install
 
 Requires [uv](https://docs.astral.sh/uv/) and Python 3.11 or newer (uv

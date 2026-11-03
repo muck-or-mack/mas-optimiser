@@ -1,0 +1,238 @@
+<mxfile host="localhost" pages="2">
+  <diagram id="p1" name="One attempt, as it runs today">
+    <mxGraphModel dx="1090" dy="549" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="c1" parent="1" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;whiteSpace=wrap;html=1;" value="mas-optimiser run&lt;br&gt;baseline-haiku&lt;br&gt;(cli.py, configs/)" vertex="1">
+          <mxGeometry height="60" width="150" x="40" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c2" parent="1" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;whiteSpace=wrap;html=1;" value="runner.evaluate&lt;br&gt;one domain, every task,&lt;br&gt;4 attempts in flight" vertex="1">
+          <mxGeometry height="60" width="150" x="230" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c3" parent="1" style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;whiteSpace=wrap;html=1;" value="Hugging Face dataset&lt;br&gt;308 tasks, pinned revision&lt;br&gt;(policy, request, checks)" vertex="1">
+          <mxGeometry height="60" width="150" x="420" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c5" parent="1" style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;whiteSpace=wrap;html=1;" value="Claude API&lt;br&gt;(Haiku 5.5 through&lt;br&gt;langchain-anthropic)" vertex="1">
+          <mxGeometry height="60" width="150" x="610" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="d1" parent="1" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;whiteSpace=wrap;html=1;" value="runner.run_task&lt;br&gt;TaskExecutor: our subclass&lt;br&gt;of the executor to the right" vertex="1">
+          <mxGeometry height="60" width="150" x="40" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="d2" parent="1" style="rounded=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;whiteSpace=wrap;html=1;" value="BenchmarkExecutor&lt;br&gt;(executor.py): seed a database,&lt;br&gt;run the agent, run the checks" vertex="1">
+          <mxGeometry height="60" width="150" x="230" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="d3" parent="1" style="rounded=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;whiteSpace=wrap;html=1;" value="ReactOrchestrator (react.py)&lt;br&gt;LLM call, tool calls, repeat;&lt;br&gt;up to 50 turns" vertex="1">
+          <mxGeometry height="60" width="150" x="420" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="E" parent="1" style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;whiteSpace=wrap;html=1;" value="Domain server&lt;br&gt;in Docker&lt;br&gt;ITSM 8006&lt;br&gt;CSM 8001&lt;br&gt;HR 8008&lt;br&gt;&lt;br&gt;one database per attempt,&lt;br&gt;seeded before the run,&lt;br&gt;deleted after the checks" vertex="1">
+          <mxGeometry height="180" width="150" x="610" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" parent="1" style="rounded=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;whiteSpace=wrap;html=1;" value="VerifierEngine (verifier.py)&lt;br&gt;each SQL check on the&lt;br&gt;final database" vertex="1">
+          <mxGeometry height="60" width="150" x="230" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" parent="1" style="rounded=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;whiteSpace=wrap;html=1;" value="MCPClient (mcp_client.py)&lt;br&gt;one JSON-RPC request&lt;br&gt;per tool call" vertex="1">
+          <mxGeometry height="60" width="150" x="420" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="f1" parent="1" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;whiteSpace=wrap;html=1;" value="checks.py&lt;br&gt;each distinct check once,&lt;br&gt;patch list, numeric recheck" vertex="1">
+          <mxGeometry height="60" width="150" x="40" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="f2" parent="1" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;whiteSpace=wrap;html=1;" value="states.py&lt;br&gt;final state read back,&lt;br&gt;diff against the seed" vertex="1">
+          <mxGeometry height="60" width="150" x="230" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="f3" parent="1" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;whiteSpace=wrap;html=1;" value="diagnosis.py&lt;br&gt;each condition of a failed&lt;br&gt;check on the touched rows" vertex="1">
+          <mxGeometry height="60" width="150" x="420" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="f4" parent="1" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;whiteSpace=wrap;html=1;" value="report.py&lt;br&gt;trace to the turn; pages,&lt;br&gt;tables, summary" vertex="1">
+          <mxGeometry height="60" width="150" x="610" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="g2" parent="1" style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;whiteSpace=wrap;html=1;" value="Langfuse&lt;br&gt;one trace per attempt,&lt;br&gt;scored with the verdict" vertex="1">
+          <mxGeometry height="60" width="150" x="40" y="520" as="geometry" />
+        </mxCell>
+        <mxCell id="g1" parent="1" style="shape=document;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;boundedLbl=1;whiteSpace=wrap;html=1;" value="runs/&amp;lt;experiment&amp;gt;/&amp;lt;evaluation&amp;gt;/  summary.md, tasks.csv, checks.csv, cells.csv, changes.csv, run.json;&lt;br&gt;tasks/&amp;lt;task&amp;gt;/attempt-N.json, attempt-N.changes.json, attempt-N.md" vertex="1">
+          <mxGeometry height="60" width="420" x="230" y="520" as="geometry" />
+        </mxCell>
+        <mxCell id="g3" parent="1" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;whiteSpace=wrap;html=1;" value="rescore.py&lt;br&gt;recompute from&lt;br&gt;the saved changes" vertex="1">
+          <mxGeometry height="60" width="130" x="670" y="520" as="geometry" />
+        </mxCell>
+        <mxCell id="x1" edge="1" parent="1" source="c1" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=1;exitY=0.5;entryX=0;entryY=0.5;html=1;" target="c2" value="settings">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x2" edge="1" parent="1" source="c3" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=0;exitY=0.5;entryX=1;entryY=0.5;html=1;" target="c2" value="tasks">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x3" edge="1" parent="1" source="c2" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=0.5;exitY=1;entryX=0.5;entryY=0;html=1;" target="d1" value="per attempt">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="305" y="130" />
+              <mxPoint x="115" y="130" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="x4" edge="1" parent="1" source="d1" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=1;exitY=0.5;entryX=0;entryY=0.5;html=1;" target="d2" value="execute_benchmark()">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint y="40" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="x5" edge="1" parent="1" source="d2" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=1;exitY=0.5;entryX=0;entryY=0.5;html=1;" target="d3" value="execute()">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x6" edge="1" parent="1" source="d3" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=1;exitY=0.3;entryX=0;entryY=0.5;labelBackgroundColor=#ffffff;html=1;" target="c5" value="messages">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="-42" as="offset" />
+            <Array as="points">
+              <mxPoint x="590" y="178" />
+              <mxPoint x="590" y="70" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="x7" edge="1" parent="1" source="c5" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=0.5;exitY=1;entryX=0.5;entryY=0;labelBackgroundColor=#ffffff;html=1;" target="d3" value="reply">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="45" as="offset" />
+            <Array as="points">
+              <mxPoint x="685" y="130" />
+              <mxPoint x="495" y="130" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="x8" edge="1" parent="1" source="d3" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=0.5;exitY=1;entryX=0.5;entryY=0;html=1;" target="e1" value="each tool call">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x9" edge="1" parent="1" source="e1" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=1;exitY=0.5;entryX=0;entryY=0.83;html=1;" target="E" value="POST /mcp">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint y="-14" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="x11" edge="1" parent="1" source="d2" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=0.5;exitY=1;entryX=0.5;entryY=0;html=1;" target="e3" value="then the checks">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x12" edge="1" parent="1" source="e3" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=0.7;exitY=1;entryX=0.6;entryY=1;html=1;" target="E" value="SQL on the final database">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="335" y="365" />
+              <mxPoint x="700" y="365" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="x13" edge="1" parent="1" source="d1" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=0.5;exitY=1;entryX=0.5;entryY=0;html=1;" target="f1" value="after the checks">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x14" edge="1" parent="1" source="f1" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=1;exitY=0.5;entryX=0;entryY=0.5;html=1;" target="f2" value="verdicts">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x15" edge="1" parent="1" source="f2" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=1;exitY=0.5;entryX=0;entryY=0.5;html=1;" target="f3" value="touched rows">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint y="40" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="x16" edge="1" parent="1" source="f3" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=1;exitY=0.5;entryX=0;entryY=0.5;html=1;" target="f4" value="ok / WRONG cells">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint y="40" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="x17" edge="1" parent="1" source="f2" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=0.8;exitY=0;entryX=0.77;entryY=1;html=1;" target="E" value="reads every table">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="350" y="380" />
+              <mxPoint x="725" y="380" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="x18" edge="1" parent="1" source="f4" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=0.2;exitY=1;entryX=0.976;entryY=0;html=1;" target="g1" value="writes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x19" edge="1" parent="1" source="f1" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=0.5;exitY=1;entryX=0.5;entryY=0;html=1;" target="g2" value="scores">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="x20" edge="1" parent="1" source="g3" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=0;exitY=0.5;entryX=1;entryY=0.5;html=1;" target="g1" value="rewrites">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="p2" name="The ladder and the optimiser">
+    <mxGraphModel dx="1090" dy="549" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="L1" parent="1" style="rounded=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;whiteSpace=wrap;html=1;" value="default&lt;br&gt;the ReAct loop of the benchmark,&lt;br&gt;as it is (page 1)" vertex="1">
+          <mxGeometry height="70" width="220" x="40" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="L2" parent="1" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;whiteSpace=wrap;html=1;" value="repaired&lt;br&gt;+ interface repairs: argument cleaning,&lt;br&gt;schema fixes, a finish tool, each&lt;br&gt;traced to a training failure" vertex="1">
+          <mxGeometry height="70" width="220" x="40" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="L3" parent="1" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;whiteSpace=wrap;html=1;" value="planner (h0)&lt;br&gt;planner, constraint checker, executor;&lt;br&gt;a failed step triggers a bounded replan;&lt;br&gt;a LangGraph graph" vertex="1">
+          <mxGeometry height="90" width="220" x="40" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="H" parent="1" style="shape=document;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;boundedLbl=1;whiteSpace=wrap;html=1;" value="harness.yaml&lt;br&gt;planner prompt,&lt;br&gt;plan constraints,&lt;br&gt;replanning rules:&lt;br&gt;the editable surface" vertex="1">
+          <mxGeometry height="90" width="170" x="300" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="N" parent="1" style="text;align=left;verticalAlign=top;fontSize=11;fontStyle=2;whiteSpace=wrap;html=1;" value="The ladder (P1): one change per rung, each rung compared with the one below on the validation tasks. The optimiser (P2) starts from planner. The graph code in src/ is the frozen engine; the proposer edits harness.yaml only, so every edit is data that can be read and audited." vertex="1">
+          <mxGeometry height="80" width="420" x="40" y="430" as="geometry" />
+        </mxCell>
+        <mxCell id="O1" parent="1" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;whiteSpace=wrap;html=1;" value="proposer&lt;br&gt;an LLM, offline, proposing&lt;br&gt;one edit to harness.yaml" vertex="1">
+          <mxGeometry height="60" width="200" x="520" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="O2" parent="1" style="shape=document;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;boundedLbl=1;whiteSpace=wrap;html=1;" value="candidate harness.yaml" vertex="1">
+          <mxGeometry height="60" width="200" x="520" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="O3" parent="1" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;whiteSpace=wrap;html=1;" value="run on the validation tasks&lt;br&gt;(the runner, page 1)" vertex="1">
+          <mxGeometry height="60" width="200" x="520" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="O4" parent="1" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;whiteSpace=wrap;html=1;" value="acceptance gate&lt;br&gt;paired comparison per task" vertex="1">
+          <mxGeometry height="60" width="200" x="520" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="O5" parent="1" style="shape=document;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;boundedLbl=1;whiteSpace=wrap;html=1;" value="evolved harness&lt;br&gt;(accepted edits accumulate)" vertex="1">
+          <mxGeometry height="60" width="200" x="520" y="520" as="geometry" />
+        </mxCell>
+        <mxCell id="y1" edge="1" parent="1" source="L1" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=0.5;exitY=1;entryX=0.5;entryY=0;html=1;" target="L2" value="+ one change">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="y2" edge="1" parent="1" source="L2" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=0.5;exitY=1;entryX=0.5;entryY=0;html=1;" target="L3" value="+ one change">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="y3" edge="1" parent="1" source="H" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=0;exitY=0.5;entryX=1;entryY=0.5;html=1;" target="L3" value="read by">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint y="-55" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="y4" edge="1" parent="1" source="O1" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=0.5;exitY=1;entryX=0.5;entryY=0;html=1;" target="O2" value="one edit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="y5" edge="1" parent="1" source="O2" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=0.5;exitY=1;entryX=0.5;entryY=0;html=1;" target="O3" value="planner with the candidate">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="y6" edge="1" parent="1" source="O3" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=0.5;exitY=1;entryX=0.5;entryY=0;html=1;" target="O4" value="tasks.csv, checks.csv">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="y7" edge="1" parent="1" source="O4" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=0.5;exitY=1;entryX=0.5;entryY=0;html=1;" target="O5" value="accepted">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="y8" edge="1" parent="1" source="O4" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=1;exitY=0.5;entryX=1;entryY=0.3;labelBackgroundColor=#ffffff;html=1;" target="O1" value="rejected">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="760" y="430" />
+              <mxPoint x="760" y="58" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="y9" edge="1" parent="1" source="O3" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;exitX=1;exitY=0.5;entryX=1;entryY=0.7;labelBackgroundColor=#ffffff;html=1;" target="O1" value="feedback">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="740" y="310" />
+              <mxPoint x="740" y="82" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="y10" edge="1" parent="1" source="O2" style="edgeStyle=orthogonalEdgeStyle;fontSize=10;dashed=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;html=1;" target="H" value="a version of">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="490" y="190" />
+              <mxPoint x="490" y="345" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
