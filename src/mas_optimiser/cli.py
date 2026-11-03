@@ -2,8 +2,7 @@
 
 ``mas-optimiser --help`` lists the subcommands and ``mas-optimiser <command>
 --help`` lists that command's options. Each subcommand lives in its own
-module, which defines the options once (``add_arguments``) and the work
-(``run``), and still runs on its own with ``python -m``:
+module, which defines its options (``add_arguments``) and its work (``run``):
 
     mas-optimiser run --model configs/models/haiku-5-5.yaml --domain itsm --limit 5
     mas-optimiser rescore runs/<experiment>/<evaluation>

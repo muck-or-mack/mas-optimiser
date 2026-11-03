@@ -78,6 +78,18 @@ def result_text(result: dict) -> str:
     return content if isinstance(content, str) else json.dumps(content)
 
 
+def succeeded(result: dict) -> bool:
+    """Whether a tool call did its work: the request got through and the tool did not answer with an error.
+
+    The client's ``success`` says only that the server answered; a tool that
+    refused (an unknown user, a missing field) answers with ``isError``.
+    """
+    inner = result.get("result")
+    return bool(result.get("success")) and not (
+        isinstance(inner, dict) and inner.get("isError")
+    )
+
+
 def calls(run: dict) -> list[dict]:
     """The agent's tool calls in order, each with its turn, arguments and result."""
     out, pending, turn = [], [], 0
@@ -92,7 +104,7 @@ def calls(run: dict) -> list[dict]:
         elif step["type"] == "tool_result" and pending:
             call = pending.pop(0)
             result = step.get("result") or {}
-            call["success"] = bool(result.get("success"))
+            call["success"] = succeeded(result)
             call["result"] = result_text(result)
     return out
 
@@ -145,11 +157,13 @@ def writers_of(agent_calls: list[dict], table: str, key: list[str]) -> list[dict
 
 
 def column_of(condition: str) -> str:
-    """The bare column a condition tests, without alias or function."""
+    """The bare column a condition tests, without alias or function; empty for a bracketed group."""
     match = diagnosis.COLUMN.match(condition)
     if not match:
         return ""
+    # Inside a function, the first name is the column: COALESCE(notes, '').
     name = re.sub(r"^\w+\((.*)\)$", r"\1", match[1])
+    name = re.match(r"[\w.]+", name)[0] if name else ""
     return name.split(".")[-1]
 
 
@@ -281,7 +295,7 @@ def attempt_text(
                 )
         elif step["type"] == "tool_result":
             result = step.get("result") or {}
-            flag = "ok" if result.get("success") else "ERROR"
+            flag = "ok" if succeeded(result) else "ERROR"
             lines.append(f"    -> {flag}: {clip(result_text(result), max_chars)}")
     lines += ["", "## Changes against the seed", ""]
     if changes is None:
@@ -383,7 +397,12 @@ def summary(
     steps = Counter(c["step"] for c in failed if c["step"])
     skipped = Counter(c["table"] for c in failed if c["step"] == "skipped")
     broke = Counter(c["table"] for c in failed if c["step"] == "failed")
-    wrong = Counter(column_of(c["condition"]) for c in cells if not c["ok"])
+    # A failing bracketed group names no single column and is left out here.
+    wrong = Counter(
+        column_of(c["condition"])
+        for c in cells
+        if not c["ok"] and column_of(c["condition"])
+    )
     pct = f"{100 * passed / attempts:.1f}%" if attempts else "n/a"
     lines = [
         f"# {name}",
@@ -430,7 +449,7 @@ def summary(
                 f"{c['step']} {c['table']}"
             ] += 1
     for cell in cells:
-        if not cell["ok"]:
+        if not cell["ok"] and column_of(cell["condition"]):
             failures_by_task.setdefault(cell["task_id"], Counter())[
                 f"wrong {column_of(cell['condition'])}"
             ] += 1

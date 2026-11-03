@@ -35,6 +35,8 @@ def test_the_local_runner_shapes_results_as_the_executor_does():
     )
     assert row == {"status": "closed", "priority": "high"}
     assert len(asyncio.run(run_sql("SELECT status FROM incident"))) == 2
+    # A query the database rejects answers None, as the executor's runner does.
+    assert asyncio.run(run_sql("SELECT nope FROM incident")) is None
 
 
 def test_compare_follows_the_executor_including_its_type_strictness():
@@ -59,5 +61,22 @@ def test_checks_run_locally_keep_the_executor_verdict_beside_the_corrected_one()
     assert results["count"]["upstream_passed"] is False
     assert results["count"]["passed"] is True
     assert results["value"]["passed"] is False and results["value"]["actual"] == "high"
+    # A query the database rejects has no value, as under the executor.
     assert results["broken"]["passed"] is False
-    assert results["broken"]["actual"].startswith("Error:")
+    assert results["broken"]["actual"] is None
+
+
+def test_the_server_verdict_stands_for_a_check_that_has_not_changed():
+    local = {
+        "same": {"query": "q1", "expected": 1, "actual": 0, "passed": False},
+        "patched": {"query": "q2 repaired", "expected": 1, "actual": 1, "passed": True},
+    }
+    as_run = {
+        "same": {"query": "q1", "expected": 1, "actual": 1, "passed": True},
+        "patched": {"query": "q2", "expected": 1, "actual": 0, "passed": False},
+    }
+    merged = rescore.keep_live_verdicts(local, as_run)
+    # The unchanged check keeps the verdict the server gave; the patched one
+    # is what the local rebuild says.
+    assert merged["same"]["passed"] is True and merged["same"]["actual"] == 1
+    assert merged["patched"]["passed"] is True

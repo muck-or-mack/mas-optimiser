@@ -150,6 +150,21 @@ def test_a_condition_on_a_joined_table_is_tested_through_the_join(run_sql):
     assert found["rows"][1]["actual"] == []
 
 
+def test_a_bracketed_condition_on_a_joined_table_is_tested_through_the_join(run_sql):
+    # The seed's incident INC_025 has a users row; the inserted INC_024 does
+    # not, so the bracketed group on the joined table finds nothing, where
+    # testing it on the incident table alone would be an SQL error.
+    query = (
+        "SELECT COUNT(*) FROM incident i JOIN users u ON i.caller = u.user_id "
+        "WHERE i.incident_id = 'INC_024' AND (u.email LIKE '%@b.c' OR u.email = 'x.y')"
+    )
+    found = asyncio.run(diagnosis.diagnose(verdict(query), CHANGES, KEYS, run_sql))
+    assert [(cell["condition"], cell["ok"]) for cell in found["rows"]] == [
+        ("i.incident_id = 'INC_024'", True),
+        ("(u.email LIKE '%@b.c' OR u.email = 'x.y')", False),
+    ]
+
+
 def test_surplus_rows_are_shown_for_a_check_expecting_none(run_sql):
     query = "SELECT COUNT(*) FROM incident WHERE status = 'new'"
     found = asyncio.run(

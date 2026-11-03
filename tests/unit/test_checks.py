@@ -185,3 +185,25 @@ def test_patches_drop_excluded_checks_and_swap_repaired_queries(monkeypatch):
         ("b", True, "repaired"),
         ("a", None, "excluded"),
     ]
+
+
+def test_an_attempt_passes_when_every_counted_check_does():
+    assert checks.passed({"a": {"passed": True}, "x": {"passed": None}})
+    assert not checks.passed({"a": {"passed": True}, "b": {"passed": False}})
+    # No check at all (a run that raised) is a failure, not a vacuous pass.
+    assert not checks.passed({})
+
+
+def test_prepare_renames_patches_and_keeps_every_gym(monkeypatch):
+    monkeypatch.setattr(
+        checks,
+        "load_patches",
+        lambda: {"t": {"a": {"disposition": "excluded", "evidence": "copied"}}},
+    )
+    kept, names, gyms = checks.prepare("t", [check("a", "qa"), check("b", "qb")])
+    assert [c["name"] for c in kept] == ["b"]
+    assert names.patched["a"]["disposition"] == "excluded"
+    # The excluded check keeps its gym, since its original query still runs.
+    assert set(gyms) == {"a", "b"}
+    # A task with every check excluded has nothing to judge it by.
+    assert checks.prepare("t", [check("a", "qa")])[0] == []

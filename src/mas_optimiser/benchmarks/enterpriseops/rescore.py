@@ -9,9 +9,10 @@ same diagnosis and trace, and the same files the runner writes
 diagnosis or to the checks. An attempt with no saved changes (a run that
 raised before it finished) is left as it was.
 
-Each check's query runs on the local rebuild as the benchmark's engine runs
-it on the server: a single cell comes back as a value, and the verdict is the
-executor's own comparison, corrected for a numeric string as the runner
+A check that has not changed since the run keeps the server's verdict; one
+whose query or expected value has changed (a patch applied since) is run on
+the local rebuild as the benchmark's engine runs it on the server, with the
+executor's own comparison corrected for a numeric string as the runner
 corrects it. The record's ``verification_results`` are replaced by the
 recomputed ones; the verdicts as the run first produced them are kept beside
 them as ``verification_results_as_run``.
@@ -19,8 +20,6 @@ them as ``verification_results_as_run``.
 Usage::
 
     mas-optimiser rescore runs/<experiment>/<evaluation> [...]
-
-``python -m mas_optimiser.benchmarks.enterpriseops.rescore`` takes the same arguments.
 """
 
 import argparse
@@ -41,10 +40,13 @@ DESCRIPTION = __doc__.split("\n\n")[0]
 
 
 def local_runner(final: sqlite3.Connection) -> diagnosis.RunSQL:
-    """A query function on the rebuilt database, shaped like the executor's runner."""
+    """A query function on the rebuilt database, shaped like the executor's runner: a bad query gives ``None``."""
 
     async def run_sql(query: str):
-        cursor = final.execute(query)
+        try:
+            cursor = final.execute(query)
+        except sqlite3.Error:
+            return None
         columns = [c[0] for c in cursor.description]
         rows = [dict(zip(columns, row, strict=True)) for row in cursor.fetchall()]
         if len(rows) == 1 and len(columns) == 1:
@@ -61,10 +63,7 @@ async def check_locally(kept: list[dict], final: sqlite3.Connection) -> dict[str
     for check in kept:
         config = check["validation_config"]
         query = config.get("query", "")
-        try:
-            actual = await run_sql(query)
-        except sqlite3.Error as error:
-            actual = f"Error: {error}"
+        actual = await run_sql(query)
         expected = config.get("expected_value")
         comparison = config.get("comparison_type", "equals")
         result = {
@@ -76,6 +75,28 @@ async def check_locally(kept: list[dict], final: sqlite3.Connection) -> dict[str
         }
         checks.recheck(result)
         results[check["name"]] = result
+    return results
+
+
+def keep_live_verdicts(results: dict[str, dict], as_run: dict[str, dict]) -> dict:
+    """The server's verdict stands for every check that has not changed since the run.
+
+    The local rebuild re-checks only a check whose query or expected value
+    differs from the run's (a patch applied since), and diagnoses the rest:
+    the rebuild leaves out what the server stamps on rows it never changed,
+    so its verdict is an approximation where the server's is the measurement.
+    """
+    for name, result in results.items():
+        live = as_run.get(name)
+        if (
+            live
+            and live.get("query") == result["query"]
+            and live.get("expected") == result["expected"]
+            and "passed" in live
+        ):
+            result["passed"] = live["passed"]
+            result["actual"] = live.get("actual")
+            result["upstream_passed"] = live.get("upstream_passed", live["passed"])
     return results
 
 
@@ -99,9 +120,11 @@ async def rescore_attempt(
         Path(config["gym_servers_config"][0]["seed_database_file"]), domain
     )
     final = states.rebuild(seed, changes, layout["keys"])
-    kept, names = checks.unique_names(config["verifiers"])
-    kept, names = checks.apply_patches(folder.name, kept, names)
-    results = await check_locally(kept, final)
+    kept, names, _ = checks.prepare(folder.name, config["verifiers"])
+    as_run = run.setdefault(
+        "verification_results_as_run", run.get("verification_results", {})
+    )
+    results = keep_live_verdicts(await check_locally(kept, final), as_run)
     run_sql = local_runner(final)
     await checks.original_verdicts(results, names, lambda name: run_sql)
     for result in results.values():
@@ -109,11 +132,8 @@ async def rescore_attempt(
             result["diagnosis"] = await diagnosis.diagnose(
                 result, changes, layout["keys"], run_sql
             )
-    run.setdefault("verification_results_as_run", run.get("verification_results", {}))
     run["verification_results"] = results
-    run["overall_success"] = all(
-        r["passed"] for r in results.values() if r["passed"] is not None
-    )
+    run["overall_success"] = checks.passed(results)
     outputs = runner.outputs(
         folder.name, attempt, run, changes, layout["keys"], names, pricing
     )
@@ -134,6 +154,10 @@ async def rescore(evaluation: Path) -> Counter:
     records, rows, cells, changed = [], [], [], []
     for task_id in settings["tasks"]:
         folder = evaluation / "tasks" / task_id
+        if not checks.prepare(task_id, configs[task_id]["verifiers"])[0]:
+            # Every check excluded since the run: the task cannot be judged.
+            counts["no check to judge by"] += 1
+            continue
         for attempt in range(1, settings["attempts"] + 1):
             if not (folder / f"attempt-{attempt}.json").exists():
                 continue
@@ -167,14 +191,3 @@ def run(args: argparse.Namespace) -> None:
         print(
             f"{evaluation}: " + ", ".join(f"{k} {v}" for k, v in sorted(counts.items()))
         )
-
-
-def main() -> None:
-    """Command-line entry point; see the module docstring for usage."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
-    add_arguments(parser)
-    run(parser.parse_args())
-
-
-if __name__ == "__main__":
-    main()

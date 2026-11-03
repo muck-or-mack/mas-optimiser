@@ -11,8 +11,10 @@ time.
 
 The local seed copy matches the server's own database row for row (see
 ``tests/integration/test_seeds.py``) with one exception: the HR server sets
-``created_at`` and ``updated_at`` to the time it loads the seed, so those two
-columns are left out of the comparison for HR. No check tests either.
+``created_at`` and ``updated_at`` to the time it loads the seed, so every row
+differs from the copy in those two columns. They are therefore compared only
+on rows the attempt changed in some other column, where a check may test
+them (``updated_at > created_at``), and left out elsewhere.
 """
 
 import functools
@@ -125,7 +127,8 @@ def diff(
         seed: The local copy of the task's seed.
         state: The attempt's final rows, as ``read_state`` gives them.
         keys: Each table's primary key columns.
-        skip: Columns whose changes are left out (``STAMPED`` for the domain).
+        skip: Columns compared only on rows changed in another column
+            (``STAMPED`` for the domain).
 
     Returns:
         For each table with a change: ``inserted`` rows (every column),
@@ -155,14 +158,13 @@ def diff(
         ]
         updated = []
         for k in sorted(before.keys() & after.keys(), key=repr):
-            changed = {
-                c: [before[k][c], after[k][c]]
-                for c in columns
-                if c not in skip and before[k][c] != after[k][c]
-            }
-            if changed:
+            differing = [c for c in columns if before[k][c] != after[k][c]]
+            if set(differing) - skip:
                 updated.append(
-                    {"key": dict(zip(key, k, strict=True)), "changes": changed}
+                    {
+                        "key": dict(zip(key, k, strict=True)),
+                        "changes": {c: [before[k][c], after[k][c]] for c in differing},
+                    }
                 )
         if inserted or deleted or updated:
             changes[table] = {

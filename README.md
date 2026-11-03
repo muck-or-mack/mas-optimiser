@@ -11,6 +11,10 @@ final database state.
 Status: early development. The benchmark's own agent can be run on its
 tasks; the planner and the optimiser are not written yet.
 
+How it all works, file by file, with one attempt followed from the command
+to the wrong cell and the turn that set it: `docs/how-it-works.md`, with
+its figures in `docs/figures/`.
+
 ## Install
 
 Requires [uv](https://docs.astral.sh/uv/) and Python 3.11 or newer (uv
@@ -127,7 +131,9 @@ as numbers. And a short patch list (`data/check_patches.json`) excludes the
 few checks that no correct attempt can satisfy and repairs the few whose query
 names the wrong record, each entry with its evidence; the benchmark's own
 verdict on every patched check is still recorded beside ours (the
-`upstream_passed` and `patch` columns of `checks.csv`).
+`upstream_passed` and `patch` columns of `checks.csv`). A task whose every
+check is excluded cannot be judged and is not run (one ITSM task at the
+current patch list).
 
 A failed check says only that its whole SQL condition did not hold. Before
 the run's database is deleted, the runner reads the final state and compares

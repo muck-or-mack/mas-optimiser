@@ -210,3 +210,15 @@ def test_summary_counts_changes_by_table_and_names_tables_no_check_mentions():
         "no check of this task mentions: notification",
     ]
     assert states.summary({}, queries) == ["no rows changed"]
+
+
+def test_diff_keeps_skipped_columns_on_a_row_changed_in_another_column(seed):
+    # A check may test what the server stamps (updated_at > created_at), so
+    # a row the attempt changed carries its stamps; an untouched row does not.
+    keys = states.primary_keys(seed)
+    state = state_of(seed)
+    row = state["incident"][0]
+    other = next(c for c in row if c not in keys["incident"] and c != "state")
+    state["incident"][0] = row | {"state": "stamped", other: "x-changed"}
+    found = states.diff(seed, state, keys, skip=frozenset({"state"}))
+    assert set(found["incident"]["updated"][0]["changes"]) == {"state", other}

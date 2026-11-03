@@ -61,6 +61,50 @@ def attach(model) -> None:
     model.callbacks = [CallbackHandler()]
 
 
+def record_outcome(
+    span, record: dict, check_rows: list[dict], changes: list[str] | None
+) -> None:
+    """Score the trace with the attempt's verdict and put its checks and changes in the trace output.
+
+    ``record`` and ``check_rows`` are the attempt's ``tasks.csv`` row and
+    ``checks.csv`` rows; ``changes`` the lines of ``states.summary``, or
+    ``None`` when the changes were not read.
+    """
+    fraction = (
+        record["checks_passed"] / record["checks_total"]
+        if record["checks_total"]
+        else 0.0
+    )
+    span.score_trace(
+        name="task_success", value=float(record["success"]), data_type="BOOLEAN"
+    )
+    span.score_trace(name="check_fraction", value=fraction, data_type="NUMERIC")
+    span.update(
+        output={
+            k: record[k]
+            for k in (
+                "success",
+                "checks_passed",
+                "checks_total",
+                "upstream_success",
+                "error",
+            )
+        }
+        | {
+            "checks": {
+                f"{row['position']} {row['name']}": {
+                    "passed": row["passed"],
+                    "expected": row["expected"],
+                    "actual": row["actual"],
+                    "why": row["diagnosis"],
+                }
+                for row in check_rows
+            },
+            "changes": changes,
+        }
+    )
+
+
 def shutdown() -> None:
     """Send any queued events; call once at the end of a run."""
     get_client().shutdown()

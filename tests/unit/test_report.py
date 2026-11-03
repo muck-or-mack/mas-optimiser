@@ -132,6 +132,16 @@ def traced():
     return run
 
 
+def test_a_tool_that_answers_with_an_error_did_not_succeed():
+    refused = {
+        "success": True,
+        "result": {"isError": True, "content": [{"type": "text", "text": "not found"}]},
+    }
+    assert not report.succeeded(refused)
+    assert not report.succeeded({"success": False, "error": "timeout"})
+    assert report.succeeded(wrapped("{}"))
+
+
 def test_calls_pair_each_tool_call_with_its_result():
     agent_calls = report.calls(RUN)
     assert [(c["turn"], c["tool"], c["success"]) for c in agent_calls] == [
