@@ -31,8 +31,6 @@ assignment. Usage::
 
     mas-optimiser split --experiment baseline-haiku --name haiku-20-40-40 --seed 0
     mas-optimiser split --experiment baseline-haiku --name trial --proportions 0.6 0.2 0.2
-
-``python -m mas_optimiser.benchmarks.enterpriseops.splits`` takes the same arguments.
 """
 
 import argparse
@@ -91,11 +89,6 @@ class Baseline(NamedTuple):
     evaluations: dict[str, str]
 
 
-def started_at(text: str) -> datetime:
-    """An evaluation's start time; one written without an offset is read as local time."""
-    return datetime.fromisoformat(text).astimezone()
-
-
 def read_baseline(experiment_dir: Path) -> Baseline:
     """Read each domain's baseline evaluation and classify every task's outcome.
 
@@ -130,8 +123,11 @@ def read_baseline(experiment_dir: Path) -> Baseline:
         if not row["label"]
         and set(re.findall(r"(?:^|\s)(\w+)=", row["overrides"])) <= HARMLESS_OVERRIDES
     ]
+    # A start time written without an offset is read as local time.
     latest = {}
-    for row in sorted(rows, key=lambda row: started_at(row["started"])):
+    for row in sorted(
+        rows, key=lambda row: datetime.fromisoformat(row["started"]).astimezone()
+    ):
         latest[row["domain"]] = row
     unserved = sorted({row["domain"] for row in full} - set(latest))
     if unserved or not latest:
@@ -384,14 +380,3 @@ def run(args: argparse.Namespace) -> None:
     path.write_text(json.dumps(split, indent=2) + "\n")
     print(f"wrote {path}")
     print(summary(split))
-
-
-def main() -> None:
-    """Command-line entry point; see the module docstring for usage."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
-    add_arguments(parser)
-    run(parser.parse_args())
-
-
-if __name__ == "__main__":
-    main()

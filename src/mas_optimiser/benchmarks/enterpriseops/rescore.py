@@ -19,8 +19,6 @@ them as ``verification_results_as_run``.
 Usage::
 
     mas-optimiser rescore runs/<experiment>/<evaluation> [...]
-
-``python -m mas_optimiser.benchmarks.enterpriseops.rescore`` takes the same arguments.
 """
 
 import argparse
@@ -167,14 +165,3 @@ def run(args: argparse.Namespace) -> None:
         print(
             f"{evaluation}: " + ", ".join(f"{k} {v}" for k, v in sorted(counts.items()))
         )
-
-
-def main() -> None:
-    """Command-line entry point; see the module docstring for usage."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
-    add_arguments(parser)
-    run(parser.parse_args())
-
-
-if __name__ == "__main__":
-    main()

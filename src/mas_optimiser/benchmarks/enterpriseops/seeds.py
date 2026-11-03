@@ -17,8 +17,6 @@ that it matches the server's database row for row. Usage::
 
     mas-optimiser schema
     mas-optimiser schema --domain itsm
-
-``python -m mas_optimiser.benchmarks.enterpriseops.seeds`` takes the same arguments.
 """
 
 import argparse
@@ -247,14 +245,3 @@ def run(args: argparse.Namespace) -> None:
         path = SCHEMAS_DIR / f"{domain}.sql"
         path.write_text(schema or "")
         print(f"wrote {path}")
-
-
-def main() -> None:
-    """Command-line entry point; see the module docstring for usage."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
-    add_arguments(parser)
-    run(parser.parse_args())
-
-
-if __name__ == "__main__":
-    main()
