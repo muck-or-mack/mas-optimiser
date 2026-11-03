@@ -302,3 +302,18 @@ def test_a_call_that_names_a_row_without_writing_its_table_is_not_its_writer():
     found = report.trace(check, report.calls(run), {"hr_case": ["hr_case_id"]})
     assert [c["tool"] for c in found["related"]] == ["create_new_hr_case"]
     assert found["set_by"]["status"]["tool"] == "create_new_hr_case"
+
+
+def test_a_surplus_rows_diagnosis_is_traced_without_conditions():
+    check = {
+        "passed": False,
+        "diagnosis": {
+            "kind": "too_many_rows",
+            "table": "incident",
+            "rows": [{"incident_id": "INC_024", "status": "new"}],
+        },
+    }
+    found = report.trace(check, report.calls(RUN), KEYS)
+    assert found["step"] == "attempted"
+    assert [c["tool"] for c in found["related"]] == ["create_incident"]
+    assert found["set_by"] == {}
