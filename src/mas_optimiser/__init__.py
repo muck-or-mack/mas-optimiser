@@ -1,3 +1,12 @@
+"""Planning-layer evolution for multi-agent systems, measured on EnterpriseOps-Gym.
+
+The package has three parts. ``benchmarks.enterpriseops`` runs an agent on
+the benchmark's tasks and measures the result (the ``mas-optimiser``
+command, ``cli``); ``tracing`` sends each run to Langfuse; the planner and
+the optimiser are to come. ``code_version`` stamps every run with the code
+that produced it.
+"""
+
 import subprocess
 from pathlib import Path
 
@@ -13,7 +22,10 @@ def code_version() -> str:
     ``__version__`` is fixed when the package is installed, so in an editable
     install it can name older code than the code that runs. Git describes the
     checkout at the moment of the call, so a run takes it once, when it
-    starts. Outside a git checkout, ``__version__`` is all there is.
+    starts.
+
+    Returns:
+        The ``git describe`` string, or ``__version__`` outside a git checkout.
     """
     try:
         described = subprocess.run(

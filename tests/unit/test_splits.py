@@ -1,3 +1,5 @@
+"""Unit tests of ``splits``: quotas, the baseline read, the draw and the committed split."""
+
 import csv
 import json
 

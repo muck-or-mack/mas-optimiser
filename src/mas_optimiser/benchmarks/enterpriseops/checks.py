@@ -31,6 +31,7 @@ so the benchmark's own verdict on every check stays beside the one used here.
 import contextlib
 import functools
 import json
+from collections.abc import Callable
 from typing import NamedTuple
 
 from mas_optimiser.benchmarks.enterpriseops import REPO_ROOT, diagnosis
@@ -115,8 +116,15 @@ def unique_names(verifiers: list[dict]) -> tuple[list[dict], Names]:
 
 
 @functools.cache
-def load_patches() -> dict:
-    """The patch list: for each task, its excluded and repaired checks by unique name."""
+def _load_patches() -> dict:
+    """The patch list, read once.
+
+    Returns:
+        Each task ID to its patched checks by unique name, each with its
+        ``disposition`` (``excluded`` or ``repaired``), its ``evidence`` and,
+        for a repair, the corrected ``query``, ``expected_value`` and
+        ``comparison_type``.
+    """
     return json.loads(PATCHES_FILE.read_text()) if PATCHES_FILE.exists() else {}
 
 
@@ -134,7 +142,7 @@ def apply_patches(
         The checks to run, and ``names`` with ``patched`` filled from the
         originals, so that ``original_verdicts`` can run them afterwards.
     """
-    patches = load_patches().get(task_id, {})
+    patches = _load_patches().get(task_id, {})
     if not patches:
         return kept, names
     patched, to_run = {}, []
@@ -164,6 +172,10 @@ def apply_patches(
 def prepare(task_id: str, verifiers: list[dict]) -> tuple[list[dict], Names, dict]:
     """A task's checks ready to run: each distinct check once, the patch list applied.
 
+    Args:
+        task_id: The task's dataset ID, its key in the patch list.
+        verifiers: The task config's check dicts (its ``verifiers``), in order.
+
     Returns:
         The checks to run, the ``Names`` maps, and each distinct check's gym
         (the patched ones included, since their original queries run too).
@@ -177,7 +189,18 @@ def prepare(task_id: str, verifiers: list[dict]) -> tuple[list[dict], Names, dic
 
 
 def compare(actual: object, expected: object, comparison: str) -> bool:
-    """The executor's own comparison of a check's value with its expected value."""
+    """The executor's own comparison of a check's value with its expected value.
+
+    Args:
+        actual: The value the query returned.
+        expected: The check's expected value, as the task gives it.
+        comparison: ``equals``, ``greater_than``, ``less_than`` or ``contains``.
+
+    Returns:
+        ``True`` when the comparison holds; ``False`` when it does not, when
+        the two cannot be compared (a ``TypeError``, which the executor also
+        reads as a failure), or for an unknown comparison.
+    """
     try:
         if comparison == "equals":
             return actual == expected
@@ -186,13 +209,17 @@ def compare(actual: object, expected: object, comparison: str) -> bool:
         if comparison == "less_than":
             return actual < expected  # type: ignore[operator]
         if comparison == "contains":
-            return str(expected) in str(actual)
+            return expected in str(actual)  # type: ignore[operator]
     except TypeError:
         return False
     return False
 
 
-async def original_verdicts(results: dict[str, dict], names: Names, runner_for) -> None:
+async def original_verdicts(
+    results: dict[str, dict],
+    names: Names,
+    runner_for: Callable[[str], diagnosis.RunSQL],
+) -> None:
     """Run each patched check's original query and keep the benchmark's verdict beside ours.
 
     A repaired check's result gets ``upstream_passed`` from its original
@@ -232,6 +259,9 @@ def recheck(result: dict) -> None:
     then, for an equality check whose expected value is a number written as a
     string and whose actual value is a number, replaces ``result["passed"]``
     with the numeric comparison.
+
+    Args:
+        result: One check's verdict as the executor recorded it, edited in place.
     """
     result["upstream_passed"] = result["passed"]
     expected, actual = result.get("expected"), result.get("actual")
@@ -250,6 +280,12 @@ def passed(results: dict[str, dict]) -> bool:
 
     An excluded check (``passed`` ``None``) counts for neither side; the
     executor's own ``all()`` over the verdicts would read it as a failure.
+
+    Args:
+        results: The run's ``verification_results``.
+
+    Returns:
+        ``True`` when at least one check counted and every counted check passed.
     """
     counted = [r["passed"] for r in results.values() if r["passed"] is not None]
     return bool(counted) and all(counted)
@@ -291,6 +327,15 @@ def check_records(
     A failed verdict carries the ``kind`` and ``table`` of its diagnosis and
     the ``step`` its trace gave it (see ``report``); a passed one leaves them
     empty.
+
+    Args:
+        task_id: The task's dataset ID.
+        attempt: The attempt number, from 1.
+        results: The run's ``verification_results``, in the order the checks ran.
+        names: The maps from ``prepare``.
+
+    Returns:
+        The rows, in the order the checks ran.
     """
     rows = []
     for position, (unique, result) in enumerate(results.items(), start=1):

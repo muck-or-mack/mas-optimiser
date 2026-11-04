@@ -1,3 +1,5 @@
+"""Unit tests of ``rescore`` on saved records and a local rebuild."""
+
 import asyncio
 import sqlite3
 

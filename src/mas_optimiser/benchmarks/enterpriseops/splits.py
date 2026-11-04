@@ -99,13 +99,13 @@ def read_baseline(experiment_dir: Path) -> Baseline:
     alone with ``--domain`` still counts.
 
     Args:
-        experiment_dir: The ``runs/<experiment>`` folder holding ``index.csv``.
+        experiment_dir: The ``runs/<experiment>`` folder holding ``index.csv``;
+            opening it raises ``FileNotFoundError`` when there is none.
 
     Returns:
         The tasks and the evaluations they were read from.
 
     Raises:
-        FileNotFoundError: If the experiment has no index.
         ValueError: If the index lacks a column the choice needs, a domain
             with a full evaluation has none that qualifies, or the chosen
             evaluations differ in model, mode, harness or attempts.
@@ -163,6 +163,13 @@ def quotas(n: int, proportions: tuple[float, ...]) -> list[int]:
     The shares sum to ``n`` exactly; ties in the remainders go to the
     earlier proportion. Each proportion is read as the decimal it is written
     as (0.1 is exactly one tenth), so floating-point error cannot break a tie.
+
+    Args:
+        n: The number of items.
+        proportions: The shares, summing to one.
+
+    Returns:
+        One share per proportion.
     """
     exact = [n * Fraction(str(p)) for p in proportions]
     shares = [int(x) for x in exact]
@@ -292,15 +299,29 @@ def build_split(
 
 
 def load_split(spec: str | Path) -> dict:
-    """Read a split by name (``configs/splits/<name>.json``) or by path."""
+    """Read a split by name (``configs/splits/<name>.json``) or by path.
+
+    Args:
+        spec: The split's name, or the path of its file.
+
+    Returns:
+        The split document as ``build_split`` wrote it.
+    """
     path = Path(spec)
     if path.suffix != ".json":
         path = SPLITS_DIR / f"{spec}.json"
     return json.loads(path.read_text())
 
 
-def summary(split: dict) -> str:
-    """One line per set with its size, then the counts per stratum."""
+def _summary(split: dict) -> str:
+    """One line per set with its size, then the counts per stratum.
+
+    Args:
+        split: The split document.
+
+    Returns:
+        The lines joined.
+    """
     lines = []
     for set_name in SETS:
         counts = split["counts"][set_name]
@@ -311,7 +332,11 @@ def summary(split: dict) -> str:
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
-    """Add the split options to ``parser``; shared with the ``mas-optimiser`` command."""
+    """Add the split options to ``parser``; shared with the ``mas-optimiser`` command.
+
+    Args:
+        parser: The ``split`` subparser.
+    """
     parser.add_argument(
         "--experiment", required=True, help="the runs/<experiment> folder to draw from"
     )
@@ -335,6 +360,9 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
 
 def run(args: argparse.Namespace) -> None:
     """Draw the split named by the parsed arguments and write it.
+
+    Args:
+        args: The parsed arguments.
 
     Raises:
         SystemExit: For a malformed name, a name that already has a split, a
@@ -379,4 +407,4 @@ def run(args: argparse.Namespace) -> None:
     SPLITS_DIR.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(split, indent=2) + "\n")
     print(f"wrote {path}")
-    print(summary(split))
+    print(_summary(split))

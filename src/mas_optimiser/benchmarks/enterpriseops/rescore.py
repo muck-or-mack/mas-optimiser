@@ -40,7 +40,16 @@ DESCRIPTION = __doc__.split("\n\n")[0]
 
 
 def local_runner(final: sqlite3.Connection) -> diagnosis.RunSQL:
-    """A query function on the rebuilt database, shaped like the executor's runner: a bad query gives ``None``."""
+    """A query function on the rebuilt database, shaped like the executor's runner.
+
+    Args:
+        final: The rebuilt database.
+
+    Returns:
+        An async function of a query: a query the database rejects gives
+        ``None``, a single cell its value, a single row its dict, several
+        rows a list of dicts.
+    """
 
     async def run_sql(query: str):
         try:
@@ -57,7 +66,16 @@ def local_runner(final: sqlite3.Connection) -> diagnosis.RunSQL:
 
 
 async def check_locally(kept: list[dict], final: sqlite3.Connection) -> dict[str, dict]:
-    """Run each check's query on the rebuilt database and give its verdict as the executor would."""
+    """Run each check's query on the rebuilt database and give its verdict as the executor would.
+
+    Args:
+        kept: The checks to run, from ``checks.prepare``.
+        final: The rebuilt database.
+
+    Returns:
+        Each check's verdict keyed by unique name, shaped as the executor
+        records it, with ``upstream_passed`` from ``checks.recheck``.
+    """
     run_sql = local_runner(final)
     results = {}
     for check in kept:
@@ -85,6 +103,13 @@ def keep_live_verdicts(results: dict[str, dict], as_run: dict[str, dict]) -> dic
     differs from the run's (a patch applied since), and diagnoses the rest:
     the rebuild leaves out what the server stamps on rows it never changed,
     so its verdict is an approximation where the server's is the measurement.
+
+    Args:
+        results: The local verdicts from ``check_locally``, edited in place.
+        as_run: The verdicts the run first produced.
+
+    Returns:
+        ``results``.
     """
     for name, result in results.items():
         live = as_run.get(name)
@@ -104,6 +129,13 @@ async def rescore_attempt(
     folder: Path, attempt: int, config: dict, domain: str, pricing: dict
 ) -> tuple | None:
     """Recompute one attempt's verdicts, diagnosis and files from its saved record and changes.
+
+    Args:
+        folder: The task's folder under the evaluation's ``tasks/``.
+        attempt: The attempt number, from 1.
+        config: The task's config, from ``runner.load_tasks``.
+        domain: The evaluation's domain.
+        pricing: The price table, from ``run.json``.
 
     Returns:
         What ``runner.outputs`` returns, or ``None`` when the attempt has no
@@ -144,8 +176,12 @@ async def rescore_attempt(
 async def rescore(evaluation: Path) -> Counter:
     """Recompute every attempt of one evaluation and rewrite its tables and summary.
 
+    Args:
+        evaluation: The evaluation folder.
+
     Returns:
-        Counts of the attempts passed, failed and left as they were.
+        Counts of the attempts passed, failed and left as they were, and of
+        the tasks with no check left to judge by.
     """
     settings = json.loads((evaluation / "run.json").read_text())
     domain = settings["domain"]
@@ -178,14 +214,22 @@ async def rescore(evaluation: Path) -> Counter:
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
-    """Add the rescore options to ``parser``; shared with the ``mas-optimiser`` command."""
+    """Add the rescore options to ``parser``; shared with the ``mas-optimiser`` command.
+
+    Args:
+        parser: The ``rescore`` subparser.
+    """
     parser.add_argument(
         "evaluation", nargs="+", type=Path, help="evaluation folders under runs/"
     )
 
 
 def run(args: argparse.Namespace) -> None:
-    """Rescore each evaluation and print the counts."""
+    """Rescore each evaluation and print the counts.
+
+    Args:
+        args: The parsed arguments.
+    """
     for evaluation in args.evaluation:
         counts = asyncio.run(rescore(evaluation))
         print(

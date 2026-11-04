@@ -1,3 +1,5 @@
+"""Unit tests of ``checks``: unique names, the numeric recheck, the patch list and the verdicts."""
+
 import asyncio
 
 from mas_optimiser.benchmarks.enterpriseops import checks
@@ -139,7 +141,7 @@ def test_check_records_use_the_original_names_in_order():
 def test_patches_drop_excluded_checks_and_swap_repaired_queries(monkeypatch):
     monkeypatch.setattr(
         checks,
-        "load_patches",
+        "_load_patches",
         lambda: {
             "t": {
                 "a": {
@@ -197,7 +199,7 @@ def test_an_attempt_passes_when_every_counted_check_does():
 def test_prepare_renames_patches_and_keeps_every_gym(monkeypatch):
     monkeypatch.setattr(
         checks,
-        "load_patches",
+        "_load_patches",
         lambda: {"t": {"a": {"disposition": "excluded", "evidence": "copied"}}},
     )
     kept, names, gyms = checks.prepare("t", [check("a", "qa"), check("b", "qb")])

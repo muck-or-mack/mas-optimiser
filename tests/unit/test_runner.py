@@ -1,3 +1,5 @@
+"""Unit tests of ``runner``: task loading, pricing, the rows of an attempt and the evaluation folder."""
+
 import json
 
 import pytest

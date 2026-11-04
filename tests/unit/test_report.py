@@ -1,3 +1,5 @@
+"""Unit tests of ``report``: the trace from a failed check to the agent's turn, the page and the summary."""
+
 import json
 
 from mas_optimiser.benchmarks.enterpriseops import report

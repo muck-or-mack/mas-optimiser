@@ -22,4 +22,5 @@ jobs:
         run: |
           uv run ruff check src tests
           uv run ruff format --check src tests
+          uv run pydoclint src
           uv run pytest -q
