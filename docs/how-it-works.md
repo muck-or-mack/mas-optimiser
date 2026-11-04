@@ -346,7 +346,7 @@ The second figure shows the plan. The harness ladder (P1) changes one thing
 per rung and compares each rung with the one below on the validation tasks:
 
 - `default`: the loop of section 2.4 as it is; the benchmark's reference.
-- `repaired`: the same loop plus interface repairs of the kind the
+- `interface_repair`: the same loop plus interface repairs of the kind the
   published harness papers apply, such as argument cleaning, schema fixes
   and a finish tool, each repair traced to a failure in the training set.
   In code this is a second orchestrator class, or a wrapper around the tool
