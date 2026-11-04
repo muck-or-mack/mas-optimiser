@@ -1,3 +1,5 @@
+"""Unit tests of ``seeds``: seed statements, the local database and the ``schema`` command."""
+
 import argparse
 
 import httpx
@@ -63,10 +65,13 @@ def test_build_seed_database_applies_the_schema_types_to_the_rows(tmp_path):
 
 
 class Response:
+    """A stand-in for an ``httpx`` response with a status, a JSON body and text."""
+
     def __init__(self, status_code, body=None, text=""):
         self.status_code, self.body, self.text = status_code, body, text
 
     def json(self):
+        """The body, raising ``ValueError`` as ``httpx`` does when there is none."""
         if self.body is None:
             raise ValueError("not JSON")
         return self.body
@@ -159,7 +164,7 @@ def schema_command(monkeypatch, tmp_path):
 def test_schema_command_writes_the_schema_all_seed_files_share(
     schema_command, monkeypatch
 ):
-    monkeypatch.setattr(seeds, "fetch_schema", lambda url, path: SCHEMA)
+    monkeypatch.setattr(seeds, "_fetch_schema", lambda url, path: SCHEMA)
     seeds.run(schema_command)
     assert (seeds.SCHEMAS_DIR / "itsm.sql").read_text() == SCHEMA
 
@@ -168,7 +173,7 @@ def test_schema_command_stops_when_two_seed_files_disagree(schema_command, monke
     other = SCHEMA.replace("cost INTEGER", "cost REAL")
     monkeypatch.setattr(
         seeds,
-        "fetch_schema",
+        "_fetch_schema",
         lambda url, path: SCHEMA if path.name == "a.sql" else other,
     )
     with pytest.raises(SystemExit, match="error: itsm: b.sql and a.sql give different"):

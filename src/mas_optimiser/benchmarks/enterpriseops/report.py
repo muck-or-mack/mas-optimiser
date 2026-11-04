@@ -10,16 +10,19 @@ check, touched row and condition, with the turn that set a wrong cell) and
 ``changes.csv`` (one row per attempt and changed table). And ``summary.md``,
 a page that says how the run went and what went wrong, by table and column.
 
-The trace from a failed check back to the agent's turns is mechanical. A
-call is related to a check when its arguments or its result name the
-touched row's key (``hr_case_id: 61``), or, when no row was touched, when
-it is a writing call that names the table's key column or carries the
-table's name. A wrong cell was set by the last related call whose arguments
-name that column; a column no call names was left to the server. The
-related calls give each failed check a ``step``: ``skipped`` (no related
-call), ``failed`` (a related call returned an error), ``wrong`` (the row is
-there with wrong cells) or ``attempted`` (the related calls succeeded and
-the check still fails, as when the row went elsewhere).
+The trace from a failed check back to the agent's turns is mechanical. The
+calls that write the check's table are those with a writing verb in the
+tool's name and the table's words in the rest of it (``create_incident``
+writes ``incident``) or, when none is named so, the writing calls whose
+result echoes the table's key column. Among them, the calls whose arguments
+or result name the touched row's key (``hr_case_id: 61``) are the ones
+linked to the check; when none does, all of them are. A wrong cell was set
+by the last linked call whose arguments name that column; a column no call
+names was left to the server. The step of a failed check is ``wrong`` when
+the row is there with wrong cells, else ``skipped`` when no call wrote the
+table, ``failed`` when one of those calls returned an error, and
+``attempted`` when they all succeeded and the check still fails, as when
+the row went elsewhere.
 """
 
 import json
@@ -70,8 +73,16 @@ WORST_TASKS = 10
 STEPS = ("skipped", "failed", "wrong", "attempted")
 
 
-def result_text(result: dict) -> str:
-    """A tool result's payload as text; MCP servers wrap it as content blocks."""
+def _result_text(result: dict) -> str:
+    """A tool result's payload as text; MCP servers wrap it as content blocks.
+
+    Args:
+        result: The tool result as the record keeps it (``success`` and ``result``).
+
+    Returns:
+        The first content block's text, a bare string as it is, or any other
+        payload as JSON.
+    """
     content = result.get("result", {})
     if isinstance(content, dict) and content.get("content"):
         return str(content["content"][0].get("text", ""))
@@ -83,6 +94,12 @@ def succeeded(result: dict) -> bool:
 
     The client's ``success`` says only that the server answered; a tool that
     refused (an unknown user, a missing field) answers with ``isError``.
+
+    Args:
+        result: The tool result as the record keeps it.
+
+    Returns:
+        ``True`` when both held.
     """
     inner = result.get("result")
     return bool(result.get("success")) and not (
@@ -91,7 +108,15 @@ def succeeded(result: dict) -> bool:
 
 
 def calls(run: dict) -> list[dict]:
-    """The agent's tool calls in order, each with its turn, arguments and result."""
+    """The agent's tool calls in order, each with its turn, arguments and result.
+
+    Args:
+        run: The executor's record of the run (its ``conversation_flow``).
+
+    Returns:
+        One dict per call: ``turn``, ``tool``, ``args`` and, once its result
+        arrived, ``success`` and ``result`` (the result's text).
+    """
     out, pending, turn = [], [], 0
     for step in run.get("conversation_flow", []):
         if step["type"] == "ai_message":
@@ -105,12 +130,21 @@ def calls(run: dict) -> list[dict]:
             call = pending.pop(0)
             result = step.get("result") or {}
             call["success"] = succeeded(result)
-            call["result"] = result_text(result)
+            call["result"] = _result_text(result)
     return out
 
 
-def names(call: dict, column: str, value: object) -> bool:
-    """Whether a call's arguments or result carry ``column`` with ``value``."""
+def _names(call: dict, column: str, value: object) -> bool:
+    """Whether a call's arguments or result carry ``column`` with ``value``.
+
+    Args:
+        call: A call from ``calls``.
+        column: The column name.
+        value: The value looked for.
+
+    Returns:
+        ``True`` when either the arguments or the result name the pair.
+    """
     pattern = re.compile(
         rf"\b{re.escape(column)}\W{{1,4}}['\"]?{re.escape(str(value))}['\"]?(?!\w)"
     )
@@ -142,6 +176,14 @@ def writers_of(agent_calls: list[dict], table: str, key: list[str]) -> list[dict
 
     The name is the primary rule because arguments mislead: a task is created
     with its case's id, which does not make the call a write to the case.
+
+    Args:
+        agent_calls: The calls from ``calls``.
+        table: The table a check queries.
+        key: The table's primary key columns.
+
+    Returns:
+        The calls, in order; empty when none wrote the table.
     """
     writing = [c for c in agent_calls if c["tool"].split("_")[0] in WRITING]
     named = [
@@ -156,8 +198,15 @@ def writers_of(agent_calls: list[dict], table: str, key: list[str]) -> list[dict
     ]
 
 
-def column_of(condition: str) -> str:
-    """The bare column a condition tests, without alias or function; empty for a bracketed group."""
+def _column_of(condition: str) -> str:
+    """The bare column a condition tests, without alias or function.
+
+    Args:
+        condition: One condition of a check, as ``diagnosis`` splits them.
+
+    Returns:
+        The column name; empty for a bracketed group.
+    """
     match = diagnosis.COLUMN.match(condition)
     if not match:
         return ""
@@ -168,7 +217,18 @@ def column_of(condition: str) -> str:
 
 
 def trace(result: dict, agent_calls: list[dict], keys: dict) -> dict:
-    """How a failed check's row was handled: the calls that wrote it, who set each wrong cell, the step."""
+    """How a failed check's row was handled: the calls that wrote it, who set each wrong cell, the step.
+
+    Args:
+        result: A failed check's result with its ``diagnosis``.
+        agent_calls: The calls from ``calls``.
+        keys: Each table's primary key columns.
+
+    Returns:
+        ``step`` (one of ``STEPS``; empty when the diagnosis names no table),
+        ``related`` (the linked calls: turn, tool, success) and ``set_by``
+        (each wrong column to the turn, tool and value that set it).
+    """
     found = result.get("diagnosis") or {}
     table = found.get("table", "")
     if not table:
@@ -183,10 +243,10 @@ def trace(result: dict, agent_calls: list[dict], keys: dict) -> dict:
     # row's key; all of them when none does (a result that echoes no id).
     rows = [row["row"] for row in conditions if "row" in row]
     pairs = {(k, v) for row in rows for k, v in row.items()}
-    linked = [c for c in writers if any(names(c, k, v) for k, v in pairs)] or writers
+    linked = [c for c in writers if any(_names(c, k, v) for k, v in pairs)] or writers
     set_by = {}
     for row in conditions:
-        column = column_of(row["condition"])
+        column = _column_of(row["condition"])
         if row.get("ok") or not column:
             continue
         for call in linked:
@@ -214,13 +274,31 @@ def trace(result: dict, agent_calls: list[dict], keys: dict) -> dict:
     }
 
 
-def clip(text: str, max_chars: int) -> str:
+def _clip(text: str, max_chars: int) -> str:
+    """One line of at most ``max_chars`` characters.
+
+    Args:
+        text: Anything; runs of whitespace are collapsed.
+        max_chars: The length kept before `` ...`` is added.
+
+    Returns:
+        The line.
+    """
     text = " ".join(str(text).split())
     return text if len(text) <= max_chars else text[:max_chars] + " ..."
 
 
-def check_lines(result: dict, max_chars: int) -> list[str]:
-    """Under a failed check: each touched row and condition, and the turns behind them."""
+def _check_lines(result: dict, max_chars: int) -> list[str]:
+    """Under a failed check: each touched row and condition, and the turns behind them.
+
+    Args:
+        result: A failed check's result with its ``diagnosis`` and ``trace``.
+        max_chars: The length a long line is clipped to.
+
+    Returns:
+        The lines, to be indented under the check; empty for a kind with
+        nothing to show.
+    """
     found = result.get("diagnosis") or {}
     kind = found.get("kind")
     followed = result.get("trace") or {}
@@ -244,10 +322,10 @@ def check_lines(result: dict, max_chars: int) -> list[str]:
                 lines.append(f"  ok     {row['condition']}")
                 continue
             actual = ", ".join(str(v) for v in row.get("actual", [])) or "no value"
-            setter = followed.get("set_by", {}).get(column_of(row["condition"]))
+            setter = followed.get("set_by", {}).get(_column_of(row["condition"]))
             by = (
                 f"set at turn {setter['turn']} by {setter['tool']}"
-                f"({column_of(row['condition'])}={setter['value']!r})"
+                f"({_column_of(row['condition'])}={setter['value']!r})"
                 if setter
                 else "not in any call's arguments"
             )
@@ -263,14 +341,26 @@ def check_lines(result: dict, max_chars: int) -> list[str]:
             for c in linked
         ]
     if kind == "too_many_rows":
-        return [clip(diagnosis.describe(found), max_chars)]
+        return [_clip(diagnosis.describe(found), max_chars)]
     return []
 
 
 def attempt_text(
     task_id: str, attempt: int, run: dict, changes: dict | None, max_chars: int = 300
 ) -> str:
-    """One attempt as a page: request, turns, changes, and every check with its table and trace."""
+    """One attempt as a page: request, turns, changes, and every check with its table and trace.
+
+    Args:
+        task_id: The task's dataset ID.
+        attempt: The attempt number, from 1.
+        run: The executor's record of the run.
+        changes: The attempt's changes, as ``states.diff`` gives them, or
+            ``None`` when they were not read.
+        max_chars: The length a turn's text or a tool's arguments are clipped to.
+
+    Returns:
+        The page as Markdown.
+    """
     results = run.get("verification_results", {})
     passed = sum(1 for r in results.values() if r["passed"])
     verdict = "PASS" if run.get("overall_success") else "FAIL"
@@ -288,15 +378,15 @@ def attempt_text(
         if step["type"] == "ai_message":
             turn += 1
             if step.get("content"):
-                lines.append(f"turn {turn}: {clip(step['content'], max_chars)}")
+                lines.append(f"turn {turn}: {_clip(step['content'], max_chars)}")
             for call in step.get("tool_calls") or []:
                 lines.append(
-                    f"turn {turn}: {call['name']} {clip(json.dumps(call.get('args')), max_chars)}"
+                    f"turn {turn}: {call['name']} {_clip(json.dumps(call.get('args')), max_chars)}"
                 )
         elif step["type"] == "tool_result":
             result = step.get("result") or {}
             flag = "ok" if succeeded(result) else "ERROR"
-            lines.append(f"    -> {flag}: {clip(result_text(result), max_chars)}")
+            lines.append(f"    -> {flag}: {_clip(_result_text(result), max_chars)}")
     lines += ["", "## Changes against the seed", ""]
     if changes is None:
         lines.append("not saved")
@@ -323,13 +413,23 @@ def attempt_text(
         if result.get("query"):
             lines.append(f"    {' '.join(result['query'].split())}")
         if not result["passed"]:
-            lines += [f"    {line}" for line in check_lines(result, max_chars)]
+            lines += [f"    {line}" for line in _check_lines(result, max_chars)]
         lines.append("")
     return "\n".join(lines)
 
 
 def cell_rows(task_id: str, attempt: int, results: dict) -> list[dict]:
-    """``cells.csv`` rows: one per failed check, touched row and condition."""
+    """``cells.csv`` rows: one per failed check, touched row and condition.
+
+    Args:
+        task_id: The task's dataset ID.
+        attempt: The attempt number, from 1.
+        results: The run's ``verification_results``, each failure with its
+            diagnosis and trace.
+
+    Returns:
+        The rows (``CELL_COLUMNS``).
+    """
     rows = []
     for name, result in results.items():
         found = result.get("diagnosis") or {}
@@ -337,7 +437,7 @@ def cell_rows(task_id: str, attempt: int, results: dict) -> list[dict]:
             continue
         set_by = (result.get("trace") or {}).get("set_by", {})
         for row in found["rows"]:
-            setter = set_by.get(column_of(row["condition"]), {})
+            setter = set_by.get(_column_of(row["condition"]), {})
             rows.append(
                 {
                     "task_id": task_id,
@@ -358,7 +458,18 @@ def cell_rows(task_id: str, attempt: int, results: dict) -> list[dict]:
 def change_rows(
     task_id: str, attempt: int, changes: dict | None, queries: list[str]
 ) -> list[dict]:
-    """``changes.csv`` rows: one per changed table, and whether any check mentions it."""
+    """``changes.csv`` rows: one per changed table, and whether any check mentions it.
+
+    Args:
+        task_id: The task's dataset ID.
+        attempt: The attempt number, from 1.
+        changes: The attempt's changes, as ``states.diff`` gives them, or
+            ``None`` when they were not read.
+        queries: The task's check queries.
+
+    Returns:
+        The rows (``CHANGE_COLUMNS``).
+    """
     mentioned = {t.lower() for q in queries for t in states.TABLES.findall(q)}
     return [
         {
@@ -382,7 +493,19 @@ def summary(
     cells: list[dict],
     change_list: list[dict],
 ) -> str:
-    """``summary.md``: how the evaluation went and what went wrong, by table and column."""
+    """``summary.md``: how the evaluation went and what went wrong, by table and column.
+
+    Args:
+        name: The evaluation folder's name.
+        settings: ``domain``, ``mode`` and ``model``, for the heading.
+        records: The ``tasks.csv`` rows.
+        check_rows: The ``checks.csv`` rows.
+        cells: The ``cells.csv`` rows.
+        change_list: The ``changes.csv`` rows.
+
+    Returns:
+        The page as Markdown.
+    """
     attempts = len(records)
     passed = sum(r["success"] for r in records)
     by_task: dict[str, list[dict]] = {}
@@ -399,9 +522,9 @@ def summary(
     broke = Counter(c["table"] for c in failed if c["step"] == "failed")
     # A failing bracketed group names no single column and is left out here.
     wrong = Counter(
-        column_of(c["condition"])
+        _column_of(c["condition"])
         for c in cells
-        if not c["ok"] and column_of(c["condition"])
+        if not c["ok"] and _column_of(c["condition"])
     )
     pct = f"{100 * passed / attempts:.1f}%" if attempts else "n/a"
     lines = [
@@ -424,15 +547,15 @@ def summary(
     if skipped:
         lines.append(
             "Steps skipped (no call wrote the table), by table: "
-            + listed(skipped)
+            + _listed(skipped)
             + "."
         )
     if broke:
         lines.append(
-            "Steps whose call returned an error, by table: " + listed(broke) + "."
+            "Steps whose call returned an error, by table: " + _listed(broke) + "."
         )
     if wrong:
-        lines.append("Cells wrong, by column: " + listed(wrong) + ".")
+        lines.append("Cells wrong, by column: " + _listed(wrong) + ".")
     lines += [
         "",
         f"## Worst tasks ({WORST_TASKS} shown; every task is in tasks.csv)",
@@ -449,9 +572,9 @@ def summary(
                 f"{c['step']} {c['table']}"
             ] += 1
     for cell in cells:
-        if not cell["ok"] and column_of(cell["condition"]):
+        if not cell["ok"] and _column_of(cell["condition"]):
             failures_by_task.setdefault(cell["task_id"], Counter())[
-                f"wrong {column_of(cell['condition'])}"
+                f"wrong {_column_of(cell['condition'])}"
             ] += 1
     ranked = sorted(
         by_task,
@@ -478,5 +601,13 @@ def summary(
     return "\n".join(lines)
 
 
-def listed(counts: Counter) -> str:
+def _listed(counts: Counter) -> str:
+    """Counts as ``key n`` pairs, most common first.
+
+    Args:
+        counts: What to list.
+
+    Returns:
+        The pairs joined with commas.
+    """
     return ", ".join(f"{key} {n}" for key, n in counts.most_common())

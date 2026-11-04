@@ -1,3 +1,5 @@
+"""Unit test that the benchmark's modules load from the pinned submodule."""
+
 import importlib
 from pathlib import Path
 

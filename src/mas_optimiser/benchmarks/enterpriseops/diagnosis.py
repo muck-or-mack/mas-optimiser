@@ -20,8 +20,8 @@ them.
 
 Every query runs against the attempt's own database, on the server before
 the executor deletes it or on a local rebuild afterwards. A check with n
-conditions on r touched rows costs at most r(2n) cheap queries, and no model
-is involved.
+conditions on r touched rows (at most ``SAMPLE_ROWS``) costs at most r(2n)
+cheap queries, and no model is involved.
 """
 
 import re
@@ -61,7 +61,15 @@ RunSQL = Callable[[str], Awaitable[object]]
 
 
 def split_conditions(where: str) -> list[str] | None:
-    """Split a WHERE clause at its top-level ANDs; ``None`` if it has a top-level OR."""
+    """Split a WHERE clause at its top-level ANDs.
+
+    Args:
+        where: The clause, without the ``WHERE`` keyword.
+
+    Returns:
+        The conditions, each stripped, or ``None`` when a top-level OR makes
+        the split meaningless.
+    """
     cuts = []
     depth = 0
     for match in TOKENS.finditer(where):
@@ -86,6 +94,9 @@ def split_conditions(where: str) -> list[str] | None:
 def parse_count_query(query: str) -> tuple[str, str, list[str]] | None:
     """Take a count query apart into its COUNT expression, FROM clause and conditions.
 
+    Args:
+        query: The check's SQL.
+
     Returns:
         ``(count, source, conditions)``, or ``None`` for a query the diagnosis
         cannot take apart: not a count, no WHERE, a GROUP BY, HAVING, ORDER BY
@@ -100,8 +111,15 @@ def parse_count_query(query: str) -> tuple[str, str, list[str]] | None:
     return match["count"], match["source"], conditions
 
 
-def as_number(value: object) -> float | None:
-    """The value as a number, or ``None`` if it is not one (``True`` is not)."""
+def _as_number(value: object) -> float | None:
+    """The value as a number.
+
+    Args:
+        value: Anything a query or a task can give.
+
+    Returns:
+        The number, or ``None`` when the value is not one (``True`` is not).
+    """
     if isinstance(value, bool):
         return None
     if isinstance(value, NUMBER_TYPES):
@@ -114,11 +132,15 @@ def as_number(value: object) -> float | None:
     return None
 
 
-def values(result: object) -> list:
+def _values(result: object) -> list:
     """The cells of a query result as a flat list, however the SQL runner shaped it.
 
-    The executor's runner returns a bare value for a single cell, a dict for a
-    single row and a list of dicts for several rows.
+    Args:
+        result: What the runner returned: a bare value for a single cell, a
+            dict for a single row, a list of dicts for several rows.
+
+    Returns:
+        The cells, one per row for a list of rows.
     """
     if isinstance(result, dict):
         return list(result.values())
@@ -129,15 +151,31 @@ def values(result: object) -> list:
     return [result]
 
 
-def literal(value: object) -> str:
-    """A key value as an SQL literal."""
+def _literal(value: object) -> str:
+    """A key value as an SQL literal.
+
+    Args:
+        value: The value, a number or a string.
+
+    Returns:
+        The number as written, or the string quoted with its quotes doubled.
+    """
     if isinstance(value, NUMBER_TYPES) and not isinstance(value, bool):
         return repr(value)
     return "'" + str(value).replace("'", "''") + "'"
 
 
-def touched(changes: dict, table: str, key: list[str]) -> list[dict]:
-    """The keys of the rows the attempt inserted or updated in ``table``, inserted first."""
+def _touched(changes: dict, table: str, key: list[str]) -> list[dict]:
+    """The keys of the rows the attempt inserted or updated in ``table``, inserted first.
+
+    Args:
+        changes: The attempt's changes, as ``states.diff`` gives them.
+        table: The table to look in.
+        key: The table's primary key columns.
+
+    Returns:
+        One dict of key column to value per row; empty when the table is unchanged.
+    """
     change = changes.get(table)
     if not change:
         return []
@@ -159,8 +197,9 @@ async def diagnose(result: dict, changes: dict, keys: dict, run_sql: RunSQL) -> 
 
     Returns:
         A dict with ``kind`` and the evidence for it: ``cells`` (``rows``: for
-        each touched row and condition, whether it holds and, when it does
-        not, the ``actual`` values found), ``no_rows`` (the attempt touched no
+        each of the first ``SAMPLE_ROWS`` touched rows and each condition,
+        whether it holds and, when it does not, the ``actual`` values found),
+        ``no_rows`` (the attempt touched no
         row of the ``table``), ``too_many_rows`` (sample ``rows``), ``value``
         (one row of wanted against actual), or ``unsupported``.
     """
@@ -174,8 +213,8 @@ async def diagnose(result: dict, changes: dict, keys: dict, run_sql: RunSQL) -> 
         }
         return {"kind": "value", "table": value["table"], "rows": [row]}
     parsed = parse_count_query(query)
-    expected = as_number(result.get("expected"))
-    actual = as_number(result.get("actual"))
+    expected = _as_number(result.get("expected"))
+    actual = _as_number(result.get("actual"))
     comparison = result.get("comparison_type", "equals")
     if parsed is None or expected is None or actual is None:
         return {"kind": "unsupported"}
@@ -193,12 +232,12 @@ async def diagnose(result: dict, changes: dict, keys: dict, run_sql: RunSQL) -> 
     if main is None or main["table"] not in keys:
         return {"kind": "unsupported"}
     table, alias = main["table"], main["alias"] or main["table"]
-    rows = touched(changes, table, keys[table])
+    rows = _touched(changes, table, keys[table])
     if not rows:
         return {"kind": "no_rows", "table": table}
     cells = []
     for key in rows[:SAMPLE_ROWS]:
-        where = " AND ".join(f"{alias}.{k} = {literal(v)}" for k, v in key.items())
+        where = " AND ".join(f"{alias}.{k} = {_literal(v)}" for k, v in key.items())
         for condition in conditions:
             # A condition that names another table of the join (by alias or
             # name, outside any quoted value) is tested through the join; one
@@ -207,7 +246,7 @@ async def diagnose(result: dict, changes: dict, keys: dict, run_sql: RunSQL) -> 
             column = COLUMN.match(condition)
             prefixes = set(QUALIFIED.findall(QUOTED.sub("", condition)))
             scope = source if prefixes - {alias, table} else f"{table} {alias}"
-            held = as_number(
+            held = _as_number(
                 await run_sql(
                     f"SELECT COUNT(*) FROM {scope} WHERE {where} AND {condition}"
                 )
@@ -217,13 +256,20 @@ async def diagnose(result: dict, changes: dict, keys: dict, run_sql: RunSQL) -> 
                 found = await run_sql(
                     f"SELECT DISTINCT {column[1]} FROM {scope} WHERE {where}"
                 )
-                cell["actual"] = values(found)
+                cell["actual"] = _values(found)
             cells.append(cell)
     return {"kind": "cells", "table": table, "rows": cells}
 
 
 def describe(diagnosis: dict | None) -> str:
-    """One line for a CSV cell: the failing conditions and what was found."""
+    """One line for a CSV cell: the failing conditions and what was found.
+
+    Args:
+        diagnosis: What ``diagnose`` returned, or ``None`` for a check without one.
+
+    Returns:
+        The line; empty for no diagnosis or a kind the renderers do not know.
+    """
     if not diagnosis or diagnosis["kind"] not in KINDS:
         return ""
     if diagnosis["kind"] == "no_rows":

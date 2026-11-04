@@ -1,3 +1,5 @@
+"""Unit tests of ``states``: primary keys, the diff against the seed and the rebuild."""
+
 import random
 import sqlite3
 

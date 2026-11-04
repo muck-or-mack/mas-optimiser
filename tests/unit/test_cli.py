@@ -1,3 +1,5 @@
+"""Unit tests of the ``mas-optimiser`` command's parser."""
+
 import pytest
 
 from mas_optimiser import cli

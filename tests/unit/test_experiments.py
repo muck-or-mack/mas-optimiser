@@ -1,3 +1,5 @@
+"""Unit tests of the experiment and model config loading in ``runner``."""
+
 import argparse
 
 import pytest

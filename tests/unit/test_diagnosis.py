@@ -1,3 +1,5 @@
+"""Unit tests of ``diagnosis`` on a small in-memory database."""
+
 import asyncio
 import sqlite3
 

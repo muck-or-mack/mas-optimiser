@@ -33,12 +33,26 @@ TABLES = re.compile(r"\b(?:FROM|JOIN)\s+(\w+)", re.IGNORECASE)
 
 
 def columns_of(connection: sqlite3.Connection, table: str) -> list[str]:
-    """A table's columns, in table order."""
+    """A table's columns, in table order.
+
+    Args:
+        connection: An open database.
+        table: The table's name.
+
+    Returns:
+        The column names.
+    """
     return [row[1] for row in connection.execute(f'PRAGMA table_info("{table}")')]
 
 
 def primary_keys(connection: sqlite3.Connection) -> dict[str, list[str]]:
     """Each table's primary key columns, in key order.
+
+    Args:
+        connection: An open database.
+
+    Returns:
+        Each table name to its key columns.
 
     Raises:
         ValueError: If a table has no primary key, since its rows could not
@@ -63,6 +77,10 @@ def primary_keys(connection: sqlite3.Connection) -> dict[str, list[str]]:
 @functools.cache
 def seed_copy(seed_path: Path, domain: str) -> tuple[sqlite3.Connection, dict]:
     """A local copy of a seed database, built once per seed, and its layout.
+
+    Args:
+        seed_path: The task's seed file.
+        domain: The task's domain, which names the schema under ``data/schemas/``.
 
     Returns:
         The connection and the layout: each table's ``columns`` and ``keys``.
@@ -110,8 +128,15 @@ def read_state(
     return state
 
 
-def as_stored(value: object) -> object:
-    """A value as SQLite stores it: booleans are integers."""
+def _as_stored(value: object) -> object:
+    """A value as SQLite stores it: booleans are integers.
+
+    Args:
+        value: A cell as the server's JSON gives it.
+
+    Returns:
+        The cell as the local copy holds it.
+    """
     return int(value) if isinstance(value, bool) else value
 
 
@@ -133,7 +158,8 @@ def diff(
     Returns:
         For each table with a change: ``inserted`` rows (every column),
         ``deleted`` rows (their keys) and ``updated`` rows (``key`` and
-        ``changes``, column to ``[before, after]``), each in key order.
+        ``changes``, column to ``[before, after]``), each sorted by the text
+        of its key.
     """
     changes = {}
     for table, rows in state.items():
@@ -146,8 +172,8 @@ def diff(
             for row in seed.execute(f'SELECT {names} FROM "{table}"')
         }
         after = {
-            tuple(as_stored(row[k]) for k in key): {
-                c: as_stored(row[c]) for c in columns
+            tuple(_as_stored(row[k]) for k in key): {
+                c: _as_stored(row[c]) for c in columns
             }
             for row in rows
         }
@@ -182,6 +208,9 @@ def summary(changes: dict, queries: list[str]) -> list[str]:
         changes: An attempt's changes, as ``diff`` gives them.
         queries: The task's check queries; the tables they name are the
             ones a check mentions.
+
+    Returns:
+        The lines, or one line saying no rows changed.
     """
     mentioned = {t.lower() for q in queries for t in TABLES.findall(q)}
     lines = []
@@ -206,6 +235,14 @@ def rebuild(seed: sqlite3.Connection, changes: dict, keys: dict) -> sqlite3.Conn
 
     Every changed row is deleted before any is written back, so a change that
     swaps unique values between rows never collides on the way.
+
+    Args:
+        seed: The local copy of the task's seed.
+        changes: The attempt's changes, as ``diff`` gives them.
+        keys: Each table's primary key columns.
+
+    Returns:
+        An open connection to the rebuilt database.
     """
     final = sqlite3.connect(":memory:")
     seed.backup(final)

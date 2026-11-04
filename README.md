@@ -135,23 +135,10 @@ verdict on every patched check is still recorded beside ours (the
 check is excluded cannot be judged and is not run (one ITSM task at the
 current patch list).
 
-A failed check says only that its whole SQL condition did not hold. Before
-the run's database is deleted, the runner reads the final state and compares
-it with the seed (`attempt-<n>.changes.json`: every row inserted, updated or
-deleted), then takes each failed count check apart at its top-level ANDs and
-tests every condition on its own against the rows the agent inserted or
-updated in the check's table, fetching the value actually found where a
-condition fails. A check expecting no rows gets the surplus rows instead; a
-check that reads one value is already wanted against actual; the few queries
-with a top-level OR or another shape keep expected and actual only. Each
-failed check is then traced back to the agent's turns: the calls that write
-the check's table (a writing verb and the table's name in the tool's name),
-which of them set each wrong cell, and the `step` the check failed at:
-`skipped` (no call wrote the table), `failed` (a call returned an error),
-`wrong` (the row is there with wrong cells) or `attempted` (the calls
-succeeded and the row is still not what the check wants). The `kind` column
-of `checks.csv` says what the diagnosis found: `cells`, `no_rows`,
-`too_many_rows`, `value` or `unsupported`.
+How a failed check is diagnosed cell by cell and traced to the turn that
+set each wrong value, and what the `kind` and `step` columns of `checks.csv`
+mean, is in `docs/how-it-works.md` (sections 2.6 and 2.7), which follows
+one real attempt through the whole pipeline.
 
 An evaluation folder is named by its start time and domain, then anything
 that makes it differ from the experiment file: a `--label` word, an
@@ -244,10 +231,10 @@ as it was. The record keeps the verdicts the run first produced as
 
 ## Watching a run in Langfuse
 
-[Langfuse](https://langfuse.com) shows each task as a tree: the task, every
+[Langfuse](https://langfuse.com) shows each attempt as a tree: the task, every
 model call with the messages sent and the reply, its tool calls, token usage
 and cost, and the check verdict as two scores (`task_success` and
-`check_fraction`). Tasks from one run share a session named after the run
+`check_fraction`). Attempts from one run share a session named after the run
 folder, and traces are tagged with the domain, mode, arm and model.
 
 One command installs and starts a self-hosted copy with Docker, outside this

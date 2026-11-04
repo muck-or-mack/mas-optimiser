@@ -126,7 +126,7 @@ def server_database(server_url: str, seed_path: Path) -> Iterator[str]:
         raise RuntimeError(f"database {database_id} was left on {server_url}")
 
 
-def fetch_schema(server_url: str, seed_path: Path) -> str:
+def _fetch_schema(server_url: str, seed_path: Path) -> str:
     """Seed a database on the server, read its CREATE statements, delete it.
 
     Args:
@@ -135,10 +135,8 @@ def fetch_schema(server_url: str, seed_path: Path) -> str:
 
     Returns:
         The CREATE statements, tables in name order and then indexes, each
-        ending in a semicolon.
-
-    Raises:
-        RuntimeError: As ``server_database`` and ``run_sql`` do.
+        ending in a semicolon. Errors from ``server_database`` and
+        ``run_sql`` propagate.
     """
     with server_database(server_url, seed_path) as database_id:
         rows = run_sql(server_url, database_id, SCHEMA_QUERY)
@@ -147,6 +145,12 @@ def fetch_schema(server_url: str, seed_path: Path) -> str:
 
 def seed_statements(seed_path: Path) -> str:
     """The seed file's SQL with its comment lines removed.
+
+    Args:
+        seed_path: The seed file.
+
+    Returns:
+        The statements to execute.
 
     Raises:
         ValueError: If a quoted value runs over a line break. The server
@@ -186,7 +190,7 @@ def build_seed_database(seed_path: Path, schema_sql: str) -> sqlite3.Connection:
 
     Args:
         seed_path: The seed file to load.
-        schema_sql: The CREATE statements, as ``fetch_schema`` returns them.
+        schema_sql: The CREATE statements, as ``_fetch_schema`` returns them.
 
     Returns:
         An open connection to the seeded database.
@@ -199,7 +203,14 @@ def build_seed_database(seed_path: Path, schema_sql: str) -> sqlite3.Connection:
 
 
 def domain_seeds(domain: str) -> dict[str, set[Path]]:
-    """Each server URL a domain's tasks use to the seed files seeded on it."""
+    """Each server URL a domain's tasks use to the seed files seeded on it.
+
+    Args:
+        domain: The domain.
+
+    Returns:
+        The URLs and their seed files.
+    """
     seeds: dict[str, set[Path]] = {}
     for config in runner.load_tasks(domain, "oracle").values():
         for server in config["gym_servers_config"]:
@@ -210,7 +221,11 @@ def domain_seeds(domain: str) -> dict[str, set[Path]]:
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
-    """Add the schema options to ``parser``; shared with the ``mas-optimiser`` command."""
+    """Add the schema options to ``parser``; shared with the ``mas-optimiser`` command.
+
+    Args:
+        parser: The ``schema`` subparser.
+    """
     parser.add_argument(
         "--domain",
         nargs="+",
@@ -221,14 +236,21 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def run(args: argparse.Namespace) -> None:
-    """Fetch and save each domain's schema, checking that its seed files agree."""
+    """Fetch and save each domain's schema, checking that its seed files agree.
+
+    Args:
+        args: The parsed arguments.
+
+    Raises:
+        SystemExit: If two seed files of a domain give different schemas.
+    """
     SCHEMAS_DIR.mkdir(parents=True, exist_ok=True)
     for domain in args.domain:
         schema = first = None
         for server_url, seed_paths in domain_seeds(domain).items():
             runner.check_servers({server_url})
             for seed_path in sorted(seed_paths):
-                fetched = fetch_schema(server_url, seed_path)
+                fetched = _fetch_schema(server_url, seed_path)
                 if schema is None:
                     schema, first = fetched, seed_path
                 elif fetched != schema:

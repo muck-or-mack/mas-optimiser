@@ -30,7 +30,11 @@ dependencies = [
 mas-optimiser = "mas_optimiser.cli:main"
 
 [dependency-groups]
-dev = ["pytest", "ruff"]
+dev = [
+    "pydoclint>=0.12.0",
+    "pytest",
+    "ruff",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -44,14 +48,34 @@ line-length = 88
 extend-exclude = ["src/mas_optimiser/_version.py", "vendor"]
 
 [tool.ruff.lint]
-select = ["E", "W", "F", "I", "B", "C4", "UP", "SIM"]
-ignore = ["E501"]
+select = ["E", "W", "F", "I", "B", "C4", "UP", "SIM", "D"]
+# D107: a constructor's arguments are documented on its class.
+ignore = ["E501", "D107"]
+
+[tool.ruff.lint.per-file-ignores]
+# A test is documented by its name.
+"tests/**" = ["D103"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 [tool.ruff.lint.isort]
 # The benchmark's modules only resolve once mas_optimiser.benchmarks.enterpriseops
 # has put the submodule on sys.path, so they sort after first-party imports.
 section-order = ["future", "standard-library", "third-party", "first-party", "enterpriseops-gym", "local-folder"]
 sections = { enterpriseops-gym = ["benchmark", "orchestrators"] }
+
+# Every function's docstring names each argument, the return value and what
+# it raises (Google style); types stay in the signature.
+[tool.pydoclint]
+style = "google"
+arg-type-hints-in-docstring = false
+check-return-types = false
+check-yield-types = false
+skip-checking-short-docstrings = false
+require-return-section-when-returning-nothing = false
+allow-init-docstring = true
+exclude = "_version\\.py"
 
 [tool.setuptools_scm]
 version_file = "src/mas_optimiser/_version.py"

@@ -1,9 +1,9 @@
-"""Send benchmark runs to Langfuse, one trace per task.
+"""Send benchmark runs to Langfuse, one trace per attempt.
 
 Langfuse records every model call the agent makes (the messages sent, the
 reply, its tool calls, token usage and cost) and shows them as a tree under
-one trace per task, so a run can be followed step by step in the browser. The
-runner opens a trace for each task, attaches Langfuse's LangChain callback to
+one trace per attempt of a task, so a run can be followed step by step in
+the browser. The runner opens a trace for each attempt, attaches Langfuse's LangChain callback to
 the model the benchmark builds, and after the run attaches the check
 verdicts to the trace as scores, so pass or fail sits beside the transcript.
 
@@ -17,21 +17,26 @@ import os
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from langfuse import get_client, propagate_attributes
+from langchain_core.language_models import BaseChatModel
+from langfuse import LangfuseSpan, get_client, propagate_attributes
 from langfuse.langchain import CallbackHandler
 
 ENV_VARS = ("LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "LANGFUSE_BASE_URL")
 
 
 def configured() -> bool:
-    """Whether the environment holds a Langfuse key pair and host."""
+    """Whether the environment holds a Langfuse key pair and host.
+
+    Returns:
+        ``True`` when all three ``LANGFUSE_*`` variables are set.
+    """
     return all(os.environ.get(name) for name in ENV_VARS)
 
 
 @contextmanager
 def task_trace(
     name: str, *, session_id: str, tags: list[str], metadata: dict
-) -> Iterator:
+) -> Iterator[LangfuseSpan]:
     """Open one Langfuse trace for a task run.
 
     Args:
@@ -56,19 +61,26 @@ def task_trace(
         yield span
 
 
-def attach(model) -> None:
-    """Route a LangChain chat model's calls into the current trace."""
+def attach(model: BaseChatModel) -> None:
+    """Route a LangChain chat model's calls into the current trace.
+
+    Args:
+        model: The chat model the benchmark built; its callbacks are replaced.
+    """
     model.callbacks = [CallbackHandler()]
 
 
 def record_outcome(
-    span, record: dict, check_rows: list[dict], changes: list[str] | None
+    span: LangfuseSpan, record: dict, check_rows: list[dict], changes: list[str] | None
 ) -> None:
     """Score the trace with the attempt's verdict and put its checks and changes in the trace output.
 
-    ``record`` and ``check_rows`` are the attempt's ``tasks.csv`` row and
-    ``checks.csv`` rows; ``changes`` the lines of ``states.summary``, or
-    ``None`` when the changes were not read.
+    Args:
+        span: The attempt's root span, from ``task_trace``.
+        record: The attempt's ``tasks.csv`` row.
+        check_rows: The attempt's ``checks.csv`` rows.
+        changes: The lines of ``states.summary``, or ``None`` when the changes
+            were not read.
     """
     fraction = (
         record["checks_passed"] / record["checks_total"]
