@@ -70,6 +70,8 @@ WRITING = {
     "map",
 }
 WORST_TASKS = 10
+# Items of a list shown on an attempt's page before the rest are counted.
+LISTED = 10
 STEPS = ("skipped", "failed", "wrong", "attempted")
 
 
@@ -274,72 +276,171 @@ def trace(result: dict, agent_calls: list[dict], keys: dict) -> dict:
     }
 
 
-def _clip(text: str, max_chars: int) -> str:
+def _clip(value: object, max_chars: int) -> str:
     """One line of at most ``max_chars`` characters.
 
     Args:
-        text: Anything; runs of whitespace are collapsed.
+        value: A string, taken as it is, or any other value, taken as JSON;
+            runs of whitespace are collapsed.
         max_chars: The length kept before `` ...`` is added.
 
     Returns:
         The line.
     """
-    text = " ".join(str(text).split())
+    text = value if isinstance(value, str) else json.dumps(value)
+    text = " ".join(text.split())
     return text if len(text) <= max_chars else text[:max_chars] + " ..."
 
 
-def _check_lines(result: dict, max_chars: int) -> list[str]:
-    """Under a failed check: each touched row and condition, and the turns behind them.
+def _fields(data: object, max_chars: int) -> list[str]:
+    """A call's arguments or a tool's answer, one line per field.
+
+    Each value is clipped on its own, so a long description never hides the
+    fields after it.
+
+    Args:
+        data: A mapping (one aligned ``name = value`` line per field, a list
+            value with its items beneath), a list (one line per item, the
+            first ``LISTED``) or anything else (one line).
+        max_chars: The length a value is clipped to.
+
+    Returns:
+        The lines.
+    """
+    if isinstance(data, list):
+        more = len(data) - LISTED
+        return [_clip(item, max_chars) for item in data[:LISTED]] + (
+            [f"... {more} more"] if more > 0 else []
+        )
+    if not isinstance(data, dict):
+        return [_clip(data, max_chars)]
+    width = max(map(len, data), default=0)
+    lines = []
+    for name, value in data.items():
+        if isinstance(value, list) and value:
+            count = f"{len(value)} item{'s' if len(value) > 1 else ''}"
+            lines.append(f"{name:<{width}} = {count}")
+            lines += [f"  {line}" for line in _fields(value, max_chars)]
+        else:
+            lines.append(f"{name:<{width}} = {_clip(value, max_chars)}")
+    return lines
+
+
+def _check_lines(result: dict, changes: dict | None, max_chars: int) -> list[str]:
+    """Under a failed check: a table of what it wants against each touched row, and the turns behind it.
 
     Args:
         result: A failed check's result with its ``diagnosis`` and ``trace``.
-        max_chars: The length a long line is clipped to.
+        changes: The attempt's changes, as ``states.diff`` gives them, or
+            ``None`` when they were not read.
+        max_chars: The length a long value is clipped to.
 
     Returns:
-        The lines, to be indented under the check; empty for a kind with
-        nothing to show.
+        The lines, as Markdown; empty for a kind with nothing to show.
     """
     found = result.get("diagnosis") or {}
     kind = found.get("kind")
     followed = result.get("trace") or {}
     linked = followed.get("related", [])
+
+    def cell(value: object) -> str:
+        return _clip(value, max_chars).replace("|", "\\|")
+
     if kind in ("cells", "value"):
-        lines, shown = [], None
+        touched = (changes or {}).get(found["table"], {})
+        lines, shown, new, old = [], object(), None, None
         for row in found["rows"]:
             key = row.get("row")
-            if key is not None and key != shown:
-                writer = next((c for c in linked if c.get("success")), None)
-                where = (
-                    f" (written at turn {writer['turn']} by {writer['tool']})"
-                    if writer
-                    else ""
-                )
-                lines.append(
-                    "row " + ", ".join(f"{k} {v}" for k, v in key.items()) + where
-                )
+            if key != shown:
                 shown = key
-            if row["ok"]:
-                lines.append(f"  ok     {row['condition']}")
-                continue
-            actual = ", ".join(str(v) for v in row.get("actual", [])) or "no value"
-            setter = followed.get("set_by", {}).get(_column_of(row["condition"]))
-            by = (
-                f"set at turn {setter['turn']} by {setter['tool']}"
-                f"({_column_of(row['condition'])}={setter['value']!r})"
+                # The row as the attempt left it: every column of one it
+                # inserted, the changed columns of one it updated.
+                new = key and next(
+                    (
+                        r
+                        for r in touched.get("inserted", [])
+                        if key.items() <= r.items()
+                    ),
+                    None,
+                )
+                old = key and next(
+                    (
+                        u["changes"]
+                        for u in touched.get("updated", [])
+                        if u["key"] == key
+                    ),
+                    None,
+                )
+                if key:
+                    how = (
+                        "not in the seed, inserted"
+                        if new
+                        else "in the seed, updated"
+                        if old is not None
+                        else "touched"
+                    )
+                    writer = next((c for c in linked if c.get("success")), None)
+                    where = (
+                        f" at turn {writer['turn']} by `{writer['tool']}`"
+                        if writer
+                        else ""
+                    )
+                    label = ", ".join(f"{k} {v}" for k, v in key.items())
+                    if lines:
+                        # A blank line ends the table of the row before.
+                        lines.append("")
+                    lines += [f"Row `{label}`: {how}{where}.", ""]
+                before = ["Before"] if old is not None else []
+                heads = [
+                    "Check wants",
+                    *before,
+                    "After the attempt",
+                    "",
+                    "Where the value came from",
+                ]
+                lines += [
+                    "| " + " | ".join(heads) + " |",
+                    "|" + "---|" * len(heads),
+                ]
+            column = _column_of(row["condition"])
+            if not row["ok"]:
+                after = ", ".join(str(v) for v in row.get("actual", [])) or "no value"
+            elif new and column in new:
+                after = new[column]
+            elif old and column in old:
+                after = old[column][1]
+            else:
+                after = ""
+            setter = followed.get("set_by", {}).get(column)
+            source = (
+                ""
+                if row["ok"]
+                else f"turn {setter['turn']}, `{setter['tool']}({column}={setter['value']!r})`"
                 if setter
                 else "not in any call's arguments"
             )
-            lines.append(f"  WRONG  {row['condition']}   actual: {actual}   {by}")
+            cells = [cell(row["condition"])]
+            if old is not None:
+                cells.append(cell(old[column][0]) if column in old else "unchanged")
+            cells += [cell(after), "ok" if row["ok"] else "WRONG", cell(source)]
+            lines.append("| " + " | ".join(cells) + " |")
         return lines
     if kind == "no_rows":
-        line = f"no row inserted or updated in {found['table']}"
-        if not linked:
-            return [f"{line}; no call wrote {found['table']}"]
-        return [line] + [
-            f"  turn {c['turn']} {c['tool']} "
+        table = found["table"]
+        lines = [
+            f"No row inserted or updated in `{table}`"
+            + ("." if linked else f"; no call wrote `{table}`.")
+        ]
+        lines += [
+            f"- turn {c['turn']}, `{c['tool']}`: "
             + ("failed" if c.get("success") is False else "ok")
             for c in linked
         ]
+        parsed = diagnosis.parse_count_query(result.get("query", ""))
+        if parsed:
+            lines += ["", "| Check wants | After the attempt |", "|---|---|"]
+            lines += [f"| {cell(condition)} | no row |" for condition in parsed[2]]
+        return lines
     if kind == "too_many_rows":
         return [_clip(diagnosis.describe(found), max_chars)]
     return []
@@ -354,13 +455,18 @@ def attempt_text(
 ) -> str:
     """One attempt as a page: request, turns, changes, and every check with its table and trace.
 
+    A turn is one reply of the model: its text as a quote, then each tool
+    call it asked for with the arguments and, beneath, what came back
+    (fields the tool left empty are not shown; the record has them).
+
     Args:
         task_id: The task's dataset ID.
         attempt: The attempt number, from 1.
         execution: The executor's account of the attempt.
         changes: The attempt's changes, as ``states.diff`` gives them, or
             ``None`` when they were not read.
-        max_chars: The length a turn's text or a tool's arguments are clipped to.
+        max_chars: The length one argument, one field of an answer or one
+            cell of a check's table is clipped to.
 
     Returns:
         The page as Markdown.
@@ -379,21 +485,30 @@ def attempt_text(
         )
     request = next((s["content"] for s in flow if s["type"] == "user_message"), "")
     lines += ["## Request", "", request, "", "## What the agent did", ""]
-    turn = 0
-    for step in flow:
-        if step["type"] == "ai_message":
-            turn += 1
-            if step.get("content"):
-                lines.append(f"turn {turn}: {_clip(step['content'], max_chars)}")
-            for call in step.get("tool_calls") or []:
-                lines.append(
-                    f"turn {turn}: {call['name']} {_clip(json.dumps(call.get('args')), max_chars)}"
-                )
-        elif step["type"] == "tool_result":
-            result = step.get("result") or {}
-            flag = "ok" if succeeded(result) else "ERROR"
-            lines.append(f"    -> {flag}: {_clip(_result_text(result), max_chars)}")
-    lines += ["", "## Changes against the seed", ""]
+    agent_calls = calls(execution)
+    replies = [step for step in flow if step["type"] == "ai_message"]
+    for turn, reply in enumerate(replies, start=1):
+        lines += [f"### Turn {turn}", ""]
+        if reply.get("content"):
+            lines += [f"> {line}".rstrip() for line in reply["content"].splitlines()]
+            lines.append("")
+        for call in agent_calls:
+            if call["turn"] != turn:
+                continue
+            flag = {True: "ok", False: "ERROR"}.get(call.get("success"), "no answer")
+            lines += [f"`{call['tool']}` → {flag}", ""]
+            if call["args"]:
+                lines += ["```", *_fields(call["args"], max_chars), "```", ""]
+            if "result" not in call:
+                continue
+            try:
+                answer = json.loads(call["result"])
+            except ValueError:
+                answer = call["result"]
+            if isinstance(answer, dict):
+                answer = {k: v for k, v in answer.items() if v is not None}
+            lines += ["returned", "", "```", *_fields(answer, max_chars), "```", ""]
+    lines += ["## Changes against the seed", ""]
     if changes is None:
         lines.append("not saved")
     else:
@@ -401,26 +516,24 @@ def attempt_text(
         lines += [f"- {line}" for line in states.summary(changes, queries)]
     lines += ["", "## Checks", ""]
     for name, result in results.items():
-        if result.get("patch") == "excluded":
+        excluded = result.get("patch") == "excluded"
+        if excluded:
             verdict = "pass" if result["upstream_passed"] else "fail"
             lines.append(
                 f"### EXCLUDED  {name} (no correct attempt can satisfy it; "
                 f"the benchmark's own verdict: {verdict})"
             )
-            if result.get("query"):
-                lines.append(f"    {' '.join(result['query'].split())}")
-            lines.append("")
-            continue
-        flag = "PASS" if result["passed"] else "FAIL"
-        patched = " (repaired)" if result.get("patch") == "repaired" else ""
-        lines.append(
-            f"### {flag}  {name}{patched} (expected {result.get('expected')!r}, got {result.get('actual')!r})"
-        )
-        if result.get("query"):
-            lines.append(f"    {' '.join(result['query'].split())}")
-        if not result["passed"]:
-            lines += [f"    {line}" for line in _check_lines(result, max_chars)]
+        else:
+            flag = "PASS" if result["passed"] else "FAIL"
+            patched = " (repaired)" if result.get("patch") == "repaired" else ""
+            lines.append(
+                f"### {flag}  {name}{patched} (expected {result.get('expected')!r}, got {result.get('actual')!r})"
+            )
         lines.append("")
+        if result.get("query"):
+            lines += ["```sql", " ".join(result["query"].split()), "```", ""]
+        if not excluded and not result["passed"]:
+            lines += [*_check_lines(result, changes, max_chars), ""]
     return "\n".join(lines)
 
 
