@@ -16,11 +16,11 @@ vendored unchanged under `vendor/enterpriseops-gym/`; blue boxes are this
 package; yellow boxes are services outside the process; green shapes are
 files.
 
-The document follows one real attempt from the 3 November baseline run so
+The document follows one real attempt from the 3 November baseline so
 that every mechanism is shown on data: task
 `task_20251212_191815_314_391f1eff_c23d76df` (ITSM, in the training set),
 attempt 1, whose page is
-`runs/baseline-haiku/20261103-080328-itsm/tasks/<task>/attempt-1.md`. Line
+`evaluations/baseline-haiku/20261103-080328-itsm/tasks/<task>/attempt-1.md`. Line
 numbers refer to the files at the commit that last changed this document
 (`git log -1 -- docs/how-it-works.md`).
 
@@ -51,7 +51,7 @@ sub-command per module in `COMMANDS` (`cli.py:22`): `run`, `rescore`,
 `split`, `schema`. Each module gives its options in `add_arguments` and its
 work in `run`.
 
-`runner.run` (`runner.py:907`) reads the experiment file
+`runner.run` (`runner.py:915`) reads the experiment file
 `configs/experiments/baseline-haiku.yaml` through `load_experiment`
 (`runner.py:310`), which layers the defaults in `EXPERIMENT_DEFAULTS`
 (`runner.py:80`), then the file, then any command-line override, and stops
@@ -59,13 +59,13 @@ on a bad setting before any money is spent. `load_model` (`runner.py:437`)
 reads `configs/models/haiku-5-5.yaml`: the benchmark's model fields, the
 name of the environment variable that holds the API key (read from `.env`,
 never written to a config), and a price table. Then one `evaluate` per
-domain (`runner.py:942`).
+domain (`runner.py:950`).
 
 ### 2.2 The tasks
 
 `load_tasks` (`runner.py:256`) reads the Hugging Face dataset at a pinned
 commit (`HF_REVISION`, `runner.py:66`), so an upstream edit cannot change
-the tasks between runs. In oracle mode, the only mode used so far, the
+the tasks between evaluations. In oracle mode, the only mode used so far, the
 benchmark's corrected copies under `vendor/enterpriseops-gym/data/revised/`
 replace the dataset's versions, and the agent gets only the tools the task
 needs. A task config has four parts the rest of this document keeps
@@ -101,17 +101,17 @@ Each expects the count 1. A task passes only when every check passes.
 
 ### 2.3 The executor
 
-`evaluate` (`runner.py:942`) keeps the tasks of one split set if asked, cuts
+`evaluate` (`runner.py:950`) keeps the tasks of one split set if asked, cuts
 to `--limit`, checks that the domain servers answer (`check_servers`,
 `runner.py:418`), makes the evaluation folder, sends the benchmark's
-logging to `run.log` there, and calls `run_tasks` (`runner.py:778`), which
+logging to `evaluation.log` there, and calls `run_tasks` (`runner.py:784`), which
 runs every attempt through `run_task` (`runner.py:671`) with at most
 `concurrency` in flight (four in the baseline). Each attempt seeds its own
 database on the server, so attempts share nothing.
 
 `run_task` builds a `TaskExecutor` (`runner.py:125`), our subclass of the
 benchmark's `BenchmarkExecutor` (`executor.py:23`). The subclass adds three
-things: the checks are renamed and patched before the run
+things: the checks are renamed and patched before the attempt
 (`checks.prepare`, called at `runner.py:160`, section 2.5); the Langfuse
 callback is attached to
 the model once the executor has built it (`runner.py:171`); and after the
@@ -182,7 +182,7 @@ policy prompt (from the task), and the tool list (from the server). Three
 seams let a different agent in without touching the benchmark's code:
 `BenchmarkExecutor` accepts any `AgentOrchestrator` subclass
 (`executor.py:39-46`, `base.py:14`), and our `run_task` passes
-`ReactOrchestrator` by name; the task config can be edited before the run;
+`ReactOrchestrator` by name; the task config can be edited before the attempt;
 and `max_iterations` and other orchestrator arguments pass through
 `orchestrator_kwargs` (`executor.py:358`). Section 4 says how the ladder
 uses these seams.
@@ -204,14 +204,14 @@ Three details of the data make the benchmark's own count wrong, and
 
 - In 59 of the 308 tasks two or more checks share a name, so the dict keeps
   only the last. `unique_names` (`checks.py:77`) drops exact copies and
-  renames the clashes before the run, so each distinct check is kept once.
+  renames the clashes before the attempt, so each distinct check is kept once.
 - 33 count checks give their expected value as the string `'1'` where the
   SQL runner returns the integer `1`, which `==` never matches. `recheck`
-  (`checks.py:254`) compares such a pair numerically after the run.
+  (`checks.py:254`) compares such a pair numerically after the attempt.
 - Some checks are wrong in themselves: no correct attempt can satisfy them,
   or they name a record from another seed. `data/check_patches.json` lists
   22 as excluded and 8 as repaired, each with its evidence. `apply_patches`
-  (`checks.py:131`) takes a task's list through it before the run, and
+  (`checks.py:131`) takes a task's list through it before the attempt, and
   `original_verdicts` (`checks.py:217`) runs each patched check's original
   query afterwards, so `checks.csv` carries the benchmark's own verdict
   (`upstream_passed`) next to ours and a `patch` column saying which.
@@ -299,15 +299,15 @@ priority down with it.
 builds the attempt's rows: `task_record` (`runner.py:499`) for `tasks.csv`
 (verdicts under both conventions, tool errors, model calls, tokens, cost in
 US dollars from the price table, seconds), `check_records` for
-`checks.csv`, `cell_rows` (`report.py:418`) for `cells.csv` and
-`change_rows` (`report.py:455`) for `changes.csv`. `save_attempt`
+`checks.csv`, `cell_rows` (`report.py:424`) for `cells.csv` and
+`change_rows` (`report.py:461`) for `changes.csv`. `save_attempt`
 (`runner.py:599`) writes the record (`attempt-N.json`), the changes
 (`attempt-N.changes.json`) and the page (`attempt-N.md`, from
 `attempt_text`, `report.py:345`). When every attempt is done, `write_tables`
 (`runner.py:623`) writes the four CSVs and `summary.md` (`summary`,
-`report.py:485`: the headline numbers, failed checks by step, skipped
+`report.py:491`: the headline numbers, failed checks by step, skipped
 steps by table, wrong cells by column, the worst tasks), and `evaluate`
-writes `run.json` (every setting and total) and a row in the experiment's
+writes `evaluation.json` (every setting and total) and a row in the experiment's
 `index.csv` (`append_index`, `runner.py:398`).
 
 With Langfuse configured, `tracing.task_trace` (`tracing.py:37`) wraps each
@@ -327,7 +327,7 @@ evaluation in seconds, with no model cost, and so that the saved changes
 are enough to reproduce a verdict.
 
 
-## 3. Reading a run
+## 3. Reading an evaluation
 
 Start at `summary.md` in the evaluation folder: the headline table, then
 "What went wrong" (failed checks by step, steps skipped by table, cells
@@ -354,7 +354,7 @@ per rung and compares each rung with the one below on the validation tasks:
 - `planner`: a planner-executor graph built with LangGraph as another
   orchestrator class: a planner writes a plan, a checker enforces plan
   constraints in code before each tool call, an executor runs the steps,
-  and a failed step triggers a bounded replan rather than ending the run.
+  and a failed step triggers a bounded replan rather than ending the attempt.
   Its planner prompt, constraints and replanning rules live in
   `harnesses/<name>/harness.yaml`, as data.
 
@@ -379,7 +379,7 @@ To see one attempt without spending more than a few cents:
 mas-optimiser run smoke --split haiku-20-40-40:training --limit 1 --attempts 1 --label poke
 ```
 
-then read the page under `runs/smoke/`. `mas-optimiser rescore <folder>`
+then read the page under `evaluations/smoke/`. `mas-optimiser rescore <folder>`
 on that folder rewrites every file from the saved changes; nothing should
 change.
 
@@ -394,7 +394,7 @@ What goes wrong, and where to look:
 |---|---|---|
 | `error: domain server ... is not answering` | the Docker servers are down | `check_servers`, `runner.py:418`; start them and rerun |
 | `ANTHROPIC_API_KEY is not set` | no `.env`, or the key missing from it | `load_model`, `runner.py:437` |
-| a `tasks.csv` row with `error` filled and zero checks | the attempt raised before the agent started (a server fault, a bad config) | the record's `error`; the traceback in `run.log` |
+| a `tasks.csv` row with `error` filled and zero checks | the attempt raised before the agent started (a server fault, a bad config) | the record's `error`; the traceback in `evaluation.log` |
 | `diagnosis_error` on the run in `attempt-N.json` | the checks ran but the diagnosis raised; verdicts are intact | `runner.py:184-216` |
 | `report_error` on the run | the trace or the rows raised; the page has no trace | `run_task`, `runner.py:671` |
 | a failed check with `kind` empty in `checks.csv` | a query shape the diagnosis cannot take apart (a top-level OR, a GROUP BY, a derived table) | `diagnosis.py:94-111` |

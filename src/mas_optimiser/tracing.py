@@ -1,10 +1,10 @@
-"""Send benchmark runs to Langfuse, one trace per attempt.
+"""Send evaluations to Langfuse, one trace per attempt.
 
 Langfuse records every model call the agent makes (the messages sent, the
 reply, its tool calls, token usage and cost) and shows them as a tree under
-one trace per attempt of a task, so a run can be followed step by step in
+one trace per attempt of a task, so an attempt can be followed step by step in
 the browser. The runner opens a trace for each attempt, attaches Langfuse's LangChain callback to
-the model the benchmark builds, and after the run attaches the check
+the model the benchmark builds, and after the attempt attaches the check
 verdicts to the trace as scores, so pass or fail sits beside the transcript.
 
 Tracing is on when the three ``LANGFUSE_*`` variables in ``.env.example`` are
@@ -37,11 +37,11 @@ def configured() -> bool:
 def task_trace(
     name: str, *, session_id: str, tags: list[str], metadata: dict
 ) -> Iterator[LangfuseSpan]:
-    """Open one Langfuse trace for a task run.
+    """Open one Langfuse trace for an attempt.
 
     Args:
         name: Trace name, the task ID.
-        session_id: Groups the traces of one run folder in the Langfuse UI.
+        session_id: Groups the traces of one evaluation folder in the Langfuse UI.
         tags: Filterable labels such as the domain, mode, arm and model.
         metadata: Free-form fields stored on the trace.
 
@@ -118,5 +118,5 @@ def record_outcome(
 
 
 def shutdown() -> None:
-    """Send any queued events; call once at the end of a run."""
+    """Send any queued events; call once at the end of an evaluation."""
     get_client().shutdown()

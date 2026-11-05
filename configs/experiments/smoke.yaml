@@ -19,10 +19,10 @@ limit: 5
 # Run only one set of a split in configs/splits/, as split-name:set, for
 # example haiku-20-40-40:training; the default is every task of the domain.
 # split: haiku-20-40-40:training
-# Runs per task. One run cannot tell a task the agent always fails from one it
-# fails half the time; three runs can, and are the pilot for the final number.
+# Attempts per task. One attempt cannot tell a task the agent always fails from
+# one it fails half the time; three can, and are the pilot for the final number.
 attempts: 1
-# Runs in flight at once. Each run has its own database, so runs never touch
+# Attempts in flight at once. Each has its own database, so attempts never touch
 # each other; the limit keeps the domain server and the model's rate limits
 # comfortable.
 concurrency: 4
@@ -30,5 +30,5 @@ concurrency: 4
 trace: true
 # Ask the model for a summary of its reasoning on every call, shown in the
 # trace. Changes the agent's behaviour and cost: demonstrations only, never a
-# run whose numbers are reported.
+# evaluation whose numbers are reported.
 thinking_summary: false

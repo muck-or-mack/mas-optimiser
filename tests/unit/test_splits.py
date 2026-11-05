@@ -60,7 +60,7 @@ def write_index(root, rows):
 
 
 def write_experiment(root, domains):
-    """A fake runs/<experiment> with one full evaluation per domain."""
+    """A fake evaluations/<experiment> with one full evaluation per domain."""
     write_index(
         root,
         [
@@ -219,7 +219,7 @@ def test_read_baseline_keeps_reruns_whose_overrides_change_nothing_measured(tmp_
             evaluation(root, "first", "itsm", {"a": 0}, started="2026-10-27T05:00:00"),
             evaluation(
                 root,
-                "rerun",
+                "second",
                 "itsm",
                 {"a": 3},
                 started="2026-10-27T06:00:00",
@@ -235,7 +235,7 @@ def test_read_baseline_keeps_reruns_whose_overrides_change_nothing_measured(tmp_
             ),
         ],
     )
-    assert splits.read_baseline(root).evaluations == {"itsm": "rerun"}
+    assert splits.read_baseline(root).evaluations == {"itsm": "second"}
 
 
 def test_read_baseline_refuses_a_domain_left_without_a_baseline(tmp_path):
@@ -342,7 +342,7 @@ def test_build_split_rejects_unknown_forced_tasks(tmp_path):
 
 
 def test_the_committed_split_follows_from_its_own_record():
-    # A clean clone has no runs/, but each task's stratum and forced flag,
+    # A clean clone has no evaluations/, but each task's stratum and forced flag,
     # the seed and the proportions are in the file, and they fix the draw.
     split = splits.load_split("haiku-20-40-40")
     tasks = {t: (row["domain"], row["outcome"]) for t, row in split["tasks"].items()}
@@ -356,10 +356,10 @@ def test_the_committed_split_follows_from_its_own_record():
 @pytest.fixture
 def command(tmp_path, monkeypatch):
     """The split command over a fake experiment, with its folders in tmp_path."""
-    monkeypatch.setattr(splits, "RUNS", tmp_path / "runs")
+    monkeypatch.setattr(splits, "EVALUATIONS", tmp_path / "evaluations")
     monkeypatch.setattr(splits, "SPLITS_DIR", tmp_path / "configs" / "splits")
     monkeypatch.setattr(splits, "FORCED_FILE", tmp_path / "configs" / "forced.yaml")
-    write_experiment(tmp_path / "runs" / "exp", {"itsm": many("itsm", 2, 2, 6)})
+    write_experiment(tmp_path / "evaluations" / "exp", {"itsm": many("itsm", 2, 2, 6)})
     (tmp_path / "configs").mkdir()
     splits.FORCED_FILE.write_text("itsm_none_05: read by hand\n")
 

@@ -6,20 +6,20 @@ locally and run every check again: the task's checks as they now stand, the
 same diagnosis and trace, and the same files the runner writes
 (``summary.md``, ``tasks.csv``, ``checks.csv``, ``cells.csv``,
 ``changes.csv`` and ``attempt-<n>.md``). Use it after a change to the
-diagnosis or to the checks. An attempt with no saved changes (a run that
+diagnosis or to the checks. An attempt with no saved changes (one that
 raised before it finished) is left as it was.
 
-A check that has not changed since the run keeps the server's verdict; one
+A check that has not changed since the attempt ran keeps the server's verdict; one
 whose query or expected value has changed (a patch applied since) is run on
 the local rebuild as the benchmark's engine runs it on the server, with the
 executor's own comparison corrected for a numeric string as the runner
 corrects it. The record's ``verification_results`` are replaced by the
-recomputed ones; the verdicts as the run first produced them are kept beside
+recomputed ones; the verdicts as the attempt first produced them are kept beside
 them as ``verification_results_as_run``.
 
 Usage::
 
-    mas-optimiser rescore runs/<experiment>/<evaluation> [...]
+    mas-optimiser rescore evaluations/<experiment>/<evaluation> [...]
 """
 
 import argparse
@@ -97,16 +97,16 @@ async def check_locally(kept: list[dict], final: sqlite3.Connection) -> dict[str
 
 
 def keep_live_verdicts(results: dict[str, dict], as_run: dict[str, dict]) -> dict:
-    """The server's verdict stands for every check that has not changed since the run.
+    """The server's verdict stands for every check that has not changed since the attempt ran.
 
     The local rebuild re-checks only a check whose query or expected value
-    differs from the run's (a patch applied since), and diagnoses the rest:
+    differs from the attempt's (a patch applied since), and diagnoses the rest:
     the rebuild leaves out what the server stamps on rows it never changed,
     so its verdict is an approximation where the server's is the measurement.
 
     Args:
         results: The local verdicts from ``check_locally``, edited in place.
-        as_run: The verdicts the run first produced.
+        as_run: The verdicts the attempt first produced.
 
     Returns:
         ``results``.
@@ -135,7 +135,7 @@ async def rescore_attempt(
         attempt: The attempt number, from 1.
         config: The task's config, from ``runner.load_tasks``.
         domain: The evaluation's domain.
-        pricing: The price table, from ``run.json``.
+        pricing: The price table, from ``evaluation.json``.
 
     Returns:
         What ``runner.outputs`` returns, or ``None`` when the attempt has no
@@ -146,15 +146,15 @@ async def rescore_attempt(
     if not saved.exists():
         return None
     record = json.loads((folder / f"{stem}.json").read_text())
-    run = record["runs"][0]
+    execution = record["runs"][0]
     changes = json.loads(saved.read_text())["changes"]
     seed, layout = states.seed_copy(
         Path(config["gym_servers_config"][0]["seed_database_file"]), domain
     )
     final = states.rebuild(seed, changes, layout["keys"])
     kept, names, _ = checks.prepare(folder.name, config["verifiers"])
-    as_run = run.setdefault(
-        "verification_results_as_run", run.get("verification_results", {})
+    as_run = execution.setdefault(
+        "verification_results_as_run", execution.get("verification_results", {})
     )
     results = keep_live_verdicts(await check_locally(kept, final), as_run)
     run_sql = local_runner(final)
@@ -164,10 +164,10 @@ async def rescore_attempt(
             result["diagnosis"] = await diagnosis.diagnose(
                 result, changes, layout["keys"], run_sql
             )
-    run["verification_results"] = results
-    run["overall_success"] = checks.passed(results)
+    execution["verification_results"] = results
+    execution["overall_success"] = checks.passed(results)
     outputs = runner.outputs(
-        folder.name, attempt, run, changes, layout["keys"], names, pricing
+        folder.name, attempt, execution, changes, layout["keys"], names, pricing
     )
     runner.save_attempt(folder, attempt, record, changes)
     return outputs
@@ -183,7 +183,7 @@ async def rescore(evaluation: Path) -> Counter:
         Counts of the attempts passed, failed and left as they were, and of
         the tasks with no check left to judge by.
     """
-    settings = json.loads((evaluation / "run.json").read_text())
+    settings = json.loads((evaluation / "evaluation.json").read_text())
     domain = settings["domain"]
     configs = runner.load_tasks(domain, settings["mode"])
     counts: Counter = Counter()
@@ -191,7 +191,7 @@ async def rescore(evaluation: Path) -> Counter:
     for task_id in settings["tasks"]:
         folder = evaluation / "tasks" / task_id
         if not checks.prepare(task_id, configs[task_id]["verifiers"])[0]:
-            # Every check excluded since the run: the task cannot be judged.
+            # Every check excluded since the evaluation: the task cannot be judged.
             counts["no check to judge by"] += 1
             continue
         for attempt in range(1, settings["attempts"] + 1):
@@ -220,7 +220,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         parser: The ``rescore`` subparser.
     """
     parser.add_argument(
-        "evaluation", nargs="+", type=Path, help="evaluation folders under runs/"
+        "evaluation", nargs="+", type=Path, help="evaluation folders under evaluations/"
     )
 
 

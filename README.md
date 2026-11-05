@@ -56,7 +56,7 @@ YAML file in `configs/experiments/` that sets the model, the domain or
 domains, mode, task limit and tracing options, with a comment on each;
 `smoke.yaml` is the annotated example, `demo.yaml` the two-task
 demonstration and `baseline-haiku.yaml` the full baseline (every task of the
-three domains, three runs each). Run one by name:
+three domains, three attempts each). Run one by name:
 
 ```bash
 mas-optimiser run smoke
@@ -68,7 +68,7 @@ and `--split haiku-20-40-40:training` runs only that set of a split (see
 below).
 To define a new experiment, copy `smoke.yaml` under a new name. Models are
 named the same way: `model: haiku-5-5` means `configs/models/haiku-5-5.yaml`,
-and a path works in place of any name. The run checks that the domain's
+and a path works in place of any name. The command checks that the domain's
 server answers before it starts, and names the servers' start command if not.
 
 `./scripts/demo.sh` starts the servers if needed and runs the `demo`
@@ -78,27 +78,27 @@ experiment. `mas-optimiser --help` lists the commands, `mas-optimiser run
 
 ## Reading the results
 
-Results live under `runs/` (gitignored), grouped by experiment and then by
+Results live under `evaluations/` (gitignored), grouped by experiment and then by
 evaluation, where an evaluation is one model on one domain's tasks:
 
 ```
-runs/<experiment>/
+evaluations/<experiment>/
   index.csv                      one row per evaluation: settings and totals
   <evaluation>/
-    summary.md                   how the run went and what went wrong, one page
-    run.json                     every setting, the task list and the totals
+    summary.md                   how the evaluation went and what went wrong, one page
+    evaluation.json                     every setting, the task list and the totals
     tasks.csv                    one row per attempt: verdict, checks, tool errors, tokens, cost
     checks.csv                one row per attempt and check: verdict, diagnosis, kind, step, patch
     cells.csv                    one row per failed check, touched row and condition
     changes.csv                  one row per attempt and changed table
-    run.log                      the benchmark's log of every request
+    evaluation.log                      the benchmark's log of every request
     tasks/<task_id>/
       attempt-<n>.md             the attempt as a page: request, turns, changes, checks
       attempt-<n>.json           the executor's complete record of the attempt
       attempt-<n>.changes.json   every row the attempt inserted, updated or deleted
 ```
 
-To read a run, open `summary.md` first: the headline table, then the failed
+To read an evaluation, open `summary.md` first: the headline table, then the failed
 checks by step and the cells wrong by column, then the worst tasks with
 their dominant failure. For a task on that list, open its `attempt-<n>.md`:
 under each failed check, the row the agent wrote, which turn wrote it, and
@@ -108,13 +108,13 @@ an evaluation (every wrong `status`, say), and `changes.csv` shows what each
 attempt touched, including tables no check mentions.
 
 `attempts` in the experiment file (or `--attempts`) runs every task that many
-times, each run from a freshly seeded database, so that a task the agent
+times, each attempt from a freshly seeded database, so that a task the agent
 always fails can be told from one it fails half the time; `tasks.csv` has a
-row per run and `run.json` counts the tasks that passed every attempt.
-`concurrency` (default 4) is how many runs are in flight at once. Each row
-also carries the run's cost in US dollars, priced with the table in the model
+row per attempt and `evaluation.json` counts the tasks that passed every attempt.
+`concurrency` (default 4) is how many attempts are in flight at once. Each row
+also carries the attempt's cost in US dollars, priced with the table in the model
 file (`configs/models/<model>.yaml`, which records when the prices were
-checked), and `run.json` and `index.csv` carry the evaluation's total.
+checked), and `evaluation.json` and `index.csv` carry the evaluation's total.
 
 A task passes when every one of its checks (the benchmark's "verifiers") passes.
 Three things differ from
@@ -143,17 +143,17 @@ one real attempt through the whole pipeline.
 An evaluation folder is named by its start time and domain, then anything
 that makes it differ from the experiment file: a `--label` word, an
 overridden model or mode as `model=...`, and `limitN` when only the first N
-tasks ran. So `runs/smoke/20261027-093012-itsm-limit5/` is the smoke
+tasks ran. So `evaluations/smoke/20261027-093012-itsm-limit5/` is the smoke
 experiment's first five ITSM tasks run on 27 October. The experiment, not
 the model, domain or date, is the folder level, because it is the question
 being asked; the others are columns of `index.csv`, where any cut of the
-results is one table away. A task whose run raises an error counts as failed
+results is one table away. An attempt that raises an error counts as failed
 and the error count is reported separately; the benchmark keeps no token
-counts for such a run.
+counts for such an attempt.
 
 Every evaluation folder is written to be read without a tracing server:
 
-- `summary.md`: a page on how the run went and what went wrong, by table and
+- `summary.md`: a page on how the evaluation went and what went wrong, by table and
   column, with the worst tasks and where the files are;
 - `tasks.csv` (one row per attempt), `checks.csv` (one per attempt and
   check, with the failure's kind and step), `cells.csv` (one per failed
@@ -190,7 +190,7 @@ since a redraw could move tasks someone has read into a sealed set. The file
 records the seed, proportions, evaluations read, code version, forced list
 and every task's stratum; those fix the draw, and a unit test checks that
 the committed split follows from its own record, so a clean clone can verify
-it without the local runs. The proposer reads training traces only, the
+it without the local evaluations. The proposer reads training traces only, the
 acceptance gate decides on validation and returns its verdict alone, and the
 test set is opened once for the reported number. Paths here are inside the
 repository, whatever the working directory.
@@ -217,7 +217,7 @@ whatever the working directory.
 ## Recomputing an evaluation
 
 ```
-mas-optimiser rescore runs/<experiment>/<evaluation> [...]
+mas-optimiser rescore evaluations/<experiment>/<evaluation> [...]
 ```
 
 Recomputes every attempt of an evaluation from its saved record and its
@@ -225,17 +225,17 @@ changes against the seed, without running the agent: the final database is
 rebuilt locally, every check is run again as the benchmark's engine would run
 it, each failure is diagnosed and traced, and the tables, pages and summary
 are rewritten. Use it after a change to the diagnosis or to the checks. An
-attempt with no saved changes (a run that raised before it finished) is left
-as it was. The record keeps the verdicts the run first produced as
+attempt with no saved changes (one that raised before it finished) is left
+as it was. The record keeps the verdicts the attempt first produced as
 `verification_results_as_run` beside the recomputed ones.
 
-## Watching a run in Langfuse
+## Watching an attempt in Langfuse
 
 [Langfuse](https://langfuse.com) shows each attempt as a tree: the task, every
 model call with the messages sent and the reply, its tool calls, token usage
 and cost, and the check verdict as two scores (`task_success` and
-`check_fraction`). Attempts from one run share a session named after the run
-folder, and traces are tagged with the domain, mode, arm and model.
+`check_fraction`). Attempts from one evaluation share a session named after the
+evaluation folder, and traces are tagged with the domain, mode, arm and model.
 
 One command installs and starts a self-hosted copy with Docker, outside this
 repository (the stack wants about 16 GiB of memory):
@@ -244,19 +244,19 @@ repository (the stack wants about 16 GiB of memory):
 scripts/langfuse.sh up
 ```
 
-The first run clones Langfuse into `~/dev/tools/langfuse`, creates an
+Used for the first time, the script clones Langfuse into `~/dev/tools/langfuse`, creates an
 account for you (your git name and email, a generated password) and the
 project, starts the containers, waits for them, and writes the project's
 keys into this repository's `.env`. It ends by printing the sign-in details;
 `scripts/langfuse.sh login` prints them again and `scripts/langfuse.sh down`
 stops the stack. The UI is at http://localhost:3000. The runner traces
 whenever the keys are set and the experiment's `trace` is true (the default);
-`--no-trace` turns tracing off for one run.
+`--no-trace` turns tracing off for one command.
 
 `thinking_summary: true` in an experiment, or `--thinking-summary` on the
 command line, asks the model for a summary of its reasoning on each call so
 the trace shows it. This changes the agent's behaviour and cost, so use it for
-demonstrations only, never for a run whose numbers are reported; `run.json`
+demonstrations only, never for an evaluation whose numbers are reported; `evaluation.json`
 records whether it was on.
 
 ## Licence

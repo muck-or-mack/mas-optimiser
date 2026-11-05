@@ -9,7 +9,7 @@ def wrapped(text):
     return {"success": True, "result": {"content": [{"type": "text", "text": text}]}}
 
 
-RUN = {
+EXECUTION = {
     "overall_success": False,
     "conversation_flow": [
         {"type": "system_message", "content": "policy"},
@@ -126,12 +126,12 @@ CHANGES = {
 
 
 def traced():
-    run = json.loads(json.dumps(RUN))
-    agent_calls = report.calls(run)
-    for check in run["verification_results"].values():
+    execution = json.loads(json.dumps(EXECUTION))
+    agent_calls = report.calls(execution)
+    for check in execution["verification_results"].values():
         if not check["passed"]:
             check["trace"] = report.trace(check, agent_calls, KEYS)
-    return run
+    return execution
 
 
 def test_a_tool_that_answers_with_an_error_did_not_succeed():
@@ -145,7 +145,7 @@ def test_a_tool_that_answers_with_an_error_did_not_succeed():
 
 
 def test_calls_pair_each_tool_call_with_its_result():
-    agent_calls = report.calls(RUN)
+    agent_calls = report.calls(EXECUTION)
     assert [(c["turn"], c["tool"], c["success"]) for c in agent_calls] == [
         (1, "list_users", True),
         (2, "create_incident", True),
@@ -205,14 +205,14 @@ def test_the_attempt_page_shows_request_turns_changes_and_traced_checks():
 
 
 def test_cell_and_change_rows_carry_the_trace():
-    run = traced()
-    rows = report.cell_rows("task_x", 1, run["verification_results"])
+    execution = traced()
+    rows = report.cell_rows("task_x", 1, execution["verification_results"])
     assert [(r["condition"], r["ok"], r["turn"], r["tool"]) for r in rows] == [
         ("incident_id = 'INC_024'", True, "", ""),
         ("channel = 'phone'", False, 2, "create_incident"),
         ("priority = 'critical'", False, 2, "create_incident"),
     ]
-    queries = [r.get("query", "") for r in run["verification_results"].values()]
+    queries = [r.get("query", "") for r in execution["verification_results"].values()]
     changed = report.change_rows("task_x", 1, CHANGES, queries)
     assert [(c["table"], c["inserted"], c["mentioned"]) for c in changed] == [
         ("incident", 1, True),
@@ -221,8 +221,8 @@ def test_cell_and_change_rows_carry_the_trace():
 
 
 def test_summary_counts_steps_and_names_the_worst_tasks():
-    run = traced()
-    results = run["verification_results"]
+    execution = traced()
+    results = execution["verification_results"]
     records = [
         {
             "task_id": "t1",
@@ -265,7 +265,7 @@ def test_summary_counts_steps_and_names_the_worst_tasks():
 
 
 def test_a_call_that_names_a_row_without_writing_its_table_is_not_its_writer():
-    run = {
+    execution = {
         "conversation_flow": [
             {
                 "type": "ai_message",
@@ -311,7 +311,7 @@ def test_a_call_that_names_a_row_without_writing_its_table_is_not_its_writer():
             ],
         },
     }
-    found = report.trace(check, report.calls(run), {"hr_case": ["hr_case_id"]})
+    found = report.trace(check, report.calls(execution), {"hr_case": ["hr_case_id"]})
     assert [c["tool"] for c in found["related"]] == ["create_new_hr_case"]
     assert found["set_by"]["status"]["tool"] == "create_new_hr_case"
 
@@ -325,7 +325,7 @@ def test_a_surplus_rows_diagnosis_is_traced_without_conditions():
             "rows": [{"incident_id": "INC_024", "status": "new"}],
         },
     }
-    found = report.trace(check, report.calls(RUN), KEYS)
+    found = report.trace(check, report.calls(EXECUTION), KEYS)
     assert found["step"] == "attempted"
     assert [c["tool"] for c in found["related"]] == ["create_incident"]
     assert found["set_by"] == {}
