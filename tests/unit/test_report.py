@@ -180,28 +180,87 @@ def test_the_attempt_page_shows_request_turns_changes_and_traced_checks():
     text = report.attempt_text("task_x", 1, traced(), CHANGES)
     assert text.startswith("# task_x, attempt 1: FAIL (1 of 4 checks passed)")
     assert "## Request\n\nLog a critical phone incident for Benjamin" in text
+    # A turn is a heading; each call sits under it with its arguments one
+    # per line and what came back beneath.
     assert (
-        'turn 2: create_incident {"caller_id": 7, "channel": "chat", "priority": "moderate"}'
-        in text
+        "### Turn 2\n\n`create_incident` → ok\n\n"
+        "```\ncaller_id = 7\nchannel   = chat\npriority  = moderate\n```\n\n"
+        "returned\n\n```\nincident_id = INC_024\nchannel     = chat\n```" in text
     )
-    assert "    -> ERROR: email unknown" in text
+    assert "`send_notification` → ERROR" in text
+    assert "returned\n\n```\nemail unknown\n```" in text
+    assert "### Turn 4\n\n> Logged INC_024." in text
     assert (
         "- incident: 1 inserted\n- incident_knowledge: 1 inserted\n"
         "- no check of this task mentions: incident_knowledge" in text
     )
-    assert "row incident_id INC_024 (written at turn 2 by create_incident)" in text
     assert (
-        "WRONG  channel = 'phone'   actual: chat   "
-        "set at turn 2 by create_incident(channel='chat')" in text
+        "Row `incident_id INC_024`: not in the seed, inserted at turn 2 by `create_incident`."
+        in text
     )
+    assert "| incident_id = 'INC_024' | INC_024 | ok |  |" in text
     assert (
-        "no row inserted or updated in notification\n      turn 3 send_notification failed"
+        "| channel = 'phone' | chat | WRONG | turn 2, `create_incident(channel='chat')` |"
         in text
     )
     assert (
-        "no row inserted or updated in incident_task; no call wrote incident_task"
+        "No row inserted or updated in `notification`.\n"
+        "- turn 3, `send_notification`: failed" in text
+    )
+    assert (
+        "No row inserted or updated in `incident_task`; no call wrote `incident_task`."
         in text
     )
+    # A missing row is listed as the check wants it.
+    assert "| incident_id = 'INC_024' | no row |" in text
+
+
+def test_a_long_argument_does_not_hide_the_ones_after_it():
+    execution = traced()
+    call = execution["conversation_flow"][4]["tool_calls"][0]
+    call["args"] = {"description": "word " * 200, "channel": "chat"}
+    text = report.attempt_text("task_x", 1, execution, CHANGES, max_chars=40)
+    # Forty characters of the value, then the mark that it was cut.
+    assert "description = " + "word " * 8 + " ..." in text
+    assert "channel     = chat" in text
+
+
+def test_a_list_in_an_answer_is_shown_one_item_per_line():
+    lines = report._fields(
+        {"users": [{"user_id": n} for n in range(12)], "total": 12}, 40
+    )
+    assert lines[:2] == ["users = 12 items", '  {"user_id": 0}']
+    assert lines[10:] == ['  {"user_id": 9}', "  ... 2 more", "total = 12"]
+
+
+def test_an_updated_row_shows_its_value_before_the_attempt():
+    execution = traced()
+    changes = {
+        "incident": {
+            "inserted": [],
+            "updated": [
+                {
+                    "key": {"incident_id": "INC_024"},
+                    "changes": {"channel": ["email", "chat"]},
+                }
+            ],
+            "deleted": [],
+        }
+    }
+    text = report.attempt_text("task_x", 1, execution, changes)
+    assert (
+        "Row `incident_id INC_024`: in the seed, updated at turn 2 by `create_incident`."
+        in text
+    )
+    assert (
+        "| Check wants | Before | After the attempt |  | Where the value came from |"
+        in text
+    )
+    assert (
+        "| channel = 'phone' | email | chat | WRONG | turn 2, `create_incident(channel='chat')` |"
+        in text
+    )
+    assert "| incident_id = 'INC_024' | unchanged |  | ok |  |" in text
 
 
 def test_cell_and_change_rows_carry_the_trace():

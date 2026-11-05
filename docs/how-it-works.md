@@ -31,10 +31,10 @@ numbers refer to the files at the commit that last changed this document
 |---|---|---|---|
 | The harness (the agent, to be improved) | `vendor/enterpriseops-gym/orchestrators/react.py`, `base.py`; `benchmark/executor.py`, `llm_client.py`, `mcp_client.py`, `verifier.py`, `models.py` | about 2,100 | the loop of model calls and tool calls, the database set-up on the domain server, the SQL checks |
 | The runner (ours) | `src/mas_optimiser/cli.py`, `tracing.py`, `benchmarks/enterpriseops/runner.py` | about 1,300 | loads the tasks, runs attempts in parallel, applies the patch list, saves every record and the tables |
-| The measure (ours) | `checks.py`, `states.py`, `diagnosis.py`, `report.py`, `rescore.py` | about 1,800 | verdicts, changes against the seed, the cell-by-cell diagnosis, the trace to the turn, the results files, recomputation |
+| The measure (ours) | `checks.py`, `states.py`, `diagnosis.py`, `report.py`, `rescore.py` | about 1,900 | verdicts, changes against the seed, the cell-by-cell diagnosis, the trace to the turn, the results files, recomputation |
 | Set-up tools (ours) | `seeds.py`, `splits.py` | about 680 | local copies of the seed databases; the one-off draw of the training, validation and test sets |
 
-Line counts are from `wc -l` on 4 November 2026; a third of this package's
+Line counts are from `wc -l` on 5 November 2026; a third of this package's
 lines are docstrings, since every function states its arguments, its return
 value and what it raises. The benchmark's own
 runner (`vendor/enterpriseops-gym/evaluate.py`) is not used, because the
@@ -263,16 +263,16 @@ The example's diagnosis:
 ### 2.7 From a wrong cell to the turn that set it
 
 `report.py` makes the link back to the conversation, mechanically.
-`calls` (`report.py:107`) pairs each tool call with its result, numbered by
-turn, and marks whether it succeeded (`succeeded`, `report.py:89`: the
+`calls` (`report.py:112`) pairs each tool call with its result, numbered by
+turn, and marks whether it succeeded (`succeeded`, `report.py:94`: the
 request got through and the tool did not answer with an error).
-`writers_of` (`report.py:171`) finds the calls that write a table: a
+`writers_of` (`report.py:176`) finds the calls that write a table: a
 writing verb in the tool's name and the table's words in the rest of it
 (`create_incident` writes `incident`; `send_notification` does not), with a
 successful call whose result echoes the table's key column as the fallback.
-`trace` (`report.py:216`) then links those calls to the touched row through
+`trace` (`report.py:221`) then links those calls to the touched row through
 its key, names for each wrong cell the last linked call whose arguments set
-that column (244-255), and gives the check a step (256-263):
+that column (250-260), and gives the check a step (261-268):
 
 - `skipped`: no call wrote the table;
 - `failed`: a call that writes the table returned an error;
@@ -286,26 +286,33 @@ On the example:
 |---|---|---|
 | Link SLA | skipped | no call wrote `incident_sla` |
 | Send notification | wrong | `type` set at turn 4 by `send_notification(type='update')` |
-| Record Incident | wrong | `channel` and `impact` set at turn 3 by `create_incident`; `priority` is in no call's arguments (the server derives it from impact and urgency) |
+| Record Incident | wrong | `channel` and `impact` set at turn 3 by `create_incident`; `priority` is in no call's arguments, so the tool's default `planning` stood |
 
-Read together with the request and the policy, the attempt failed on three
-readings of the text: the request names no SLA, so the agent linked none;
-it says the user "wrote to us", so the agent chose `email` over the
-policy's default `chat`; it says the problem is "highly impacting", which
-the agent did not turn into `impact = high`, and the low impact pulled the
-priority down with it.
+Read together with the request and the policy, the attempt failed on four
+readings of the text: the request names no SLA and the policy says SLAs
+"are automatically aligned", so the agent linked none; the request says the
+user "wrote to us", so the agent chose `email` over the policy's default
+`chat`; it says the problem is "highly impacting", which the agent did not
+turn into `impact = high`; and the policy says the system determines the
+priority from impact and urgency, so the agent passed none, while
+`create_incident` only falls back to `planning`.
 
 `outputs` (`runner.py:557`) attaches the trace to each failed check and
 builds the attempt's rows: `task_record` (`runner.py:499`) for `tasks.csv`
 (verdicts under both conventions, tool errors, model calls, tokens, cost in
 US dollars from the price table, seconds), `check_records` for
-`checks.csv`, `cell_rows` (`report.py:424`) for `cells.csv` and
-`change_rows` (`report.py:461`) for `changes.csv`. `save_attempt`
+`checks.csv`, `cell_rows` (`report.py:540`) for `cells.csv` and
+`change_rows` (`report.py:577`) for `changes.csv`. `save_attempt`
 (`runner.py:599`) writes the record (`attempt-N.json`), the changes
 (`attempt-N.changes.json`) and the page (`attempt-N.md`, from
-`attempt_text`, `report.py:345`). When every attempt is done, `write_tables`
+`attempt_text`, `report.py:449`). The page has a heading per turn, with the
+model's text as a quote and each tool call followed by its arguments, one
+per line, and what came back; then, for each failed check, a table of what
+the check wants against the row the attempt left, the value before for a
+row that was already in the seed, and the call behind each wrong cell. When
+every attempt is done, `write_tables`
 (`runner.py:623`) writes the four CSVs and `summary.md` (`summary`,
-`report.py:491`: the headline numbers, failed checks by step, skipped
+`report.py:607`: the headline numbers, failed checks by step, skipped
 steps by table, wrong cells by column, the worst tasks), and `evaluate`
 writes `evaluation.json` (every setting and total) and a row in the experiment's
 `index.csv` (`append_index`, `runner.py:398`).
@@ -383,7 +390,7 @@ then read the page under `evaluations/smoke/`. `mas-optimiser rescore <folder>`
 on that folder rewrites every file from the saved changes; nothing should
 change.
 
-The unit tests (`uv run pytest tests/unit`, 117 tests on 4 November 2026, no servers needed)
+The unit tests (`uv run pytest tests/unit`, 120 tests on 5 November 2026, no servers needed)
 cover the measure on hand-written records. The integration tests
 (`tests/integration`) need the servers and check, among other things, that
 the local seed copy matches the server's database row for row.
@@ -399,7 +406,7 @@ What goes wrong, and where to look:
 | `report_error` on the run | the trace or the rows raised; the page has no trace | `run_task`, `runner.py:671` |
 | a failed check with `kind` empty in `checks.csv` | a query shape the diagnosis cannot take apart (a top-level OR, a GROUP BY, a derived table) | `diagnosis.py:94-111` |
 | an attempt with 50 model calls | the agent hit `max_iterations` | `react.py:34`, `base.py:23` |
-| `tool_errors` above zero | a tool answered with an error; the page marks the call `ERROR` | `succeeded`, `report.py:89` |
+| `tool_errors` above zero | a tool answered with an error; the page marks the call `ERROR` | `succeeded`, `report.py:94` |
 
 
 ## Appendix: file map
