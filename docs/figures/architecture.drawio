@@ -1,6 +1,6 @@
 <mxfile host="localhost" pages="2">
   <diagram id="p1" name="One attempt, as it runs today">
-    <mxGraphModel dx="1090" dy="549" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="1526" dy="691" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -25,7 +25,7 @@
         <mxCell id="d3" parent="1" style="rounded=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;whiteSpace=wrap;html=1;" value="ReactOrchestrator (react.py)&lt;br&gt;LLM call, tool calls, repeat;&lt;br&gt;up to 50 turns" vertex="1">
           <mxGeometry height="60" width="150" x="420" y="160" as="geometry" />
         </mxCell>
-        <mxCell id="E" parent="1" style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;whiteSpace=wrap;html=1;" value="Domain server&lt;br&gt;in Docker&lt;br&gt;ITSM 8006&lt;br&gt;CSM 8001&lt;br&gt;HR 8008&lt;br&gt;&lt;br&gt;one database per attempt,&lt;br&gt;seeded before the run,&lt;br&gt;deleted after the checks" vertex="1">
+        <mxCell id="E" parent="1" style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;whiteSpace=wrap;html=1;" value="Domain server&lt;br&gt;in Docker&lt;br&gt;ITSM 8006&lt;br&gt;CSM 8001&lt;br&gt;HR 8008&lt;br&gt;&lt;br&gt;one database per attempt,&lt;br&gt;seeded before the attempt,&lt;br&gt;deleted after the checks" vertex="1">
           <mxGeometry height="180" width="150" x="610" y="160" as="geometry" />
         </mxCell>
         <mxCell id="e3" parent="1" style="rounded=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;whiteSpace=wrap;html=1;" value="VerifierEngine (verifier.py)&lt;br&gt;each SQL check on the&lt;br&gt;final database" vertex="1">
@@ -49,7 +49,7 @@
         <mxCell id="g2" parent="1" style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;whiteSpace=wrap;html=1;" value="Langfuse&lt;br&gt;one trace per attempt,&lt;br&gt;scored with the verdict" vertex="1">
           <mxGeometry height="60" width="150" x="40" y="520" as="geometry" />
         </mxCell>
-        <mxCell id="g1" parent="1" style="shape=document;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;boundedLbl=1;whiteSpace=wrap;html=1;" value="runs/&amp;lt;experiment&amp;gt;/&amp;lt;evaluation&amp;gt;/  summary.md, tasks.csv, checks.csv, cells.csv, changes.csv, run.json;&lt;br&gt;tasks/&amp;lt;task&amp;gt;/attempt-N.json, attempt-N.changes.json, attempt-N.md" vertex="1">
+        <mxCell id="g1" parent="1" style="shape=document;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;boundedLbl=1;whiteSpace=wrap;html=1;" value="evaluations/&amp;lt;experiment&amp;gt;/&amp;lt;evaluation&amp;gt;/  summary.md, tasks.csv, checks.csv, cells.csv, changes.csv, evaluation.json;&lt;br&gt;tasks/&amp;lt;task&amp;gt;/attempt-N.json, attempt-N.changes.json, attempt-N.md" vertex="1">
           <mxGeometry height="60" width="420" x="230" y="520" as="geometry" />
         </mxCell>
         <mxCell id="g3" parent="1" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;whiteSpace=wrap;html=1;" value="rescore.py&lt;br&gt;recompute from&lt;br&gt;the saved changes" vertex="1">
@@ -151,14 +151,14 @@
     </mxGraphModel>
   </diagram>
   <diagram id="p2" name="The ladder and the optimiser">
-    <mxGraphModel dx="1090" dy="549" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="1526" dy="691" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
         <mxCell id="L1" parent="1" style="rounded=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;whiteSpace=wrap;html=1;" value="default&lt;br&gt;the ReAct loop of the benchmark,&lt;br&gt;as it is (page 1)" vertex="1">
           <mxGeometry height="70" width="220" x="40" y="40" as="geometry" />
         </mxCell>
-        <mxCell id="L2" parent="1" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;whiteSpace=wrap;html=1;" value="repaired&lt;br&gt;+ interface repairs: argument cleaning,&lt;br&gt;schema fixes, a finish tool, each&lt;br&gt;traced to a training failure" vertex="1">
+        <mxCell id="L2" parent="1" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;whiteSpace=wrap;html=1;" value="interface_repair&lt;br&gt;+ interface repairs: argument cleaning,&lt;br&gt;schema fixes, a finish tool, each&lt;br&gt;traced to a training failure" vertex="1">
           <mxGeometry height="70" width="220" x="40" y="170" as="geometry" />
         </mxCell>
         <mxCell id="L3" parent="1" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;whiteSpace=wrap;html=1;" value="planner (h0)&lt;br&gt;planner, constraint checker, executor;&lt;br&gt;a failed step triggers a bounded replan;&lt;br&gt;a LangGraph graph" vertex="1">
@@ -167,7 +167,7 @@
         <mxCell id="H" parent="1" style="shape=document;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;boundedLbl=1;whiteSpace=wrap;html=1;" value="harness.yaml&lt;br&gt;planner prompt,&lt;br&gt;plan constraints,&lt;br&gt;replanning rules:&lt;br&gt;the editable surface" vertex="1">
           <mxGeometry height="90" width="170" x="300" y="300" as="geometry" />
         </mxCell>
-        <mxCell id="N" parent="1" style="text;align=left;verticalAlign=top;fontSize=11;fontStyle=2;whiteSpace=wrap;html=1;" value="The ladder (P1): one change per rung, each rung compared with the one below on the validation tasks. The optimiser (P2) starts from planner. The graph code in src/ is the frozen engine; the proposer edits harness.yaml only, so every edit is data that can be read and audited." vertex="1">
+        <mxCell id="N" parent="1" style="text;align=left;verticalAlign=top;fontSize=11;fontStyle=2;whiteSpace=wrap;html=1;" value="The ladder: one change per rung, each rung compared with the one below on the validation tasks. The optimiser starts from planner. The graph code in src/ is the frozen engine; the proposer edits harness.yaml only, so every edit is data that can be read and audited." vertex="1">
           <mxGeometry height="80" width="420" x="40" y="430" as="geometry" />
         </mxCell>
         <mxCell id="O1" parent="1" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;whiteSpace=wrap;html=1;" value="proposer&lt;br&gt;an LLM, offline, proposing&lt;br&gt;one edit to harness.yaml" vertex="1">

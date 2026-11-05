@@ -2,7 +2,7 @@
 
 The package has three parts. ``benchmarks.enterpriseops`` runs an agent on
 the benchmark's tasks and measures the result (the ``mas-optimiser``
-command, ``cli``); ``tracing`` sends each run to Langfuse; the planner and
+command, ``cli``); ``tracing`` sends each attempt to Langfuse; the planner and
 the optimiser are to come. ``code_version`` stamps every run with the code
 that produced it.
 """
@@ -21,7 +21,7 @@ def code_version() -> str:
 
     ``__version__`` is fixed when the package is installed, so in an editable
     install it can name older code than the code that runs. Git describes the
-    checkout at the moment of the call, so a run takes it once, when it
+    checkout at the moment of the call, so an evaluation takes it once, when it
     starts.
 
     Returns:

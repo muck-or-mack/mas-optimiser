@@ -8,7 +8,7 @@ paired on the same tasks.
 
 The strata are domain crossed with the task's baseline outcome: whether all,
 some or none of its attempts passed in the experiment the split is drawn
-from (``runs/<experiment>/``). For each domain the draw reads the latest full
+from (``evaluations/<experiment>/``). For each domain the draw reads the latest full
 evaluation in the experiment's ``index.csv`` that has no label and no
 command-line override that changes what is measured, and refuses if a domain
 with a full evaluation has none that qualifies, or if the evaluations chosen
@@ -54,7 +54,7 @@ SETS = ("training", "validation", "test")
 DEFAULT_PROPORTIONS = (0.2, 0.4, 0.4)
 SPLITS_DIR = REPO_ROOT / "configs" / "splits"
 FORCED_FILE = SPLITS_DIR / "forced-training.yaml"
-RUNS = REPO_ROOT / "runs"
+EVALUATIONS = REPO_ROOT / "evaluations"
 NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
 # Command-line overrides that leave what an evaluation measures unchanged;
 # any other override (model, mode, attempts, thinking) disqualifies it as a
@@ -92,14 +92,14 @@ class Baseline(NamedTuple):
 def read_baseline(experiment_dir: Path) -> Baseline:
     """Read each domain's baseline evaluation and classify every task's outcome.
 
-    The baseline of a domain is its latest full evaluation (one run without a
+    The baseline of a domain is its latest full evaluation (one without a
     task limit) with no label and no command-line override that changes what
-    is measured (``HARMLESS_OVERRIDES``), so a rerun with another model or a
-    labelled trial never defines the strata by accident, while a domain rerun
-    alone with ``--domain`` still counts.
+    is measured (``HARMLESS_OVERRIDES``), so an evaluation with another model
+    or a labelled trial never defines the strata by accident, while one
+    repeated for a domain alone with ``--domain`` still counts.
 
     Args:
-        experiment_dir: The ``runs/<experiment>`` folder holding ``index.csv``;
+        experiment_dir: The ``evaluations/<experiment>`` folder holding ``index.csv``;
             opening it raises ``FileNotFoundError`` when there is none.
 
     Returns:
@@ -239,7 +239,7 @@ def build_split(
 
     Args:
         name: The split's name, also its file name under ``configs/splits/``.
-        experiment_dir: The ``runs/<experiment>`` folder the outcomes come from.
+        experiment_dir: The ``evaluations/<experiment>`` folder the outcomes come from.
         proportions: The training, validation and test shares.
         seed: The draw's seed.
         forced: Task ids forced into training, each with the reason.
@@ -338,7 +338,9 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         parser: The ``split`` subparser.
     """
     parser.add_argument(
-        "--experiment", required=True, help="the runs/<experiment> folder to draw from"
+        "--experiment",
+        required=True,
+        help="the evaluations/<experiment> folder to draw from",
     )
     parser.add_argument("--name", required=True, help="the split's name and file name")
     parser.add_argument("--seed", type=int, default=0, help="seed of the draw")
@@ -397,7 +399,7 @@ def run(args: argparse.Namespace) -> None:
     try:
         split = build_split(
             args.name,
-            RUNS / args.experiment,
+            EVALUATIONS / args.experiment,
             tuple(args.proportions),
             args.seed,
             forced,

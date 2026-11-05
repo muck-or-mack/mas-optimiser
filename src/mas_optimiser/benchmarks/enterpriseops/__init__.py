@@ -24,7 +24,7 @@ import sys
 from pathlib import Path
 
 GYM_ROOT = Path(__file__).resolve().parents[4] / "vendor" / "enterpriseops-gym"
-# Data, configs and runs live at fixed places in the repository, so commands
+# Data, configs and evaluations live at fixed places in the repository, so commands
 # behave the same from any working directory.
 REPO_ROOT = GYM_ROOT.parents[1]
 

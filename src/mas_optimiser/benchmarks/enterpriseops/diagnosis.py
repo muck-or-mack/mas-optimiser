@@ -4,7 +4,7 @@ A check in EnterpriseOps-Gym is one SQL query over the final database state,
 almost always ``SELECT COUNT(*) FROM <table> WHERE a AND b AND c`` compared
 with an expected count, so a failure says only that the whole conjunction did
 not hold. Which condition failed, and what value the attempt left instead, is
-the first thing a reader of the run, or an optimiser proposing a fix, needs
+the first thing a reader of the attempt, or an optimiser proposing a fix, needs
 to know.
 
 The diagnosis takes the query apart at its top-level ANDs and tests each
@@ -53,7 +53,7 @@ MAIN_TABLE = re.compile(
 )
 SAMPLE_ROWS = 3
 NUMBER_TYPES = (int, float)
-# The kinds of diagnosis the renderers know; a record from an older run may
+# The kinds of diagnosis the renderers know; a record from an older evaluation may
 # carry another and is shown without one.
 KINDS = ("cells", "value", "no_rows", "too_many_rows")
 

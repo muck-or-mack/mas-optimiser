@@ -65,7 +65,7 @@ def test_load_model_takes_the_key_from_the_environment(tmp_path, monkeypatch):
     monkeypatch.delenv("TEST_KEY")
     with pytest.raises(RuntimeError, match="TEST_KEY"):
         runner.load_model(path)
-    # A missing price table stops the run before it spends anything.
+    # A missing price table stops the evaluation before it spends anything.
     path.write_text(fields + "pricing:\n  input: 1\n")
     with pytest.raises(SystemExit, match="cache_read"):
         runner.load_model(path)
@@ -120,7 +120,7 @@ def test_task_record_counts_every_check_and_sums_the_agents_token_use():
         + [{"name": "b", "validation_config": {"query": "q3"}}]
     )
     usage = {"input_tokens": 1000, "output_tokens": 50}
-    run = {
+    execution = {
         "run_number": 1,
         "overall_success": False,
         "verification_results": {
@@ -136,7 +136,7 @@ def test_task_record_counts_every_check_and_sums_the_agents_token_use():
             {"type": "ai_message", "usage_metadata": usage},
         ],
     }
-    record = runner.task_record("t", 1, run, names, PRICING)
+    record = runner.task_record("t", 1, execution, names, PRICING)
     # The benchmark keeps only the last "a", which passed, so it calls this a pass.
     assert not record["success"] and record["upstream_success"]
     assert record["cost_usd"] == pytest.approx(2000 * 0.10e-6 + 100 * 0.50e-6)
@@ -158,7 +158,7 @@ def test_task_record_does_not_read_an_excluded_check_as_a_failure():
     _, names = checks.unique_names(
         [{"name": n, "validation_config": {"query": n}} for n in ("a", "b")]
     )
-    run = {
+    execution = {
         "run_number": 1,
         "overall_success": False,
         "verification_results": {
@@ -167,6 +167,6 @@ def test_task_record_does_not_read_an_excluded_check_as_a_failure():
         },
         "conversation_flow": [],
     }
-    record = runner.task_record("t", 1, run, names, PRICING)
+    record = runner.task_record("t", 1, execution, names, PRICING)
     assert record["success"] is True
     assert not record["upstream_success"]

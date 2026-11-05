@@ -1,6 +1,6 @@
-"""Write what a run produced in the form its readers need: a page per attempt, tables per evaluation, a summary.
+"""Write what an evaluation produced in the form its readers need: a page per attempt, tables per evaluation, a summary.
 
-A run's record is JSON for code. The files here are for a person or a
+An attempt's record is JSON for code. The files here are for a person or a
 proposing model reading the results. Beside each record, ``attempt-<n>.md``:
 the request, what the agent did turn by turn, what changed against the seed,
 and every check with, under a failure, each condition marked ok or WRONG
@@ -8,7 +8,7 @@ against the row the agent wrote and the turn that wrote it. Beside
 ``tasks.csv`` and ``checks.csv``, ``cells.csv`` (one row per failed
 check, touched row and condition, with the turn that set a wrong cell) and
 ``changes.csv`` (one row per attempt and changed table). And ``summary.md``,
-a page that says how the run went and what went wrong, by table and column.
+a page that says how the attempt went and what went wrong, by table and column.
 
 The trace from a failed check back to the agent's turns is mechanical. The
 calls that write the check's table are those with a writing verb in the
@@ -107,18 +107,18 @@ def succeeded(result: dict) -> bool:
     )
 
 
-def calls(run: dict) -> list[dict]:
+def calls(execution: dict) -> list[dict]:
     """The agent's tool calls in order, each with its turn, arguments and result.
 
     Args:
-        run: The executor's record of the run (its ``conversation_flow``).
+        execution: The executor's account of the attempt (its ``conversation_flow``).
 
     Returns:
         One dict per call: ``turn``, ``tool``, ``args`` and, once its result
         arrived, ``success`` and ``result`` (the result's text).
     """
     out, pending, turn = [], [], 0
-    for step in run.get("conversation_flow", []):
+    for step in execution.get("conversation_flow", []):
         if step["type"] == "ai_message":
             turn += 1
             pending = [
@@ -346,14 +346,18 @@ def _check_lines(result: dict, max_chars: int) -> list[str]:
 
 
 def attempt_text(
-    task_id: str, attempt: int, run: dict, changes: dict | None, max_chars: int = 300
+    task_id: str,
+    attempt: int,
+    execution: dict,
+    changes: dict | None,
+    max_chars: int = 300,
 ) -> str:
     """One attempt as a page: request, turns, changes, and every check with its table and trace.
 
     Args:
         task_id: The task's dataset ID.
         attempt: The attempt number, from 1.
-        run: The executor's record of the run.
+        execution: The executor's account of the attempt.
         changes: The attempt's changes, as ``states.diff`` gives them, or
             ``None`` when they were not read.
         max_chars: The length a turn's text or a tool's arguments are clipped to.
@@ -361,16 +365,18 @@ def attempt_text(
     Returns:
         The page as Markdown.
     """
-    results = run.get("verification_results", {})
+    results = execution.get("verification_results", {})
     passed = sum(1 for r in results.values() if r["passed"])
-    verdict = "PASS" if run.get("overall_success") else "FAIL"
+    verdict = "PASS" if execution.get("overall_success") else "FAIL"
     lines = [
         f"# {task_id}, attempt {attempt}: {verdict} ({passed} of {len(results)} checks passed)",
         "",
     ]
-    flow = run.get("conversation_flow", [])
-    if run.get("error") and not flow:
-        return "\n".join(lines + [f"Raised before it started: {run['error']}", ""])
+    flow = execution.get("conversation_flow", [])
+    if execution.get("error") and not flow:
+        return "\n".join(
+            lines + [f"Raised before it started: {execution['error']}", ""]
+        )
     request = next((s["content"] for s in flow if s["type"] == "user_message"), "")
     lines += ["## Request", "", request, "", "## What the agent did", ""]
     turn = 0
@@ -424,7 +430,7 @@ def cell_rows(task_id: str, attempt: int, results: dict) -> list[dict]:
     Args:
         task_id: The task's dataset ID.
         attempt: The attempt number, from 1.
-        results: The run's ``verification_results``, each failure with its
+        results: The attempt's ``verification_results``, each failure with its
             diagnosis and trace.
 
     Returns:

@@ -12,18 +12,18 @@ string ``'1'`` where the SQL runner returns the integer ``1``; the executor
 compares the two with ``==``, so those checks can never pass.
 
 ``unique_names`` drops exact copies and renames the clashes that remain
-before a run, so the executor keeps every distinct check once, and
+before an attempt, so the executor keeps every distinct check once, and
 ``recheck`` compares count checks numerically after it, while the executor's
 own verdict stays beside the corrected one as ``upstream_passed``.
 ``upstream_verdict`` then recovers what the benchmark would have reported for
 the task, so both conventions can be shown side by side, and
-``check_records`` flattens one run's verdicts into the rows of
+``check_records`` flattens one attempt's verdicts into the rows of
 ``checks.csv``.
 
 A few of the benchmark's checks are wrong in themselves: no correct attempt
 can satisfy them, or they name the wrong record. ``data/check_patches.json``
 lists those, each with the evidence, as excluded or repaired (the query
-corrected). ``apply_patches`` takes a task's list through it before the run,
+corrected). ``apply_patches`` takes a task's list through it before the attempt,
 and ``original_verdicts`` runs each patched check's original query afterwards,
 so the benchmark's own verdict on every check stays beside the one used here.
 """
@@ -229,7 +229,7 @@ async def original_verdicts(
     only.
 
     Args:
-        results: The run's ``verification_results``, edited in place.
+        results: The attempt's ``verification_results``, edited in place.
         names: The maps from ``apply_patches``.
         runner_for: Gives a query function for a check's name.
     """
@@ -282,7 +282,7 @@ def passed(results: dict[str, dict]) -> bool:
     executor's own ``all()`` over the verdicts would read it as a failure.
 
     Args:
-        results: The run's ``verification_results``.
+        results: The attempt's ``verification_results``.
 
     Returns:
         ``True`` when at least one check counted and every counted check passed.
@@ -292,19 +292,19 @@ def passed(results: dict[str, dict]) -> bool:
 
 
 def upstream_verdict(results: dict[str, dict], names: Names) -> tuple[int, int, bool]:
-    """What the benchmark's executor would have reported for one run.
+    """What the benchmark's executor would have reported for one attempt.
 
     The executor keys verdicts by name, so of checks sharing a name only the
     last one counts, and it compares values with ``==``.
 
     Args:
-        results: The run's ``verification_results``, keyed by unique name in
+        results: The attempt's ``verification_results``, keyed by unique name in
             the order the checks ran.
         names: The maps from ``unique_names``.
 
     Returns:
         Checks passed, checks counted (the distinct names, whether or
-        not the run got as far as running them), and whether the task passed.
+        not the attempt got as far as running them), and whether the task passed.
     """
     verdicts = {
         name: results[unique]["upstream_passed"]
@@ -322,7 +322,7 @@ def upstream_verdict(results: dict[str, dict], names: Names) -> tuple[int, int, 
 def check_records(
     task_id: str, attempt: int, results: dict[str, dict], names: Names
 ) -> list[dict]:
-    """Flatten one run's verdicts into ``checks.csv`` rows (``COLUMNS``), one per check.
+    """Flatten one attempt's verdicts into ``checks.csv`` rows (``COLUMNS``), one per check.
 
     A failed verdict carries the ``kind`` and ``table`` of its diagnosis and
     the ``step`` its trace gave it (see ``report``); a passed one leaves them

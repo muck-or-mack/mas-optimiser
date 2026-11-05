@@ -192,7 +192,7 @@ def test_patches_drop_excluded_checks_and_swap_repaired_queries(monkeypatch):
 def test_an_attempt_passes_when_every_counted_check_does():
     assert checks.passed({"a": {"passed": True}, "x": {"passed": None}})
     assert not checks.passed({"a": {"passed": True}, "b": {"passed": False}})
-    # No check at all (a run that raised) is a failure, not a vacuous pass.
+    # No check at all (an attempt that raised) is a failure, not a vacuous pass.
     assert not checks.passed({})
 
 

@@ -2,9 +2,9 @@
 
 The runner loads one domain's tasks, runs each with the benchmark's ReAct
 agent against the Docker domain servers, and writes one evaluation folder
-under ``runs/<experiment>/``: ``summary.md``, ``tasks.csv`` (a row per
+under ``evaluations/<experiment>/``: ``summary.md``, ``tasks.csv`` (a row per
 attempt), ``checks.csv``, ``cells.csv`` and ``changes.csv`` (see ``report``),
-``run.json`` with the settings and totals, ``run.log``, and per attempt under
+``evaluation.json`` with the settings and totals, ``evaluation.log``, and per attempt under
 ``tasks/<task_id>/`` the executor's full record (``attempt-<n>.json``), its
 changes against the seed (``attempt-<n>.changes.json``) and a readable page
 (``attempt-<n>.md``). Each experiment folder keeps an ``index.csv`` with one
@@ -70,7 +70,7 @@ JSON_COLUMNS = {"gym_servers_config", "verifiers"}
 ID_COLUMNS = {"task_id", "domain"}
 
 CONFIGS = REPO_ROOT / "configs"
-RUNS = REPO_ROOT / "runs"
+EVALUATIONS = REPO_ROOT / "evaluations"
 DESCRIPTION = __doc__.split("\n\n")[0]
 DOMAINS = ["itsm", "csm", "hr"]
 MODES = ["oracle", "plus_5_tools", "plus_10_tools", "plus_15_tools"]
@@ -221,7 +221,7 @@ class TaskExecutor(BenchmarkExecutor):
         Returns:
             The changes, as ``states.diff`` gives them.
         """
-        # One gym per task in this dataset, so one database per run.
+        # One gym per task in this dataset, so one database per attempt.
         [database] = self.auto_created_databases
         state = await asyncio.to_thread(
             states.read_state,
@@ -399,7 +399,7 @@ def append_index(experiment_dir: Path, row: dict) -> None:
     """Add one evaluation's row to the experiment's ``index.csv``, in the columns the file already has.
 
     Args:
-        experiment_dir: The ``runs/<experiment>`` folder.
+        experiment_dir: The ``evaluations/<experiment>`` folder.
         row: The evaluation's settings and totals.
     """
     path = experiment_dir / "index.csv"
@@ -499,7 +499,7 @@ def cost(usage: list[dict], pricing: dict) -> float:
 def task_record(
     task_id: str,
     attempt: int,
-    run: dict,
+    execution: dict,
     names: checks.Names,
     pricing: dict,
 ) -> dict:
@@ -508,10 +508,10 @@ def task_record(
     Args:
         task_id: The task's dataset ID.
         attempt: The attempt number, from 1.
-        run: One entry of the ``runs`` list the executor returns, or a stand-in
-            holding the error if it raised before the run started; such a run
-            counts as a failed task with none of its checks passed and zero
-            tokens.
+        execution: The executor's account of the attempt, one entry of the
+            ``runs`` list it returns, or a stand-in holding the error if it
+            raised before the attempt started; such an attempt counts as
+            failed with none of its checks passed and zero tokens.
         names: The maps from ``checks.prepare``.
         pricing: The price table from the model file.
 
@@ -520,11 +520,11 @@ def task_record(
     """
     usage = [
         step["usage_metadata"]
-        for step in run.get("conversation_flow", [])
+        for step in execution.get("conversation_flow", [])
         if step["type"] == "ai_message" and step.get("usage_metadata")
     ]
     details = [u.get("input_token_details") or {} for u in usage]
-    results = run.get("verification_results", {})
+    results = execution.get("verification_results", {})
     upstream_passed, upstream_total, upstream_success = checks.upstream_verdict(
         results, names
     )
@@ -538,10 +538,10 @@ def task_record(
         "upstream_success": upstream_success,
         "upstream_checks_passed": upstream_passed,
         "upstream_checks_total": upstream_total,
-        "error": run.get("error", ""),
+        "error": execution.get("error", ""),
         "tool_errors": sum(
             not report.succeeded(step.get("result") or {})
-            for step in run.get("conversation_flow", [])
+            for step in execution.get("conversation_flow", [])
             if step["type"] == "tool_result"
         ),
         "model_calls": len(usage),
@@ -550,14 +550,14 @@ def task_record(
         "cache_read_tokens": sum(d.get("cache_read") or 0 for d in details),
         "cache_write_tokens": sum(d.get("cache_creation") or 0 for d in details),
         "cost_usd": round(cost(usage, pricing), 6),
-        "seconds": run.get("execution_time_ms", 0) / 1000,
+        "seconds": execution.get("execution_time_ms", 0) / 1000,
     }
 
 
 def outputs(
     task_id: str,
     attempt: int,
-    run: dict,
+    execution: dict,
     changes: dict | None,
     keys: dict,
     names: checks.Names,
@@ -571,7 +571,7 @@ def outputs(
     Args:
         task_id: The task's dataset ID.
         attempt: The attempt number, from 1.
-        run: The executor's record of the run, edited in place.
+        execution: The executor's account of the attempt, edited in place.
         changes: The attempt's changes, as ``states.diff`` gives them, or
             ``None`` when they were not read.
         keys: Each table's primary key columns.
@@ -582,14 +582,14 @@ def outputs(
         The ``tasks.csv`` row, then the ``checks.csv``, ``cells.csv`` and
         ``changes.csv`` rows.
     """
-    results = run.get("verification_results", {})
-    agent_calls = report.calls(run)
+    results = execution.get("verification_results", {})
+    agent_calls = report.calls(execution)
     for check in results.values():
         if not check["passed"] and check.get("diagnosis"):
             check["trace"] = report.trace(check, agent_calls, keys)
     queries = [r.get("query", "") for r in results.values()]
     return (
-        task_record(task_id, attempt, run, names, pricing),
+        task_record(task_id, attempt, execution, names, pricing),
         checks.check_records(task_id, attempt, results, names),
         report.cell_rows(task_id, attempt, results),
         report.change_rows(task_id, attempt, changes, queries),
@@ -604,7 +604,7 @@ def save_attempt(
     Args:
         folder: The task's folder under the evaluation's ``tasks/``.
         attempt: The attempt number, from 1.
-        result: What the executor returned (its ``runs`` list holds the run).
+        result: What the executor returned (its ``runs`` list holds the one execution).
         changes: The attempt's changes, or ``None`` when they were not read.
     """
     folder.mkdir(exist_ok=True)
@@ -633,7 +633,7 @@ def write_tables(
     Args:
         out: The evaluation folder.
         settings: The ``domain``, ``mode`` and ``model`` (a name, or the model
-            config as ``run.json`` keeps it) that head the summary.
+            config as ``evaluation.json`` keeps it) that head the summary.
         records: The ``tasks.csv`` rows.
         check_rows: The ``checks.csv`` rows.
         cell_rows: The ``cells.csv`` rows.
@@ -691,15 +691,15 @@ async def run_task(
         pricing: The price table from the model file.
         out: The evaluation folder; the record goes to ``out/tasks/<task_id>``.
         domain: The evaluation's domain.
-        trace: Send the run to Langfuse as one trace, scored with its verdict.
+        trace: Send the attempt to Langfuse as one trace, scored with its verdict.
         thinking: A ``thinking`` setting for the model, or ``None``.
         tags: The trace's tags; the attempt number is added.
 
     Returns:
         What ``outputs`` returns.
     """
-    # One executor call per attempt, so that each run is its own trace and its
-    # own unit of concurrency; the executor's own run loop stays at one.
+    # One executor call per attempt, so that each attempt is its own trace and
+    # its own unit of concurrency; the executor's own loop over runs stays at one.
     executor = TaskExecutor(
         BenchmarkConfig(**(config | {"number_of_runs": 1})),
         model,
@@ -731,20 +731,22 @@ async def run_task(
         try:
             result = await executor.execute_benchmark()
         except Exception as exc:
-            # Raised before the run started, e.g. a server that is not up.
+            # Raised before the attempt started, e.g. a server that is not up.
             result = {"runs": [{"run_number": 1, "error": repr(exc)}]}
-        run = result["runs"][0]
+        execution = result["runs"][0]
         if executor.diagnosis_error:
-            run["diagnosis_error"] = executor.diagnosis_error
+            execution["diagnosis_error"] = executor.diagnosis_error
         # The executor's own verdict reads an excluded check as a failure.
-        if "verification_results" in run:
-            run["overall_success"] = checks.passed(run["verification_results"])
+        if "verification_results" in execution:
+            execution["overall_success"] = checks.passed(
+                execution["verification_results"]
+            )
         changes = executor.changes
         try:
             record, rows, cells, changed = outputs(
                 task_id,
                 attempt,
-                run,
+                execution,
                 changes,
                 executor.layout["keys"],
                 executor.names,
@@ -752,18 +754,22 @@ async def run_task(
             )
         except Exception as exc:  # noqa: BLE001
             # A fault in the trace or the rows must not end the evaluation;
-            # the attempt keeps its verdict and the fault is kept on the run.
-            run["report_error"] = repr(exc)
-            for check in run.get("verification_results", {}).values():
+            # the attempt keeps its verdict and the fault is kept on the execution.
+            execution["report_error"] = repr(exc)
+            for check in execution.get("verification_results", {}).values():
                 check.pop("trace", None)
-            record = task_record(task_id, attempt, run, executor.names, pricing)
+            record = task_record(task_id, attempt, execution, executor.names, pricing)
             rows = checks.check_records(
-                task_id, attempt, run.get("verification_results", {}), executor.names
+                task_id,
+                attempt,
+                execution.get("verification_results", {}),
+                executor.names,
             )
             cells, changed = [], []
         if span is not None:
             queries = [
-                r.get("query", "") for r in run.get("verification_results", {}).values()
+                r.get("query", "")
+                for r in execution.get("verification_results", {}).values()
             ]
             tracing.record_outcome(
                 span,
@@ -800,7 +806,7 @@ async def run_tasks(
         pricing: The price table from the model file.
         out: The evaluation folder.
         domain: The evaluation's domain.
-        attempts: Runs per task.
+        attempts: Attempts per task.
         concurrency: Runs in flight at once.
         trace: Send each run to Langfuse.
         thinking: A ``thinking`` setting for the model, or ``None``.
@@ -884,13 +890,15 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         help="run only one set of a split in configs/splits/, as <name>:<set>, "
         "e.g. haiku-20-40-40:training",
     )
-    parser.add_argument("--attempts", type=int, help="runs per task")
+    parser.add_argument("--attempts", type=int, help="attempts per task")
     parser.add_argument("--concurrency", type=int, help="runs in flight at once")
     parser.add_argument(
         "--label", help="a word added to the evaluation's folder name, e.g. after-fix"
     )
     parser.add_argument(
-        "--out", type=Path, help="evaluation folder (default: runs/<experiment>/<name>)"
+        "--out",
+        type=Path,
+        help="evaluation folder (default: evaluations/<experiment>/<name>)",
     )
     parser.add_argument(
         "--trace",
@@ -949,7 +957,7 @@ def evaluate(
     thinking: dict | None,
     version: str,
 ) -> None:
-    """Run one domain's tasks as one evaluation: the folder, its tables, ``run.json`` and the index row.
+    """Run one domain's tasks as one evaluation: the folder, its tables, ``evaluation.json`` and the index row.
 
     Args:
         experiment: The settings from ``load_experiment``.
@@ -959,7 +967,7 @@ def evaluate(
         trace: Send each run to Langfuse.
         thinking: A ``thinking`` setting for the model, or ``None``.
         version: The code's version when the run began, from
-            ``mas_optimiser.code_version``, recorded in ``run.json`` and the index.
+            ``mas_optimiser.code_version``, recorded in ``evaluation.json`` and the index.
     """
     tasks = load_tasks(domain, experiment["mode"])
     if experiment["split"]:
@@ -991,7 +999,7 @@ def evaluate(
     out = (
         Path(experiment["out"])
         if experiment["out"]
-        else RUNS
+        else EVALUATIONS
         / experiment["experiment"]
         / evaluation_name(experiment, domain, started)
     )
@@ -999,7 +1007,7 @@ def evaluate(
     # The benchmark logs every request and tool call at INFO; keep that in the
     # evaluation folder rather than on the terminal. One handler per
     # evaluation, since one process may run several domains.
-    handler = logging.FileHandler(out / "run.log")
+    handler = logging.FileHandler(out / "evaluation.log")
     handler.setFormatter(
         logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s")
     )
@@ -1040,7 +1048,7 @@ def evaluate(
     totals = {
         "tasks": len(tasks),
         "attempts": experiment["attempts"],
-        "runs": len(records),
+        "total_attempts": len(records),
         "successes": sum(r["success"] for r in records),
         "tasks_passed_every_attempt": sum(all(v) for v in by_task.values()),
         "errors": sum(bool(r["error"]) for r in records),
@@ -1065,7 +1073,9 @@ def evaluate(
         "started": started.isoformat(timespec="seconds"),
         "finished": datetime.now().astimezone().isoformat(timespec="seconds"),
     }
-    (out / "run.json").write_text(json.dumps(settings | {"totals": totals}, indent=2))
+    (out / "evaluation.json").write_text(
+        json.dumps(settings | {"totals": totals}, indent=2)
+    )
     # The settings that tell evaluations apart, then the totals.
     append_index(
         out.parent,
@@ -1086,7 +1096,7 @@ def evaluate(
         | totals,
     )
     print(
-        f"\n{totals['successes']}/{totals['runs']} runs passed, "
+        f"\n{totals['successes']}/{totals['total_attempts']} attempts passed, "
         f"{totals['tasks_passed_every_attempt']}/{totals['tasks']} tasks passed every "
         f"attempt ({totals['errors']} errors, counted as failures); checks "
         f"{totals['checks_passed']}/{totals['checks_total']}. Results in {out}"
