@@ -342,7 +342,7 @@ column.
 
 ## 4. Where this is going
 
-The second figure shows the plan. The harness ladder (P1) changes one thing
+The second figure shows the plan. The harness ladder changes one thing
 per rung and compares each rung with the one below on the validation tasks:
 
 - `default`: the loop of section 2.4 as it is; the benchmark's reference.
@@ -358,7 +358,7 @@ per rung and compares each rung with the one below on the validation tasks:
   Its planner prompt, constraints and replanning rules live in
   `harnesses/<name>/harness.yaml`, as data.
 
-The optimiser (P2) starts from `planner`. A proposer (an LLM, offline)
+The optimiser starts from `planner`. A proposer (an LLM, offline)
 reads the failures of the training tasks as the measure reports them
 (failed checks by step, wrong cells by column, excerpts of the failing
 turns) and proposes one edit to `harness.yaml`. The candidate runs on the
