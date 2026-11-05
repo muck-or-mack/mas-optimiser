@@ -227,7 +227,9 @@ it, each failure is diagnosed and traced, and the tables, pages and summary
 are rewritten. Use it after a change to the diagnosis or to the checks. An
 attempt with no saved changes (one that raised before it finished) is left
 as it was. The record keeps the verdicts the attempt first produced as
-`verification_results_as_run` beside the recomputed ones.
+`verification_results_as_run` beside the recomputed ones. A condition on the
+clock (`datetime('now', '-1 day')`) is judged at the time the attempt's
+checks ran, so the result does not depend on the day of the rescore.
 
 ## Watching an attempt in Langfuse
 

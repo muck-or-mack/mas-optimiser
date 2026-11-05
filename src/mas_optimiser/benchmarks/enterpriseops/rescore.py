@@ -15,7 +15,9 @@ the local rebuild as the benchmark's engine runs it on the server, with the
 executor's own comparison corrected for a numeric string as the runner
 corrects it. The record's ``verification_results`` are replaced by the
 recomputed ones; the verdicts as the attempt first produced them are kept beside
-them as ``verification_results_as_run``.
+them as ``verification_results_as_run``. A condition on the clock
+(``created_at >= datetime('now', '-1 day')``) is judged at the time the
+attempt's checks ran, so its answer does not change with the day of the rescore.
 
 Usage::
 
@@ -25,8 +27,10 @@ Usage::
 import argparse
 import asyncio
 import json
+import re
 import sqlite3
 from collections import Counter
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from mas_optimiser.benchmarks.enterpriseops import (
@@ -37,13 +41,17 @@ from mas_optimiser.benchmarks.enterpriseops import (
 )
 
 DESCRIPTION = __doc__.split("\n\n")[0]
+# The quoted ``now`` that SQLite's date functions take for the present moment.
+NOW = re.compile(r"""(['"])now\1""", re.IGNORECASE)
 
 
-def local_runner(final: sqlite3.Connection) -> diagnosis.RunSQL:
+def local_runner(final: sqlite3.Connection, now: str) -> diagnosis.RunSQL:
     """A query function on the rebuilt database, shaped like the executor's runner.
 
     Args:
         final: The rebuilt database.
+        now: The time the attempt's checks ran, as SQLite writes one
+            (``2026-11-03 08:04:22``); it stands in for ``'now'`` in every query.
 
     Returns:
         An async function of a query: a query the database rejects gives
@@ -53,7 +61,7 @@ def local_runner(final: sqlite3.Connection) -> diagnosis.RunSQL:
 
     async def run_sql(query: str):
         try:
-            cursor = final.execute(query)
+            cursor = final.execute(NOW.sub(f"'{now}'", query))
         except sqlite3.Error:
             return None
         columns = [c[0] for c in cursor.description]
@@ -65,18 +73,17 @@ def local_runner(final: sqlite3.Connection) -> diagnosis.RunSQL:
     return run_sql
 
 
-async def check_locally(kept: list[dict], final: sqlite3.Connection) -> dict[str, dict]:
+async def check_locally(kept: list[dict], run_sql: diagnosis.RunSQL) -> dict[str, dict]:
     """Run each check's query on the rebuilt database and give its verdict as the executor would.
 
     Args:
         kept: The checks to run, from ``checks.prepare``.
-        final: The rebuilt database.
+        run_sql: The query function on the rebuilt database, from ``local_runner``.
 
     Returns:
         Each check's verdict keyed by unique name, shaped as the executor
         records it, with ``upstream_passed`` from ``checks.recheck``.
     """
-    run_sql = local_runner(final)
     results = {}
     for check in kept:
         config = check["validation_config"]
@@ -156,8 +163,12 @@ async def rescore_attempt(
     as_run = execution.setdefault(
         "verification_results_as_run", execution.get("verification_results", {})
     )
-    results = keep_live_verdicts(await check_locally(kept, final), as_run)
-    run_sql = local_runner(final)
+    # The server ran the checks as the attempt ended.
+    ended = datetime.fromisoformat(execution["started_at"]) + timedelta(
+        milliseconds=execution["execution_time_ms"]
+    )
+    run_sql = local_runner(final, f"{ended.astimezone(UTC):%Y-%m-%d %H:%M:%S}")
+    results = keep_live_verdicts(await check_locally(kept, run_sql), as_run)
     await checks.original_verdicts(results, names, lambda name: run_sql)
     for result in results.values():
         if result["passed"] is False and result.get("query"):

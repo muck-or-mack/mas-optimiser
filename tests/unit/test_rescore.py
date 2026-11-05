@@ -5,6 +5,9 @@ import sqlite3
 
 from mas_optimiser.benchmarks.enterpriseops import checks, rescore
 
+# The moment the attempt's checks ran, as ``local_runner`` takes it.
+ENDED = "2026-11-03 08:05:00"
+
 
 def database():
     conn = sqlite3.connect(":memory:")
@@ -26,7 +29,7 @@ def check(name, query, expected=1, comparison="equals"):
 
 
 def test_the_local_runner_shapes_results_as_the_executor_does():
-    run_sql = rescore.local_runner(database())
+    run_sql = rescore.local_runner(database(), ENDED)
     assert asyncio.run(run_sql("SELECT COUNT(*) FROM incident")) == 2
     assert (
         asyncio.run(run_sql("SELECT status FROM incident WHERE incident_id = 'INC_1'"))
@@ -39,6 +42,18 @@ def test_the_local_runner_shapes_results_as_the_executor_does():
     assert len(asyncio.run(run_sql("SELECT status FROM incident"))) == 2
     # A query the database rejects answers None, as the executor's runner does.
     assert asyncio.run(run_sql("SELECT nope FROM incident")) is None
+
+
+def test_a_condition_on_the_clock_is_judged_at_the_time_the_checks_ran():
+    conn = sqlite3.connect(":memory:")
+    conn.execute("CREATE TABLE hr_case (hr_case_id, created_at)")
+    conn.execute("INSERT INTO hr_case VALUES (1, '2026-11-03 08:04:00')")
+    query = (
+        "SELECT COUNT(*) FROM hr_case WHERE created_at >= datetime('now', '-5 minutes')"
+    )
+    assert asyncio.run(rescore.local_runner(conn, ENDED)(query)) == 1
+    # Judged two days on, the same row would be outside the window.
+    assert asyncio.run(rescore.local_runner(conn, "2026-11-05 08:05:00")(query)) == 0
 
 
 def test_compare_follows_the_executor_including_its_type_strictness():
@@ -58,7 +73,8 @@ def test_checks_run_locally_keep_the_executor_verdict_beside_the_corrected_one()
         ),
         check("broken", "SELECT COUNT(*) FROM nowhere"),
     ]
-    results = asyncio.run(rescore.check_locally(checks, database()))
+    run_sql = rescore.local_runner(database(), ENDED)
+    results = asyncio.run(rescore.check_locally(checks, run_sql))
     # A numeric string expected value fails the executor's == and passes the recheck.
     assert results["count"]["upstream_passed"] is False
     assert results["count"]["passed"] is True

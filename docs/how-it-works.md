@@ -326,9 +326,12 @@ and changes in its output.
 
 `rescore.py` recomputes an evaluation from its saved records: `rebuild`
 (`states.py:232`) applies an attempt's saved changes to a fresh seed copy,
-`check_locally` (`rescore.py:68`) runs every check on that database as the
+`check_locally` (`rescore.py:76`) runs every check on that database as the
 executor would, and the same diagnosis, trace and files follow
-(`rescore_attempt`, `rescore.py:128`). It exists so that a change to the
+(`rescore_attempt`, `rescore.py:135`). A condition on the clock
+(`created_at >= datetime('now', '-1 day')`; nine checks have one, all in
+HR) is judged at the time the attempt's checks ran (`local_runner`,
+`rescore.py:48`), so a rescore gives the same answer on any day. It exists so that a change to the
 diagnosis, the trace or the patch list can be applied to every past
 evaluation in seconds, with no model cost, and so that the saved changes
 are enough to reproduce a verdict.
@@ -390,7 +393,7 @@ then read the page under `evaluations/smoke/`. `mas-optimiser rescore <folder>`
 on that folder rewrites every file from the saved changes; nothing should
 change.
 
-The unit tests (`uv run pytest tests/unit`, 120 tests on 5 November 2026, no servers needed)
+The unit tests (`uv run pytest tests/unit`, 121 tests on 5 November 2026, no servers needed)
 cover the measure on hand-written records. The integration tests
 (`tests/integration`) need the servers and check, among other things, that
 the local seed copy matches the server's database row for row.
