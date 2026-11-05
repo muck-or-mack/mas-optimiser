@@ -31,7 +31,6 @@ mas-optimiser = "mas_optimiser.cli:main"
 
 [dependency-groups]
 dev = [
-    "pydoclint>=0.12.0",
     "pytest",
     "ruff",
 ]
@@ -66,7 +65,10 @@ section-order = ["future", "standard-library", "third-party", "first-party", "en
 sections = { enterpriseops-gym = ["benchmark", "orchestrators"] }
 
 # Every function's docstring names each argument, the return value and what
-# it raises (Google style); types stay in the signature.
+# it raises (Google style); types stay in the signature. Run it with
+# `uvx pydoclint@0.12.0 src`: it stays out of the dev group because its
+# docstring-parser-fork installs the same module as the docstring-parser the
+# model client depends on, and whichever lands last overwrites the other.
 [tool.pydoclint]
 style = "google"
 arg-type-hints-in-docstring = false

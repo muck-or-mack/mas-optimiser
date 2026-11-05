@@ -22,5 +22,6 @@ jobs:
         run: |
           uv run ruff check src tests
           uv run ruff format --check src tests
-          uv run pydoclint src
+          # In its own environment, not the project's (see pyproject.toml).
+          uvx pydoclint@0.12.0 src
           uv run pytest -q
