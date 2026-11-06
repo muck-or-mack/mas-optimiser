@@ -156,6 +156,7 @@ def schema_command(monkeypatch, tmp_path):
     """The schema command over two fake seed files, with the server calls replaced."""
     first, second = write(tmp_path, SEED, "a.sql"), write(tmp_path, SEED, "b.sql")
     monkeypatch.setattr(seeds, "SCHEMAS_DIR", tmp_path / "schemas")
+    monkeypatch.setattr(seeds, "DATA_MODEL_DIR", tmp_path / "data-model")
     monkeypatch.setattr(seeds, "domain_seeds", lambda d: {"http://s": {first, second}})
     monkeypatch.setattr(seeds.runner, "check_servers", lambda urls: None)
     return argparse.Namespace(domain=["itsm"])
@@ -167,6 +168,9 @@ def test_schema_command_writes_the_schema_all_seed_files_share(
     monkeypatch.setattr(seeds, "_fetch_schema", lambda url, path: SCHEMA)
     seeds.run(schema_command)
     assert (seeds.SCHEMAS_DIR / "itsm.sql").read_text() == SCHEMA
+    assert (
+        (seeds.DATA_MODEL_DIR / "itsm.md").read_text().startswith("# ITSM data model")
+    )
 
 
 def test_schema_command_stops_when_two_seed_files_disagree(schema_command, monkeypatch):
