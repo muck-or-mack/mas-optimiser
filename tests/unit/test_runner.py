@@ -1,6 +1,7 @@
 """Unit tests of ``runner``: task loading, pricing, the rows of an attempt and the evaluation folder."""
 
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -170,3 +171,63 @@ def test_task_record_does_not_read_an_excluded_check_as_a_failure():
     record = runner.task_record("t", 1, execution, names, PRICING)
     assert record["success"] is True
     assert not record["upstream_success"]
+
+
+def test_evaluate_writes_the_tables_the_settings_and_the_index_row(
+    tmp_path, monkeypatch
+):
+    config = {
+        "verifiers": [
+            {
+                "name": "Incident",
+                "validation_config": {
+                    "query": "SELECT COUNT(*) FROM incident",
+                    "expected_value": 1,
+                },
+            }
+        ],
+        "gym_servers_config": [
+            {"mcp_server_url": "http://localhost:1", "seed_database_file": "s.sql"}
+        ],
+    }
+    monkeypatch.setattr(
+        runner, "load_tasks", lambda domain, mode: {"task_a": config, "task_b": config}
+    )
+    monkeypatch.setattr(runner, "check_servers", lambda urls: None)
+    names = checks.prepare("task_a", config["verifiers"])[1]
+
+    async def fake_run_tasks(tasks, model, pricing, out, **kwargs):
+        # Every attempt raised before it started: the end of the evaluation
+        # still has to write its tables, settings and index row.
+        records = [
+            runner.task_record(t, 1, {"run_number": 1, "error": "down"}, names, pricing)
+            for t in tasks
+        ]
+        return records, [], [], []
+
+    monkeypatch.setattr(runner, "run_tasks", fake_run_tasks)
+    no_overrides = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
+    experiment = runner.load_experiment(
+        "smoke",
+        no_overrides
+        | {"out": tmp_path / "exp" / "e1", "limit": None, "task": "task_b"},
+    )
+    model = SimpleNamespace(llm_model="m", llm_api_key="secret", provider="p")
+    runner.evaluate(
+        experiment, "itsm", model, PRICING, trace=False, thinking=None, version="v0"
+    )
+    folder = tmp_path / "exp" / "e1"
+    settings = json.loads((folder / "evaluation.json").read_text())
+    assert settings["tasks"] == ["task_b"]
+    assert (
+        settings["totals"]["total_attempts"] == 1 and settings["totals"]["errors"] == 1
+    )
+    assert "llm_api_key" not in settings["model"]
+    assert (folder / "summary.md").exists() and (folder / "tasks.csv").exists()
+    index = (tmp_path / "exp" / "index.csv").read_text().splitlines()
+    assert index[0].startswith("evaluation,started,domain,mode,model,harness,")
+    assert index[1].startswith("e1,") and ",itsm,oracle,m,default," in index[1]
+    # tasks 1, attempts 1, total 1, passed 0, every-attempt 0, errors 1, then
+    # the summed columns: checks 0 of 1, the benchmark's own 0 and 0 of 1,
+    # four token counts, cost and seconds.
+    assert index[1].endswith(",v0,1,1,1,0,0,1,0,1,0,0,1,0,0,0,0,0.0,0.0")

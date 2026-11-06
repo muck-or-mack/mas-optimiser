@@ -201,6 +201,20 @@ def test_servers_that_do_not_answer_stop_the_run_with_the_compose_command():
         runner.check_servers({"http://127.0.0.1:9"})
 
 
+def test_run_passes_the_chosen_tasks_from_the_command_line(monkeypatch):
+    seen = []
+    monkeypatch.setattr(runner, "load_model", lambda path: (None, {}))
+    monkeypatch.setattr(runner.tracing, "configured", lambda: False)
+    monkeypatch.setattr(runner.mas_optimiser, "code_version", lambda: "v0")
+    monkeypatch.setattr(
+        runner, "evaluate", lambda experiment, *a, **k: seen.append(experiment["task"])
+    )
+    parser = argparse.ArgumentParser()
+    runner.add_arguments(parser)
+    runner.run(parser.parse_args(["smoke", "--task", "task_a", "--task", "task_b"]))
+    assert seen == [["task_a", "task_b"]]
+
+
 def test_run_takes_the_code_version_once_before_any_evaluation(monkeypatch):
     calls, versions = [], iter(["v0.5.0-1-gaaaaaaa", "v0.5.0-2-gbbbbbbb-dirty"])
     monkeypatch.setattr(runner.mas_optimiser, "code_version", lambda: next(versions))

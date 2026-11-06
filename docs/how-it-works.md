@@ -402,7 +402,7 @@ then read the page under `evaluations/smoke/`. `mas-optimiser rescore <folder>`
 on that folder rewrites every file from the saved changes; nothing should
 change.
 
-The unit tests (`uv run pytest tests/unit`, 128 tests on 6 November 2026, no servers needed)
+The unit tests (`uv run pytest tests/unit`, 130 tests on 6 November 2026, no servers needed)
 cover the measure on hand-written records. The integration tests
 (`tests/integration`) need the servers and check, among other things, that
 the local seed copy matches the server's database row for row.

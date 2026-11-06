@@ -1141,8 +1141,9 @@ def evaluate(
         "started": started.isoformat(timespec="seconds"),
         "finished": datetime.now().astimezone().isoformat(timespec="seconds"),
     }
+    # ``default=str``: an ``--out`` path among the overrides is not JSON.
     (out / "evaluation.json").write_text(
-        json.dumps(settings | {"totals": counted}, indent=2)
+        json.dumps(settings | {"totals": counted}, indent=2, default=str)
     )
     write_index_row(out.parent, index_row(settings, counted))
     print(
