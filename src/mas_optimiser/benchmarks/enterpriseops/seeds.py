@@ -10,8 +10,10 @@ without running an agent.
 ``mas-optimiser schema`` seeds a database on each domain's server from every
 seed file the domain's tasks use, reads the CREATE statements of its tables
 and indexes back from ``sqlite_master``, checks that every seed file of the
-domain gets the same schema, writes it to ``data/schemas/<domain>.sql`` and
-deletes the server-side databases. ``build_seed_database`` then creates a
+domain gets the same schema, writes it to ``data/schemas/<domain>.sql`` with
+a readable version at ``docs/data-model/<domain>.md`` (every table, its key,
+its columns and the tables it references), and deletes the server-side
+databases. ``build_seed_database`` then creates a
 local database from a schema and a seed file; the integration tests check
 that it matches the server's database row for row. Usage::
 
@@ -21,6 +23,7 @@ that it matches the server's database row for row. Usage::
 
 import argparse
 import contextlib
+import re
 import secrets
 import sqlite3
 import time
@@ -34,6 +37,13 @@ from mas_optimiser.benchmarks.enterpriseops import REPO_ROOT, runner
 from benchmark.mcp_client import delete_database
 
 SCHEMAS_DIR = REPO_ROOT / "data" / "schemas"
+DATA_MODEL_DIR = REPO_ROOT / "docs" / "data-model"
+# One CREATE TABLE statement: the name and the lines between its brackets.
+TABLE = re.compile(
+    r"CREATE TABLE (?:IF NOT EXISTS )?[\"`]?(\w+)[\"`]?\s*\((.*?)\n\s*\)", re.S
+)
+CONSTRAINT = re.compile(r"(PRIMARY KEY|FOREIGN KEY|CONSTRAINT|UNIQUE|CHECK)\b")
+REFERENCE = re.compile(r"(?:FOREIGN KEY\s*\((\w+)\)\s*)?REFERENCES\s+(\w+)\s*\((\w+)\)")
 # Tables first, so that the indexes on them can be created after. SQLite
 # keeps AUTOINCREMENT counters in its own sqlite_sequence table, which a
 # database creates for itself and refuses to have created by a script, and
@@ -220,6 +230,79 @@ def domain_seeds(domain: str) -> dict[str, set[Path]]:
     return seeds
 
 
+def schema_markdown(domain: str, schema: str) -> str:
+    """The schema as a page a reader can use: each table with its key, its columns and what it references.
+
+    Args:
+        domain: The domain, for the title.
+        schema: The CREATE statements, as ``data/schemas/<domain>.sql`` holds them.
+
+    Returns:
+        The page as Markdown: an index of the tables, then one section per
+        table in the schema's order.
+    """
+    tables = []
+    for name, body in TABLE.findall(schema):
+        columns, key, references = [], [], []
+        for line in body.splitlines():
+            line = line.strip().rstrip(",").strip()
+            if not line:
+                continue
+            found = REFERENCE.search(line)
+            if found:
+                references.append((found[1] or line.split()[0], found[2], found[3]))
+            if CONSTRAINT.match(line):
+                if line.startswith("PRIMARY KEY"):
+                    key = [
+                        c.strip()
+                        for c in line[line.index("(") + 1 : line.rindex(")")].split(",")
+                    ]
+                continue
+            column, kind = line.split(maxsplit=1) if " " in line else (line, "")
+            columns.append(
+                (
+                    column,
+                    kind.split(" NOT NULL")[0]
+                    .split(" PRIMARY KEY")[0]
+                    .split(" DEFAULT")[0]
+                    .split(" CHECK")[0]
+                    .split(" UNIQUE")[0]
+                    .split(" REFERENCES")[0],
+                )
+            )
+            if " PRIMARY KEY" in kind:
+                key = [column]
+        tables.append((name, columns, key, references))
+    lines = [
+        f"# {domain.upper()} data model",
+        "",
+        f"{len(tables)} tables, from `data/schemas/{domain}.sql`, the schema the server builds",
+        "each attempt's database from. Written by `mas-optimiser schema`; do not edit.",
+        "",
+        "| table | columns | references |",
+        "|---|---|---|",
+    ]
+    for name, columns, _key, references in tables:
+        referenced = ", ".join(sorted({f"`{t}`" for _, t, _ in references}))
+        lines.append(f"| [`{name}`](#{name}) | {len(columns)} | {referenced} |")
+    for name, columns, key, references in tables:
+        lines += [
+            "",
+            f"## {name}",
+            "",
+            f"Key: {', '.join(f'`{k}`' for k in key) or 'none'}.",
+        ]
+        if references:
+            lines.append(
+                "References: "
+                + "; ".join(f"`{c}` to `{t}.{k}`" for c, t, k in references)
+                + "."
+            )
+        lines += ["", "| column | type |", "|---|---|"]
+        lines += [f"| `{c}` | {kind} |" for c, kind in columns]
+    return "\n".join(lines) + "\n"
+
+
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     """Add the schema options to ``parser``; shared with the ``mas-optimiser`` command.
 
@@ -267,3 +350,7 @@ def run(args: argparse.Namespace) -> None:
         path = SCHEMAS_DIR / f"{domain}.sql"
         path.write_text(schema or "")
         print(f"wrote {path}")
+        DATA_MODEL_DIR.mkdir(parents=True, exist_ok=True)
+        page = DATA_MODEL_DIR / f"{domain}.md"
+        page.write_text(schema_markdown(domain, schema or ""))
+        print(f"wrote {page}")

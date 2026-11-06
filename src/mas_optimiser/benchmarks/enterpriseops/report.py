@@ -276,33 +276,35 @@ def trace(result: dict, agent_calls: list[dict], keys: dict) -> dict:
     }
 
 
-def _clip(value: object, max_chars: int) -> str:
-    """One line of at most ``max_chars`` characters.
+def _clip(value: object, max_chars: int | None) -> str:
+    """A value as text: one line of at most ``max_chars`` characters, or whole.
 
     Args:
-        value: A string, taken as it is, or any other value, taken as JSON;
-            runs of whitespace are collapsed.
-        max_chars: The length kept before `` ...`` is added.
+        value: A string, taken as it is, or any other value, taken as JSON.
+        max_chars: The length kept before `` ...`` is added, with runs of
+            whitespace collapsed first; ``None`` keeps the text whole, line
+            breaks included.
 
     Returns:
-        The line.
+        The text.
     """
     text = value if isinstance(value, str) else json.dumps(value)
+    if max_chars is None:
+        return text
     text = " ".join(text.split())
     return text if len(text) <= max_chars else text[:max_chars] + " ..."
 
 
-def _fields(data: object, max_chars: int) -> list[str]:
-    """A call's arguments or a tool's answer, one line per field.
-
-    Each value is clipped on its own, so a long description never hides the
-    fields after it.
+def _fields(data: object, max_chars: int | None) -> list[str]:
+    """A call's arguments, a tool's answer or a row, one line per field.
 
     Args:
         data: A mapping (one aligned ``name = value`` line per field, a list
             value with its items beneath), a list (one line per item, the
             first ``LISTED``) or anything else (one line).
-        max_chars: The length a value is clipped to.
+        max_chars: The length a value is clipped to, each on its own, so a
+            long description never hides the fields after it; ``None`` keeps
+            every value whole, a line break continuing on an indented line.
 
     Returns:
         The lines.
@@ -322,7 +324,9 @@ def _fields(data: object, max_chars: int) -> list[str]:
             lines.append(f"{name:<{width}} = {count}")
             lines += [f"  {line}" for line in _fields(value, max_chars)]
         else:
-            lines.append(f"{name:<{width}} = {_clip(value, max_chars)}")
+            first, *rest = _clip(value, max_chars).split("\n")
+            lines.append(f"{name:<{width}} = {first}")
+            lines += [" " * (width + 3) + line for line in rest]
     return lines
 
 
@@ -392,7 +396,7 @@ def _check_lines(result: dict, changes: dict | None, max_chars: int) -> list[str
                     lines += [f"Row `{label}`: {how}{where}.", ""]
                 before = ["Before"] if old is not None else []
                 heads = [
-                    "Check wants",
+                    f"Check wants in `{found['table']}`",
                     *before,
                     "After the attempt",
                     "",
@@ -438,7 +442,11 @@ def _check_lines(result: dict, changes: dict | None, max_chars: int) -> list[str
         ]
         parsed = diagnosis.parse_count_query(result.get("query", ""))
         if parsed:
-            lines += ["", "| Check wants | After the attempt |", "|---|---|"]
+            lines += [
+                "",
+                f"| Check wants in `{table}` | After the attempt |",
+                "|---|---|",
+            ]
             lines += [f"| {cell(condition)} | no row |" for condition in parsed[2]]
         return lines
     if kind == "too_many_rows":
@@ -456,8 +464,11 @@ def attempt_text(
     """One attempt as a page: request, turns, changes, and every check with its table and trace.
 
     A turn is one reply of the model: its text as a quote, then each tool
-    call it asked for with the arguments and, beneath, what came back
-    (fields the tool left empty are not shown; the record has them).
+    call it asked for with the arguments, never cut, and beneath, what came
+    back (fields the tool left empty are not shown; the record has them).
+    Under the changes against the seed, every row the attempt touched: an
+    inserted row with its values, an updated row with each changed cell
+    before and after, a deleted row by its key.
 
     Args:
         task_id: The task's dataset ID.
@@ -465,8 +476,8 @@ def attempt_text(
         execution: The executor's account of the attempt.
         changes: The attempt's changes, as ``states.diff`` gives them, or
             ``None`` when they were not read.
-        max_chars: The length one argument, one field of an answer or one
-            cell of a check's table is clipped to.
+        max_chars: The length one field of an answer, one cell of a row or
+            one cell of a check's table is clipped to.
 
     Returns:
         The page as Markdown.
@@ -498,7 +509,7 @@ def attempt_text(
             flag = {True: "ok", False: "ERROR"}.get(call.get("success"), "no answer")
             lines += [f"`{call['tool']}` → {flag}", ""]
             if call["args"]:
-                lines += ["```", *_fields(call["args"], max_chars), "```", ""]
+                lines += ["```", *_fields(call["args"], None), "```", ""]
             if "result" not in call:
                 continue
             try:
@@ -514,6 +525,39 @@ def attempt_text(
     else:
         queries = [r.get("query", "") for r in results.values()]
         lines += [f"- {line}" for line in states.summary(changes, queries)]
+        for table, change in changes.items():
+            lines += ["", f"### {table}"]
+            # An inserted row is labelled by its first column, the key in
+            # every table of the three schemas; the others carry their key.
+            touched = (
+                [("inserted", next(iter(r.items())), r) for r in change["inserted"]]
+                + [
+                    ("updated", next(iter(u["key"].items())), u)
+                    for u in change["updated"]
+                ]
+                + [("deleted", next(iter(k.items())), None) for k in change["deleted"]]
+            )
+            for how, (column, value), row in touched[:LISTED]:
+                lines += [
+                    "",
+                    f"Row `{column} {value}`, {how}"
+                    + ("." if how == "deleted" else ":"),
+                ]
+                if how == "inserted":
+                    kept = {k: v for k, v in row.items() if v is not None}
+                    lines += ["", "```", *_fields(kept, max_chars), "```"]
+                elif how == "updated":
+                    width = max(map(len, row["changes"]), default=0)
+                    lines += (
+                        ["", "```"]
+                        + [
+                            f"{c:<{width}} = {_clip(before, max_chars)} -> {_clip(after, max_chars)}"
+                            for c, (before, after) in row["changes"].items()
+                        ]
+                        + ["```"]
+                    )
+            if len(touched) > LISTED:
+                lines += ["", f"... {len(touched) - LISTED} more rows"]
     lines += ["", "## Checks", ""]
     for name, result in results.items():
         excluded = result.get("patch") == "excluded"

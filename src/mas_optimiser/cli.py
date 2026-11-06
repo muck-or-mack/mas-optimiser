@@ -6,6 +6,7 @@ module, which defines its options (``add_arguments``) and its work (``run``):
 
     mas-optimiser run smoke --domain itsm --limit 5
     mas-optimiser rescore evaluations/<experiment>/<evaluation>
+    mas-optimiser rebuild evaluations/<experiment>/<evaluation> <task_id> 1
     mas-optimiser split --experiment baseline-haiku --name haiku-20-40-40
     mas-optimiser schema
 """
@@ -13,6 +14,7 @@ module, which defines its options (``add_arguments``) and its work (``run``):
 import argparse
 
 from mas_optimiser.benchmarks.enterpriseops import (
+    rebuild,
     rescore,
     runner,
     seeds,
@@ -22,6 +24,7 @@ from mas_optimiser.benchmarks.enterpriseops import (
 COMMANDS = {
     "run": runner,
     "rescore": rescore,
+    "rebuild": rebuild,
     "split": splits,
     "schema": seeds,
 }

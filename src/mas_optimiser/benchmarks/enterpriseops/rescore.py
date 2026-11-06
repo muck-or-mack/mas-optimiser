@@ -5,9 +5,12 @@ Each attempt's record (``attempt-<n>.json``) and its changes against the seed
 locally and run every check again: the task's checks as they now stand, the
 same diagnosis and trace, and the same files the runner writes
 (``summary.md``, ``tasks.csv``, ``checks.csv``, ``cells.csv``,
-``changes.csv`` and ``attempt-<n>.md``). Use it after a change to the
-diagnosis or to the checks. An attempt with no saved changes (one that
-raised before it finished) is left as it was.
+``changes.csv`` and ``attempt-<n>.md``), the totals in ``evaluation.json``
+and the evaluation's row in the experiment's ``index.csv``. Use it after a
+change to the diagnosis or to the checks. An attempt with no saved changes
+(one that raised before it finished) keeps its record and counts as failed,
+as the runner counted it; a task with no check left to judge by gets its
+pages rewritten and stays out of the tables.
 
 A check that has not changed since the attempt ran keeps the server's verdict; one
 whose query or expected value has changed (a patch applied since) is run on
@@ -33,6 +36,7 @@ from collections import Counter
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import mas_optimiser
 from mas_optimiser.benchmarks.enterpriseops import (
     checks,
     diagnosis,
@@ -191,8 +195,9 @@ async def rescore(evaluation: Path) -> Counter:
         evaluation: The evaluation folder.
 
     Returns:
-        Counts of the attempts passed, failed and left as they were, and of
-        the tasks with no check left to judge by.
+        Counts of the attempts passed and failed, of those kept as they were
+        for want of saved changes, and of the tasks with no check left to
+        judge by.
     """
     settings = json.loads((evaluation / "evaluation.json").read_text())
     domain = settings["domain"]
@@ -201,26 +206,59 @@ async def rescore(evaluation: Path) -> Counter:
     records, rows, cells, changed = [], [], [], []
     for task_id in settings["tasks"]:
         folder = evaluation / "tasks" / task_id
-        if not checks.prepare(task_id, configs[task_id]["verifiers"])[0]:
+        kept, names, _ = checks.prepare(task_id, configs[task_id]["verifiers"])
+        judged = bool(kept)
+        if not judged:
             # Every check excluded since the evaluation: the task cannot be judged.
             counts["no check to judge by"] += 1
-            continue
         for attempt in range(1, settings["attempts"] + 1):
-            if not (folder / f"attempt-{attempt}.json").exists():
+            stem = folder / f"attempt-{attempt}"
+            if not stem.with_suffix(".json").exists():
+                continue
+            if not judged:
+                # The page is rewritten in the current layout; nothing is judged.
+                record = json.loads(stem.with_suffix(".json").read_text())
+                saved = folder / f"attempt-{attempt}.changes.json"
+                changes = (
+                    json.loads(saved.read_text())["changes"] if saved.exists() else None
+                )
+                runner.save_attempt(folder, attempt, record, changes)
                 continue
             out = await rescore_attempt(
                 folder, attempt, configs[task_id], domain, settings["pricing"]
             )
             if out is None:
+                # No saved changes: the attempt raised before it finished. Its
+                # row stays as the runner made it, a failure.
                 counts["no saved changes"] += 1
-                continue
-            record, check_rows, cell_rows, change_rows = out
-            counts["pass" if record["success"] else "fail"] += 1
+                execution = json.loads(stem.with_suffix(".json").read_text())["runs"][0]
+                record = runner.task_record(
+                    task_id, attempt, execution, names, settings["pricing"]
+                )
+                check_rows = checks.check_records(
+                    task_id, attempt, execution.get("verification_results", {}), names
+                )
+                cell_rows, change_rows = [], []
+            else:
+                record, check_rows, cell_rows, change_rows = out
+                counts["pass" if record["success"] else "fail"] += 1
             records.append(record)
             rows += check_rows
             cells += cell_rows
             changed += change_rows
     runner.write_tables(evaluation, settings, records, rows, cells, changed)
+    counted = runner.totals(
+        records,
+        len(settings["tasks"]) - counts["no check to judge by"],
+        settings["attempts"],
+    )
+    settings["totals"] = counted
+    settings["rescored"] = {
+        "version": mas_optimiser.code_version(),
+        "at": datetime.now().astimezone().isoformat(timespec="seconds"),
+    }
+    (evaluation / "evaluation.json").write_text(json.dumps(settings, indent=2))
+    runner.write_index_row(evaluation.parent, runner.index_row(settings, counted))
     return counts
 
 

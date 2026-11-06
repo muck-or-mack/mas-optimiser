@@ -1,6 +1,7 @@
 """Unit tests of ``rescore`` on saved records and a local rebuild."""
 
 import asyncio
+import json
 import sqlite3
 
 from mas_optimiser.benchmarks.enterpriseops import checks, rescore
@@ -98,3 +99,50 @@ def test_the_server_verdict_stands_for_a_check_that_has_not_changed():
     # is what the local rebuild says.
     assert merged["same"]["passed"] is True and merged["same"]["actual"] == 1
     assert merged["patched"]["passed"] is True
+
+
+def test_an_attempt_that_raised_keeps_a_failed_row_and_the_index_follows(
+    tmp_path, monkeypatch
+):
+    verifier = {
+        "name": "Incident",
+        "validation_config": {
+            "query": "SELECT COUNT(*) FROM incident",
+            "expected_value": 1,
+        },
+    }
+    monkeypatch.setattr(
+        rescore.runner,
+        "load_tasks",
+        lambda domain, mode: {"task_x": {"verifiers": [verifier]}},
+    )
+    evaluation = tmp_path / "exp" / "20261106-itsm"
+    folder = evaluation / "tasks" / "task_x"
+    folder.mkdir(parents=True)
+    settings = {
+        "evaluation": "20261106-itsm",
+        "started": "2026-11-06T09:00:00+00:00",
+        "domain": "itsm",
+        "mode": "oracle",
+        "model": {"llm_model": "m"},
+        "tasks": ["task_x"],
+        "attempts": 1,
+        "pricing": dict.fromkeys(rescore.runner.PRICING_KEYS, 1),
+    }
+    (evaluation / "evaluation.json").write_text(json.dumps(settings))
+    # The attempt raised before it started: a record with the error and no changes file.
+    (folder / "attempt-1.json").write_text(
+        json.dumps({"runs": [{"run_number": 1, "error": "down"}]})
+    )
+    counts = asyncio.run(rescore.rescore(evaluation))
+    assert counts == {"no saved changes": 1}
+    rows = (evaluation / "tasks.csv").read_text().splitlines()
+    assert len(rows) == 2 and rows[1].startswith("task_x,1,False,")
+    index = (evaluation.parent / "index.csv").read_text().splitlines()
+    assert index[1].startswith(
+        "20261106-itsm,2026-11-06T09:00:00+00:00,itsm,oracle,m,default,,,,"
+    )
+    assert (
+        ",1,0,0,1," in index[1]
+    )  # total_attempts 1, successes 0, tasks passed 0, errors 1
+    assert "rescored" in json.loads((evaluation / "evaluation.json").read_text())

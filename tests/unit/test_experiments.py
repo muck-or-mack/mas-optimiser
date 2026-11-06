@@ -117,13 +117,83 @@ def test_evaluation_name_says_what_was_run():
         runner.evaluation_name(one_set, "hr", started)
         == "20261027-093012-hr-training-limit5"
     )
+    chosen = runner.load_experiment(
+        "smoke", no_overrides | {"task": "task_a", "limit": None}
+    )
+    assert chosen["task"] == ["task_a"]
+    assert (
+        runner.evaluation_name(chosen, "itsm", started)
+        == "20261027-093012-itsm-tasks1-limit5"
+    )
 
 
-def test_index_gets_one_row_per_evaluation(tmp_path):
-    runner.append_index(tmp_path, {"evaluation": "a", "successes": 1})
-    runner.append_index(tmp_path, {"evaluation": "b", "successes": 2})
+def test_a_task_setting_must_name_tasks():
+    no_overrides = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
+    with pytest.raises(SystemExit, match="task must be"):
+        runner.load_experiment("smoke", no_overrides | {"task": [7]})
+
+
+def test_index_gets_one_row_per_evaluation_and_a_rescore_replaces_it(tmp_path):
+    runner.write_index_row(tmp_path, {"evaluation": "a", "successes": 1})
+    runner.write_index_row(tmp_path, {"evaluation": "b", "successes": 2})
     lines = (tmp_path / "index.csv").read_text().splitlines()
     assert lines == ["evaluation,successes", "a,1", "b,2"]
+    # The row of an evaluation rescored later replaces its old row, in the
+    # file's own columns; a column the row lacks stays empty.
+    runner.write_index_row(tmp_path, {"evaluation": "a", "successes": 3, "new": 9})
+    lines = (tmp_path / "index.csv").read_text().splitlines()
+    assert lines == ["evaluation,successes", "b,2", "a,3"]
+
+
+def test_totals_count_attempts_tasks_errors_and_sum_the_rest():
+    rows = [
+        {"task_id": "a", "success": True, "upstream_success": True, "error": ""},
+        {"task_id": "a", "success": False, "upstream_success": True, "error": ""},
+        {"task_id": "b", "success": True, "upstream_success": False, "error": "down"},
+    ]
+    for row in rows:
+        row |= {k: 1 for k in runner.SUMMED if k != "upstream_successes"}
+    counted = runner.totals(rows, tasks=2, attempts=2)
+    assert counted["total_attempts"] == 3 and counted["successes"] == 2
+    assert counted["tasks_passed_every_attempt"] == 1 and counted["errors"] == 1
+    assert counted["upstream_successes"] == 2 and counted["checks_passed"] == 3
+    assert list(counted) == [
+        "tasks",
+        "attempts",
+        "total_attempts",
+        "successes",
+        "tasks_passed_every_attempt",
+        "errors",
+        *runner.SUMMED,
+    ]
+
+
+def test_index_row_takes_the_settings_as_evaluation_json_keeps_them():
+    settings = {
+        "evaluation": "20261103-080328-itsm",
+        "started": "2026-11-03T08:03:28+00:00",
+        "domain": "itsm",
+        "mode": "oracle",
+        "model": {"llm_model": "claude-haiku-5-5", "provider": "anthropic"},
+        "label": None,
+        "overrides": {"limit": 5},
+        "limit": 5,
+        "mas_optimiser_version": "v0.7.1",
+    }
+    row = runner.index_row(settings, {"successes": 58})
+    assert row == {
+        "evaluation": "20261103-080328-itsm",
+        "started": "2026-11-03T08:03:28+00:00",
+        "domain": "itsm",
+        "mode": "oracle",
+        "model": "claude-haiku-5-5",
+        "harness": "default",
+        "label": "",
+        "overrides": "limit=5",
+        "limit": 5,
+        "code_version": "v0.7.1",
+        "successes": 58,
+    }
 
 
 def test_servers_that_do_not_answer_stop_the_run_with_the_compose_command():

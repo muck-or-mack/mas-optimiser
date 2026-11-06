@@ -179,3 +179,26 @@ def test_schema_command_stops_when_two_seed_files_disagree(schema_command, monke
     with pytest.raises(SystemExit, match="error: itsm: b.sql and a.sql give different"):
         seeds.run(schema_command)
     assert not (seeds.SCHEMAS_DIR / "itsm.sql").exists()
+
+
+def test_schema_markdown_lists_each_table_with_its_key_columns_and_references():
+    schema = (
+        "CREATE TABLE users (\n\tuser_id VARCHAR(32) NOT NULL, \n\tname VARCHAR(120), \n"
+        "\tPRIMARY KEY (user_id)\n);\n"
+        "CREATE TABLE incident (\n  incident_id INTEGER PRIMARY KEY AUTOINCREMENT,\n"
+        "  caller_id VARCHAR(32) REFERENCES users(user_id),\n"
+        "  status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'closed')),\n"
+        "  FOREIGN KEY(service) REFERENCES service (service_id)\n);\n"
+    )
+    page = seeds.schema_markdown("itsm", schema)
+    assert "# ITSM data model\n\n2 tables" in page
+    assert "| [`incident`](#incident) | 3 | `service`, `users` |" in page
+    assert (
+        "## users\n\nKey: `user_id`.\n\n| column | type |\n|---|---|\n| `user_id` | VARCHAR(32) |"
+        in page
+    )
+    assert (
+        "## incident\n\nKey: `incident_id`.\nReferences: `caller_id` to `users.user_id`; `service` to `service.service_id`."
+        in page
+    )
+    assert "| `status` | TEXT |" in page
