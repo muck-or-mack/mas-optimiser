@@ -1,5 +1,6 @@
 """Unit tests of ``runner``: task loading, pricing, the rows of an attempt and the evaluation folder."""
 
+import asyncio
 import json
 from types import SimpleNamespace
 
@@ -76,6 +77,32 @@ def test_load_tasks_all_tools_is_the_oracle_dataset_without_the_tool_filter(
     assert len(revised["verifiers"]) == 2 and revised["selected_tools"] == []
 
 
+def test_save_tools_lists_each_server_once(tmp_path, monkeypatch):
+    listed = []
+
+    class FakeClient:
+        def __init__(self, base_url, auth_config, mcp_endpoint):
+            self.base_url = base_url
+
+        async def connect(self):
+            return True
+
+        async def list_tools(self):
+            listed.append(self.base_url)
+            return [{"name": "get_user", "inputSchema": {}}]
+
+    monkeypatch.setattr(runner, "MCPClient", FakeClient)
+    server = {"mcp_server_name": "gym-itsm-mcp", "mcp_server_url": "http://itsm"}
+    tasks = {
+        "a": {"gym_servers_config": [server]},
+        "b": {"gym_servers_config": [server]},
+    }
+    asyncio.run(runner.save_tools(tmp_path, tasks))
+    assert listed == ["http://itsm"]
+    tools = json.loads((tmp_path / "tools.json").read_text())
+    assert tools == {"http://itsm": [{"name": "get_user", "inputSchema": {}}]}
+
+
 def test_load_model_takes_the_key_from_the_environment(tmp_path, monkeypatch):
     path = tmp_path / "model.yaml"
     fields = "llm_provider: anthropic\nllm_model: m\napi_key_env: TEST_KEY\n"
@@ -112,30 +139,30 @@ def test_cost_prices_cached_and_long_prompts_at_their_own_rates():
     assert runner.cost([], PRICING) == 0.0
 
 
-def test_task_record_counts_an_errored_run_as_a_failed_task():
+def test_task_outcome_counts_an_errored_run_as_a_failed_task():
     # Two checks share a name: three count here, two in the benchmark's count.
     _, names = checks.unique_names(
         [{"name": "a", "validation_config": {"query": q}} for q in ("q1", "q2")]
         + [{"name": "b", "validation_config": {"query": "q3"}}]
     )
-    record = runner.task_record(
+    outcome = runner.task_outcome(
         "t", 2, {"run_number": 1, "error": "down"}, names, PRICING
     )
-    assert not record["success"] and record["attempt"] == 2
-    assert record["cost_usd"] == 0
-    assert (record["checks_passed"], record["checks_total"]) == (0, 3)
-    assert not record["upstream_success"]
+    assert not outcome["success"] and outcome["attempt"] == 2
+    assert outcome["cost_usd"] == 0
+    assert (outcome["checks_passed"], outcome["checks_total"]) == (0, 3)
+    assert not outcome["upstream_success"]
     assert (
-        record["upstream_checks_passed"],
-        record["upstream_checks_total"],
+        outcome["upstream_checks_passed"],
+        outcome["upstream_checks_total"],
     ) == (
         0,
         2,
     )
-    assert record["error"] == "down"
+    assert outcome["error"] == "down"
 
 
-def test_task_record_counts_every_check_and_sums_the_agents_token_use():
+def test_task_outcome_counts_every_check_and_sums_the_agents_token_use():
     _, names = checks.unique_names(
         [{"name": "a", "validation_config": {"query": q}} for q in ("q1", "q2")]
         + [{"name": "b", "validation_config": {"query": "q3"}}]
@@ -157,25 +184,25 @@ def test_task_record_counts_every_check_and_sums_the_agents_token_use():
             {"type": "ai_message", "usage_metadata": usage},
         ],
     }
-    record = runner.task_record("t", 1, execution, names, PRICING)
+    outcome = runner.task_outcome("t", 1, execution, names, PRICING)
     # The benchmark keeps only the last "a", which passed, so it calls this a pass.
-    assert not record["success"] and record["upstream_success"]
-    assert record["cost_usd"] == pytest.approx(2000 * 0.10e-6 + 100 * 0.50e-6)
-    assert (record["cache_read_tokens"], record["cache_write_tokens"]) == (0, 0)
-    assert (record["checks_passed"], record["checks_total"]) == (2, 3)
+    assert not outcome["success"] and outcome["upstream_success"]
+    assert outcome["cost_usd"] == pytest.approx(2000 * 0.10e-6 + 100 * 0.50e-6)
+    assert (outcome["cache_read_tokens"], outcome["cache_write_tokens"]) == (0, 0)
+    assert (outcome["checks_passed"], outcome["checks_total"]) == (2, 3)
     assert (
-        record["upstream_checks_passed"],
-        record["upstream_checks_total"],
+        outcome["upstream_checks_passed"],
+        outcome["upstream_checks_total"],
     ) == (
         2,
         2,
     )
-    assert record["model_calls"] == 2
-    assert (record["input_tokens"], record["output_tokens"]) == (2000, 100)
-    assert record["seconds"] == 1.5
+    assert outcome["model_calls"] == 2
+    assert (outcome["input_tokens"], outcome["output_tokens"]) == (2000, 100)
+    assert outcome["seconds"] == 1.5
 
 
-def test_task_record_does_not_read_an_excluded_check_as_a_failure():
+def test_task_outcome_does_not_read_an_excluded_check_as_a_failure():
     _, names = checks.unique_names(
         [{"name": n, "validation_config": {"query": n}} for n in ("a", "b")]
     )
@@ -188,9 +215,9 @@ def test_task_record_does_not_read_an_excluded_check_as_a_failure():
         },
         "conversation_flow": [],
     }
-    record = runner.task_record("t", 1, execution, names, PRICING)
-    assert record["success"] is True
-    assert not record["upstream_success"]
+    outcome = runner.task_outcome("t", 1, execution, names, PRICING)
+    assert outcome["success"] is True
+    assert not outcome["upstream_success"]
 
 
 def test_evaluate_writes_the_tables_the_settings_and_the_index_row(
@@ -219,11 +246,13 @@ def test_evaluate_writes_the_tables_the_settings_and_the_index_row(
     async def fake_run_tasks(tasks, model, pricing, out, **kwargs):
         # Every attempt raised before it started: the end of the evaluation
         # still has to write its tables, settings and index row.
-        records = [
-            runner.task_record(t, 1, {"run_number": 1, "error": "down"}, names, pricing)
+        outcomes = [
+            runner.task_outcome(
+                t, 1, {"run_number": 1, "error": "down"}, names, pricing
+            )
             for t in tasks
         ]
-        return records, [], [], []
+        return outcomes, [], [], []
 
     monkeypatch.setattr(runner, "run_tasks", fake_run_tasks)
     no_overrides = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)

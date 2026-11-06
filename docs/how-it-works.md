@@ -302,7 +302,7 @@ priority from impact and urgency, so the agent passed none, while
 `create_incident` only falls back to `planning`.
 
 `outputs` (`runner.py:635`) attaches the trace to each failed check and
-builds the attempt's rows: `task_record` (`runner.py:577`) for `tasks.csv`
+builds the attempt's rows: `task_outcome` (`runner.py:577`) for `tasks.csv`
 (verdicts under both conventions, tool errors, model calls, tokens, cost in
 US dollars from the price table, seconds), `check_records` for
 `checks.csv`, `cell_rows` (`report.py:584`) for `cells.csv` and
@@ -359,7 +359,9 @@ table and trace. `cells.csv` is the same information for every failed
 check at once, one row per touched row and condition, with the turn and
 tool that set a wrong cell; `checks.csv` has every check's verdict under
 both conventions. The README's "Reading the results" section lists every
-column.
+column. `tools.json` holds every tool the domain server offered, with
+its description and argument schema, so a reader can see what the agent
+could have called beyond the task's `selected_tools`.
 
 
 ## 4. Where this is going

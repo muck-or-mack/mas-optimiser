@@ -203,7 +203,7 @@ async def rescore(evaluation: Path) -> Counter:
     domain = settings["domain"]
     configs = runner.load_tasks(domain, settings["mode"])
     counts: Counter = Counter()
-    records, rows, cells, changed = [], [], [], []
+    outcomes, rows, cells, changed = [], [], [], []
     for task_id in settings["tasks"]:
         folder = evaluation / "tasks" / task_id
         kept, names, _ = checks.prepare(task_id, configs[task_id]["verifiers"])
@@ -232,7 +232,7 @@ async def rescore(evaluation: Path) -> Counter:
                 # row stays as the runner made it, a failure.
                 counts["no saved changes"] += 1
                 execution = json.loads(stem.with_suffix(".json").read_text())["runs"][0]
-                record = runner.task_record(
+                outcome = runner.task_outcome(
                     task_id, attempt, execution, names, settings["pricing"]
                 )
                 check_rows = checks.check_records(
@@ -240,15 +240,15 @@ async def rescore(evaluation: Path) -> Counter:
                 )
                 cell_rows, change_rows = [], []
             else:
-                record, check_rows, cell_rows, change_rows = out
-                counts["pass" if record["success"] else "fail"] += 1
-            records.append(record)
+                outcome, check_rows, cell_rows, change_rows = out
+                counts["pass" if outcome["success"] else "fail"] += 1
+            outcomes.append(outcome)
             rows += check_rows
             cells += cell_rows
             changed += change_rows
-    runner.write_tables(evaluation, settings, records, rows, cells, changed)
+    runner.write_tables(evaluation, settings, outcomes, rows, cells, changed)
     counted = runner.totals(
-        records,
+        outcomes,
         len(settings["tasks"]) - counts["no check to judge by"],
         settings["attempts"],
     )
