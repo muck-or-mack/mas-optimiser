@@ -26,6 +26,8 @@ and a run that raises is recorded and scored as a failure rather than retried
 or dropped. Scoring counts every distinct check of a task and compares count
 checks numerically, with the executor's own verdict kept beside the corrected
 one (see ``checks``).
+
+Sources: ``docs/how-it-works.md``, section 6, the rows for ``runner``.
 """
 
 import argparse

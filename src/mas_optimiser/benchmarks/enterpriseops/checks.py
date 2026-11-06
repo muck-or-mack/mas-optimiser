@@ -26,6 +26,8 @@ lists those, each with the evidence, as excluded or repaired (the query
 corrected). ``apply_patches`` takes a task's list through it before the attempt,
 and ``original_verdicts`` runs each patched check's original query afterwards,
 so the benchmark's own verdict on every check stays beside the one used here.
+
+Sources: ``docs/how-it-works.md``, section 6, the rows for ``checks``.
 """
 
 import contextlib

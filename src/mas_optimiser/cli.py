@@ -9,6 +9,8 @@ module, which defines its options (``add_arguments``) and its work (``run``):
     mas-optimiser rebuild evaluations/<experiment>/<evaluation> <task_id> 1
     mas-optimiser split --experiment baseline-haiku --name haiku-20-40-40
     mas-optimiser schema
+
+Sources: ``docs/how-it-works.md``, section 6, the rows for ``cli``.
 """
 
 import argparse

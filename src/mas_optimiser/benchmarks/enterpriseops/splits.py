@@ -31,6 +31,8 @@ assignment. Usage::
 
     mas-optimiser split --experiment baseline-haiku --name haiku-20-40-40 --seed 0
     mas-optimiser split --experiment baseline-haiku --name trial --proportions 0.6 0.2 0.2
+
+Sources: ``docs/how-it-works.md``, section 6, the rows for ``splits``.
 """
 
 import argparse

@@ -22,6 +22,8 @@ Every query runs against the attempt's own database, on the server before
 the executor deletes it or on a local rebuild afterwards. A check with n
 conditions on r touched rows (at most ``SAMPLE_ROWS``) costs at most r(2n)
 cheap queries, and no model is involved.
+
+Sources: ``docs/how-it-works.md``, section 6, the rows for ``diagnosis``.
 """
 
 import re

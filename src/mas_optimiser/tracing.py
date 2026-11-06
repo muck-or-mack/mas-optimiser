@@ -11,6 +11,8 @@ Tracing is on when the three ``LANGFUSE_*`` variables in ``.env.example`` are
 set and off otherwise; nothing here touches the agent's behaviour. The model
 object is a LangChain chat model, which carries ``callbacks``, ``tags`` and
 ``metadata`` fields that every call it makes inherits.
+
+Sources: ``docs/how-it-works.md``, section 6, the rows for ``tracing``.
 """
 
 import os

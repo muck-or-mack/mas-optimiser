@@ -7,6 +7,8 @@ or to browse every table; the rebuild is the one ``rescore`` judges on.
 Usage::
 
     mas-optimiser rebuild evaluations/<experiment>/<evaluation> <task_id> <attempt>
+
+Sources: ``docs/how-it-works.md``, section 6, the rows for ``rebuild``.
 """
 
 import argparse
