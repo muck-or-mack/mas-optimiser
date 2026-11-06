@@ -13,3 +13,12 @@ they are pulled at run time, not redistributed here.
 
 > Malay et al., *EnterpriseOps-Gym: Environments and Evaluations for Stateful
 > Agentic Planning and Tool Use in Enterprise Settings*, arXiv:2603.13594, 2026.
+
+Two functions of this package reproduce code from that repository rather
+than import it, under the same licence:
+
+- `checks.compare` follows `benchmark/verifier.py`, `_compare_values`,
+  branch for branch, so that a verdict computed here matches the executor's.
+- `seeds.server_database` follows `benchmark/mcp_client.py`,
+  `create_database_from_file`: the same endpoint, payload and id format,
+  rewritten as a context manager that deletes the database afterwards.

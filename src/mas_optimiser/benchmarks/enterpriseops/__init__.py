@@ -18,6 +18,8 @@ The benchmark is not an installable package: its modules (``benchmark``,
 this package puts the pinned submodule at the front of ``sys.path``, so
 those names resolve to the submodule and not to anything else installed
 under them.
+
+Sources: ``docs/how-it-works.md``, section 6, the rows for all modules.
 """
 
 import sys

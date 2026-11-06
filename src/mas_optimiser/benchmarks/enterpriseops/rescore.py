@@ -25,6 +25,8 @@ attempt's checks ran, so its answer does not change with the day of the rescore.
 Usage::
 
     mas-optimiser rescore evaluations/<experiment>/<evaluation> [...]
+
+Sources: ``docs/how-it-works.md``, section 6, the rows for ``rescore``.
 """
 
 import argparse

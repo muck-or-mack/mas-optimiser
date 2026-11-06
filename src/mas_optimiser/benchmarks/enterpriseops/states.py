@@ -15,6 +15,8 @@ The local seed copy matches the server's own database row for row (see
 differs from the copy in those two columns. They are therefore compared only
 on rows the attempt changed in some other column, where a check may test
 them (``updated_at > created_at``), and left out elsewhere.
+
+Sources: ``docs/how-it-works.md``, section 6, the rows for ``states``.
 """
 
 import functools

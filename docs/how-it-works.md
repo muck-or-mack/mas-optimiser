@@ -426,6 +426,42 @@ What goes wrong, and where to look:
 | `tool_errors` above zero | a tool answered with an error; the page marks the call `ERROR` | `succeeded`, `report.py:94` |
 
 
+## 6. Sources
+
+Every component below was built from the sources in its rows; where
+several fed one component, each has its own row saying what it gave. A
+module's docstring points here. Code reproduced from another repository
+is credited in `NOTICE.md` as well.
+
+| Component | Source | What it contributed | Where |
+|---|---|---|---|
+| all modules | EnterpriseOps-Gym (ServiceNow; repository at 271f2c3, Apache-2.0; paper arXiv:2603.13594; dataset `ServiceNow-AI/enterprise_ops-gym` at c8e538e) | the servers, executor, orchestrator, config classes, MCP client, checks and seed files, used unmodified from the submodule; the tasks and their corrected copies | `benchmarks/enterpriseops/__init__.py` puts the submodule on `sys.path` |
+| all modules | the convention shared by StarHarness, GEPA, OpenEvolve and ShinkaEvolve | the benchmark adapter kept apart from the optimiser, and the benchmark with its checks never editable | the package layout |
+| all modules | Google docstrings checked by ruff and pydoclint; setuptools-scm | every function documented and checked in CI; the code version stamped into every evaluation and split | `pyproject.toml`, `ci.yml`, `mas_optimiser.code_version` |
+| `cli` | the author's research-computing practice (the C1 module of the Cambridge MPhil in Data Intensive Science) | one console command declared in `pyproject.toml`; each module exposes `add_arguments` and `run` so an option is defined once | `cli.COMMANDS` |
+| `runner` | EnterpriseOps-Gym `benchmark/executor.py` | `BenchmarkExecutor` subclassed, with `initialize` and `_run_verifiers` overridden; `ReactOrchestrator`, `BenchmarkConfig` and `LLMConfig` as released | `runner.TaskExecutor` |
+| `runner` | the Hugging Face dataset and the repository's `data/revised` | the task configs at a pinned revision, the corrected copies replacing the dataset's in oracle and all-tools mode | `runner.load_tasks` |
+| `runner` | the EnterpriseOps-Gym paper, the distractor study | the reason for the `all_tools` mode: distractor tools were found to cost nothing in completion | `runner.MODES` |
+| `runner` | StarHarness (arXiv:2608.24804), `docs/ADDING_A_BENCHMARK.md` | the precedent that a unit which raises is scored as a failure, never retried or dropped | `runner.task_outcome` |
+| `runner` | τ-bench (arXiv:2406.12045), pass^k | `tasks_passed_every_attempt` as the strict per-task measure | `runner.totals` |
+| `runner` | own design | experiments as YAML files with command-line overrides; `evaluations/<experiment>/<evaluation>/` with an `index.csv` per experiment; attempts in parallel under a semaphore; the price table in the model file; `tools.json` per evaluation | `runner.load_experiment`, `evaluate`, `run_tasks`, `cost`, `save_tools` |
+| `tracing` | Langfuse (self-hosted, MIT core) and its Python SDK | `CallbackHandler`, `score_trace` and `propagate_attributes`: one trace per attempt, scored with the verdict | `tracing.attach`, `task_trace`, `record_outcome` |
+| `tracing` | LangChain callbacks, as the benchmark builds its model on LangChain | the handler attached to the model object after `initialize()`, the point where the executor itself reassigns it | `runner.TaskExecutor.initialize` |
+| `checks` | EnterpriseOps-Gym `benchmark/verifier.py` and `executor.py` | `_compare_values` reproduced branch for branch so that a local verdict matches the executor's (see `NOTICE.md`); the verdict-by-name behaviour that `prepare` corrects | `checks.compare`, `checks.prepare` |
+| `checks` | own design | every distinct check counted and clashing names renamed; the patch list `data/check_patches.json`, with the benchmark's own verdict kept beside the corrected one | `checks.prepare`, `apply_patches`, `passed`, `upstream_verdict` |
+| `diagnosis` | own design | each condition of a failed check's query tested on the rows the attempt touched, with the kinds `cells`, `value`, `no_rows`, `too_many_rows` and `unsupported` | `diagnosis.diagnose`, `describe` |
+| `diagnosis` | EnterpriseOps-Gym check queries | the query forms the parser understands, from a survey of every check query in the three domains | `diagnosis.parse_count_query`, `split_conditions` |
+| `states` | own design | the final database read back page by page and compared with the seed by primary key, so the record holds the changes and a scoring change re-scores instead of re-running; the rebuild from seed plus changes | `states.read_state`, `diff`, `rebuild` |
+| `states` | the EnterpriseOps-Gym servers | the facts worked around: the attempt's database deleted after the checks, pages of at most 100 rows, columns a server stamps at load | `states.STAMPED`, `read_state` |
+| `report` | own design | the attempt page, the three CSV tables, the summary, and the trace from a wrong cell to the turn and tool call that set it | `report.attempt_text`, `trace`, `cell_rows`, `summary` |
+| `rescore` | own design | an evaluation recomputed from its saved records and changes, the checks run locally as the executor would | `rescore.rescore`, `local_runner` |
+| `rebuild` | own design | one attempt's final database written as a SQLite file | `rebuild.rebuild_attempt` |
+| `seeds` | EnterpriseOps-Gym `benchmark/mcp_client.py` | `delete_database` imported; `create_database_from_file` reproduced as `server_database` with the same endpoint and payload (see `NOTICE.md`) | `seeds.server_database` |
+| `seeds` | own design | the table schema read from `sqlite_master` on a seeded server database; local seed copies; the data-model pages | `seeds.build_seed_database`, `schema_markdown` |
+| `splits` | StarHarness (arXiv:2608.24804) | the protocol of a stratified draw into a proposer-visible set, a gate set and a held-out set; its `stratify_tasks.py` was not copied | `splits.draw` |
+| `splits` | stratified sampling (the S1 statistics module of the same MPhil) | strata as domain crossed with baseline outcome, quotas by largest remainder | `splits.quotas`, `draw` |
+| `splits` | REUSE (arXiv:2609.33180); Kapoor et al. (arXiv:2407.01502); SEAL (arXiv:2607.24300) | the gate set returns only accept or reject to the proposer; a sealed test set opened once; a split drawn once and never redrawn | `splits.build_split` |
+
 ## Appendix: file map
 
 | File | Role |

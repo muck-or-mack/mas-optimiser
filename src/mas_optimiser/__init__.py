@@ -5,6 +5,8 @@ the benchmark's tasks and measures the result (the ``mas-optimiser``
 command, ``cli``); ``tracing`` sends each attempt to Langfuse; the planner and
 the optimiser are to come. ``code_version`` stamps every run with the code
 that produced it.
+
+Sources: ``docs/how-it-works.md``, section 6, the rows for all modules.
 """
 
 import subprocess

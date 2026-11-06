@@ -23,6 +23,8 @@ the row is there with wrong cells, else ``skipped`` when no call wrote the
 table, ``failed`` when one of those calls returned an error, and
 ``attempted`` when they all succeeded and the check still fails, as when
 the row went elsewhere.
+
+Sources: ``docs/how-it-works.md``, section 6, the rows for ``report``.
 """
 
 import json

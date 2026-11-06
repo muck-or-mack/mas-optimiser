@@ -19,6 +19,8 @@ that it matches the server's database row for row. Usage::
 
     mas-optimiser schema
     mas-optimiser schema --domain itsm
+
+Sources: ``docs/how-it-works.md``, section 6, the rows for ``seeds``.
 """
 
 import argparse
