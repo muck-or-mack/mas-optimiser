@@ -46,25 +46,25 @@ classes (section 2.4), and because its scoring loses checks (section 2.5).
 
 ### 2.1 The command
 
-`mas-optimiser run baseline-haiku` enters at `cli.py:51`, which builds one
-sub-command per module in `COMMANDS` (`cli.py:22`): `run`, `rescore`,
+`mas-optimiser run baseline-haiku` enters at `cli.py:53`, which builds one
+sub-command per module in `COMMANDS` (`cli.py:24`): `run`, `rescore`,
 `split`, `schema`. Each module gives its options in `add_arguments` and its
 work in `run`.
 
-`runner.run` (`runner.py:1000`) reads the experiment file
+`runner.run` (`runner.py:1038`) reads the experiment file
 `configs/experiments/baseline-haiku.yaml` through `load_experiment`
-(`runner.py:325`), which layers the defaults in `EXPERIMENT_DEFAULTS`
-(`runner.py:83`), then the file, then any command-line override, and stops
-on a bad setting before any money is spent. `load_model` (`runner.py:515`)
+(`runner.py:328`), which layers the defaults in `EXPERIMENT_DEFAULTS`
+(`runner.py:86`), then the file, then any command-line override, and stops
+on a bad setting before any money is spent. `load_model` (`runner.py:552`)
 reads `configs/models/haiku-5-5.yaml`: the benchmark's model fields, the
 name of the environment variable that holds the API key (read from `.env`,
 never written to a config), and a price table. Then one `evaluate` per
-domain (`runner.py:1035`).
+domain (`runner.py:1073`).
 
 ### 2.2 The tasks
 
-`load_tasks` (`runner.py:262`) reads the Hugging Face dataset at a pinned
-commit (`HF_REVISION`, `runner.py:66`), so an upstream edit cannot change
+`load_tasks` (`runner.py:265`) reads the Hugging Face dataset at a pinned
+commit (`HF_REVISION`, `runner.py:69`), so an upstream edit cannot change
 the tasks between evaluations. In oracle mode the benchmark's corrected
 copies under `vendor/enterpriseops-gym/data/revised/` replace the dataset's
 versions, and the agent gets only the tools the task needs. The all-tools
@@ -104,22 +104,22 @@ Each expects the count 1. A task passes only when every check passes.
 
 ### 2.3 The executor
 
-`evaluate` (`runner.py:1035`) keeps the tasks of one split set if asked, cuts
+`evaluate` (`runner.py:1073`) keeps the tasks of one split set if asked, cuts
 to `--limit`, checks that the domain servers answer (`check_servers`,
-`runner.py:496`), makes the evaluation folder, sends the benchmark's
-logging to `evaluation.log` there, and calls `run_tasks` (`runner.py:862`), which
-runs every attempt through `run_task` (`runner.py:749`) with at most
+`runner.py:499`), makes the evaluation folder, sends the benchmark's
+logging to `evaluation.log` there, and calls `run_tasks` (`runner.py:899`), which
+runs every attempt through `run_task` (`runner.py:786`) with at most
 `concurrency` in flight (four in the baseline). Each attempt seeds its own
 database on the server, so attempts share nothing.
 
-`run_task` builds a `TaskExecutor` (`runner.py:131`), our subclass of the
+`run_task` builds a `TaskExecutor` (`runner.py:134`), our subclass of the
 benchmark's `BenchmarkExecutor` (`executor.py:23`). The subclass adds three
 things: the checks are renamed and patched before the attempt
-(`checks.prepare`, called at `runner.py:166`, section 2.5); the Langfuse
+(`checks.prepare`, called at `runner.py:169`, section 2.5); the Langfuse
 callback is attached to
-the model once the executor has built it (`runner.py:186`); and after the
+the model once the executor has built it (`runner.py:189`); and after the
 checks run, while the database still exists, the final state is read and
-every failed check diagnosed (`runner.py:190`, section 2.6).
+every failed check diagnosed (`runner.py:193`, section 2.6).
 
 The benchmark's `execute_benchmark` (`executor.py:482`) then does the work:
 
@@ -206,21 +206,21 @@ Three details of the data make the benchmark's own count wrong, and
 `checks.py` corrects them while keeping the benchmark's verdict beside ours:
 
 - In 59 of the 308 tasks two or more checks share a name, so the dict keeps
-  only the last. `unique_names` (`checks.py:77`) drops exact copies and
+  only the last. `unique_names` (`checks.py:79`) drops exact copies and
   renames the clashes before the attempt, so each distinct check is kept once.
 - 33 count checks give their expected value as the string `'1'` where the
   SQL runner returns the integer `1`, which `==` never matches. `recheck`
-  (`checks.py:254`) compares such a pair numerically after the attempt.
+  (`checks.py:255`) compares such a pair numerically after the attempt.
 - Some checks are wrong in themselves: no correct attempt can satisfy them,
   or they name a record from another seed. `data/check_patches.json` lists
   22 as excluded and 8 as repaired, each with its evidence. `apply_patches`
-  (`checks.py:131`) takes a task's list through it before the attempt, and
-  `original_verdicts` (`checks.py:217`) runs each patched check's original
+  (`checks.py:133`) takes a task's list through it before the attempt, and
+  `original_verdicts` (`checks.py:218`) runs each patched check's original
   query afterwards, so `checks.csv` carries the benchmark's own verdict
   (`upstream_passed`) next to ours and a `patch` column saying which.
 
-`upstream_verdict` (`checks.py:293`) recovers what the benchmark would have
-reported for the attempt, and `check_records` (`checks.py:321`) flattens
+`upstream_verdict` (`checks.py:294`) recovers what the benchmark would have
+reported for the attempt, and `check_records` (`checks.py:322`) flattens
 the verdicts into the rows of `checks.csv`. The example's three checks all
 failed, under both conventions.
 
@@ -228,24 +228,24 @@ failed, under both conventions.
 
 A failed count check says only that a conjunction did not hold. To say
 which condition failed, and what the agent left instead, our
-`_run_verifiers` override (`runner.py:190`) does two more things while the
+`_run_verifiers` override (`runner.py:193`) does two more things while the
 database exists.
 
 First it reads back what the attempt changed. `read_changes`
-(`runner.py:224`) calls `states.read_state` (`states.py:96`), which reads
+(`runner.py:227`) calls `states.read_state` (`states.py:98`), which reads
 every table of the attempt's database through the SQL runner a page at a
-time, and `states.diff` (`states.py:143`), which compares it row by row
+time, and `states.diff` (`states.py:145`), which compares it row by row
 with a local copy of the seed: the rows inserted, the rows deleted, and for
 each updated row the cells that changed with their values before and after.
-The local seed copy comes from `seed_copy` (`states.py:78`), built once per
-seed file by `seeds.build_seed_database` (`seeds.py:198`) from the schema
+The local seed copy comes from `seed_copy` (`states.py:80`), built once per
+seed file by `seeds.build_seed_database` (`seeds.py:200`) from the schema
 committed under `data/schemas/` (fetched from the servers once by
 `mas-optimiser schema`, which also writes the readable data-model pages
 under `docs/data-model/`) and the seed file's inserts. The example changed
 two tables: one row inserted in `incident`, one in `notification`.
 
 Then each failed check goes through `diagnosis.diagnose`
-(`diagnosis.py:186`). A query that reads one value (`SELECT col FROM t
+(`diagnosis.py:188`). A query that reads one value (`SELECT col FROM t
 WHERE key`) is already wanted against actual (206-213). A count query is
 taken apart into its table and its top-level AND conditions
 (`parse_count_query`, 94; `split_conditions`, 63). If the count was too
@@ -267,14 +267,14 @@ The example's diagnosis:
 ### 2.7 From a wrong cell to the turn that set it
 
 `report.py` makes the link back to the conversation, mechanically.
-`calls` (`report.py:112`) pairs each tool call with its result, numbered by
-turn, and marks whether it succeeded (`succeeded`, `report.py:94`: the
+`calls` (`report.py:114`) pairs each tool call with its result, numbered by
+turn, and marks whether it succeeded (`succeeded`, `report.py:96`: the
 request got through and the tool did not answer with an error).
-`writers_of` (`report.py:176`) finds the calls that write a table: a
+`writers_of` (`report.py:178`) finds the calls that write a table: a
 writing verb in the tool's name and the table's words in the rest of it
 (`create_incident` writes `incident`; `send_notification` does not), with a
 successful call whose result echoes the table's key column as the fallback.
-`trace` (`report.py:221`) then links those calls to the touched row through
+`trace` (`report.py:223`) then links those calls to the touched row through
 its key, names for each wrong cell the last linked call whose arguments set
 that column (250-260), and gives the check a step (261-268):
 
@@ -301,42 +301,42 @@ turn into `impact = high`; and the policy says the system determines the
 priority from impact and urgency, so the agent passed none, while
 `create_incident` only falls back to `planning`.
 
-`outputs` (`runner.py:635`) attaches the trace to each failed check and
-builds the attempt's rows: `task_outcome` (`runner.py:577`) for `tasks.csv`
+`outputs` (`runner.py:672`) attaches the trace to each failed check and
+builds the attempt's rows: `task_outcome` (`runner.py:614`) for `tasks.csv`
 (verdicts under both conventions, tool errors, model calls, tokens, cost in
 US dollars from the price table, seconds), `check_records` for
-`checks.csv`, `cell_rows` (`report.py:584`) for `cells.csv` and
-`change_rows` (`report.py:621`) for `changes.csv`. `save_attempt`
-(`runner.py:677`) writes the record (`attempt-N.json`), the changes
+`checks.csv`, `cell_rows` (`report.py:586`) for `cells.csv` and
+`change_rows` (`report.py:623`) for `changes.csv`. `save_attempt`
+(`runner.py:714`) writes the record (`attempt-N.json`), the changes
 (`attempt-N.changes.json`) and the page (`attempt-N.md`, from
-`attempt_text`, `report.py:457`). The page has a heading per turn, with the
+`attempt_text`, `report.py:459`). The page has a heading per turn, with the
 model's text as a quote and each tool call followed by its arguments, never
 cut, and what came back; then every row the attempt inserted, updated or
 deleted, with its values; then, for each failed check, a table of what the
 check wants against the row the attempt left, the value before for a row
 that was already in the seed, and the call behind each wrong cell. When
 every attempt is done, `write_tables`
-(`runner.py:701`) writes the four CSVs and `summary.md` (`summary`,
-`report.py:651`: the headline numbers, failed checks by step, skipped
+(`runner.py:738`) writes the four CSVs and `summary.md` (`summary`,
+`report.py:653`: the headline numbers, failed checks by step, skipped
 steps by table, wrong cells by column, the worst tasks), and `evaluate`
 writes `evaluation.json` (every setting and total) and a row in the experiment's
-`index.csv` (`index_row` and `write_index_row`, `runner.py:449`).
+`index.csv` (`index_row` and `write_index_row`, `runner.py:452`).
 
-With Langfuse configured, `tracing.task_trace` (`tracing.py:37`) wraps each
-attempt in one trace, `attach` (59) routes the model's calls into it, and
-`record_outcome` (64) scores the trace with the verdict and puts the checks
+With Langfuse configured, `tracing.task_trace` (`tracing.py:39`) wraps each
+attempt in one trace, `attach` (66) routes the model's calls into it, and
+`record_outcome` (75) scores the trace with the verdict and puts the checks
 and changes in its output.
 
 ### 2.8 Recomputing without the agent
 
 `rescore.py` recomputes an evaluation from its saved records: `rebuild`
-(`states.py:232`) applies an attempt's saved changes to a fresh seed copy,
-`check_locally` (`rescore.py:80`) runs every check on that database as the
+(`states.py:233`) applies an attempt's saved changes to a fresh seed copy,
+`check_locally` (`rescore.py:82`) runs every check on that database as the
 executor would, and the same diagnosis, trace and files follow
-(`rescore_attempt`, `rescore.py:139`). A condition on the clock
+(`rescore_attempt`, `rescore.py:141`). A condition on the clock
 (`created_at >= datetime('now', '-1 day')`; nine checks have one, all in
 HR) is judged at the time the attempt's checks ran (`local_runner`,
-`rescore.py:52`), so a rescore gives the same answer on any day.
+`rescore.py:54`), so a rescore gives the same answer on any day.
 `mas-optimiser rebuild` (`rebuild.py`) writes the same rebuilt database as a
 SQLite file beside the record, for a reader who wants to run a check's
 query by hand. A rescore also recomputes the totals (`runner.totals`) and
@@ -416,14 +416,14 @@ What goes wrong, and where to look:
 
 | Symptom | Meaning | Where |
 |---|---|---|
-| `error: domain server ... is not answering` | the Docker servers are down | `check_servers`, `runner.py:496`; start them and rerun |
-| `ANTHROPIC_API_KEY is not set` | no `.env`, or the key missing from it | `load_model`, `runner.py:515` |
+| `error: domain server ... is not answering` | the Docker servers are down | `check_servers`, `runner.py:499`; start them and rerun |
+| `ANTHROPIC_API_KEY is not set` | no `.env`, or the key missing from it | `load_model`, `runner.py:552` |
 | a `tasks.csv` row with `error` filled and zero checks | the attempt raised before the agent started (a server fault, a bad config) | the record's `error`; the traceback in `evaluation.log` |
-| `diagnosis_error` on the run in `attempt-N.json` | the checks ran but the diagnosis raised; verdicts are intact | `runner.py:190-219` |
-| `report_error` on the run | the trace or the rows raised; the page has no trace | `run_task`, `runner.py:749` |
-| a failed check with `kind` empty in `checks.csv` | a query shape the diagnosis cannot take apart (a top-level OR, a GROUP BY, a derived table) | `diagnosis.py:94-111` |
+| `diagnosis_error` on the run in `attempt-N.json` | the checks ran but the diagnosis raised; verdicts are intact | `runner.py:193-219` |
+| `report_error` on the run | the trace or the rows raised; the page has no trace | `run_task`, `runner.py:786` |
+| a failed check with `kind` empty in `checks.csv` | a query shape the diagnosis cannot take apart (a top-level OR, a GROUP BY, a derived table) | `diagnosis.py:96-111` |
 | an attempt with 50 model calls | the agent hit `max_iterations` | `react.py:34`, `base.py:23` |
-| `tool_errors` above zero | a tool answered with an error; the page marks the call `ERROR` | `succeeded`, `report.py:94` |
+| `tool_errors` above zero | a tool answered with an error; the page marks the call `ERROR` | `succeeded`, `report.py:96` |
 
 
 ## 6. Sources
