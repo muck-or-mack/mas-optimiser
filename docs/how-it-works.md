@@ -317,7 +317,7 @@ every attempt is done, `write_tables`
 `report.py:651`: the headline numbers, failed checks by step, skipped
 steps by table, wrong cells by column, the worst tasks), and `evaluate`
 writes `evaluation.json` (every setting and total) and a row in the experiment's
-`index.csv` (`append_index`, `runner.py:398`).
+`index.csv` (`index_row` and `write_index_row`, `runner.py:398`).
 
 With Langfuse configured, `tracing.task_trace` (`tracing.py:37`) wraps each
 attempt in one trace, `attach` (59) routes the model's calls into it, and
@@ -336,7 +336,11 @@ HR) is judged at the time the attempt's checks ran (`local_runner`,
 `rescore.py:48`), so a rescore gives the same answer on any day.
 `mas-optimiser rebuild` (`rebuild.py`) writes the same rebuilt database as a
 SQLite file beside the record, for a reader who wants to run a check's
-query by hand. It exists so that a change to the
+query by hand. A rescore also recomputes the totals (`runner.totals`) and
+rewrites the evaluation's row in `index.csv` (`runner.write_index_row`), so
+the index and the summary never disagree; an attempt that raised keeps its
+row as a failure, and a task with no check left to judge by gets its pages
+rewritten and stays out of the tables. It exists so that a change to the
 diagnosis, the trace or the patch list can be applied to every past
 evaluation in seconds, with no model cost, and so that the saved changes
 are enough to reproduce a verdict.

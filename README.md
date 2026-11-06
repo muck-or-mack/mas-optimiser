@@ -64,7 +64,8 @@ mas-optimiser run smoke
 
 Any option on the command line overrides the file, so `mas-optimiser run
 smoke --limit 1 --domain csm` is a quick variant without editing anything,
-and `--split haiku-20-40-40:training` runs only that set of a split (see
+`--task <task_id>` runs one chosen task (repeat it for several), and
+`--split haiku-20-40-40:training` runs only that set of a split (see
 below).
 To define a new experiment, copy `smoke.yaml` under a new name. Models are
 named the same way: `model: haiku-5-5` means `configs/models/haiku-5-5.yaml`,
@@ -75,6 +76,31 @@ server answers before it starts, and names the servers' start command if not.
 experiment. `mas-optimiser --help` lists the commands, `mas-optimiser run
 --help` the options, and every script in `scripts/` and `setup.sh` answers
 `-h`.
+
+## A demonstration in ten minutes
+
+One attempt at one ITSM task, watched live, then read. It costs a few cents.
+
+1. Start Docker Desktop, then the tracing UI (optional, once):
+   `scripts/langfuse.sh up`, and open http://localhost:3000.
+2. Run one task of the `demo` experiment (the servers start if needed):
+   ```
+   scripts/demo.sh --task task_20251212_191815_314_391f1eff_c23d76df
+   ```
+   The request: a user's email server is down; record an incident, link the
+   service, send her a report.
+3. While it runs, open the newest session in Langfuse: the trace grows one
+   turn at a time, each with the model's reasoning summary, its tool call
+   and the server's answer.
+4. The command ends by printing the evaluation folder. Open its `summary.md`
+   for the verdict, then `tasks/<task_id>/attempt-1.md` for the attempt as
+   a page: the turns, every row the agent wrote, and each check as a table
+   of what it wanted against what it found.
+5. To query the database the attempt ended with:
+   `mas-optimiser rebuild <folder> task_20251212_191815_314_391f1eff_c23d76df 1`
+   writes `attempt-1.sqlite` beside the page.
+6. `docs/how-it-works.md` follows the same task through the code, file by
+   file, and `docs/data-model/itsm.md` names every table the checks query.
 
 ## Reading the results
 
@@ -168,6 +194,26 @@ Every evaluation folder is written to be read without a tracing server:
   the row, each condition marked ok or WRONG and the turn behind it. Beside
   it, the full record (`.json`) and the changes (`.changes.json`).
 
+## Where to find what
+
+| To find | Open | Written by |
+|---|---|---|
+| whether it passed, and how many | `summary.md` (headline); `index.csv`, one row per evaluation of the experiment | `report.summary`, `runner.write_index_row` |
+| what went wrong overall: by step, table and column; the worst tasks | `summary.md`, "What went wrong" | `report.summary` |
+| each attempt's verdict, errors, tokens and cost | `tasks.csv` | `runner.task_record` |
+| each check's verdict, kind, step and patch | `checks.csv` | `checks.check_records` |
+| every wrong field and the turn that set it, across the evaluation | `cells.csv` | `report.cell_rows` |
+| what each attempt changed in the database | `changes.csv`; `attempt-<n>.changes.json` | `states.diff` |
+| one attempt, readable: turns, rows, checks | `tasks/<task_id>/attempt-<n>.md` | `report.attempt_text` |
+| one attempt, complete and raw | `attempt-<n>.json` | the benchmark's executor |
+| the database an attempt ended with | `mas-optimiser rebuild`, then `attempt-<n>.sqlite` | `rebuild` |
+| what the model was sent and answered, call by call; a run in progress | Langfuse: a session per evaluation, a trace per attempt | `tracing` |
+| the evaluation's settings and totals | `evaluation.json` | `runner.evaluate` |
+| the benchmark's own log of the run | `evaluation.log` | the benchmark |
+| the tasks' policy, request, checks and tools | the dataset and `vendor/enterpriseops-gym/data/revised/`; the corrections in `data/check_patches.json` | |
+| the tables a domain has, with keys and references | `docs/data-model/<domain>.md`; the schema in `data/schemas/<domain>.sql` | `mas-optimiser schema` |
+| which tasks are training, validation and test | `configs/splits/<name>.json` | `mas-optimiser split` |
+
 ## Splitting the tasks
 
 ```
@@ -229,9 +275,12 @@ Recomputes every attempt of an evaluation from its saved record and its
 changes against the seed, without running the agent: the final database is
 rebuilt locally, every check is run again as the benchmark's engine would run
 it, each failure is diagnosed and traced, and the tables, pages and summary
-are rewritten. Use it after a change to the diagnosis or to the checks. An
-attempt with no saved changes (one that raised before it finished) is left
-as it was. The record keeps the verdicts the attempt first produced as
+are rewritten, with the totals in `evaluation.json` and the evaluation's
+row in `index.csv`. Use it after a change to the diagnosis or to the
+checks. An attempt with no saved changes (one that raised before it
+finished) keeps its record and counts as failed, as the runner counted it;
+a task with no check left to judge by has its pages rewritten and stays out
+of the tables. The record keeps the verdicts the attempt first produced as
 `verification_results_as_run` beside the recomputed ones. A condition on the
 clock (`datetime('now', '-1 day')`) is judged at the time the attempt's
 checks ran, so the result does not depend on the day of the rescore.

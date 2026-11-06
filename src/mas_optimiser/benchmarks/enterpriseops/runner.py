@@ -83,6 +83,7 @@ EXPERIMENT_DEFAULTS = {
     "mode": "oracle",
     "limit": None,
     "split": None,
+    "task": None,
     "attempts": 1,
     "concurrency": 4,
     "label": None,
@@ -102,7 +103,9 @@ PRICING_KEYS = {
     "long_prompt_tokens",
     "long_prompt_multiplier",
 }
-# The ``tasks.csv`` columns an evaluation's totals sum, in index order.
+# The totals an evaluation sums over its ``tasks.csv`` rows, in index order;
+# ``upstream_successes`` counts the rows' ``upstream_success``, the rest are
+# columns of the same name.
 SUMMED = (
     "checks_passed",
     "checks_total",
@@ -349,6 +352,11 @@ def load_experiment(spec: str, overrides: dict) -> dict:
         )
     if settings["limit"] is not None and settings["limit"] < 1:
         raise SystemExit("error: limit must be at least 1")
+    if settings["task"] is not None:
+        chosen = settings["task"]
+        settings["task"] = [chosen] if isinstance(chosen, str) else list(chosen)
+        if not all(isinstance(t, str) and t for t in settings["task"]):
+            raise SystemExit("error: task must be a task ID or a list of them")
     if settings["split"] is not None:
         name, _, subset = str(settings["split"]).partition(":")
         if not name or subset not in splits.SETS:
@@ -390,29 +398,87 @@ def evaluation_name(settings: dict, domain: str, started: datetime) -> str:
             parts.append(f"{key}={Path(str(settings[key])).stem}")
     if settings["split"] is not None:
         parts.append(str(settings["split"]).partition(":")[2])
+    if settings["task"]:
+        parts.append(f"tasks{len(settings['task'])}")
     if settings["limit"] is not None:
         parts.append(f"limit{settings['limit']}")
     return "-".join(parts)
 
 
-def append_index(experiment_dir: Path, row: dict) -> None:
-    """Add one evaluation's row to the experiment's ``index.csv``, in the columns the file already has.
+def totals(records: list[dict], tasks: int, attempts: int) -> dict:
+    """An evaluation's totals over its ``tasks.csv`` rows, as ``evaluation.json`` and the index keep them.
+
+    Args:
+        records: The ``tasks.csv`` rows.
+        tasks: The number of tasks the evaluation set out to run.
+        attempts: The attempts per task it set out to make.
+
+    Returns:
+        The counts (attempts and successes, tasks passed on every attempt,
+        errors) and the sums of ``SUMMED`` over the rows.
+    """
+    by_task: dict[str, list[bool]] = {}
+    for r in records:
+        by_task.setdefault(r["task_id"], []).append(r["success"])
+    counted = {
+        "tasks": tasks,
+        "attempts": attempts,
+        "total_attempts": len(records),
+        "successes": sum(r["success"] for r in records),
+        "tasks_passed_every_attempt": sum(all(v) for v in by_task.values()),
+        "errors": sum(bool(r["error"]) for r in records),
+    }
+    for key in SUMMED:
+        column = "upstream_success" if key == "upstream_successes" else key
+        counted[key] = round(sum(r[column] for r in records), 4)
+    return counted
+
+
+def index_row(settings: dict, counted: dict) -> dict:
+    """One evaluation's row of the experiment's ``index.csv``: the settings that tell evaluations apart, then the totals.
+
+    Args:
+        settings: The evaluation's settings, as ``evaluation.json`` keeps them.
+        counted: The totals, from ``totals``.
+
+    Returns:
+        The row.
+    """
+    model = settings.get("model")
+    return {
+        "evaluation": settings["evaluation"],
+        "started": settings["started"],
+        "domain": settings["domain"],
+        "mode": settings["mode"],
+        "model": model.get("llm_model", "?") if isinstance(model, dict) else model,
+        "harness": settings.get("harness", "default"),
+        "label": settings.get("label") or "",
+        "overrides": " ".join(
+            f"{k}={v}" for k, v in (settings.get("overrides") or {}).items()
+        ),
+        "limit": settings.get("limit") or "",
+        "code_version": settings.get("mas_optimiser_version", ""),
+    } | counted
+
+
+def write_index_row(experiment_dir: Path, row: dict) -> None:
+    """Add one evaluation's row to the experiment's ``index.csv``, or replace the row that names the same evaluation, in the columns the file already has.
 
     Args:
         experiment_dir: The ``evaluations/<experiment>`` folder.
-        row: The evaluation's settings and totals.
+        row: The evaluation's row, from ``index_row``.
     """
     path = experiment_dir / "index.csv"
+    rows, columns = [], list(row)
     if path.exists():
         with path.open(newline="") as f:
-            columns = next(csv.reader(f))
-    else:
-        columns = list(row)
-    with path.open("a", newline="") as f:
+            reader = csv.DictReader(f)
+            columns = list(reader.fieldnames or columns)
+            rows = [r for r in reader if r["evaluation"] != row["evaluation"]]
+    with path.open("w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=columns, extrasaction="ignore")
-        if not path.stat().st_size:
-            writer.writeheader()
-        writer.writerow(row)
+        writer.writeheader()
+        writer.writerows(rows + [row])
 
 
 def check_servers(urls: set[str]) -> None:
@@ -886,6 +952,12 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--limit", type=int, help="run only the first N tasks")
     parser.add_argument(
+        "--task",
+        action="append",
+        metavar="TASK_ID",
+        help="run only this task (repeat the option for several)",
+    )
+    parser.add_argument(
         "--split",
         help="run only one set of a split in configs/splits/, as <name>:<set>, "
         "e.g. haiku-20-40-40:training",
@@ -968,6 +1040,9 @@ def evaluate(
         thinking: A ``thinking`` setting for the model, or ``None``.
         version: The code's version when the run began, from
             ``mas_optimiser.code_version``, recorded in ``evaluation.json`` and the index.
+
+    Raises:
+        SystemExit: If a chosen task is not one of the domain's.
     """
     tasks = load_tasks(domain, experiment["mode"])
     if experiment["split"]:
@@ -985,6 +1060,11 @@ def evaluate(
         for task_id, config in tasks.items()
         if checks.prepare(task_id, config["verifiers"])[0]
     }
+    if experiment["task"]:
+        unknown = [t for t in experiment["task"] if t not in tasks]
+        if unknown:
+            raise SystemExit(f"error: no such task in {domain}: {', '.join(unknown)}")
+        tasks = {t: tasks[t] for t in experiment["task"]}
     tasks = dict(list(tasks.items())[: experiment["limit"]])
     check_servers(
         {
@@ -1042,19 +1122,7 @@ def evaluate(
         cell_rows,
         change_rows,
     )
-    by_task: dict[str, list[bool]] = {}
-    for r in records:
-        by_task.setdefault(r["task_id"], []).append(r["success"])
-    totals = {
-        "tasks": len(tasks),
-        "attempts": experiment["attempts"],
-        "total_attempts": len(records),
-        "successes": sum(r["success"] for r in records),
-        "tasks_passed_every_attempt": sum(all(v) for v in by_task.values()),
-        "errors": sum(bool(r["error"]) for r in records),
-    }
-    for key in SUMMED:
-        totals[key] = round(sum(r[key] for r in records), 4)
+    counted = totals(records, len(tasks), experiment["attempts"])
     kept = ("experiment", "experiment_file", "label", "overrides", "mode", "limit")
     settings = {key: experiment[key] for key in kept} | {
         "evaluation": out.name,
@@ -1074,32 +1142,14 @@ def evaluate(
         "finished": datetime.now().astimezone().isoformat(timespec="seconds"),
     }
     (out / "evaluation.json").write_text(
-        json.dumps(settings | {"totals": totals}, indent=2)
+        json.dumps(settings | {"totals": counted}, indent=2)
     )
-    # The settings that tell evaluations apart, then the totals.
-    append_index(
-        out.parent,
-        {
-            "evaluation": out.name,
-            "started": settings["started"],
-            "domain": domain,
-            "mode": experiment["mode"],
-            "model": model.llm_model,
-            "harness": "default",
-            "label": experiment["label"] or "",
-            "overrides": " ".join(
-                f"{k}={v}" for k, v in experiment["overrides"].items()
-            ),
-            "limit": experiment["limit"] or "",
-            "code_version": version,
-        }
-        | totals,
-    )
+    write_index_row(out.parent, index_row(settings, counted))
     print(
-        f"\n{totals['successes']}/{totals['total_attempts']} attempts passed, "
-        f"{totals['tasks_passed_every_attempt']}/{totals['tasks']} tasks passed every "
-        f"attempt ({totals['errors']} errors, counted as failures); checks "
-        f"{totals['checks_passed']}/{totals['checks_total']}. Results in {out}"
+        f"\n{counted['successes']}/{counted['total_attempts']} attempts passed, "
+        f"{counted['tasks_passed_every_attempt']}/{counted['tasks']} tasks passed every "
+        f"attempt ({counted['errors']} errors, counted as failures); checks "
+        f"{counted['checks_passed']}/{counted['checks_total']}. Results in {out}"
         + (
             f"; traces in Langfuse session {out.parent.name}/{out.name}"
             if trace
