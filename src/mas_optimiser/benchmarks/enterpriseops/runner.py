@@ -14,8 +14,8 @@ An experiment is a named question (``baseline-haiku``), set out in
 ``configs/experiments/``; an evaluation is one model on one domain's tasks,
 named by its start time and domain plus whatever makes it differ from the
 experiment file. Tasks come from the Hugging Face dataset at a pinned
-revision; in oracle mode the benchmark's corrected copies in ``data/revised``
-replace the dataset's versions. Each attempt gets a fresh
+revision; in oracle and all-tools mode the benchmark's corrected copies in
+``data/revised`` replace the dataset's versions. Each attempt gets a fresh
 ``BenchmarkExecutor``, which seeds a database, runs the agent once, runs every
 check against the final state and deletes the database.
 
@@ -73,7 +73,10 @@ CONFIGS = REPO_ROOT / "configs"
 EVALUATIONS = REPO_ROOT / "evaluations"
 DESCRIPTION = __doc__.split("\n\n")[0]
 DOMAINS = ["itsm", "csm", "hr"]
-MODES = ["oracle", "plus_5_tools", "plus_10_tools", "plus_15_tools"]
+# ``oracle`` and the ``plus_N_tools`` modes are the dataset's own configs;
+# ``all_tools`` is the oracle tasks with the tool filter removed, so the agent
+# sees every tool the domain's server offers.
+MODES = ["oracle", "all_tools", "plus_5_tools", "plus_10_tools", "plus_15_tools"]
 # Every key an experiment file may set, with its default. ``model`` and
 # ``domain`` have none: the file or the command line must supply them.
 # ``domain`` may be a list, giving one evaluation per domain.
@@ -261,20 +264,27 @@ def load_tasks(domain: str, mode: str) -> dict[str, dict]:
 
     Args:
         domain: The domain.
-        mode: The dataset config: ``oracle`` (only the tools a task needs) or
+        mode: ``oracle`` (only the tools a task needs), ``all_tools`` (the
+            oracle tasks with every tool the server offers) or
             ``plus_5_tools`` and so on (that many distractor tools added).
 
     Returns:
         Each task ID to its config.
     """
     revised = GYM_ROOT / "data" / "revised" / domain
+    # The all-tools mode is the oracle dataset with the executor's tool filter
+    # switched off: an empty ``selected_tools`` makes it keep every tool it
+    # discovers on the server (benchmark/executor.py, "Filter tools").
+    dataset_config = "oracle" if mode == "all_tools" else mode
     tasks = {}
-    for row in load_dataset(HF_DATASET, mode, split=domain, revision=HF_REVISION):
+    for row in load_dataset(
+        HF_DATASET, dataset_config, split=domain, revision=HF_REVISION
+    ):
         # The revised files are oracle tasks. The other modes' rows differ
         # from oracle in their tools and, for a few tasks, their verifiers, so
         # they cannot be patched from these.
         fixed = revised / f"{row['task_id']}.json"
-        if mode == "oracle" and fixed.exists():
+        if dataset_config == "oracle" and fixed.exists():
             config = json.loads(fixed.read_text())
         else:
             config = {
@@ -282,6 +292,8 @@ def load_tasks(domain: str, mode: str) -> dict[str, dict]:
                 for key, value in row.items()
                 if key not in ID_COLUMNS
             }
+        if mode == "all_tools":
+            config["selected_tools"] = []
         for server in config["gym_servers_config"]:
             server["seed_database_file"] = str(GYM_ROOT / server["seed_database_file"])
         tasks[row["task_id"]] = config
@@ -948,7 +960,8 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--mode",
         choices=MODES,
-        help="oracle gives the agent only the task's own tools; plus_N_tools adds N distractors",
+        help="oracle gives the agent only the task's own tools, all_tools every tool "
+        "the server offers, plus_N_tools the task's own plus N distractors",
     )
     parser.add_argument("--limit", type=int, help="run only the first N tasks")
     parser.add_argument(

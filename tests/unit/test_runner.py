@@ -56,6 +56,26 @@ def test_load_tasks_uses_revised_copies_in_oracle_mode_only(fake_dataset):
     assert len(runner.load_tasks("itsm", "plus_5_tools")[REVISED_ID]["verifiers"]) == 8
 
 
+def test_load_tasks_all_tools_is_the_oracle_dataset_without_the_tool_filter(
+    monkeypatch,
+):
+    configs = []
+
+    def fake_load_dataset(name, config, **kwargs):
+        configs.append(config)
+        return [
+            dataset_row("task_a") | {"selected_tools": ["a", "b"]},
+            dataset_row(REVISED_ID),
+        ]
+
+    monkeypatch.setattr(runner, "load_dataset", fake_load_dataset)
+    tasks = runner.load_tasks("itsm", "all_tools")
+    assert configs == ["oracle"]
+    assert tasks["task_a"]["selected_tools"] == []
+    revised = tasks[REVISED_ID]
+    assert len(revised["verifiers"]) == 2 and revised["selected_tools"] == []
+
+
 def test_load_model_takes_the_key_from_the_environment(tmp_path, monkeypatch):
     path = tmp_path / "model.yaml"
     fields = "llm_provider: anthropic\nllm_model: m\napi_key_env: TEST_KEY\n"

@@ -11,8 +11,9 @@ model: haiku-5-5
 # Benchmark domain: itsm (IT service management), csm (customer service), hr.
 # A list, such as [itsm, csm, hr], runs one evaluation per domain in turn.
 domain: itsm
-# oracle gives the agent only the task's own tools; plus_5_tools, plus_10_tools
-# and plus_15_tools add that many distractor tools.
+# oracle gives the agent only the task's own tools; all_tools every tool the
+# domain's server offers; plus_5_tools, plus_10_tools and plus_15_tools add
+# that many distractor tools.
 mode: oracle
 # Run only the first N tasks of the domain; remove the line for all of them.
 limit: 5

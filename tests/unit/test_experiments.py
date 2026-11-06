@@ -64,7 +64,7 @@ def test_experiment_file_is_validated(tmp_path):
     ] == ["hr"]
 
     bad_mode = tmp_path / "bad_mode.yaml"
-    bad_mode.write_text("model: haiku-5-5\ndomain: itsm\nmode: all_tools\n")
+    bad_mode.write_text("model: haiku-5-5\ndomain: itsm\nmode: no_tools\n")
     with pytest.raises(SystemExit, match="mode"):
         runner.load_experiment(str(bad_mode), no_overrides)
 
