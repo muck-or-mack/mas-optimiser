@@ -119,7 +119,9 @@ checked), and `evaluation.json` and `index.csv` carry the evaluation's total.
 A task passes when every one of its checks (the benchmark's "verifiers") passes.
 Three things differ from
 the benchmark's own count, and the `upstream_` columns of `tasks.csv` and
-`checks.csv` give that count alongside. The benchmark keys verdicts by
+`checks.csv` give that count alongside. All three are applied to a task's
+check list before each attempt (`checks.prepare`), so the server's verdicts
+come back for every check under a unique name. The benchmark keys verdicts by
 name, so where a task gives two checks the same name only the
 last one counts; in 59 of the 308 oracle tasks names clash, and in 27 of
 those the shared name hides different checks. Here an exact copy of a check
@@ -159,11 +161,12 @@ Every evaluation folder is written to be read without a tracing server:
   check, with the failure's kind and step), `cells.csv` (one per failed
   check, touched row and condition, with the turn that set a wrong cell) and
   `changes.csv` (one per attempt and changed table);
-- `tasks/<task_id>/attempt-<n>.md`: the attempt as a page, the request, what
-  the agent did turn by turn, the changes against the seed, and every check
-  with, under a failure, each condition marked ok or WRONG and the turn
-  behind it, beside the full record (`.json`) and the changes
-  (`.changes.json`).
+- `tasks/<task_id>/attempt-<n>.md`: the attempt as a page: the request; what
+  the agent did turn by turn, each call with its arguments and what came
+  back; every row it inserted, updated or deleted, with the values; and
+  every check with, under a failure, a table of what the check wants against
+  the row, each condition marked ok or WRONG and the turn behind it. Beside
+  it, the full record (`.json`) and the changes (`.changes.json`).
 
 ## Splitting the tasks
 
@@ -204,7 +207,9 @@ mas-optimiser schema
 Seeds a database on each domain's server from every seed file its tasks
 use, reads the CREATE statements of its tables and indexes back, checks
 that all of a domain's seed files share one schema, and writes it to
-`data/schemas/<domain>.sql`. With that file, `seeds.build_seed_database`
+`data/schemas/<domain>.sql`, with a readable version at
+`docs/data-model/<domain>.md`: every table, its key, its columns and the
+tables it references. With the schema file, `seeds.build_seed_database`
 builds a local SQLite copy of any task's starting database, so new checks
 can be tested without the servers. The copies match the servers' databases
 row for row (`uv run pytest -m integration tests/integration/test_seeds.py`),
@@ -230,6 +235,17 @@ as it was. The record keeps the verdicts the attempt first produced as
 `verification_results_as_run` beside the recomputed ones. A condition on the
 clock (`datetime('now', '-1 day')`) is judged at the time the attempt's
 checks ran, so the result does not depend on the day of the rescore.
+
+To look at the database one attempt ended with:
+
+```
+mas-optimiser rebuild evaluations/<experiment>/<evaluation> <task_id> <attempt>
+```
+
+writes it, rebuilt from the saved changes, as `attempt-<n>.sqlite` beside
+the record. Open it with `sqlite3` or an editor's SQLite viewer to run a
+check's query by hand or browse every table; it is the database `rescore`
+judges on.
 
 ## Watching an attempt in Langfuse
 

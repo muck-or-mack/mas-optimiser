@@ -198,6 +198,10 @@ def test_the_attempt_page_shows_request_turns_changes_and_traced_checks():
         "Row `incident_id INC_024`: not in the seed, inserted at turn 2 by `create_incident`."
         in text
     )
+    assert (
+        "| Check wants in `incident` | After the attempt |  | Where the value came from |"
+        in text
+    )
     assert "| incident_id = 'INC_024' | INC_024 | ok |  |" in text
     assert (
         "| channel = 'phone' | chat | WRONG | turn 2, `create_incident(channel='chat')` |"
@@ -212,17 +216,27 @@ def test_the_attempt_page_shows_request_turns_changes_and_traced_checks():
         in text
     )
     # A missing row is listed as the check wants it.
+    assert "| Check wants in `notification` | After the attempt |" in text
     assert "| incident_id = 'INC_024' | no row |" in text
+    # The rows the attempt touched, under the changes.
+    assert (
+        "### incident\n\nRow `incident_id INC_024`, inserted:\n\n```\nincident_id = INC_024\n```"
+        in text
+    )
 
 
-def test_a_long_argument_does_not_hide_the_ones_after_it():
+def test_what_the_agent_wrote_is_never_cut_and_keeps_its_lines():
     execution = traced()
     call = execution["conversation_flow"][4]["tool_calls"][0]
-    call["args"] = {"description": "word " * 200, "channel": "chat"}
+    call["args"] = {"message": "Dear Ben,\n\nLogged.", "channel": "chat"}
     text = report.attempt_text("task_x", 1, execution, CHANGES, max_chars=40)
+    assert "message = Dear Ben,\n          \n          Logged.\nchannel = chat" in text
+
+
+def test_a_long_field_of_an_answer_does_not_hide_the_ones_after_it():
+    lines = report._fields({"description": "word " * 200, "channel": "chat"}, 40)
     # Forty characters of the value, then the mark that it was cut.
-    assert "description = " + "word " * 8 + " ..." in text
-    assert "channel     = chat" in text
+    assert lines == ["description = " + "word " * 8 + " ...", "channel     = chat"]
 
 
 def test_a_list_in_an_answer_is_shown_one_item_per_line():
@@ -253,7 +267,12 @@ def test_an_updated_row_shows_its_value_before_the_attempt():
         in text
     )
     assert (
-        "| Check wants | Before | After the attempt |  | Where the value came from |"
+        "| Check wants in `incident` | Before | After the attempt |  | Where the value came from |"
+        in text
+    )
+    # An updated row shows each changed cell before and after.
+    assert (
+        "Row `incident_id INC_024`, updated:\n\n```\nchannel = email -> chat\n```"
         in text
     )
     assert (

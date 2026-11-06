@@ -31,10 +31,10 @@ numbers refer to the files at the commit that last changed this document
 |---|---|---|---|
 | The harness (the agent, to be improved) | `vendor/enterpriseops-gym/orchestrators/react.py`, `base.py`; `benchmark/executor.py`, `llm_client.py`, `mcp_client.py`, `verifier.py`, `models.py` | about 2,100 | the loop of model calls and tool calls, the database set-up on the domain server, the SQL checks |
 | The runner (ours) | `src/mas_optimiser/cli.py`, `tracing.py`, `benchmarks/enterpriseops/runner.py` | about 1,300 | loads the tasks, runs attempts in parallel, applies the patch list, saves every record and the tables |
-| The measure (ours) | `checks.py`, `states.py`, `diagnosis.py`, `report.py`, `rescore.py` | about 1,900 | verdicts, changes against the seed, the cell-by-cell diagnosis, the trace to the turn, the results files, recomputation |
-| Set-up tools (ours) | `seeds.py`, `splits.py` | about 680 | local copies of the seed databases; the one-off draw of the training, validation and test sets |
+| The measure (ours) | `checks.py`, `states.py`, `diagnosis.py`, `report.py`, `rescore.py`, `rebuild.py` | about 2,000 | verdicts, changes against the seed, the cell-by-cell diagnosis, the trace to the turn, the results files, recomputation |
+| Set-up tools (ours) | `seeds.py`, `splits.py` | about 770 | local copies of the seed databases; the one-off draw of the training, validation and test sets |
 
-Line counts are from `wc -l` on 5 November 2026; a third of this package's
+Line counts are from `wc -l` on 6 November 2026; a third of this package's
 lines are docstrings, since every function states its arguments, its return
 value and what it raises. The benchmark's own
 runner (`vendor/enterpriseops-gym/evaluate.py`) is not used, because the
@@ -235,9 +235,10 @@ time, and `states.diff` (`states.py:143`), which compares it row by row
 with a local copy of the seed: the rows inserted, the rows deleted, and for
 each updated row the cells that changed with their values before and after.
 The local seed copy comes from `seed_copy` (`states.py:78`), built once per
-seed file by `seeds.build_seed_database` (`seeds.py:188`) from the schema
+seed file by `seeds.build_seed_database` (`seeds.py:198`) from the schema
 committed under `data/schemas/` (fetched from the servers once by
-`mas-optimiser schema`) and the seed file's inserts. The example changed
+`mas-optimiser schema`, which also writes the readable data-model pages
+under `docs/data-model/`) and the seed file's inserts. The example changed
 two tables: one row inserted in `incident`, one in `notification`.
 
 Then each failed check goes through `diagnosis.diagnose`
@@ -301,18 +302,19 @@ priority from impact and urgency, so the agent passed none, while
 builds the attempt's rows: `task_record` (`runner.py:499`) for `tasks.csv`
 (verdicts under both conventions, tool errors, model calls, tokens, cost in
 US dollars from the price table, seconds), `check_records` for
-`checks.csv`, `cell_rows` (`report.py:540`) for `cells.csv` and
-`change_rows` (`report.py:577`) for `changes.csv`. `save_attempt`
+`checks.csv`, `cell_rows` (`report.py:584`) for `cells.csv` and
+`change_rows` (`report.py:621`) for `changes.csv`. `save_attempt`
 (`runner.py:599`) writes the record (`attempt-N.json`), the changes
 (`attempt-N.changes.json`) and the page (`attempt-N.md`, from
-`attempt_text`, `report.py:449`). The page has a heading per turn, with the
-model's text as a quote and each tool call followed by its arguments, one
-per line, and what came back; then, for each failed check, a table of what
-the check wants against the row the attempt left, the value before for a
-row that was already in the seed, and the call behind each wrong cell. When
+`attempt_text`, `report.py:457`). The page has a heading per turn, with the
+model's text as a quote and each tool call followed by its arguments, never
+cut, and what came back; then every row the attempt inserted, updated or
+deleted, with its values; then, for each failed check, a table of what the
+check wants against the row the attempt left, the value before for a row
+that was already in the seed, and the call behind each wrong cell. When
 every attempt is done, `write_tables`
 (`runner.py:623`) writes the four CSVs and `summary.md` (`summary`,
-`report.py:607`: the headline numbers, failed checks by step, skipped
+`report.py:651`: the headline numbers, failed checks by step, skipped
 steps by table, wrong cells by column, the worst tasks), and `evaluate`
 writes `evaluation.json` (every setting and total) and a row in the experiment's
 `index.csv` (`append_index`, `runner.py:398`).
@@ -331,7 +333,10 @@ executor would, and the same diagnosis, trace and files follow
 (`rescore_attempt`, `rescore.py:135`). A condition on the clock
 (`created_at >= datetime('now', '-1 day')`; nine checks have one, all in
 HR) is judged at the time the attempt's checks ran (`local_runner`,
-`rescore.py:48`), so a rescore gives the same answer on any day. It exists so that a change to the
+`rescore.py:48`), so a rescore gives the same answer on any day.
+`mas-optimiser rebuild` (`rebuild.py`) writes the same rebuilt database as a
+SQLite file beside the record, for a reader who wants to run a check's
+query by hand. It exists so that a change to the
 diagnosis, the trace or the patch list can be applied to every past
 evaluation in seconds, with no model cost, and so that the saved changes
 are enough to reproduce a verdict.
@@ -393,7 +398,7 @@ then read the page under `evaluations/smoke/`. `mas-optimiser rescore <folder>`
 on that folder rewrites every file from the saved changes; nothing should
 change.
 
-The unit tests (`uv run pytest tests/unit`, 121 tests on 5 November 2026, no servers needed)
+The unit tests (`uv run pytest tests/unit`, 124 tests on 6 November 2026, no servers needed)
 cover the measure on hand-written records. The integration tests
 (`tests/integration`) need the servers and check, among other things, that
 the local seed copy matches the server's database row for row.
@@ -424,6 +429,7 @@ What goes wrong, and where to look:
 | `.../enterpriseops/diagnosis.py` | each condition of a failed check tested on the touched rows |
 | `.../enterpriseops/report.py` | the trace to the turn, the attempt page, the CSV rows, the summary |
 | `.../enterpriseops/rescore.py` | recompute an evaluation from its saved changes |
+| `.../enterpriseops/rebuild.py` | write one attempt's rebuilt database as a file |
 | `.../enterpriseops/seeds.py` | local copies of the seed databases; the `schema` command |
 | `.../enterpriseops/splits.py` | the stratified, sealed split of the tasks; drawn once |
 | `vendor/.../orchestrators/react.py` | the agent loop |
