@@ -359,7 +359,9 @@ table and trace. `cells.csv` is the same information for every failed
 check at once, one row per touched row and condition, with the turn and
 tool that set a wrong cell; `checks.csv` has every check's verdict under
 both conventions. The README's "Reading the results" section lists every
-column.
+column. `tools.json` holds every tool the domain server offered, with
+its description and argument schema, so a reader can see what the agent
+could have called beyond the task's `selected_tools`.
 
 
 ## 4. Where this is going

@@ -206,6 +206,7 @@ Every evaluation folder is written to be read without a tracing server:
 | what each attempt changed in the database | `changes.csv`; `attempt-<n>.changes.json` | `states.diff` |
 | one attempt, readable: turns, rows, checks | `tasks/<task_id>/attempt-<n>.md` | `report.attempt_text` |
 | one attempt, complete and raw | `attempt-<n>.json` | the benchmark's executor |
+| every tool the domain server offered, with its description and argument schema | `tools.json` | `runner.save_tools` |
 | the database an attempt ended with | `mas-optimiser rebuild`, then `attempt-<n>.sqlite` | `rebuild` |
 | what the model was sent and answered, call by call; a run in progress | Langfuse: a session per evaluation, a trace per attempt | `tracing` |
 | the evaluation's settings and totals | `evaluation.json` | `runner.evaluate` |

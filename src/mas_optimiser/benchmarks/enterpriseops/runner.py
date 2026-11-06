@@ -57,6 +57,7 @@ from mas_optimiser.benchmarks.enterpriseops import (
 )
 
 from benchmark.executor import BenchmarkExecutor
+from benchmark.mcp_client import MCPClient
 from benchmark.models import BenchmarkConfig, LLMConfig
 from orchestrators.react import ReactOrchestrator
 
@@ -512,6 +513,40 @@ def check_servers(urls: set[str]) -> None:
             ) from exc
 
 
+async def save_tools(out: Path, tasks: dict[str, dict]) -> None:
+    """Write every tool each domain server offers to ``out/tools.json``, once per evaluation.
+
+    A task's ``selected_tools`` names the tools the agent is given, but their
+    descriptions and argument schemas live only on the server, so without
+    this file neither a reader nor a proposer can see what the agent could
+    have called or what it could have passed. The file maps each server's URL
+    to its tools as the server lists them.
+
+    Args:
+        out: The evaluation folder.
+        tasks: Each task ID to its config, from ``load_tasks``.
+
+    Raises:
+        SystemExit: If a server does not accept a connection.
+    """
+    servers = {
+        server["mcp_server_url"]: server
+        for config in tasks.values()
+        for server in config["gym_servers_config"]
+    }
+    tools = {}
+    for url, server in sorted(servers.items()):
+        client = MCPClient(
+            base_url=url,
+            auth_config=server.get("auth_config"),
+            mcp_endpoint=server.get("mcp_endpoint", "/mcp"),
+        )
+        if not await client.connect():
+            raise SystemExit(f"error: domain server {url} refused the tool listing")
+        tools[url] = await client.list_tools()
+    (out / "tools.json").write_text(json.dumps(tools, indent=2))
+
+
 def load_model(path: Path) -> tuple[LLMConfig, dict]:
     """The benchmark's model config and the price table from a model file.
 
@@ -894,6 +929,7 @@ async def run_tasks(
         The ``tasks.csv`` rows, then the ``checks.csv``, ``cells.csv`` and
         ``changes.csv`` rows, in task order and then attempt order.
     """
+    await save_tools(out, tasks)
     semaphore = asyncio.Semaphore(concurrency)
     total = len(tasks) * attempts
     done = 0

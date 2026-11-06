@@ -1,5 +1,6 @@
 """Unit tests of ``runner``: task loading, pricing, the rows of an attempt and the evaluation folder."""
 
+import asyncio
 import json
 from types import SimpleNamespace
 
@@ -74,6 +75,32 @@ def test_load_tasks_all_tools_is_the_oracle_dataset_without_the_tool_filter(
     assert tasks["task_a"]["selected_tools"] == []
     revised = tasks[REVISED_ID]
     assert len(revised["verifiers"]) == 2 and revised["selected_tools"] == []
+
+
+def test_save_tools_lists_each_server_once(tmp_path, monkeypatch):
+    listed = []
+
+    class FakeClient:
+        def __init__(self, base_url, auth_config, mcp_endpoint):
+            self.base_url = base_url
+
+        async def connect(self):
+            return True
+
+        async def list_tools(self):
+            listed.append(self.base_url)
+            return [{"name": "get_user", "inputSchema": {}}]
+
+    monkeypatch.setattr(runner, "MCPClient", FakeClient)
+    server = {"mcp_server_name": "gym-itsm-mcp", "mcp_server_url": "http://itsm"}
+    tasks = {
+        "a": {"gym_servers_config": [server]},
+        "b": {"gym_servers_config": [server]},
+    }
+    asyncio.run(runner.save_tools(tmp_path, tasks))
+    assert listed == ["http://itsm"]
+    tools = json.loads((tmp_path / "tools.json").read_text())
+    assert tools == {"http://itsm": [{"name": "get_user", "inputSchema": {}}]}
 
 
 def test_load_model_takes_the_key_from_the_environment(tmp_path, monkeypatch):
