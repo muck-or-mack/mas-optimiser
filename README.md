@@ -200,7 +200,7 @@ Every evaluation folder is written to be read without a tracing server:
 |---|---|---|
 | whether it passed, and how many | `summary.md` (headline); `index.csv`, one row per evaluation of the experiment | `report.summary`, `runner.write_index_row` |
 | what went wrong overall: by step, table and column; the worst tasks | `summary.md`, "What went wrong" | `report.summary` |
-| each attempt's verdict, errors, tokens and cost | `tasks.csv` | `runner.task_record` |
+| each attempt's verdict, errors, tokens and cost | `tasks.csv` | `runner.task_outcome` |
 | each check's verdict, kind, step and patch | `checks.csv` | `checks.check_records` |
 | every wrong field and the turn that set it, across the evaluation | `cells.csv` | `report.cell_rows` |
 | what each attempt changed in the database | `changes.csv`; `attempt-<n>.changes.json` | `states.diff` |

@@ -301,7 +301,7 @@ def test_cell_and_change_rows_carry_the_trace():
 def test_summary_counts_steps_and_names_the_worst_tasks():
     execution = traced()
     results = execution["verification_results"]
-    records = [
+    outcomes = [
         {
             "task_id": "t1",
             "success": False,
@@ -329,7 +329,7 @@ def test_summary_counts_steps_and_names_the_worst_tasks():
     text = report.summary(
         "eval",
         {"domain": "itsm", "mode": "oracle", "model": "haiku-5-5"},
-        records,
+        outcomes,
         check_rows,
         report.cell_rows("t1", 1, results),
         report.change_rows("t1", 1, CHANGES, queries),

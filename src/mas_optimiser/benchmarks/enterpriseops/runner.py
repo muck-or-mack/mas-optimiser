@@ -418,11 +418,11 @@ def evaluation_name(settings: dict, domain: str, started: datetime) -> str:
     return "-".join(parts)
 
 
-def totals(records: list[dict], tasks: int, attempts: int) -> dict:
+def totals(outcomes: list[dict], tasks: int, attempts: int) -> dict:
     """An evaluation's totals over its ``tasks.csv`` rows, as ``evaluation.json`` and the index keep them.
 
     Args:
-        records: The ``tasks.csv`` rows.
+        outcomes: The ``tasks.csv`` rows, one per attempt.
         tasks: The number of tasks the evaluation set out to run.
         attempts: The attempts per task it set out to make.
 
@@ -431,19 +431,19 @@ def totals(records: list[dict], tasks: int, attempts: int) -> dict:
         errors) and the sums of ``SUMMED`` over the rows.
     """
     by_task: dict[str, list[bool]] = {}
-    for r in records:
+    for r in outcomes:
         by_task.setdefault(r["task_id"], []).append(r["success"])
     counted = {
         "tasks": tasks,
         "attempts": attempts,
-        "total_attempts": len(records),
-        "successes": sum(r["success"] for r in records),
+        "total_attempts": len(outcomes),
+        "successes": sum(r["success"] for r in outcomes),
         "tasks_passed_every_attempt": sum(all(v) for v in by_task.values()),
-        "errors": sum(bool(r["error"]) for r in records),
+        "errors": sum(bool(r["error"]) for r in outcomes),
     }
     for key in SUMMED:
         column = "upstream_success" if key == "upstream_successes" else key
-        counted[key] = round(sum(r[column] for r in records), 4)
+        counted[key] = round(sum(r[column] for r in outcomes), 4)
     return counted
 
 
@@ -609,7 +609,7 @@ def cost(usage: list[dict], pricing: dict) -> float:
     return total / 1_000_000
 
 
-def task_record(
+def task_outcome(
     task_id: str,
     attempt: int,
     execution: dict,
@@ -702,7 +702,7 @@ def outputs(
             check["trace"] = report.trace(check, agent_calls, keys)
     queries = [r.get("query", "") for r in results.values()]
     return (
-        task_record(task_id, attempt, execution, names, pricing),
+        task_outcome(task_id, attempt, execution, names, pricing),
         checks.check_records(task_id, attempt, results, names),
         report.cell_rows(task_id, attempt, results),
         report.change_rows(task_id, attempt, changes, queries),
@@ -736,7 +736,7 @@ def save_attempt(
 def write_tables(
     out: Path,
     settings: dict,
-    records: list[dict],
+    outcomes: list[dict],
     check_rows: list[dict],
     cell_rows: list[dict],
     change_rows: list[dict],
@@ -747,7 +747,7 @@ def write_tables(
         out: The evaluation folder.
         settings: The ``domain``, ``mode`` and ``model`` (a name, or the model
             config as ``evaluation.json`` keeps it) that head the summary.
-        records: The ``tasks.csv`` rows.
+        outcomes: The ``tasks.csv`` rows, one per attempt.
         check_rows: The ``checks.csv`` rows.
         cell_rows: The ``cells.csv`` rows.
         change_rows: The ``changes.csv`` rows.
@@ -756,7 +756,7 @@ def write_tables(
     if isinstance(model, dict):
         model = model.get("llm_model", "?")
     for name, columns, rows in (
-        ("tasks.csv", list(records[0]) if records else [], records),
+        ("tasks.csv", list(outcomes[0]) if outcomes else [], outcomes),
         ("checks.csv", checks.COLUMNS, check_rows),
         ("cells.csv", report.CELL_COLUMNS, cell_rows),
         ("changes.csv", report.CHANGE_COLUMNS, change_rows),
@@ -773,7 +773,7 @@ def write_tables(
                 "mode": settings.get("mode"),
                 "model": model,
             },
-            records,
+            outcomes,
             check_rows,
             cell_rows,
             change_rows,
@@ -856,7 +856,7 @@ async def run_task(
             )
         changes = executor.changes
         try:
-            record, rows, cells, changed = outputs(
+            outcome, rows, cells, changed = outputs(
                 task_id,
                 attempt,
                 execution,
@@ -871,7 +871,7 @@ async def run_task(
             execution["report_error"] = repr(exc)
             for check in execution.get("verification_results", {}).values():
                 check.pop("trace", None)
-            record = task_record(task_id, attempt, execution, executor.names, pricing)
+            outcome = task_outcome(task_id, attempt, execution, executor.names, pricing)
             rows = checks.check_records(
                 task_id,
                 attempt,
@@ -886,12 +886,12 @@ async def run_task(
             ]
             tracing.record_outcome(
                 span,
-                record,
+                outcome,
                 rows,
                 states.summary(changes, queries) if changes is not None else None,
             )
     save_attempt(out / "tasks" / task_id, attempt, result, changes)
-    return record, rows, cells, changed
+    return outcome, rows, cells, changed
 
 
 async def run_tasks(
@@ -937,7 +937,7 @@ async def run_tasks(
     async def run_one(task_id: str, config: dict, attempt: int) -> tuple:
         nonlocal done
         async with semaphore:
-            record, rows, cells, changed = await run_task(
+            outcome, rows, cells, changed = await run_task(
                 task_id,
                 config,
                 attempt,
@@ -951,16 +951,16 @@ async def run_tasks(
             )
         done += 1
         outcome = (
-            "error" if record["error"] else "pass" if record["success"] else "fail"
+            "error" if outcome["error"] else "pass" if outcome["success"] else "fail"
         )
         print(
             f"[{done}/{total}] {task_id} attempt {attempt} {outcome}: checks "
-            f"{record['checks_passed']}/{record['checks_total']}, "
-            f"{record['model_calls']} calls, {record['input_tokens']:,} in / "
-            f"{record['output_tokens']:,} out tokens, ${record['cost_usd']:.4f}, "
-            f"{record['seconds']:.0f} s"
+            f"{outcome['checks_passed']}/{outcome['checks_total']}, "
+            f"{outcome['model_calls']} calls, {outcome['input_tokens']:,} in / "
+            f"{outcome['output_tokens']:,} out tokens, ${outcome['cost_usd']:.4f}, "
+            f"{outcome['seconds']:.0f} s"
         )
-        return record, rows, cells, changed
+        return outcome, rows, cells, changed
 
     results = await asyncio.gather(
         *(
@@ -1145,7 +1145,7 @@ def evaluate(
     root.addHandler(handler)
     tags = [domain, experiment["mode"], "arm:default", model.llm_model]
     try:
-        records, check_rows, cell_rows, change_rows = asyncio.run(
+        outcomes, check_rows, cell_rows, change_rows = asyncio.run(
             run_tasks(
                 tasks,
                 model,
@@ -1166,12 +1166,12 @@ def evaluate(
     write_tables(
         out,
         {"domain": domain, "mode": experiment["mode"], "model": model.llm_model},
-        records,
+        outcomes,
         check_rows,
         cell_rows,
         change_rows,
     )
-    counted = totals(records, len(tasks), experiment["attempts"])
+    counted = totals(outcomes, len(tasks), experiment["attempts"])
     kept = ("experiment", "experiment_file", "label", "overrides", "mode", "limit")
     settings = {key: experiment[key] for key in kept} | {
         "evaluation": out.name,

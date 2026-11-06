@@ -71,29 +71,29 @@ def attach(model: BaseChatModel) -> None:
 
 
 def record_outcome(
-    span: LangfuseSpan, record: dict, check_rows: list[dict], changes: list[str] | None
+    span: LangfuseSpan, outcome: dict, check_rows: list[dict], changes: list[str] | None
 ) -> None:
     """Score the trace with the attempt's verdict and put its checks and changes in the trace output.
 
     Args:
         span: The attempt's root span, from ``task_trace``.
-        record: The attempt's ``tasks.csv`` row.
+        outcome: The attempt's ``tasks.csv`` row.
         check_rows: The attempt's ``checks.csv`` rows.
         changes: The lines of ``states.summary``, or ``None`` when the changes
             were not read.
     """
     fraction = (
-        record["checks_passed"] / record["checks_total"]
-        if record["checks_total"]
+        outcome["checks_passed"] / outcome["checks_total"]
+        if outcome["checks_total"]
         else 0.0
     )
     span.score_trace(
-        name="task_success", value=float(record["success"]), data_type="BOOLEAN"
+        name="task_success", value=float(outcome["success"]), data_type="BOOLEAN"
     )
     span.score_trace(name="check_fraction", value=fraction, data_type="NUMERIC")
     span.update(
         output={
-            k: record[k]
+            k: outcome[k]
             for k in (
                 "success",
                 "checks_passed",

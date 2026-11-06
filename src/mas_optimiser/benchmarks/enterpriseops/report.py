@@ -651,7 +651,7 @@ def change_rows(
 def summary(
     name: str,
     settings: dict,
-    records: list[dict],
+    outcomes: list[dict],
     check_rows: list[dict],
     cells: list[dict],
     change_list: list[dict],
@@ -661,7 +661,7 @@ def summary(
     Args:
         name: The evaluation folder's name.
         settings: ``domain``, ``mode`` and ``model``, for the heading.
-        records: The ``tasks.csv`` rows.
+        outcomes: The ``tasks.csv`` rows, one per attempt.
         check_rows: The ``checks.csv`` rows.
         cells: The ``cells.csv`` rows.
         change_list: The ``changes.csv`` rows.
@@ -669,15 +669,15 @@ def summary(
     Returns:
         The page as Markdown.
     """
-    attempts = len(records)
-    passed = sum(r["success"] for r in records)
+    attempts = len(outcomes)
+    passed = sum(r["success"] for r in outcomes)
     by_task: dict[str, list[dict]] = {}
-    for r in records:
+    for r in outcomes:
         by_task.setdefault(r["task_id"], []).append(r)
     every = sum(all(r["success"] for r in rs) for rs in by_task.values())
-    checks_passed = sum(r["checks_passed"] for r in records)
-    checks_total = sum(r["checks_total"] for r in records)
-    errored = sum(r.get("tool_errors", 0) > 0 for r in records)
+    checks_passed = sum(r["checks_passed"] for r in outcomes)
+    checks_total = sum(r["checks_total"] for r in outcomes)
+    errored = sum(r.get("tool_errors", 0) > 0 for r in outcomes)
     unasked = {(c["task_id"], c["attempt"]) for c in change_list if not c["mentioned"]}
     failed = [c for c in check_rows if c["passed"] is False]
     steps = Counter(c["step"] for c in failed if c["step"])
