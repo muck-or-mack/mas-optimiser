@@ -100,7 +100,7 @@ def test_evaluation_name_says_what_was_run():
     started = runner.datetime(2026, 10, 27, 9, 30, 12)
     plain = runner.load_experiment("smoke", no_overrides | {"limit": None})
     assert (
-        runner.evaluation_name(plain, "itsm", started) == "20261027-093012-itsm-limit5"
+        runner.evaluation_name(plain, "itsm", started) == "itsm-2026-10-27-0930-limit5"
     )
     changed = runner.load_experiment(
         "smoke",
@@ -108,14 +108,14 @@ def test_evaluation_name_says_what_was_run():
     )
     assert (
         runner.evaluation_name(changed, "csm", started)
-        == "20261027-093012-csm-retry-model=haiku-5-5-limit5"
+        == "csm-2026-10-27-0930-retry-model=haiku-5-5-limit5"
     )
     one_set = runner.load_experiment(
         "smoke", no_overrides | {"split": "haiku-20-40-40:training", "limit": None}
     )
     assert (
         runner.evaluation_name(one_set, "hr", started)
-        == "20261027-093012-hr-training-limit5"
+        == "hr-2026-10-27-0930-training-limit5"
     )
     chosen = runner.load_experiment(
         "smoke", no_overrides | {"task": "task_a", "limit": None}
@@ -123,7 +123,7 @@ def test_evaluation_name_says_what_was_run():
     assert chosen["task"] == ["task_a"]
     assert (
         runner.evaluation_name(chosen, "itsm", started)
-        == "20261027-093012-itsm-tasks1-limit5"
+        == "itsm-2026-10-27-0930-tasks1-limit5"
     )
 
 
@@ -227,3 +227,13 @@ def test_run_takes_the_code_version_once_before_any_evaluation(monkeypatch):
     runner.add_arguments(parser)
     runner.run(parser.parse_args(["baseline-haiku"]))
     assert calls == ["v0.5.0-1-gaaaaaaa"] * 3
+
+
+def test_evaluation_name_adds_the_seconds_only_when_asked():
+    no_overrides = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
+    started = runner.datetime(2026, 10, 27, 9, 30, 12)
+    plain = runner.load_experiment("smoke", no_overrides | {"limit": None})
+    assert (
+        runner.evaluation_name(plain, "itsm", started, seconds=True)
+        == "itsm-2026-10-27-093012-limit5"
+    )

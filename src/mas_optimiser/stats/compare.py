@@ -6,9 +6,9 @@
 
 Each side is one evaluation per domain; ``--a`` is the current harness, ``--b``
 the candidate. A side is named by evaluation folders, repeated once per
-domain, or by the start of the evaluations' names within ``--experiment``
-(a day, ``20261027``, when one evaluation per domain ran that day), which
-the experiment's ``index.csv`` resolves. The command writes ``comparison.md`` (the gate's test, its
+domain, or by a day (``20261027`` or ``2026-10-27``) or the start of a
+name within ``--experiment``, which the experiment's ``index.csv`` resolves
+through each evaluation's start time. The command writes ``comparison.md`` (the gate's test, its
 companions and the decision rules, pooled and per domain, for both outcomes),
 ``differences.csv`` (one row per task) and ``figures/`` (each figure as PDF
 and PNG with its numbers as CSV) into ``--out``, by default
@@ -65,7 +65,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         required=True,
         metavar="EVALUATION",
         help="the current harness: an evaluation folder, repeated per domain, "
-        "or the start of its evaluations' names within --experiment",
+        "or a day or name within --experiment",
     )
     parser.add_argument(
         "--b",
@@ -73,7 +73,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         required=True,
         metavar="EVALUATION",
         help="the candidate: an evaluation folder, repeated per domain, "
-        "or the start of its evaluations' names within --experiment",
+        "or a day or name within --experiment",
     )
     parser.add_argument(
         "--split",
@@ -140,10 +140,10 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
 def evaluations(experiment: str | None, spec: str) -> list[Path]:
     """The evaluation folders one side names.
 
-    ``spec`` is an evaluation folder, used as it is; otherwise it is the start
-    of evaluation names in the experiment's ``index.csv``, such as the day the
-    evaluations ran, and every evaluation whose name starts with it is taken,
-    one per domain.
+    ``spec`` is an evaluation folder, used as it is; otherwise it names
+    evaluations in the experiment's ``index.csv``: a day (``2026-11-03`` or
+    ``20261103``), matched against each evaluation's start time, or the start
+    of an evaluation's name. Every match is taken, one per domain.
 
     Args:
         experiment: The experiment's name under ``evaluations/``, or its
@@ -168,10 +168,12 @@ def evaluations(experiment: str | None, spec: str) -> list[Path]:
     folder = Path(experiment)
     if not folder.is_dir():
         folder = EVALUATIONS / experiment
+    day = spec.replace("-", "")
     by_domain: dict[str, list[str]] = {}
     with open(folder / "index.csv", newline="") as f:
         for row in csv.DictReader(f):
-            if row["evaluation"].startswith(spec):
+            same_day = row["started"][:10].replace("-", "") == day
+            if same_day or row["evaluation"].startswith(spec):
                 by_domain.setdefault(row["domain"], []).append(row["evaluation"])
     if not by_domain:
         raise SystemExit(f"error: no evaluation of {folder.name} starts with {spec}")

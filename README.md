@@ -168,11 +168,15 @@ set each wrong value, and what the `kind` and `step` columns of `checks.csv`
 mean, is in `docs/how-it-works.md` (sections 2.6 and 2.7), which follows
 one real attempt through the whole pipeline.
 
-An evaluation folder is named by its start time and domain, then anything
+An evaluation folder is named by its domain and start time, then anything
 that makes it differ from the experiment file: a `--label` word, an
 overridden model or mode as `model=...`, and `limitN` when only the first N
-tasks ran. So `evaluations/smoke/20261027-093012-itsm-limit5/` is the smoke
-experiment's first five ITSM tasks run on 27 October. The experiment, not
+tasks ran. So `evaluations/smoke/itsm-2026-10-27-0930-limit5/` is the smoke
+experiment's first five ITSM tasks run at 09:30 on 27 October; the seconds
+are added only when a second evaluation of the same domain starts within
+the minute. Evaluations run before 12 November 2026 keep the earlier
+time-first names (`20261027-093012-itsm-limit5`); `index.csv` and
+`mas-optimiser list` read both alike. The experiment, not
 the model, domain or date, is the folder level, because it is the question
 being asked; the others are columns of `index.csv`, where any cut of the
 results is one table away. An attempt that raises an error counts as failed
@@ -214,6 +218,7 @@ Every evaluation folder is written to be read without a tracing server:
 | the tasks' policy, request, checks and tools | the dataset and `vendor/enterpriseops-gym/data/revised/`; the corrections in `data/check_patches.json` | |
 | the tables a domain has, with keys and references | `docs/data-model/<domain>.md`; the schema in `data/schemas/<domain>.sql` | `mas-optimiser schema` |
 | which tasks are training, validation and test | `configs/splits/<name>.json` | `mas-optimiser split` |
+| every evaluation of an experiment, at a glance | `mas-optimiser list <experiment>`, from `index.csv` | `listing` |
 | whether a candidate beat the current harness, by how much, and the smallest gain the data could show | `comparison.md` and `figures/` in the folder `mas-optimiser compare` writes | `stats.compare` |
 
 ## Splitting the tasks
@@ -297,6 +302,17 @@ writes it, rebuilt from the saved changes, as `attempt-<n>.sqlite` beside
 the record. Open it with `sqlite3` or an editor's SQLite viewer to run a
 check's query by hand or browse every table; it is the database `rescore`
 judges on.
+
+## Listing an experiment's evaluations
+
+```
+mas-optimiser list <experiment> [--domain itsm]
+```
+
+Prints the experiment's `index.csv` as a table in start order: when each
+evaluation ran, its domain, mode, model and label, attempts and checks
+passed, and cost. It is the quickest way to find an evaluation's folder
+without reading folder names.
 
 ## Comparing two evaluations
 
