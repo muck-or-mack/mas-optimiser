@@ -301,12 +301,21 @@ judges on.
 ## Comparing two evaluations
 
 ```
-mas-optimiser compare --a <evaluation> [--a ...] --b <evaluation> [--b ...] [--split <name>] [--out <folder>]
+mas-optimiser compare --experiment <experiment> --a <name> --b <name> [--split <name>] [--out <folder>]
 ```
 
-Compares a candidate (`--b`) with the current harness (`--a`) task by task, each
-side one evaluation per domain, on the tasks of a split's set (the
-validation set by default) or on every task both sides scored. It writes
+Compares a candidate (`--b`) with the current harness (`--a`) task by task,
+each side one evaluation per domain, on the tasks of a split's set (the
+validation set by default) or on every task both sides scored. A side is
+named by the start of its evaluations' names in the experiment's
+`index.csv`, which is the day they ran when the experiment ran once that
+day, or by evaluation folders given one `--a` or `--b` at a time. The two
+baseline runs of the same harness, which set the noise floor:
+
+```
+mas-optimiser compare --experiment baseline-haiku --a 20261027 --b 20261103 --split haiku-20-40-40
+```
+ It writes
 `comparison.md` with the paired test, its companions and the decision
 rules, pooled and per domain, for both outcomes (fraction of checks passed
 and task success); `differences.csv` with one row per task; and `figures/`

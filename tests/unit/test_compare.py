@@ -4,6 +4,7 @@ import argparse
 import csv
 
 import numpy as np
+import pytest
 
 from mas_optimiser.stats import compare, figures, gate, outcomes
 from tests.unit.test_stats import write_evaluation
@@ -35,8 +36,9 @@ def test_compare_writes_the_tables_the_differences_and_the_figures(tmp_path):
     out = tmp_path / "cmp"
     compare.run(
         argparse.Namespace(
-            a=a,
-            b=b,
+            experiment=None,
+            a=[str(p) for p in a],
+            b=[str(p) for p in b],
             split=None,
             subset="validation",
             outcome="checks",
@@ -99,3 +101,37 @@ def test_figures_save_the_numbers_they_plot(tmp_path):
     with open(tmp_path / "differences.csv") as f:
         rows = list(csv.DictReader(f))
     assert sum(int(r["tasks"]) for r in rows) == 40
+
+
+def test_evaluations_resolve_a_name_through_the_index(tmp_path):
+    a, b = sides(tmp_path)
+    experiment = tmp_path / "exp"
+    experiment.mkdir()
+    names = {
+        a[0]: "20261027-052820-itsm",
+        a[1]: "20261027-055013-csm",
+        b[0]: "20261103-080328-itsm",
+        b[1]: "20261103-082642-csm",
+    }
+    for folder, name in names.items():
+        folder.rename(experiment / name)
+    with open(experiment / "index.csv", "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=["evaluation", "started", "domain"])
+        writer.writeheader()
+        for name in sorted(names.values()):
+            writer.writerow(
+                {"evaluation": name, "started": "", "domain": name.split("-")[-1]}
+            )
+    found = compare.evaluations(str(experiment), "20261027")
+    assert sorted(p.name for p in found) == [
+        "20261027-052820-itsm",
+        "20261027-055013-csm",
+    ]
+    folder = experiment / "20261103-080328-itsm"
+    assert compare.evaluations(None, str(folder)) == [folder]
+    with pytest.raises(SystemExit, match="more than one evaluation"):
+        compare.evaluations(str(experiment), "2026")
+    with pytest.raises(SystemExit, match="no evaluation"):
+        compare.evaluations(str(experiment), "20270101")
+    with pytest.raises(SystemExit, match="give --experiment"):
+        compare.evaluations(None, "20261027")

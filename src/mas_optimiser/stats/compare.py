@@ -1,11 +1,14 @@
 """Compare two sets of evaluations task by task: the ``mas-optimiser compare`` command.
 
-    mas-optimiser compare --a <evaluation> [--a ...] --b <evaluation> [--b ...]
+    mas-optimiser compare --experiment baseline-haiku --a 20261027 --b 20261103
         [--split <name or file>] [--subset validation] [--outcome checks]
         [--alpha 0.05] [--out <folder>]
 
-Each side is one evaluation per domain; ``--a`` is the current harness, ``--b`` the
-candidate. The command writes ``comparison.md`` (the gate's test, its
+Each side is one evaluation per domain; ``--a`` is the current harness, ``--b``
+the candidate. A side is named by evaluation folders, repeated once per
+domain, or by the start of the evaluations' names within ``--experiment``
+(a day, ``20261027``, when one evaluation per domain ran that day), which
+the experiment's ``index.csv`` resolves. The command writes ``comparison.md`` (the gate's test, its
 companions and the decision rules, pooled and per domain, for both outcomes),
 ``differences.csv`` (one row per task) and ``figures/`` (each figure as PDF
 and PNG with its numbers as CSV) into ``--out``, by default
@@ -19,6 +22,7 @@ import csv
 from datetime import datetime
 from pathlib import Path
 
+from mas_optimiser.benchmarks.enterpriseops.runner import EVALUATIONS
 from mas_optimiser.stats import budget, figures, gate
 from mas_optimiser.stats.outcomes import OUTCOMES, Comparison, paired
 
@@ -51,20 +55,25 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         parser: The command's subparser.
     """
     parser.add_argument(
+        "--experiment",
+        default=None,
+        help="the experiment whose index.csv resolves --a and --b given as names",
+    )
+    parser.add_argument(
         "--a",
         action="append",
         required=True,
-        type=Path,
         metavar="EVALUATION",
-        help="an evaluation of the current harness; repeat for each domain",
+        help="the current harness: an evaluation folder, repeated per domain, "
+        "or the start of its evaluations' names within --experiment",
     )
     parser.add_argument(
         "--b",
         action="append",
         required=True,
-        type=Path,
         metavar="EVALUATION",
-        help="a candidate evaluation; repeat for each domain",
+        help="the candidate: an evaluation folder, repeated per domain, "
+        "or the start of its evaluations' names within --experiment",
     )
     parser.add_argument(
         "--split",
@@ -128,6 +137,52 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def evaluations(experiment: str | None, spec: str) -> list[Path]:
+    """The evaluation folders one side names.
+
+    ``spec`` is an evaluation folder, used as it is; otherwise it is the start
+    of evaluation names in the experiment's ``index.csv``, such as the day the
+    evaluations ran, and every evaluation whose name starts with it is taken,
+    one per domain.
+
+    Args:
+        experiment: The experiment's name under ``evaluations/``, or its
+            folder; needed when ``spec`` is not a folder.
+        spec: An evaluation folder, or the start of evaluation names.
+
+    Returns:
+        The evaluation folders, one per domain.
+
+    Raises:
+        SystemExit: If ``spec`` is not a folder and no experiment is given,
+            if nothing matches, or if a domain matches more than once.
+    """
+    path = Path(spec)
+    if path.is_dir():
+        return [path]
+    if experiment is None:
+        raise SystemExit(
+            f"error: {spec} is not an evaluation folder; give --experiment to"
+            " look it up by name"
+        )
+    folder = Path(experiment)
+    if not folder.is_dir():
+        folder = EVALUATIONS / experiment
+    by_domain: dict[str, list[str]] = {}
+    with open(folder / "index.csv", newline="") as f:
+        for row in csv.DictReader(f):
+            if row["evaluation"].startswith(spec):
+                by_domain.setdefault(row["domain"], []).append(row["evaluation"])
+    if not by_domain:
+        raise SystemExit(f"error: no evaluation of {folder.name} starts with {spec}")
+    clashes = {d: names for d, names in by_domain.items() if len(names) > 1}
+    if clashes:
+        raise SystemExit(
+            f"error: {spec} names more than one evaluation of a domain: {clashes}"
+        )
+    return [folder / names[0] for names in by_domain.values()]
+
+
 def _row(name: str, cmp: Comparison, alpha: float) -> list[str]:
     """One table row: the tests of a comparison at one level.
 
@@ -186,16 +241,17 @@ def run(args: argparse.Namespace) -> None:
     """
     out = args.out or Path("comparisons") / datetime.now().strftime("%Y%m%d-%H%M%S")
     out.mkdir(parents=True, exist_ok=True)
+    a = [p for spec in args.a for p in evaluations(args.experiment, spec)]
+    b = [p for spec in args.b for p in evaluations(args.experiment, spec)]
     comparisons = {
-        outcome: paired(args.a, args.b, outcome, args.split, args.subset)
-        for outcome in OUTCOMES
+        outcome: paired(a, b, outcome, args.split, args.subset) for outcome in OUTCOMES
     }
     primary = comparisons[args.outcome]
     names = (
         "candidate "
-        + ", ".join(p.name for p in args.b)
+        + ", ".join(p.name for p in b)
         + " against current "
-        + ", ".join(p.name for p in args.a)
+        + ", ".join(p.name for p in a)
     )
     where = (
         f"the {args.subset} tasks of split {args.split}"
