@@ -12,7 +12,7 @@ row per evaluation.
 
 An experiment is a named question (``baseline-haiku``), set out in
 ``configs/experiments/``; an evaluation is one model on one domain's tasks,
-named by its start time and domain plus whatever makes it differ from the
+named by its domain and start time plus whatever makes it differ from the
 experiment file. Tasks come from the Hugging Face dataset at a pinned
 revision; in oracle and all-tools mode the benchmark's corrected copies in
 ``data/revised`` replace the dataset's versions. Each attempt gets a fresh
@@ -394,18 +394,27 @@ def load_experiment(spec: str, overrides: dict) -> dict:
     }
 
 
-def evaluation_name(settings: dict, domain: str, started: datetime) -> str:
-    """An evaluation folder's name: start time, domain, label, any overridden model or mode, the split set, the task limit.
+def evaluation_name(
+    settings: dict, domain: str, started: datetime, seconds: bool = False
+) -> str:
+    """An evaluation folder's name: domain, start day and minute, label, any overridden model or mode, the split set, the task limit.
+
+    ``itsm-2026-11-03-0803`` reads as the domain first and the time second,
+    so a folder listing groups by domain and sorts by time within it. The
+    seconds are added only when a second evaluation of the same domain
+    starts within the same minute.
 
     Args:
         settings: The experiment's settings, from ``load_experiment``.
         domain: The evaluation's domain.
         started: The evaluation's start time.
+        seconds: Whether to add the seconds to the start time.
 
     Returns:
         The name.
     """
-    parts = [f"{started:%Y%m%d-%H%M%S}", domain]
+    time = f"{started:%Y-%m-%d-%H%M%S}" if seconds else f"{started:%Y-%m-%d-%H%M}"
+    parts = [domain, time]
     if settings["label"]:
         parts.append(str(settings["label"]))
     for key in NAMED_OVERRIDES:
@@ -1134,6 +1143,8 @@ def evaluate(
         / experiment["experiment"]
         / evaluation_name(experiment, domain, started)
     )
+    if out.exists() and not experiment["out"]:
+        out = out.with_name(evaluation_name(experiment, domain, started, seconds=True))
     (out / "tasks").mkdir(parents=True)
     # The benchmark logs every request and tool call at INFO; keep that in the
     # evaluation folder rather than on the terminal. One handler per

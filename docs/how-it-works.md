@@ -473,6 +473,7 @@ is credited in `NOTICE.md` as well.
 |---|---|
 | `src/mas_optimiser/cli.py` | the `mas-optimiser` command and its sub-commands |
 | `src/mas_optimiser/tracing.py` | Langfuse: one trace per attempt, scored |
+| `src/mas_optimiser/benchmarks/enterpriseops/listing.py` | the `list` command: an experiment's evaluations from its index |
 | `src/mas_optimiser/stats/outcomes.py` | per-task scores and the paired differences of two evaluations |
 | `src/mas_optimiser/stats/gate.py` | the gate's test, the detectable gain, and the sign, permutation, bootstrap and Bernstein checks |
 | `src/mas_optimiser/stats/budget.py` | the level of each decision: the REUSE allocation, the equal split, a fixed significance |

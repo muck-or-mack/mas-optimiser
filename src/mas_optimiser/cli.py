@@ -9,7 +9,8 @@ module, which defines its options (``add_arguments``) and its work (``run``):
     mas-optimiser rebuild evaluations/<experiment>/<evaluation> <task_id> 1
     mas-optimiser split --experiment baseline-haiku --name haiku-20-40-40
     mas-optimiser schema
-    mas-optimiser compare --a <evaluation> --b <evaluation>
+    mas-optimiser compare --experiment baseline-haiku --a 20261027 --b 20261103
+    mas-optimiser list baseline-haiku
 
 Sources: ``docs/how-it-works.md``, section 6, the rows for ``cli``.
 """
@@ -17,6 +18,7 @@ Sources: ``docs/how-it-works.md``, section 6, the rows for ``cli``.
 import argparse
 
 from mas_optimiser.benchmarks.enterpriseops import (
+    listing,
     rebuild,
     rescore,
     runner,
@@ -32,6 +34,7 @@ COMMANDS = {
     "split": splits,
     "schema": seeds,
     "compare": compare,
+    "list": listing,
 }
 
 

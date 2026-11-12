@@ -64,4 +64,7 @@ The package's modules, from their docstrings. The command line is
 
 .. automodule:: mas_optimiser.benchmarks.enterpriseops.splits
    :members:
+
+.. automodule:: mas_optimiser.benchmarks.enterpriseops.listing
+   :members:
 ```

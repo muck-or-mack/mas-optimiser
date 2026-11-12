@@ -103,34 +103,38 @@ def test_figures_save_the_numbers_they_plot(tmp_path):
     assert sum(int(r["tasks"]) for r in rows) == 40
 
 
-def test_evaluations_resolve_a_name_through_the_index(tmp_path):
+def test_evaluations_resolve_a_day_or_a_name_through_the_index(tmp_path):
     a, b = sides(tmp_path)
     experiment = tmp_path / "exp"
     experiment.mkdir()
     names = {
-        a[0]: "20261027-052820-itsm",
-        a[1]: "20261027-055013-csm",
-        b[0]: "20261103-080328-itsm",
-        b[1]: "20261103-082642-csm",
+        a[0]: ("itsm-2026-10-27-0528", "2026-10-27T05:28:20"),
+        a[1]: ("csm-2026-10-27-0550", "2026-10-27T05:50:13"),
+        b[0]: ("itsm-2026-11-03-0803", "2026-11-03T08:03:28"),
+        b[1]: ("csm-2026-11-03-0826", "2026-11-03T08:26:42"),
     }
-    for folder, name in names.items():
+    for folder, (name, _) in names.items():
         folder.rename(experiment / name)
     with open(experiment / "index.csv", "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=["evaluation", "started", "domain"])
         writer.writeheader()
-        for name in sorted(names.values()):
+        for name, started in names.values():
             writer.writerow(
-                {"evaluation": name, "started": "", "domain": name.split("-")[-1]}
+                {"evaluation": name, "started": started, "domain": name.split("-")[0]}
             )
-    found = compare.evaluations(str(experiment), "20261027")
-    assert sorted(p.name for p in found) == [
-        "20261027-052820-itsm",
-        "20261027-055013-csm",
+    by_day = compare.evaluations(str(experiment), "20261027")
+    assert sorted(p.name for p in by_day) == [
+        "csm-2026-10-27-0550",
+        "itsm-2026-10-27-0528",
     ]
-    folder = experiment / "20261103-080328-itsm"
+    assert compare.evaluations(str(experiment), "2026-10-27") == by_day
+    assert [p.name for p in compare.evaluations(str(experiment), "itsm-2026-11")] == [
+        "itsm-2026-11-03-0803"
+    ]
+    folder = experiment / "itsm-2026-11-03-0803"
     assert compare.evaluations(None, str(folder)) == [folder]
     with pytest.raises(SystemExit, match="more than one evaluation"):
-        compare.evaluations(str(experiment), "2026")
+        compare.evaluations(str(experiment), "itsm")
     with pytest.raises(SystemExit, match="no evaluation"):
         compare.evaluations(str(experiment), "20270101")
     with pytest.raises(SystemExit, match="give --experiment"):
