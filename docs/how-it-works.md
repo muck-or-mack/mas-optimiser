@@ -438,7 +438,7 @@ is credited in `NOTICE.md` as well.
 | all modules | EnterpriseOps-Gym (ServiceNow; repository at 271f2c3, Apache-2.0; paper arXiv:2603.13594; dataset `ServiceNow-AI/enterprise_ops-gym` at c8e538e) | the servers, executor, orchestrator, config classes, MCP client, checks and seed files, used unmodified from the submodule; the tasks and their corrected copies | `benchmarks/enterpriseops/__init__.py` puts the submodule on `sys.path` |
 | all modules | the convention shared by StarHarness, GEPA, OpenEvolve and ShinkaEvolve | the benchmark adapter kept apart from the optimiser, and the benchmark with its checks never editable | the package layout |
 | all modules | Google docstrings checked by ruff and pydoclint; setuptools-scm | every function documented and checked in CI; the code version stamped into every evaluation and split | `pyproject.toml`, `ci.yml`, `mas_optimiser.code_version` |
-| `cli` | the author's research-computing practice (the C1 module of the Cambridge MPhil in Data Intensive Science) | one console command declared in `pyproject.toml`; each module exposes `add_arguments` and `run` so an option is defined once | `cli.COMMANDS` |
+| `cli` | the author's research-computing practice | one console command declared in `pyproject.toml`; each module exposes `add_arguments` and `run` so an option is defined once | `cli.COMMANDS` |
 | `runner` | EnterpriseOps-Gym `benchmark/executor.py` | `BenchmarkExecutor` subclassed, with `initialize` and `_run_verifiers` overridden; `ReactOrchestrator`, `BenchmarkConfig` and `LLMConfig` as released | `runner.TaskExecutor` |
 | `runner` | the Hugging Face dataset and the repository's `data/revised` | the task configs at a pinned revision, the corrected copies replacing the dataset's in oracle and all-tools mode | `runner.load_tasks` |
 | `runner` | the EnterpriseOps-Gym paper, the distractor study | the reason for the `all_tools` mode: distractor tools were found to cost nothing in completion | `runner.MODES` |
@@ -459,8 +459,13 @@ is credited in `NOTICE.md` as well.
 | `seeds` | EnterpriseOps-Gym `benchmark/mcp_client.py` | `delete_database` imported; `create_database_from_file` reproduced as `server_database` with the same endpoint and payload (see `NOTICE.md`) | `seeds.server_database` |
 | `seeds` | own design | the table schema read from `sqlite_master` on a seeded server database; local seed copies; the data-model pages | `seeds.build_seed_database`, `schema_markdown` |
 | `splits` | StarHarness (arXiv:2608.24804) | the protocol of a stratified draw into a proposer-visible set, a gate set and a held-out set; its `stratify_tasks.py` was not copied | `splits.draw` |
-| `splits` | stratified sampling (the S1 statistics module of the same MPhil) | strata as domain crossed with baseline outcome, quotas by largest remainder | `splits.quotas`, `draw` |
+| `splits` | stratified sampling (Cochran, *Sampling Techniques*, Wiley, 1977) | strata as domain crossed with baseline outcome, quotas by largest remainder | `splits.quotas`, `draw` |
 | `splits` | REUSE (arXiv:2609.33180); Kapoor et al. (arXiv:2407.01502); SEAL (arXiv:2607.24300) | the gate set returns only accept or reject to the proposer; a sealed test set opened once; a split drawn once and never redrawn | `splits.build_split` |
+| `stats` | own design | per-task scores for two outcomes, the paired comparison over the same tasks, the `compare` command, and figures saved with their numbers | `stats.outcomes`, `stats.compare`, `stats.figures` |
+| `stats` | Barlow, *Statistics* (Wiley, 1989), estimation and hypothesis testing | the standard error of a mean, the one-sided normal test, the Type-I and Type-II errors, power and the detectable gain | `stats.gate.mean_test`, `detectable`, `power` |
+| `stats` | Efron and Tibshirani, *An Introduction to the Bootstrap* (Chapman and Hall, 1993) | the bootstrap spread of the mean difference and the permutation test | `stats.gate.bootstrap`, `permutation_test` |
+| `stats` | REUSE (arXiv:2609.33180) | the error budget over a run's decisions (Eq. 4), the exact sign test (Lemma A2) and the bounded-score lower confidence bound (appendix A.1) | `stats.budget.reuse_level`, `stats.gate.sign_test`, `bernstein_bound` |
+| `stats` | Bonferroni's inequality; the significance conventions of particle physics | the equal split of the budget and the fixed threshold in standard deviations, shown beside the allocation | `stats.budget.bonferroni_level`, `fixed_level` |
 
 ## Appendix: file map
 
@@ -468,6 +473,11 @@ is credited in `NOTICE.md` as well.
 |---|---|
 | `src/mas_optimiser/cli.py` | the `mas-optimiser` command and its sub-commands |
 | `src/mas_optimiser/tracing.py` | Langfuse: one trace per attempt, scored |
+| `src/mas_optimiser/stats/outcomes.py` | per-task scores and the paired differences of two evaluations |
+| `src/mas_optimiser/stats/gate.py` | the gate's test, the detectable gain, and the sign, permutation, bootstrap and Bernstein checks |
+| `src/mas_optimiser/stats/budget.py` | the level of each decision: the REUSE allocation, the equal split, a fixed significance |
+| `src/mas_optimiser/stats/figures.py` | the comparison's figures, each with its numbers as CSV |
+| `src/mas_optimiser/stats/compare.py` | the `compare` command |
 | `.../enterpriseops/runner.py` | experiments, tasks, the executor subclass, attempts in parallel, the results files |
 | `.../enterpriseops/checks.py` | distinct checks, the patch list, the numeric recheck, the benchmark's verdict beside ours |
 | `.../enterpriseops/states.py` | the final state read back, the diff against the seed, the local rebuild |

@@ -26,3 +26,4 @@ jobs:
           # In its own environment, not the project's (see pyproject.toml).
           uvx pydoclint@0.12.0 src
           uv run pytest -q
+          uv run sphinx-build -W --keep-going -q docs docs/_build/html

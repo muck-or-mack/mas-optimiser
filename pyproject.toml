@@ -33,8 +33,11 @@ mas-optimiser = "mas_optimiser.cli:main"
 
 [dependency-groups]
 dev = [
+    "myst-parser>=5.2.0",
     "pytest",
     "ruff",
+    "sphinx>=9.0.4",
+    "sphinx-rtd-theme>=3.1.0",
 ]
 
 [tool.pytest.ini_options]
@@ -92,3 +95,6 @@ cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true, tags = true 
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+mas_optimiser = ["stats/*.mplstyle"]

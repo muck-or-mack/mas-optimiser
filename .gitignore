@@ -14,8 +14,12 @@ src/mas_optimiser/_version.py
 .venv/
 .env
 
+# built documentation
+docs/_build/
+
 # run outputs (W&B and Langfuse keep the record)
 evaluations/
+comparisons/
 wandb/
 
 # editor / IDE
