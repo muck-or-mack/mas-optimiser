@@ -22,8 +22,10 @@ dependencies = [
     "langchain-anthropic",
     "langchain-core",
     "langfuse>=5.0.4",
+    "matplotlib>=3.11.2",
     "python-dotenv",
     "pyyaml",
+    "scipy>=1.17.1",
 ]
 
 [project.scripts]
