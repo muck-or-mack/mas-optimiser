@@ -1,0 +1,26 @@
+# Figure style for the statistics module: small, print-ready figures with
+# inward ticks and a light grid. Loaded by figures.py.
+
+figure.figsize : 5.0, 3.2
+figure.autolayout : True
+figure.dpi : 100
+savefig.dpi : 150
+
+font.size : 10
+axes.labelsize : 11
+axes.titlesize : 11
+legend.fontsize : 9
+legend.frameon : False
+
+xtick.labelsize : 9
+ytick.labelsize : 9
+xtick.direction : in
+ytick.direction : in
+xtick.minor.visible : True
+ytick.minor.visible : True
+
+axes.grid : True
+grid.alpha : 0.3
+grid.linewidth : 0.5
+
+lines.linewidth : 1.5

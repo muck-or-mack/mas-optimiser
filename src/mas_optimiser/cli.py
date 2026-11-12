@@ -9,6 +9,7 @@ module, which defines its options (``add_arguments``) and its work (``run``):
     mas-optimiser rebuild evaluations/<experiment>/<evaluation> <task_id> 1
     mas-optimiser split --experiment baseline-haiku --name haiku-20-40-40
     mas-optimiser schema
+    mas-optimiser compare --a <evaluation> --b <evaluation>
 
 Sources: ``docs/how-it-works.md``, section 6, the rows for ``cli``.
 """
@@ -22,6 +23,7 @@ from mas_optimiser.benchmarks.enterpriseops import (
     seeds,
     splits,
 )
+from mas_optimiser.stats import compare
 
 COMMANDS = {
     "run": runner,
@@ -29,6 +31,7 @@ COMMANDS = {
     "rebuild": rebuild,
     "split": splits,
     "schema": seeds,
+    "compare": compare,
 }
 
 

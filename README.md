@@ -214,6 +214,7 @@ Every evaluation folder is written to be read without a tracing server:
 | the tasks' policy, request, checks and tools | the dataset and `vendor/enterpriseops-gym/data/revised/`; the corrections in `data/check_patches.json` | |
 | the tables a domain has, with keys and references | `docs/data-model/<domain>.md`; the schema in `data/schemas/<domain>.sql` | `mas-optimiser schema` |
 | which tasks are training, validation and test | `configs/splits/<name>.json` | `mas-optimiser split` |
+| whether a candidate beat the current harness, by how much, and the smallest gain the data could show | `comparison.md` and `figures/` in the folder `mas-optimiser compare` writes | `stats.compare` |
 
 ## Splitting the tasks
 
@@ -296,6 +297,32 @@ writes it, rebuilt from the saved changes, as `attempt-<n>.sqlite` beside
 the record. Open it with `sqlite3` or an editor's SQLite viewer to run a
 check's query by hand or browse every table; it is the database `rescore`
 judges on.
+
+## Comparing two evaluations
+
+```
+mas-optimiser compare --experiment <experiment> --a <name> --b <name> [--split <name>] [--out <folder>]
+```
+
+Compares a candidate (`--b`) with the current harness (`--a`) task by task,
+each side one evaluation per domain, on the tasks of a split's set (the
+validation set by default) or on every task both sides scored. A side is
+named by the start of its evaluations' names in the experiment's
+`index.csv`, which is the day they ran when the experiment ran once that
+day, or by evaluation folders given one `--a` or `--b` at a time. The two
+baseline runs of the same harness, which set the noise floor:
+
+```
+mas-optimiser compare --experiment baseline-haiku --a 20261027 --b 20261103 --split haiku-20-40-40
+```
+ It writes
+`comparison.md` with the paired test, its companions and the decision
+rules, pooled and per domain, for both outcomes (fraction of checks passed
+and task success); `differences.csv` with one row per task; and `figures/`
+with each figure as PDF and PNG and its numbers as CSV. The method is in
+`docs/methodology/acceptance-gate.md`. Running it on the 27 October and
+3 November baselines, two runs of one harness, gives the noise floor every
+later gain is measured against.
 
 ## Watching an attempt in Langfuse
 
