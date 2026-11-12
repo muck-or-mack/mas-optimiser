@@ -174,3 +174,23 @@ def test_detectable_is_the_sum_of_two_normal_quantiles_times_se():
     assert gate.power(se, mde) == pytest.approx(0.8, abs=1e-6)
     assert gate.power(se, 0.0) == pytest.approx(0.05, abs=1e-6)
     assert gate.detectable(se, power=0.9) > mde
+
+
+def test_permutation_test_recovers_the_exact_sign_flip_probability():
+    # Three non-zero differences of equal size: the observed sum of +1/3 - 1/3 + 1/3
+    # is matched or beaten by 4 of the 8 sign patterns, so p = 0.5.
+    result = gate.permutation_test(D, draws=20_000, seed=1)
+    assert result.p == pytest.approx(0.5, abs=0.02)
+    assert not result.accept
+    assert gate.permutation_test(D, draws=20_000, seed=1).p == result.p
+    assert gate.permutation_test(np.full(30, 0.2) + np.linspace(-0.05, 0.05, 30)).accept
+
+
+def test_bootstrap_spread_agrees_with_the_analytic_standard_error():
+    rng = np.random.default_rng(3)
+    d = rng.choice([-1 / 3, 0.0, 1 / 3], size=125, p=[0.1, 0.8, 0.1])
+    analytic = gate.mean_test(d)
+    boot = gate.bootstrap(d, seed=3)
+    assert boot.se == pytest.approx(analytic.se, rel=0.1)
+    assert boot.lower < d.mean()
+    assert gate.bootstrap(d, seed=3).lower == boot.lower

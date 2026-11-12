@@ -5,10 +5,12 @@ incumbent is at most zero. ``mean_test`` compares the observed mean, in units
 of its standard error, with the normal quantile at the decision's Type-I
 error level ``alpha``; the candidate is kept when the statistic crosses it.
 ``detectable`` gives the smallest true gain the test finds with a chosen
-power and ``power`` the chance of finding a given gain. ``sign_test`` is the
-exact companion on the tasks whose score changed, and ``bernstein_bound`` the
-distribution-free lower confidence bound of Sun et al. (arXiv 2609.33180);
-both are reported beside the main test, not used in its place.
+power and ``power`` the chance of finding a given gain. Beside the main test,
+and not in its place: ``sign_test``, the exact test on the tasks whose score
+changed; ``permutation_test``, the same mean difference judged against random
+relabellings of the two sides; ``bootstrap``, the spread of the mean
+difference from resampled tasks; and ``bernstein_bound``, the
+distribution-free lower confidence bound of Sun et al. (arXiv 2609.33180).
 
 Sources: ``docs/how-it-works.md``, section 6, the rows for ``stats``.
 """
@@ -237,3 +239,98 @@ def power(se: float, gain: float, alpha: float = 0.05) -> float:
     """
     x0 = stats.norm.ppf(1 - alpha)
     return float(stats.norm.sf(x0 - gain / se))
+
+
+@dataclass(frozen=True)
+class PermutationTest:
+    """The sign-flip permutation test of the mean paired difference.
+
+    Attributes:
+        draws: The number of random relabellings drawn.
+        p: The fraction of relabellings whose mean is at or above the
+            observed one, counting the observed labelling itself.
+        alpha: The Type-I error level the decision was made at.
+        accept: Whether ``p`` is at most ``alpha``.
+    """
+
+    draws: int
+    p: float
+    alpha: float
+    accept: bool
+
+
+def permutation_test(
+    d: np.ndarray, alpha: float = 0.05, draws: int = 10_000, seed: int = 0
+) -> PermutationTest:
+    """Judge the mean paired difference against random relabellings of the sides.
+
+    Under the null hypothesis the two harnesses' scores on a task are
+    exchangeable, so each difference keeps its size and takes a random sign.
+    The mean is recomputed over ``draws`` such relabellings and the p-value is
+    the fraction at or above the observed mean, with the observed labelling
+    counted among them so that the p-value is never zero. The test assumes
+    nothing about the differences' distribution; with a fixed ``seed`` it is
+    reproducible.
+
+    Args:
+        d: The per-task differences, candidate minus incumbent.
+        alpha: The Type-I error allowed for this decision.
+        draws: The number of random relabellings.
+        seed: The seed of the random relabellings.
+
+    Returns:
+        The p-value and verdict.
+    """
+    d = np.asarray(d, dtype=float)
+    signs = np.random.default_rng(seed).choice([-1.0, 1.0], size=(draws, len(d)))
+    means = (signs * d).mean(axis=1)
+    p = (int(np.count_nonzero(means >= d.mean())) + 1) / (draws + 1)
+    return PermutationTest(draws=draws, p=p, alpha=alpha, accept=p <= alpha)
+
+
+@dataclass(frozen=True)
+class Bootstrap:
+    """The bootstrap spread of the mean paired difference.
+
+    Attributes:
+        draws: The number of resamples.
+        se: The standard deviation of the resampled means.
+        lower: The ``alpha`` quantile of the resampled means, a one-sided
+            lower bound on the true mean at confidence ``1 - alpha``.
+        alpha: The level of the lower bound.
+    """
+
+    draws: int
+    se: float
+    lower: float
+    alpha: float
+
+
+def bootstrap(
+    d: np.ndarray, alpha: float = 0.05, draws: int = 10_000, seed: int = 0
+) -> Bootstrap:
+    """Resample the tasks with replacement to see how the mean difference spreads.
+
+    Each resample draws ``len(d)`` tasks with replacement and takes their mean
+    difference; ``se`` is the standard deviation of those means, a check on
+    the analytic standard error of ``mean_test``, and ``lower`` their
+    ``alpha`` quantile. With a fixed ``seed`` the result is reproducible.
+
+    Args:
+        d: The per-task differences, candidate minus incumbent.
+        alpha: One minus the confidence of the lower bound.
+        draws: The number of resamples.
+        seed: The seed of the resampling.
+
+    Returns:
+        The spread and the lower bound.
+    """
+    d = np.asarray(d, dtype=float)
+    rows = np.random.default_rng(seed).integers(0, len(d), size=(draws, len(d)))
+    means = d[rows].mean(axis=1)
+    return Bootstrap(
+        draws=draws,
+        se=float(means.std(ddof=1)),
+        lower=float(np.quantile(means, alpha)),
+        alpha=alpha,
+    )
