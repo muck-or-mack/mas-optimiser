@@ -64,7 +64,7 @@ class Comparison:
     Attributes:
         tasks: The task ids, in a fixed order (by domain, then id).
         domains: Each task's domain, aligned with ``tasks``.
-        a: The incumbent's per-task scores, aligned with ``tasks``.
+        a: The current harness's per-task scores, aligned with ``tasks``.
         b: The candidate's per-task scores, aligned with ``tasks``.
         outcome: The outcome the scores are, one of ``OUTCOMES``.
     """
@@ -118,7 +118,7 @@ def paired(
     scored. The two sides must then cover the same tasks.
 
     Args:
-        a: The incumbent's evaluations.
+        a: The current harness's evaluations.
         b: The candidate's evaluations.
         outcome: The outcome to score, one of ``OUTCOMES``.
         split: A split's name or path (``splits.load_split``), or ``None``.

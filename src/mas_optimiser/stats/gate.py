@@ -1,7 +1,7 @@
 """The acceptance gate's test, its companion, and what the data can detect.
 
 The null hypothesis is that the candidate's true mean per-task gain over the
-incumbent is at most zero. ``mean_test`` compares the observed mean, in units
+current is at most zero. ``mean_test`` compares the observed mean, in units
 of its standard error, with the normal quantile at the decision's Type-I
 error level ``alpha``; the candidate is kept when the statistic crosses it.
 ``detectable`` gives the smallest true gain the test finds with a chosen
@@ -63,7 +63,7 @@ def mean_test(d: np.ndarray, alpha: float = 0.05) -> MeanTest:
     than Student's t; at 125 tasks the two thresholds differ by 0.01.
 
     Args:
-        d: The per-task differences, candidate minus incumbent.
+        d: The per-task differences, candidate minus current.
         alpha: The Type-I error allowed for this decision.
 
     Returns:
@@ -104,7 +104,7 @@ class SignTest:
 
     Attributes:
         n_plus: Tasks where the candidate scored higher.
-        n_minus: Tasks where the incumbent scored higher.
+        n_minus: Tasks where the current harness scored higher.
         p: ``P(Bin(n_plus + n_minus, 1/2) >= n_plus)``; 1 when no task changed.
         alpha: The Type-I error level the decision was made at.
         accept: Whether ``p`` is at most ``alpha``.
@@ -127,7 +127,7 @@ def sign_test(d: np.ndarray, alpha: float = 0.05) -> SignTest:
     their distribution, at the price of some power.
 
     Args:
-        d: The per-task differences, candidate minus incumbent.
+        d: The per-task differences, candidate minus current.
         alpha: The Type-I error allowed for this decision.
 
     Returns:
@@ -273,7 +273,7 @@ def permutation_test(
     reproducible.
 
     Args:
-        d: The per-task differences, candidate minus incumbent.
+        d: The per-task differences, candidate minus current.
         alpha: The Type-I error allowed for this decision.
         draws: The number of random relabellings.
         seed: The seed of the random relabellings.
@@ -317,7 +317,7 @@ def bootstrap(
     ``alpha`` quantile. With a fixed ``seed`` the result is reproducible.
 
     Args:
-        d: The per-task differences, candidate minus incumbent.
+        d: The per-task differences, candidate minus current.
         alpha: One minus the confidence of the lower bound.
         draws: The number of resamples.
         seed: The seed of the resampling.

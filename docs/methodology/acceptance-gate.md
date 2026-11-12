@@ -1,7 +1,7 @@
 # The acceptance gate
 
 The optimiser proposes a changed harness, the candidate, and must decide
-whether it is better than the harness it has, the incumbent. The decision is
+whether it is better than the harness it has, the current one (the papers call it the current harness). The decision is
 made on the validation tasks and is a statistical test: the candidate's gain
 has to be larger than the gain that chance alone produces between two runs of
 one and the same harness. This page defines the quantities, states the test
@@ -22,7 +22,7 @@ baselines). Two outcomes score an attempt:
 
 A task's score under a harness is the mean of its attempts' outcomes. With
 task success and three attempts it is one of $0, 1/3, 2/3, 1$; with the
-fraction it takes many values. For a candidate $B$ and an incumbent $A$ run
+fraction it takes many values. For a candidate $B$ and the current harness $A$ run
 on the same $N$ tasks, the per-task difference is
 
 $$d_i = \text{score}_i(B) - \text{score}_i(A), \qquad i = 1, \dots, N,$$

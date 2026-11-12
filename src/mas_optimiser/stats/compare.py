@@ -4,7 +4,7 @@
         [--split <name or file>] [--subset validation] [--outcome checks]
         [--alpha 0.05] [--out <folder>]
 
-Each side is one evaluation per domain; ``--a`` is the incumbent, ``--b`` the
+Each side is one evaluation per domain; ``--a`` is the current harness, ``--b`` the
 candidate. The command writes ``comparison.md`` (the gate's test, its
 companions and the decision rules, pooled and per domain, for both outcomes),
 ``differences.csv`` (one row per task) and ``figures/`` (each figure as PDF
@@ -27,7 +27,7 @@ LABELS = {"checks": "Fraction of checks passed", "success": "Task success"}
 COLUMNS = [
     "set",
     "tasks",
-    "incumbent",
+    "current",
     "candidate",
     "gain (points)",
     "SE (points)",
@@ -56,7 +56,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         required=True,
         type=Path,
         metavar="EVALUATION",
-        help="an incumbent evaluation; repeat for each domain",
+        help="an evaluation of the current harness; repeat for each domain",
     )
     parser.add_argument(
         "--b",
@@ -194,7 +194,7 @@ def run(args: argparse.Namespace) -> None:
     names = (
         "candidate "
         + ", ".join(p.name for p in args.b)
-        + " against incumbent "
+        + " against current "
         + ", ".join(p.name for p in args.a)
     )
     where = (
@@ -205,7 +205,7 @@ def run(args: argparse.Namespace) -> None:
     lines = [
         f"# Comparison: {names}",
         "",
-        f"Candidate (second) against incumbent (first) on {where}: {len(primary.tasks)} "
+        f"Candidate (second) against current (first) on {where}: {len(primary.tasks)} "
         f"tasks. Scores are per-task means over attempts; a point is a hundredth. "
         f"Decisions at level {args.alpha:g}, one-sided.",
         "",

@@ -214,7 +214,7 @@ Every evaluation folder is written to be read without a tracing server:
 | the tasks' policy, request, checks and tools | the dataset and `vendor/enterpriseops-gym/data/revised/`; the corrections in `data/check_patches.json` | |
 | the tables a domain has, with keys and references | `docs/data-model/<domain>.md`; the schema in `data/schemas/<domain>.sql` | `mas-optimiser schema` |
 | which tasks are training, validation and test | `configs/splits/<name>.json` | `mas-optimiser split` |
-| whether a candidate beat the incumbent, by how much, and the smallest gain the data could show | `comparison.md` and `figures/` in the folder `mas-optimiser compare` writes | `stats.compare` |
+| whether a candidate beat the current harness, by how much, and the smallest gain the data could show | `comparison.md` and `figures/` in the folder `mas-optimiser compare` writes | `stats.compare` |
 
 ## Splitting the tasks
 
@@ -304,7 +304,7 @@ judges on.
 mas-optimiser compare --a <evaluation> [--a ...] --b <evaluation> [--b ...] [--split <name>] [--out <folder>]
 ```
 
-Compares a candidate (`--b`) with an incumbent (`--a`) task by task, each
+Compares a candidate (`--b`) with the current harness (`--a`) task by task, each
 side one evaluation per domain, on the tasks of a split's set (the
 validation set by default) or on every task both sides scored. It writes
 `comparison.md` with the paired test, its companions and the decision

@@ -81,7 +81,7 @@ def differences(cmp: Comparison, out: Path) -> Path:
             header = ["bin_low", "bin_high", "tasks"]
         ax.axvline(0, color="black", linewidth=0.8)
         ax.axvline(d.mean(), color="C3", linewidth=1.2, label=f"mean {d.mean():+.3f}")
-        ax.set_xlabel(f"per-task difference, candidate minus incumbent ({cmp.outcome})")
+        ax.set_xlabel(f"per-task difference, candidate minus current ({cmp.outcome})")
         ax.set_ylabel("tasks")
         ax.legend()
     return _save(fig, out, "differences", header, rows)
@@ -187,7 +187,7 @@ def domains(cmp: Comparison, out: Path) -> Path:
     positions = np.arange(len(names))
     with plt.style.context(STYLE):
         fig, ax = plt.subplots()
-        ax.bar(positions - 0.2, a, width=0.4, label="incumbent")
+        ax.bar(positions - 0.2, a, width=0.4, label="current")
         ax.bar(positions + 0.2, b, width=0.4, label="candidate")
         ax.set_xticks(positions, names)
         ax.set_ylabel(f"mean score ({cmp.outcome})")
@@ -206,6 +206,6 @@ def domains(cmp: Comparison, out: Path) -> Path:
         fig,
         out,
         "domains",
-        ["set", "tasks", "incumbent", "candidate", "difference"],
+        ["set", "tasks", "current", "candidate", "difference"],
         rows,
     )

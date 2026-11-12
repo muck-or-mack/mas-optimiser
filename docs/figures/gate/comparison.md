@@ -1,10 +1,10 @@
-# Comparison: 20261027-052820-itsm, 20261027-055013-csm, 20261027-061153-hr against 20261103-080328-itsm, 20261103-082642-csm, 20261103-085112-hr
+# Comparison: candidate 20261103-080328-itsm, 20261103-082642-csm, 20261103-085112-hr against current 20261027-052820-itsm, 20261027-055013-csm, 20261027-061153-hr
 
-Candidate (second) against incumbent (first) on the validation tasks of split haiku-20-40-40: 125 tasks. Scores are per-task means over attempts; a point is a hundredth. Decisions at level 0.05, one-sided.
+Candidate (second) against current (first) on the validation tasks of split haiku-20-40-40: 125 tasks. Scores are per-task means over attempts; a point is a hundredth. Decisions at level 0.05, one-sided.
 
 ## Fraction of checks passed (the gate's outcome)
 
-| set | tasks | incumbent | candidate | gain (points) | SE (points) | T | X0 | p | verdict | detectable (points) | sign test (up/down, p) | permutation p | bootstrap SE (points) | lower bound (points) | Bernstein bound (points) |
+| set | tasks | current | candidate | gain (points) | SE (points) | T | X0 | p | verdict | detectable (points) | sign test (up/down, p) | permutation p | bootstrap SE (points) | lower bound (points) | Bernstein bound (points) |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | pooled | 125 | 0.522 | 0.529 | +0.71 | 1.36 | +0.52 | 1.645 | 0.300 | reject | 3.4 | 32/27, 0.301 | 0.304 | 1.37 | -1.52 | -8.37 |
 | csm | 42 | 0.527 | 0.557 | +2.95 | 2.60 | +1.14 | 1.645 | 0.128 | reject | 6.5 | 13/8, 0.192 | 0.130 | 2.57 | -1.32 | -20.44 |
@@ -13,7 +13,7 @@ Candidate (second) against incumbent (first) on the validation tasks of split ha
 
 ## Task success
 
-| set | tasks | incumbent | candidate | gain (points) | SE (points) | T | X0 | p | verdict | detectable (points) | sign test (up/down, p) | permutation p | bootstrap SE (points) | lower bound (points) | Bernstein bound (points) |
+| set | tasks | current | candidate | gain (points) | SE (points) | T | X0 | p | verdict | detectable (points) | sign test (up/down, p) | permutation p | bootstrap SE (points) | lower bound (points) | Bernstein bound (points) |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | pooled | 125 | 0.205 | 0.227 | +2.13 | 1.96 | +1.09 | 1.645 | 0.138 | reject | 4.9 | 17/13, 0.292 | 0.137 | 1.97 | -1.09 | -8.41 |
 | csm | 42 | 0.214 | 0.270 | +5.56 | 3.75 | +1.48 | 1.645 | 0.069 | reject | 9.3 | 10/4, 0.090 | 0.087 | 3.68 | -0.62 | -20.42 |
