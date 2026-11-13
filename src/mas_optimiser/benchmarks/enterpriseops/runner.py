@@ -1,8 +1,9 @@
 """Run EnterpriseOps-Gym tasks through the benchmark's executor and score them.
 
 The runner loads one domain's tasks, runs each with the benchmark's ReAct
-agent against the Docker domain servers, and writes one evaluation folder
-under ``evaluations/<experiment>/``: ``summary.md``, ``tasks.csv`` (a row per
+agent against the Docker domain servers, and writes one run folder under
+``evaluations/<experiment>/`` with one evaluation folder per domain inside it
+(``2026-11-03-0803/itsm``): ``summary.md``, ``tasks.csv`` (a row per
 attempt), ``checks.csv``, ``cells.csv`` and ``changes.csv`` (see ``report``),
 ``evaluation.json`` with the settings and totals, ``evaluation.log``, and per attempt under
 ``tasks/<task_id>/`` the executor's full record (``attempt-<n>.json``), its
@@ -11,9 +12,11 @@ changes against the seed (``attempt-<n>.changes.json``) and a readable page
 row per evaluation.
 
 An experiment is a named question (``baseline-haiku``), set out in
-``configs/experiments/``; an evaluation is one model on one domain's tasks,
-named by its domain and start time plus whatever makes it differ from the
-experiment file. Tasks come from the Hugging Face dataset at a pinned
+``configs/experiments/``; a run is one invocation of it, named by its start
+time and any ``--label`` word, with ``run.json`` and a pooled ``summary.md``
+over its domains; an evaluation is one model on one domain's tasks, the
+``<domain>`` folder inside the run. Every other setting is a column of
+``index.csv`` and a field of ``evaluation.json`` rather than part of a name. Tasks come from the Hugging Face dataset at a pinned
 revision; in oracle and all-tools mode the benchmark's corrected copies in
 ``data/revised`` replace the dataset's versions. Each attempt gets a fresh
 ``BenchmarkExecutor``, which seeds a database, runs the agent once, runs every
@@ -394,39 +397,40 @@ def load_experiment(spec: str, overrides: dict) -> dict:
     }
 
 
-def evaluation_name(
-    settings: dict, domain: str, started: datetime, seconds: bool = False
-) -> str:
-    """An evaluation folder's name: domain, start day and minute, label, any overridden model or mode, the split set, the task limit.
+def run_name(settings: dict, started: datetime, seconds: bool = False) -> str:
+    """A run folder's name: the start day and minute, then any ``--label`` word.
 
-    ``itsm-2026-11-03-0803`` reads as the domain first and the time second,
-    so a folder listing groups by domain and sorts by time within it. The
-    seconds are added only when a second evaluation of the same domain
-    starts within the same minute.
+    ``2026-11-03-0803`` sorts by time and reads as one; the seconds are added
+    only when a second run of the experiment starts within the same minute.
 
     Args:
         settings: The experiment's settings, from ``load_experiment``.
-        domain: The evaluation's domain.
-        started: The evaluation's start time.
+        started: The run's start time.
         seconds: Whether to add the seconds to the start time.
 
     Returns:
         The name.
     """
-    time = f"{started:%Y-%m-%d-%H%M%S}" if seconds else f"{started:%Y-%m-%d-%H%M}"
-    parts = [domain, time]
+    name = f"{started:%Y-%m-%d-%H%M%S}" if seconds else f"{started:%Y-%m-%d-%H%M}"
     if settings["label"]:
-        parts.append(str(settings["label"]))
-    for key in NAMED_OVERRIDES:
-        if key in settings["overrides"]:
-            parts.append(f"{key}={Path(str(settings[key])).stem}")
-    if settings["split"] is not None:
-        parts.append(str(settings["split"]).partition(":")[2])
-    if settings["task"]:
-        parts.append(f"tasks{len(settings['task'])}")
-    if settings["limit"] is not None:
-        parts.append(f"limit{settings['limit']}")
-    return "-".join(parts)
+        name += f"-{settings['label']}"
+    return name
+
+
+def run_folder(settings: dict, started: datetime) -> Path:
+    """The folder of a new run under the experiment, unique within the minute.
+
+    Args:
+        settings: The experiment's settings, from ``load_experiment``.
+        started: The run's start time.
+
+    Returns:
+        ``evaluations/<experiment>/<run>``, not yet created.
+    """
+    folder = EVALUATIONS / settings["experiment"] / run_name(settings, started)
+    if folder.exists():
+        folder = folder.with_name(run_name(settings, started, seconds=True))
+    return folder
 
 
 def totals(outcomes: list[dict], tasks: int, attempts: int) -> dict:
@@ -471,6 +475,7 @@ def index_row(settings: dict, counted: dict) -> dict:
     model = settings.get("model")
     return {
         "evaluation": settings["evaluation"],
+        "run": settings.get("run", ""),
         "started": settings["started"],
         "domain": settings["domain"],
         "mode": settings["mode"],
@@ -481,12 +486,16 @@ def index_row(settings: dict, counted: dict) -> dict:
             f"{k}={v}" for k, v in (settings.get("overrides") or {}).items()
         ),
         "limit": settings.get("limit") or "",
+        "split": settings.get("split") or "",
         "code_version": settings.get("mas_optimiser_version", ""),
     } | counted
 
 
 def write_index_row(experiment_dir: Path, row: dict) -> None:
-    """Add one evaluation's row to the experiment's ``index.csv``, or replace the row that names the same evaluation, in the columns the file already has.
+    """Add one evaluation's row to the experiment's ``index.csv``, or replace the row that names the same evaluation.
+
+    A column the file does not have yet is added at the end, empty for the
+    earlier rows, so an older index keeps its rows when the row gains a field.
 
     Args:
         experiment_dir: The ``evaluations/<experiment>`` folder.
@@ -499,10 +508,98 @@ def write_index_row(experiment_dir: Path, row: dict) -> None:
             reader = csv.DictReader(f)
             columns = list(reader.fieldnames or columns)
             rows = [r for r in reader if r["evaluation"] != row["evaluation"]]
+        columns += [key for key in row if key not in columns]
     with path.open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=columns, extrasaction="ignore")
+        writer = csv.DictWriter(
+            f, fieldnames=columns, extrasaction="ignore", restval=""
+        )
         writer.writeheader()
         writer.writerows(rows + [row])
+
+
+def write_run_summary(run_dir: Path, experiment: str) -> dict:
+    """Write a run's ``run.json`` and pooled ``summary.md`` from its domains' ``evaluation.json``.
+
+    The totals of every domain folder in the run are summed (``attempts`` per
+    task is the same for all and kept as it is), so the headline of the run is
+    the harness on the benchmark as a whole, with the domains as rows below it.
+
+    Args:
+        run_dir: The run's folder, holding one evaluation folder per domain.
+        experiment: The experiment's name.
+
+    Returns:
+        The record written to ``run.json``.
+    """
+    records = {}
+    for path in sorted(run_dir.glob("*/evaluation.json")):
+        records[path.parent.name] = json.loads(path.read_text())
+    domains = [d for d in DOMAINS if d in records] + sorted(
+        d for d in records if d not in DOMAINS
+    )
+    pooled: dict = {}
+    for domain in domains:
+        for key, value in records[domain]["totals"].items():
+            if key == "attempts":
+                pooled[key] = value
+            else:
+                pooled[key] = round(pooled.get(key, 0) + value, 4)
+    first = records[domains[0]]
+    kept = ("mode", "model", "label", "overrides", "limit", "split", "attempts")
+    record = {
+        "run": run_dir.name,
+        "experiment": experiment,
+        "started": min(r["started"] for r in records.values()),
+        "finished": max(r["finished"] for r in records.values()),
+        "settings": {key: first.get(key) for key in kept}
+        | {
+            "harness": first.get("harness", "default"),
+            "mas_optimiser_version": first.get("mas_optimiser_version", ""),
+        },
+        "domains": {d: records[d]["totals"] for d in domains},
+        "totals": pooled,
+    }
+    (run_dir / "run.json").write_text(json.dumps(record, indent=2, default=str))
+    model = first.get("model")
+    model_name = model.get("llm_model", "?") if isinstance(model, dict) else model
+    header = [
+        "set",
+        "tasks",
+        "attempts passed",
+        "tasks passed every attempt",
+        "errors",
+        "checks passed",
+        "cost (USD)",
+        "hours",
+    ]
+
+    def cells(name: str, t: dict) -> list[str]:
+        return [
+            name,
+            str(t["tasks"]),
+            f"{t['successes']} of {t['total_attempts']}",
+            f"{t['tasks_passed_every_attempt']} of {t['tasks']}",
+            str(t["errors"]),
+            f"{t['checks_passed']} of {t['checks_total']}",
+            f"{t['cost_usd']:.2f}",
+            f"{t['seconds'] / 3600:.2f}",
+        ]
+
+    lines = [
+        f"# {experiment} {run_dir.name}",
+        "",
+        f"{model_name}, mode {first.get('mode')}, {pooled['attempts']} attempts per "
+        f"task, started {record['started']}. Each domain's own summary is "
+        f"`<domain>/summary.md`.",
+        "",
+        "| " + " | ".join(header) + " |",
+        "|" + "---|" * len(header),
+        "| " + " | ".join(cells("all", pooled)) + " |",
+    ]
+    for domain in domains:
+        lines.append("| " + " | ".join(cells(domain, records[domain]["totals"])) + " |")
+    (run_dir / "summary.md").write_text("\n".join(lines) + "\n")
+    return record
 
 
 def check_servers(urls: set[str]) -> None:
@@ -778,7 +875,7 @@ def write_tables(
             writer.writerows(rows)
     (out / "summary.md").write_text(
         report.summary(
-            out.name,
+            name,
             {
                 "domain": settings.get("domain"),
                 "mode": settings.get("mode"),
@@ -1065,16 +1162,23 @@ def run(args: argparse.Namespace) -> None:
     # Taken once, before any task runs: an edit or commit made while a long
     # run goes on must not be stamped on results the edited code never made.
     version = mas_optimiser.code_version()
+    # With the UTC offset, so that start times order correctly across a
+    # change of the clocks.
+    run_dir = run_folder(experiment, datetime.now().astimezone())
     for domain in experiment["domain"]:
         evaluate(
             experiment,
             domain,
             model,
             pricing,
+            run_dir=run_dir,
             trace=trace,
             thinking=thinking,
             version=version,
         )
+    if not experiment["out"]:
+        write_run_summary(run_dir, experiment["experiment"])
+        print(f"Run summary in {run_dir / 'summary.md'}")
     if trace:
         tracing.shutdown()
 
@@ -1085,6 +1189,7 @@ def evaluate(
     model: LLMConfig,
     pricing: dict,
     *,
+    run_dir: Path,
     trace: bool,
     thinking: dict | None,
     version: str,
@@ -1096,6 +1201,8 @@ def evaluate(
         domain: The domain to run.
         model: The benchmark's model config.
         pricing: The price table from the model file.
+        run_dir: The run's folder; the evaluation is its ``<domain>`` subfolder
+            unless the experiment names an ``out`` folder of its own.
         trace: Send each run to Langfuse.
         thinking: A ``thinking`` setting for the model, or ``None``.
         version: The code's version when the run began, from
@@ -1133,18 +1240,11 @@ def evaluate(
             for s in config["gym_servers_config"]
         }
     )
-    # With the UTC offset, so that start times order correctly across a
-    # change of the clocks.
     started = datetime.now().astimezone()
-    out = (
-        Path(experiment["out"])
-        if experiment["out"]
-        else EVALUATIONS
-        / experiment["experiment"]
-        / evaluation_name(experiment, domain, started)
-    )
-    if out.exists() and not experiment["out"]:
-        out = out.with_name(evaluation_name(experiment, domain, started, seconds=True))
+    out = Path(experiment["out"]) if experiment["out"] else run_dir / domain
+    # The evaluation's name within the experiment: ``<run>/<domain>``, or the
+    # bare folder name when ``out`` was given.
+    name = out.name if experiment["out"] else f"{run_dir.name}/{domain}"
     (out / "tasks").mkdir(parents=True)
     # The benchmark logs every request and tool call at INFO; keep that in the
     # evaluation folder rather than on the terminal. One handler per
@@ -1187,7 +1287,9 @@ def evaluate(
     counted = totals(outcomes, len(tasks), experiment["attempts"])
     kept = ("experiment", "experiment_file", "label", "overrides", "mode", "limit")
     settings = {key: experiment[key] for key in kept} | {
-        "evaluation": out.name,
+        "evaluation": name,
+        "run": "" if experiment["out"] else run_dir.name,
+        "split": experiment["split"],
         "harness": "default",
         "model": {k: v for k, v in vars(model).items() if k != "llm_api_key"},
         "pricing": pricing,
@@ -1207,14 +1309,17 @@ def evaluate(
     (out / "evaluation.json").write_text(
         json.dumps(settings | {"totals": counted}, indent=2, default=str)
     )
-    write_index_row(out.parent, index_row(settings, counted))
+    write_index_row(
+        out.parent if experiment["out"] else run_dir.parent,
+        index_row(settings, counted),
+    )
     print(
         f"\n{counted['successes']}/{counted['total_attempts']} attempts passed, "
         f"{counted['tasks_passed_every_attempt']}/{counted['tasks']} tasks passed every "
         f"attempt ({counted['errors']} errors, counted as failures); checks "
         f"{counted['checks_passed']}/{counted['checks_total']}. Results in {out}"
         + (
-            f"; traces in Langfuse session {out.parent.name}/{out.name}"
+            f"; traces in Langfuse session {experiment['experiment']}/{name}"
             if trace
             else ""
         )

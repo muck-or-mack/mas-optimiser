@@ -1,4 +1,4 @@
-"""Unit tests of ``listing``: an experiment's evaluations as a table."""
+"""Unit tests of ``listing``: an experiment's runs as a table."""
 
 import argparse
 import csv
@@ -7,55 +7,112 @@ import pytest
 
 from mas_optimiser.benchmarks.enterpriseops import listing
 
+FIELDS = [
+    "evaluation",
+    "run",
+    "started",
+    "domain",
+    "mode",
+    "model",
+    "label",
+    "successes",
+    "total_attempts",
+    "errors",
+    "checks_passed",
+    "checks_total",
+    "cost_usd",
+]
+
+
+def row(evaluation, run, started, domain, successes, total, checks, checks_total, cost):
+    return dict(
+        zip(
+            FIELDS,
+            [
+                evaluation,
+                run,
+                started,
+                domain,
+                "oracle",
+                "claude-haiku-5-5",
+                "",
+                successes,
+                total,
+                "0",
+                checks,
+                checks_total,
+                cost,
+            ],
+            strict=True,
+        )
+    )
+
+
 ROWS = [
-    {
-        "evaluation": "csm-2026-11-03-0826",
-        "started": "2026-11-03T08:26:42",
-        "domain": "csm",
-        "mode": "oracle",
-        "model": "claude-haiku-5-5",
-        "label": "",
-        "successes": "81",
-        "total_attempts": "309",
-        "checks_passed": "700",
-        "checks_total": "1200",
-        "cost_usd": "3.1",
-    },
-    {
-        "evaluation": "itsm-2026-11-03-0803",
-        "started": "2026-11-03T08:03:28",
-        "domain": "itsm",
-        "mode": "oracle",
-        "model": "claude-haiku-5-5",
-        "label": "",
-        "successes": "58",
-        "total_attempts": "306",
-        "checks_passed": "530",
-        "checks_total": "1131",
-        "cost_usd": "2.58",
-    },
+    row(
+        "2026-11-03-0803/csm",
+        "2026-11-03-0803",
+        "2026-11-03T08:26:42",
+        "csm",
+        "81",
+        "309",
+        "700",
+        "1200",
+        "3.1",
+    ),
+    row(
+        "2026-11-03-0803/itsm",
+        "2026-11-03-0803",
+        "2026-11-03T08:03:28",
+        "itsm",
+        "58",
+        "306",
+        "530",
+        "1131",
+        "2.58",
+    ),
+    row(
+        "20261027-052820-itsm",
+        "",
+        "2026-10-27T05:28:20",
+        "itsm",
+        "59",
+        "306",
+        "541",
+        "1131",
+        "2.58",
+    ),
 ]
 
 
 def write_index(folder):
     folder.mkdir()
     with open(folder / "index.csv", "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=list(ROWS[0]))
+        writer = csv.DictWriter(f, fieldnames=FIELDS)
         writer.writeheader()
         writer.writerows(ROWS)
     return folder
 
 
-def test_table_lists_evaluations_in_start_order(tmp_path):
-    folder = write_index(tmp_path / "exp")
-    lines = listing.table(folder).splitlines()
-    assert lines[0].startswith("| evaluation | started | domain |")
-    assert lines[2].startswith(
-        "| itsm-2026-11-03-0803 | 2026-11-03 08:03 | itsm | oracle |"
+def test_table_groups_rows_by_run_with_a_summed_row_first(tmp_path):
+    lines = listing.table(write_index(tmp_path / "exp")).splitlines()
+    assert lines[0].startswith("| run ")
+    # The older row has no run name and stands alone under its day.
+    assert lines[2].startswith("| 2026-10-27      | itsm   |")
+    assert "59 of 306" in lines[2]
+    # The named run: the summed row, then its domains in start order.
+    assert lines[3].startswith("| 2026-11-03-0803 | all    |")
+    assert (
+        "139 of 615" in lines[3] and "1230 of 2331" in lines[3] and "5.68" in lines[3]
     )
-    assert "58 of 306 | 530 of 1131 | 2.58 |" in lines[2]
-    assert lines[3].startswith("| csm-2026-11-03-0826 |")
-    assert listing.table(folder, domain="csm").count("\n") == 2
+    assert lines[4].startswith("| 2026-11-03-0803 | itsm   |")
+    assert lines[5].startswith("| 2026-11-03-0803 | csm    |")
+    assert len({len(line) for line in lines}) == 1
+
+
+def test_table_keeps_one_domain_when_asked(tmp_path):
+    text = listing.table(write_index(tmp_path / "exp"), domain="csm")
+    assert text.count("\n") == 2 and "| csm" in text and "| all" not in text
 
 
 def test_run_refuses_a_folder_without_an_index(tmp_path):

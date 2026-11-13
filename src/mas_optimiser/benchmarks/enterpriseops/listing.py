@@ -1,11 +1,11 @@
-"""List an experiment's evaluations: the ``mas-optimiser list`` command.
+"""List an experiment's runs: the ``mas-optimiser list`` command.
 
     mas-optimiser list <experiment> [--domain itsm]
 
-Prints the experiment's ``index.csv`` as a table, one row per evaluation in
-start order: when it ran, its domain, mode, model and label, how many
-attempts passed and how many checks, and what it cost. The experiment is a
-name under ``evaluations/`` or a folder.
+Prints the experiment's ``index.csv`` as a table, one block per run: a row
+for the run as a whole, with its domains' totals summed, then a row per
+domain. Rows from before runs had names are grouped by the day they
+started. The experiment is a name under ``evaluations/`` or a folder.
 
 Sources: ``docs/how-it-works.md``, section 6, the rows for ``runner``.
 """
@@ -16,15 +16,16 @@ from pathlib import Path
 
 from mas_optimiser.benchmarks.enterpriseops.runner import EVALUATIONS
 
-DESCRIPTION = "list an experiment's evaluations from its index, in start order"
+DESCRIPTION = "list an experiment's runs and their domains from its index"
 COLUMNS = [
-    "evaluation",
-    "started",
+    "run",
     "domain",
     "mode",
+    "started",
     "model",
     "label",
     "attempts passed",
+    "errors",
     "checks passed",
     "cost (USD)",
 ]
@@ -42,38 +43,84 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--domain", default=None, help="show one domain only")
 
 
+def _cells(run: str, domain: str, rows: list[dict]) -> list[str]:
+    """One table row from one or several index rows, their counts summed.
+
+    Args:
+        run: The run's name.
+        domain: The domain, or ``all`` for the run as a whole.
+        rows: The index rows summed into this row.
+
+    Returns:
+        The cells, in ``COLUMNS`` order.
+    """
+    first = min(rows, key=lambda r: r["started"])
+    total = {
+        key: sum(float(r[key] or 0) for r in rows)
+        for key in (
+            "successes",
+            "total_attempts",
+            "errors",
+            "checks_passed",
+            "checks_total",
+            "cost_usd",
+        )
+    }
+    return [
+        run,
+        domain,
+        first["mode"],
+        first["started"].replace("T", " ")[:16],
+        first["model"],
+        first["label"],
+        f"{total['successes']:.0f} of {total['total_attempts']:.0f}",
+        f"{total['errors']:.0f}",
+        f"{total['checks_passed']:.0f} of {total['checks_total']:.0f}",
+        f"{total['cost_usd']:.2f}",
+    ]
+
+
 def table(experiment: Path, domain: str | None = None) -> str:
-    """The experiment's evaluations as a markdown table.
+    """The experiment's runs as a markdown table with aligned columns.
 
     Args:
         experiment: The experiment's folder, holding ``index.csv``.
         domain: A domain to keep, or ``None`` for all.
 
     Returns:
-        The table, one row per evaluation in start order.
+        The table: per run, a summed row then a row per domain, in start order.
     """
     with open(experiment / "index.csv", newline="") as f:
         rows = [r for r in csv.DictReader(f) if domain is None or r["domain"] == domain]
-    rows.sort(key=lambda r: r["started"])
-    lines = ["| " + " | ".join(COLUMNS) + " |", "|" + "---|" * len(COLUMNS)]
-    for r in rows:
-        cells = [
-            r["evaluation"],
-            r["started"].replace("T", " ")[:16],
-            r["domain"],
-            r["mode"],
-            r["model"],
-            r["label"],
-            f"{r['successes']} of {r['total_attempts']}",
-            f"{r['checks_passed']} of {r['checks_total']}",
-            f"{float(r['cost_usd']):.2f}" if r["cost_usd"] else "",
-        ]
-        lines.append("| " + " | ".join(cells) + " |")
+    runs: dict[str, list[dict]] = {}
+    for r in sorted(rows, key=lambda r: r["started"]):
+        runs.setdefault(r.get("run") or r["started"][:10], []).append(r)
+    body = []
+    for run, members in runs.items():
+        if len(members) > 1:
+            body.append(_cells(run, "all", members))
+        for r in members:
+            body.append(_cells(run, r["domain"], [r]))
+    widths = [
+        max(len(cell) for cell in column) for column in zip(COLUMNS, *body, strict=True)
+    ]
+    lines = [
+        "| "
+        + " | ".join(name.ljust(w) for name, w in zip(COLUMNS, widths, strict=True))
+        + " |",
+        "|" + "|".join("-" * (w + 2) for w in widths) + "|",
+    ]
+    for cells in body:
+        lines.append(
+            "| "
+            + " | ".join(cell.ljust(w) for cell, w in zip(cells, widths, strict=True))
+            + " |"
+        )
     return "\n".join(lines)
 
 
 def run(args: argparse.Namespace) -> None:
-    """Print the experiment's evaluations.
+    """Print the experiment's runs.
 
     Args:
         args: The parsed options, as ``add_arguments`` defines them.

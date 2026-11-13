@@ -1,14 +1,14 @@
 """Compare two sets of evaluations task by task: the ``mas-optimiser compare`` command.
 
-    mas-optimiser compare --experiment baseline-haiku --a 20261027 --b 20261103
+    mas-optimiser compare --experiment baseline-haiku --a 2026-10-27-0528 --b 2026-11-03-0803
         [--split <name or file>] [--subset validation] [--outcome checks]
         [--alpha 0.05] [--out <folder>]
 
 Each side is one evaluation per domain; ``--a`` is the current harness, ``--b``
 the candidate. A side is named by evaluation folders, repeated once per
-domain, or by a day (``20261027`` or ``2026-10-27``) or the start of a
-name within ``--experiment``, which the experiment's ``index.csv`` resolves
-through each evaluation's start time. The command writes ``comparison.md`` (the gate's test, its
+domain, by a run folder, or by a run name, a day (``20261027`` or
+``2026-10-27``) or the start of a name within ``--experiment``, which the
+experiment's ``index.csv`` resolves through each evaluation's start time. The command writes ``comparison.md`` (the gate's test, its
 companions and the decision rules, pooled and per domain, for both outcomes),
 ``differences.csv`` (one row per task) and ``figures/`` (each figure as PDF
 and PNG with its numbers as CSV) into ``--out``, by default
@@ -19,6 +19,7 @@ Sources: ``docs/how-it-works.md``, section 6, the rows for ``stats``.
 
 import argparse
 import csv
+import json
 from datetime import datetime
 from pathlib import Path
 
@@ -64,16 +65,16 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         action="append",
         required=True,
         metavar="EVALUATION",
-        help="the current harness: an evaluation folder, repeated per domain, "
-        "or a day or name within --experiment",
+        help="the current harness: a run folder, evaluation folders repeated per "
+        "domain, or a run, day or name within --experiment",
     )
     parser.add_argument(
         "--b",
         action="append",
         required=True,
         metavar="EVALUATION",
-        help="the candidate: an evaluation folder, repeated per domain, "
-        "or a day or name within --experiment",
+        help="the candidate: a run folder, evaluation folders repeated per "
+        "domain, or a run, day or name within --experiment",
     )
     parser.add_argument(
         "--split",
@@ -140,10 +141,12 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
 def evaluations(experiment: str | None, spec: str) -> list[Path]:
     """The evaluation folders one side names.
 
-    ``spec`` is an evaluation folder, used as it is; otherwise it names
-    evaluations in the experiment's ``index.csv``: a day (``2026-11-03`` or
-    ``20261103``), matched against each evaluation's start time, or the start
-    of an evaluation's name. Every match is taken, one per domain.
+    ``spec`` is a run folder (every domain folder inside it is taken) or one
+    evaluation folder, used as they are; otherwise it names evaluations in the
+    experiment's ``index.csv``: a run name such as ``2026-11-03-0803``, a day
+    (``2026-11-03`` or ``20261103``) matched against each evaluation's start
+    time, or the start of an evaluation's name. Every match is taken, one per
+    domain.
 
     Args:
         experiment: The experiment's name under ``evaluations/``, or its
@@ -154,12 +157,18 @@ def evaluations(experiment: str | None, spec: str) -> list[Path]:
         The evaluation folders, one per domain.
 
     Raises:
-        SystemExit: If ``spec`` is not a folder and no experiment is given,
-            if nothing matches, or if a domain matches more than once.
+        SystemExit: If a folder holds no evaluation, if ``spec`` is not a
+            folder and no experiment is given, if nothing matches, or if a
+            domain matches more than once.
     """
     path = Path(spec)
     if path.is_dir():
-        return [path]
+        if (path / "evaluation.json").exists():
+            return [path]
+        inside = sorted(p.parent for p in path.glob("*/evaluation.json"))
+        if inside:
+            return inside
+        raise SystemExit(f"error: {path} holds no evaluation")
     if experiment is None:
         raise SystemExit(
             f"error: {spec} is not an evaluation folder; give --experiment to"
@@ -183,6 +192,19 @@ def evaluations(experiment: str | None, spec: str) -> list[Path]:
             f"error: {spec} names more than one evaluation of a domain: {clashes}"
         )
     return [folder / names[0] for names in by_domain.values()]
+
+
+def _name(evaluation: Path) -> str:
+    """An evaluation's name within its experiment, ``<run>/<domain>`` where recorded.
+
+    Args:
+        evaluation: The evaluation's folder.
+
+    Returns:
+        The ``evaluation`` field of its ``evaluation.json``, or the folder's name.
+    """
+    record = json.loads((evaluation / "evaluation.json").read_text())
+    return record.get("evaluation") or evaluation.name
 
 
 def _row(name: str, cmp: Comparison, alpha: float) -> list[str]:
@@ -251,9 +273,9 @@ def run(args: argparse.Namespace) -> None:
     primary = comparisons[args.outcome]
     names = (
         "candidate "
-        + ", ".join(p.name for p in b)
+        + ", ".join(_name(p) for p in b)
         + " against current "
-        + ", ".join(p.name for p in a)
+        + ", ".join(_name(p) for p in a)
     )
     where = (
         f"the {args.subset} tasks of split {args.split}"

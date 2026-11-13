@@ -133,6 +133,18 @@ def test_evaluations_resolve_a_day_or_a_name_through_the_index(tmp_path):
     ]
     folder = experiment / "itsm-2026-11-03-0803"
     assert compare.evaluations(None, str(folder)) == [folder]
+    run_dir = experiment / "2026-11-03-0803"
+    run_dir.mkdir()
+    (experiment / "itsm-2026-11-03-0803").rename(run_dir / "itsm")
+    (experiment / "csm-2026-11-03-0826").rename(run_dir / "csm")
+    assert compare.evaluations(None, str(run_dir)) == [
+        run_dir / "csm",
+        run_dir / "itsm",
+    ]
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    with pytest.raises(SystemExit, match="holds no evaluation"):
+        compare.evaluations(None, str(empty))
     with pytest.raises(SystemExit, match="more than one evaluation"):
         compare.evaluations(str(experiment), "itsm")
     with pytest.raises(SystemExit, match="no evaluation"):
