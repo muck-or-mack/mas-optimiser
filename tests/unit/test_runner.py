@@ -287,3 +287,66 @@ def test_evaluate_writes_the_tables_the_settings_and_the_index_row(
     # the summed columns: checks 0 of 1, the benchmark's own 0 and 0 of 1,
     # four token counts, cost and seconds.
     assert index[1].endswith(",v0,1,1,1,0,0,1,0,1,0,0,1,0,0,0,0,0.0,0.0")
+
+
+def test_run_tasks_returns_every_attempt_outcome_and_prints_its_progress(
+    tmp_path, monkeypatch, capsys
+):
+    outcome = {
+        "error": None,
+        "success": True,
+        "checks_passed": 2,
+        "checks_total": 3,
+        "model_calls": 4,
+        "input_tokens": 1200,
+        "output_tokens": 50,
+        "cost_usd": 0.0012,
+        "seconds": 9.6,
+    }
+
+    async def fake_run_task(task_id, config, attempt, *args, **kwargs):
+        row = dict(outcome, task_id=task_id, attempt=attempt)
+        if task_id == "task_b":
+            row["error"], row["success"] = "down", False
+        return row, [{"task_id": task_id}], [], []
+
+    async def no_tools(out, tasks):
+        return None
+
+    monkeypatch.setattr(runner, "run_task", fake_run_task)
+    monkeypatch.setattr(runner, "save_tools", no_tools)
+    outcomes, rows, cells, changes = asyncio.run(
+        runner.run_tasks(
+            {"task_a": {}, "task_b": {}},
+            None,
+            PRICING,
+            tmp_path,
+            domain="itsm",
+            attempts=2,
+            concurrency=2,
+            trace=False,
+            thinking=None,
+            tags=[],
+        )
+    )
+    # The outcome rows come back as rows, in task then attempt order, whatever
+    # the progress line said about them.
+    assert [(o["task_id"], o["attempt"]) for o in outcomes] == [
+        ("task_a", 1),
+        ("task_a", 2),
+        ("task_b", 1),
+        ("task_b", 2),
+    ]
+    assert len(rows) == 4 and cells == [] and changes == []
+    lines = capsys.readouterr().out.splitlines()
+    assert sorted(line.split()[0] for line in lines) == [
+        f"[{n}/4]" for n in (1, 2, 3, 4)
+    ]
+    assert any(
+        line.endswith(
+            "task_a attempt 1 pass: checks 2/3, 4 calls, 1,200 in / 50 out tokens, "
+            "$0.0012, 10 s"
+        )
+        for line in lines
+    )
+    assert any("task_b attempt 2 error: checks 2/3" in line for line in lines)
