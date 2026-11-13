@@ -168,15 +168,16 @@ set each wrong value, and what the `kind` and `step` columns of `checks.csv`
 mean, is in `docs/how-it-works.md` (sections 2.6 and 2.7), which follows
 one real attempt through the whole pipeline.
 
-An evaluation folder is named by its domain and start time, then anything
-that makes it differ from the experiment file: a `--label` word, an
-overridden model or mode as `model=...`, and `limitN` when only the first N
-tasks ran. So `evaluations/smoke/itsm-2026-10-27-0930-limit5/` is the smoke
-experiment's first five ITSM tasks run at 09:30 on 27 October; the seconds
-are added only when a second evaluation of the same domain starts within
-the minute. Evaluations run before 12 November 2026 keep the earlier
-time-first names (`20261027-093012-itsm-limit5`); `index.csv` and
-`mas-optimiser list` read both alike. The experiment, not
+A run is one invocation of an experiment, and its folder is named by its
+start minute and any `--label` word: `evaluations/smoke/2026-10-27-0930/`,
+or `2026-10-27-0930-retry` with a label; the seconds are added only when a
+second run starts within the minute. Inside it, one evaluation folder per
+domain (`itsm/`, `csm/`, `hr/`), `run.json` with the settings and the
+pooled totals, and a `summary.md` with the headline for the run as a whole
+and a row per domain. Every other setting (model, mode, split, task limit,
+command-line overrides) is a column of `index.csv` and a field of
+`evaluation.json`, not part of a name. Runs made before 13 November 2026
+were regrouped into this layout; their index rows carry the same columns. The experiment, not
 the model, domain or date, is the folder level, because it is the question
 being asked; the others are columns of `index.csv`, where any cut of the
 results is one table away. An attempt that raises an error counts as failed
@@ -203,6 +204,7 @@ Every evaluation folder is written to be read without a tracing server:
 | To find | Open | Written by |
 |---|---|---|
 | whether it passed, and how many | `summary.md` (headline); `index.csv`, one row per evaluation of the experiment | `report.summary`, `runner.write_index_row` |
+| the run as a whole: the headline pooled over its domains, then a row per domain | the run's `summary.md` and `run.json` | `runner.write_run_summary` |
 | what went wrong overall: by step, table and column; the worst tasks | `summary.md`, "What went wrong" | `report.summary` |
 | each attempt's verdict, errors, tokens and cost | `tasks.csv` | `runner.task_outcome` |
 | each check's verdict, kind, step and patch | `checks.csv` | `checks.check_records` |
@@ -218,7 +220,7 @@ Every evaluation folder is written to be read without a tracing server:
 | the tasks' policy, request, checks and tools | the dataset and `vendor/enterpriseops-gym/data/revised/`; the corrections in `data/check_patches.json` | |
 | the tables a domain has, with keys and references | `docs/data-model/<domain>.md`; the schema in `data/schemas/<domain>.sql` | `mas-optimiser schema` |
 | which tasks are training, validation and test | `configs/splits/<name>.json` | `mas-optimiser split` |
-| every evaluation of an experiment, at a glance | `mas-optimiser list <experiment>`, from `index.csv` | `listing` |
+| every run of an experiment, at a glance, with its domains | `mas-optimiser list <experiment>`, from `index.csv` | `listing` |
 | whether a candidate beat the current harness, by how much, and the smallest gain the data could show | `comparison.md` and `figures/` in the folder `mas-optimiser compare` writes | `stats.compare` |
 
 ## Splitting the tasks
@@ -309,10 +311,10 @@ judges on.
 mas-optimiser list <experiment> [--domain itsm]
 ```
 
-Prints the experiment's `index.csv` as a table in start order: when each
-evaluation ran, its domain, mode, model and label, attempts and checks
-passed, and cost. It is the quickest way to find an evaluation's folder
-without reading folder names.
+Prints the experiment's `index.csv` as a table, one block per run: a row
+for the run as a whole, its domains' counts summed, then a row per domain,
+with mode, model, label, attempts and checks passed, errors and cost. It
+is the quickest way to find a run without reading folder names.
 
 ## Comparing two evaluations
 
@@ -323,13 +325,13 @@ mas-optimiser compare --experiment <experiment> --a <name> --b <name> [--split <
 Compares a candidate (`--b`) with the current harness (`--a`) task by task,
 each side one evaluation per domain, on the tasks of a split's set (the
 validation set by default) or on every task both sides scored. A side is
-named by the start of its evaluations' names in the experiment's
-`index.csv`, which is the day they ran when the experiment ran once that
-day, or by evaluation folders given one `--a` or `--b` at a time. The two
-baseline runs of the same harness, which set the noise floor:
+named by its run (`2026-11-03-0803`), by a day when the experiment ran
+once that day, or by a run folder or evaluation folders given one `--a` or
+`--b` at a time; names are resolved through the experiment's `index.csv`.
+The two baseline runs of the same harness, which set the noise floor:
 
 ```
-mas-optimiser compare --experiment baseline-haiku --a 20261027 --b 20261103 --split haiku-20-40-40
+mas-optimiser compare --experiment baseline-haiku --a 2026-10-27-0528 --b 2026-11-03-0803 --split haiku-20-40-40
 ```
  It writes
 `comparison.md` with the paired test, its companions and the decision

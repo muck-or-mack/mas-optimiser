@@ -140,7 +140,7 @@ def test_an_attempt_that_raised_keeps_a_failed_row_and_the_index_follows(
     assert len(rows) == 2 and rows[1].startswith("task_x,1,False,")
     index = (evaluation.parent / "index.csv").read_text().splitlines()
     assert index[1].startswith(
-        "20261106-itsm,2026-11-06T09:00:00+00:00,itsm,oracle,m,default,,,,"
+        "20261106-itsm,,2026-11-06T09:00:00+00:00,itsm,oracle,m,default,,,,,"
     )
     assert (
         ",1,0,0,1," in index[1]

@@ -1,4 +1,4 @@
-# Comparison: candidate 20261103-080328-itsm, 20261103-082642-csm, 20261103-085112-hr against current 20261027-052820-itsm, 20261027-055013-csm, 20261027-061153-hr
+# Comparison: candidate 2026-11-03-0803/itsm, 2026-11-03-0803/csm, 2026-11-03-0803/hr against current 2026-10-27-0528/itsm, 2026-10-27-0528/csm, 2026-10-27-0528/hr
 
 Candidate (second) against current (first) on the validation tasks of split haiku-20-40-40: 125 tasks. Scores are per-task means over attempts; a point is a hundredth. Decisions at level 0.05, one-sided.
 

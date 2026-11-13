@@ -263,7 +263,14 @@ def test_evaluate_writes_the_tables_the_settings_and_the_index_row(
     )
     model = SimpleNamespace(llm_model="m", llm_api_key="secret", provider="p")
     runner.evaluate(
-        experiment, "itsm", model, PRICING, trace=False, thinking=None, version="v0"
+        experiment,
+        "itsm",
+        model,
+        PRICING,
+        run_dir=tmp_path / "exp" / "2026-11-06-0900",
+        trace=False,
+        thinking=None,
+        version="v0",
     )
     folder = tmp_path / "exp" / "e1"
     settings = json.loads((folder / "evaluation.json").read_text())
@@ -274,7 +281,7 @@ def test_evaluate_writes_the_tables_the_settings_and_the_index_row(
     assert "llm_api_key" not in settings["model"]
     assert (folder / "summary.md").exists() and (folder / "tasks.csv").exists()
     index = (tmp_path / "exp" / "index.csv").read_text().splitlines()
-    assert index[0].startswith("evaluation,started,domain,mode,model,harness,")
+    assert index[0].startswith("evaluation,run,started,domain,mode,model,harness,")
     assert index[1].startswith("e1,") and ",itsm,oracle,m,default," in index[1]
     # tasks 1, attempts 1, total 1, passed 0, every-attempt 0, errors 1, then
     # the summed columns: checks 0 of 1, the benchmark's own 0 and 0 of 1,

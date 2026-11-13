@@ -20,7 +20,7 @@ The document follows one real attempt from the 3 November baseline so
 that every mechanism is shown on data: task
 `task_20251212_191815_314_391f1eff_c23d76df` (ITSM, in the training set),
 attempt 1, whose page is
-`evaluations/baseline-haiku/20261103-080328-itsm/tasks/<task>/attempt-1.md`. Line
+`evaluations/baseline-haiku/2026-11-03-0803/itsm/tasks/<task>/attempt-1.md`. Line
 numbers refer to the files at the commit that last changed this document
 (`git log -1 -- docs/how-it-works.md`).
 
@@ -473,7 +473,7 @@ is credited in `NOTICE.md` as well.
 |---|---|
 | `src/mas_optimiser/cli.py` | the `mas-optimiser` command and its sub-commands |
 | `src/mas_optimiser/tracing.py` | Langfuse: one trace per attempt, scored |
-| `src/mas_optimiser/benchmarks/enterpriseops/listing.py` | the `list` command: an experiment's evaluations from its index |
+| `src/mas_optimiser/benchmarks/enterpriseops/listing.py` | the `list` command: an experiment's runs and their domains from its index |
 | `src/mas_optimiser/stats/outcomes.py` | per-task scores and the paired differences of two evaluations |
 | `src/mas_optimiser/stats/gate.py` | the gate's test, the detectable gain, and the sign, permutation, bootstrap and Bernstein checks |
 | `src/mas_optimiser/stats/budget.py` | the level of each decision: the REUSE allocation, the equal split, a fixed significance |
