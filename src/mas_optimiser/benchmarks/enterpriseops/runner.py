@@ -1058,11 +1058,11 @@ async def run_tasks(
                 tags=tags,
             )
         done += 1
-        outcome = (
+        status = (
             "error" if outcome["error"] else "pass" if outcome["success"] else "fail"
         )
         print(
-            f"[{done}/{total}] {task_id} attempt {attempt} {outcome}: checks "
+            f"[{done}/{total}] {task_id} attempt {attempt} {status}: checks "
             f"{outcome['checks_passed']}/{outcome['checks_total']}, "
             f"{outcome['model_calls']} calls, {outcome['input_tokens']:,} in / "
             f"{outcome['output_tokens']:,} out tokens, ${outcome['cost_usd']:.4f}, "
