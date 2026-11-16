@@ -3,6 +3,7 @@
 import pytest
 
 from mas_optimiser.benchmarks.enterpriseops import runner
+from tests.unit.test_markdown import cells
 
 
 def test_config_names_resolve_to_files_in_configs():
@@ -152,11 +153,12 @@ def test_write_run_summary_pools_the_domains(tmp_path):
     assert record["started"] == "2026-11-03T08:03:00"
     assert list(record["domains"]) == ["itsm", "csm"]
     text = (run_dir / "summary.md").read_text()
-    assert "| all  | 200   | 139 of 600      |" in text
-    assert "| itsm | 100   | 58 of 300       |" in text
-    assert "| csm  | 100   | 81 of 300       |" in text
+    table = [line for line in text.split("\n") if line.startswith("|")]
+    assert cells(table[2])[:3] == ["all", "200", "139 of 600"]
+    assert cells(table[3])[:3] == ["itsm", "100", "58 of 300"]
+    assert cells(table[4])[:3] == ["csm", "100", "81 of 300"]
     # The table's columns line up in the source.
-    assert len({len(line) for line in text.split("\n") if line.startswith("|")}) == 1
+    assert len({len(line) for line in table}) == 1
     assert (
         runner.json.loads((run_dir / "run.json").read_text())["run"]
         == "2026-11-03-0803"

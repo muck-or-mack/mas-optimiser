@@ -31,6 +31,7 @@ import json
 import re
 from collections import Counter
 
+from mas_optimiser import markdown
 from mas_optimiser.benchmarks.enterpriseops import diagnosis, states
 
 CELL_COLUMNS = (
@@ -699,10 +700,24 @@ def summary(
         f"{settings.get('domain', '?')}, {settings.get('mode', '?')}, model {settings.get('model', '?')}: "
         f"{len(by_task)} tasks, {attempts} attempts.",
         "",
-        "| attempts passed | tasks passed every attempt | checks passed | attempts with a tool error | attempts changing a table no check mentions |",
-        "|---|---|---|---|---|",
-        f"| {passed} of {attempts} ({pct}) | {every} of {len(by_task)} | {checks_passed} of {checks_total} "
-        f"| {errored} | {len(unasked)} |",
+        markdown.table(
+            [
+                "attempts passed",
+                "tasks passed every attempt",
+                "checks passed",
+                "attempts with a tool error",
+                "attempts changing a table no check mentions",
+            ],
+            [
+                [
+                    f"{passed} of {attempts} ({pct})",
+                    f"{every} of {len(by_task)}",
+                    f"{checks_passed} of {checks_total}",
+                    str(errored),
+                    str(len(unasked)),
+                ]
+            ],
+        ),
         "",
         "## What went wrong",
         "",
@@ -726,8 +741,6 @@ def summary(
         "",
         f"## Worst tasks ({WORST_TASKS} shown; every task is in tasks.csv)",
         "",
-        "| task | passed | dominant failure |",
-        "|---|---|---|",
     ]
     # A task's dominant failure: the most common label over its failed
     # checks, a skipped or failed step by table, or a wrong cell by column.
@@ -746,15 +759,17 @@ def summary(
         by_task,
         key=lambda t: (sum(r["success"] for r in by_task[t]) / len(by_task[t]), t),
     )
+    worst = []
     for task in ranked[:WORST_TASKS]:
         wins = sum(r["success"] for r in by_task[task])
         if wins == len(by_task[task]):
             break
         top = failures_by_task.get(task, Counter()).most_common(1)
-        lines.append(
-            f"| {task} | {wins} of {len(by_task[task])} | {top[0][0] if top else ''} |"
+        worst.append(
+            [task, f"{wins} of {len(by_task[task])}", top[0][0] if top else ""]
         )
     lines += [
+        markdown.table(["task", "passed", "dominant failure"], worst),
         "",
         "## Where things are",
         "",

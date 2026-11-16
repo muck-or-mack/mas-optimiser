@@ -26,6 +26,7 @@ dependencies = [
     "python-dotenv",
     "pyyaml",
     "scipy>=1.17.1",
+    "tabulate>=0.10.0",
 ]
 
 [project.scripts]

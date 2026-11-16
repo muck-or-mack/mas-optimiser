@@ -34,6 +34,7 @@ from pathlib import Path
 
 import httpx
 
+from mas_optimiser import markdown
 from mas_optimiser.benchmarks.enterpriseops import REPO_ROOT, runner
 
 from benchmark.mcp_client import delete_database
@@ -281,12 +282,18 @@ def schema_markdown(domain: str, schema: str) -> str:
         f"{len(tables)} tables, from `data/schemas/{domain}.sql`, the schema the server builds",
         "each attempt's database from. Written by `mas-optimiser schema`; do not edit.",
         "",
-        "| table | columns | references |",
-        "|---|---|---|",
+        markdown.table(
+            ["table", "columns", "references"],
+            [
+                [
+                    f"[`{name}`](#{name})",
+                    str(len(columns)),
+                    ", ".join(sorted({f"`{t}`" for _, t, _ in references})),
+                ]
+                for name, columns, _key, references in tables
+            ],
+        ),
     ]
-    for name, columns, _key, references in tables:
-        referenced = ", ".join(sorted({f"`{t}`" for _, t, _ in references}))
-        lines.append(f"| [`{name}`](#{name}) | {len(columns)} | {referenced} |")
     for name, columns, key, references in tables:
         lines += [
             "",
@@ -300,8 +307,12 @@ def schema_markdown(domain: str, schema: str) -> str:
                 + "; ".join(f"`{c}` to `{t}.{k}`" for c, t, k in references)
                 + "."
             )
-        lines += ["", "| column | type |", "|---|---|"]
-        lines += [f"| `{c}` | {kind} |" for c, kind in columns]
+        lines += [
+            "",
+            markdown.table(
+                ["column", "type"], [[f"`{c}`", kind] for c, kind in columns]
+            ),
+        ]
     return "\n".join(lines) + "\n"
 
 

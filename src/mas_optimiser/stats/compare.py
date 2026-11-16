@@ -27,7 +27,7 @@ import numpy as np
 from scipy import stats
 
 from mas_optimiser.benchmarks.enterpriseops.runner import EVALUATIONS
-from mas_optimiser.markdown import align_tables
+from mas_optimiser.markdown import table
 from mas_optimiser.stats import budget, figures, gate
 from mas_optimiser.stats.outcomes import OUTCOMES, Comparison, paired
 
@@ -267,21 +267,6 @@ def _row(name: str, cmp: Comparison, alpha: float) -> list[str]:
     return cells
 
 
-def _table(header: list[str], rows: list[list[str]]) -> list[str]:
-    """A markdown table.
-
-    Args:
-        header: The column names.
-        rows: The rows, already formatted.
-
-    Returns:
-        The table's lines.
-    """
-    lines = ["| " + " | ".join(header) + " |", "|" + "---|" * len(header)]
-    lines += ["| " + " | ".join(row) + " |" for row in rows]
-    return lines
-
-
 def run(args: argparse.Namespace) -> None:
     """Compare the two sides and write the tables and figures.
 
@@ -322,7 +307,7 @@ def run(args: argparse.Namespace) -> None:
         )
         rows = [_row("pooled", cmp, args.alpha)]
         rows += [_row(domain, cmp.domain(domain), args.alpha) for domain in domains]
-        lines += [f"## {title}", ""] + _table(COLUMNS, rows) + [""]
+        lines += [f"## {title}", "", table(COLUMNS, rows), ""]
 
     levels = [
         (f"level as given ({args.alpha:g})", args.alpha),
@@ -355,9 +340,10 @@ def run(args: argparse.Namespace) -> None:
         except ValueError:
             rule_rows.append([label, f"{level:.2g}", "n/a", "n/a", "n/a"])
     lines += [f"## Decision rules on the pooled {LABELS[args.outcome].lower()}", ""]
-    lines += _table(
-        ["rule", "level", "X0", "verdict", "detectable (points)"], rule_rows
-    ) + [""]
+    lines += [
+        table(["rule", "level", "X0", "verdict", "detectable (points)"], rule_rows),
+        "",
+    ]
 
     written = []
     try:
@@ -371,7 +357,7 @@ def run(args: argparse.Namespace) -> None:
     written.append(figures.differences(primary, out / "figures"))
     written.append(figures.domains(primary, out / "figures"))
     lines += ["## Figures", ""] + [f"- `{p.relative_to(out)}`" for p in written] + [""]
-    (out / "comparison.md").write_text(align_tables("\n".join(lines)))
+    (out / "comparison.md").write_text("\n".join(lines))
 
     with open(out / "differences.csv", "w", newline="") as f:
         writer = csv.writer(f)
