@@ -193,12 +193,13 @@ def test_schema_markdown_lists_each_table_with_its_key_columns_and_references():
         "CREATE TABLE incident (\n  incident_id INTEGER PRIMARY KEY AUTOINCREMENT,\n"
         "  caller_id VARCHAR(32) REFERENCES users(user_id),\n"
         "  status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'closed')),\n"
-        "  FOREIGN KEY(service) REFERENCES service (service_id)\n);\n"
+        "  service VARCHAR(32),\n"
+        '  FOREIGN KEY(service) REFERENCES "service" (service_id)\n);\n'
     )
     page = seeds.schema_markdown("itsm", schema)
     assert "# ITSM data model\n\n2 tables" in page
     rows = [cells(line) for line in page.split("\n") if line.startswith("|")]
-    assert ["[`incident`](#incident)", "3", "`service`, `users`"] in rows
+    assert ["[`incident`](#incident)", "4", "`service`, `users`"] in rows
     assert "## users\n\nKey: `user_id`.\n\n| column" in page
     assert ["`user_id`", "VARCHAR(32)"] in rows
     assert (

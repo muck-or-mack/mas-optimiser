@@ -25,7 +25,6 @@ Sources: ``docs/how-it-works.md``, section 6, the rows for ``seeds``.
 
 import argparse
 import contextlib
-import re
 import secrets
 import sqlite3
 import time
@@ -41,12 +40,6 @@ from benchmark.mcp_client import delete_database
 
 SCHEMAS_DIR = REPO_ROOT / "data" / "schemas"
 DATA_MODEL_DIR = REPO_ROOT / "docs" / "data-model"
-# One CREATE TABLE statement: the name and the lines between its brackets.
-TABLE = re.compile(
-    r"CREATE TABLE (?:IF NOT EXISTS )?[\"`]?(\w+)[\"`]?\s*\((.*?)\n\s*\)", re.S
-)
-CONSTRAINT = re.compile(r"(PRIMARY KEY|FOREIGN KEY|CONSTRAINT|UNIQUE|CHECK)\b")
-REFERENCE = re.compile(r"(?:FOREIGN KEY\s*\((\w+)\)\s*)?REFERENCES\s+(\w+)\s*\((\w+)\)")
 # Tables first, so that the indexes on them can be created after. SQLite
 # keeps AUTOINCREMENT counters in its own sqlite_sequence table, which a
 # database creates for itself and refuses to have created by a script, and
@@ -236,6 +229,11 @@ def domain_seeds(domain: str) -> dict[str, set[Path]]:
 def schema_markdown(domain: str, schema: str) -> str:
     """The schema as a page a reader can use: each table with its key, its columns and what it references.
 
+    SQLite reads the schema itself: the statements are run in an empty
+    in-memory database, and each table is described by
+    ``PRAGMA table_info`` (its columns, their declared types and the key)
+    and ``PRAGMA foreign_key_list`` (what it references).
+
     Args:
         domain: The domain, for the title.
         schema: The CREATE statements, as ``data/schemas/<domain>.sql`` holds them.
@@ -244,38 +242,33 @@ def schema_markdown(domain: str, schema: str) -> str:
         The page as Markdown: an index of the tables, then one section per
         table in the schema's order.
     """
+    connection = sqlite3.connect(":memory:")
+    connection.row_factory = sqlite3.Row
+    connection.executescript(schema)
+    names = [
+        row["name"]
+        for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' "
+            "AND name NOT LIKE 'sqlite_%' ORDER BY rowid"
+        )
+    ]
     tables = []
-    for name, body in TABLE.findall(schema):
-        columns, key, references = [], [], []
-        for line in body.splitlines():
-            line = line.strip().rstrip(",").strip()
-            if not line:
-                continue
-            found = REFERENCE.search(line)
-            if found:
-                references.append((found[1] or line.split()[0], found[2], found[3]))
-            if CONSTRAINT.match(line):
-                if line.startswith("PRIMARY KEY"):
-                    key = [
-                        c.strip()
-                        for c in line[line.index("(") + 1 : line.rindex(")")].split(",")
-                    ]
-                continue
-            column, kind = line.split(maxsplit=1) if " " in line else (line, "")
-            columns.append(
-                (
-                    column,
-                    kind.split(" NOT NULL")[0]
-                    .split(" PRIMARY KEY")[0]
-                    .split(" DEFAULT")[0]
-                    .split(" CHECK")[0]
-                    .split(" UNIQUE")[0]
-                    .split(" REFERENCES")[0],
-                )
-            )
-            if " PRIMARY KEY" in kind:
-                key = [column]
+    for name in names:
+        info = connection.execute(f'PRAGMA table_info("{name}")').fetchall()
+        columns = [(row["name"], row["type"]) for row in info]
+        key = [
+            row["name"] for row in sorted(info, key=lambda row: row["pk"]) if row["pk"]
+        ]
+        position = {column: i for i, (column, _) in enumerate(columns)}
+        references = sorted(
+            (
+                (row["from"], row["table"], row["to"])
+                for row in connection.execute(f'PRAGMA foreign_key_list("{name}")')
+            ),
+            key=lambda reference: position[reference[0]],
+        )
         tables.append((name, columns, key, references))
+    connection.close()
     lines = [
         f"# {domain.upper()} data model",
         "",
