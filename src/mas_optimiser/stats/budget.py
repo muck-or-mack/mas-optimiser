@@ -103,3 +103,43 @@ def fixed_level(sigma: float = 3.0) -> float:
     if sigma <= 0:
         raise ValueError("the threshold is a positive number of standard deviations")
     return float(stats.norm.sf(sigma))
+
+
+def levels(
+    alpha: float = 0.05,
+    round_number: int = 1,
+    promotions: int = 0,
+    candidates: int = 1,
+    decisions: int = 20,
+    sigma: float = 3.0,
+) -> dict[str, float]:
+    """The decision rules shown side by side, each with the level it gives one decision.
+
+    Args:
+        alpha: The run's overall Type-I error budget, and the level of a
+            decision taken on its own.
+        round_number: The decision's round, for the REUSE allocation.
+        promotions: The promotions before it, for the REUSE allocation.
+        candidates: The candidates in the round, for the REUSE allocation.
+        decisions: The number of decisions the equal split plans for.
+        sigma: The fixed threshold, in standard deviations of a normal variable.
+
+    Returns:
+        Each rule's name, as the reports write it, to its level: one decision
+        on its own, the REUSE allocation, the equal split and the fixed
+        significance, in that order.
+    """
+    share = f"{100 * alpha:g}%"
+    reuse = f"{share} shared over a run (REUSE), decision {round_number}"
+    if promotions:
+        reuse += f", after {promotions} accepted"
+    if candidates > 1:
+        reuse += f", {candidates} candidates a round"
+    return {
+        f"one decision at {share}": alpha,
+        reuse: reuse_level(alpha, round_number, promotions, candidates),
+        f"{share} shared equally over {decisions} decisions": bonferroni_level(
+            alpha, decisions
+        ),
+        f"{sigma:g} sigma": fixed_level(sigma),
+    }

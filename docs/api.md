@@ -23,6 +23,9 @@ The package's modules, from their docstrings. The command line is
 
 .. automodule:: mas_optimiser.stats.compare
    :members:
+
+.. automodule:: mas_optimiser.stats.calibrate
+   :members:
 ```
 
 ## Command and tracing

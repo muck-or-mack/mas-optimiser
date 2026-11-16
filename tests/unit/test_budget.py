@@ -58,3 +58,21 @@ def test_fixed_level_is_the_one_sided_tail_beyond_sigma():
     assert budget.fixed_level(1.6449) == pytest.approx(0.05, rel=1e-3)
     with pytest.raises(ValueError, match="positive"):
         budget.fixed_level(0)
+
+
+def test_levels_names_each_rule_and_gives_its_level():
+    levels = budget.levels()
+    assert list(levels) == [
+        "one decision at 5%",
+        "5% shared over a run (REUSE), decision 1",
+        "5% shared equally over 20 decisions",
+        "3 sigma",
+    ]
+    assert list(levels.values()) == pytest.approx(
+        [0.05, 0.0125, 0.0025, 0.00135], rel=1e-3
+    )
+    later = budget.levels(round_number=3, promotions=1, candidates=2)
+    assert (
+        "5% shared over a run (REUSE), decision 3, after 1 accepted, 2 candidates a round"
+        in later
+    )

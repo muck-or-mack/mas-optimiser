@@ -159,6 +159,13 @@ def test_mean_test_is_the_one_sided_t_test_of_the_differences():
     assert not result.accept
 
 
+def test_the_bar_is_the_quantile_of_students_t():
+    # Four degrees of freedom: 2.132 in any table. Very many tasks: the
+    # normal quantile, 1.645.
+    assert gate.bar(5, 0.05) == pytest.approx(2.1318, rel=1e-4)
+    assert gate.bar(10**6, 0.05) == pytest.approx(1.6449, rel=1e-4)
+
+
 def test_mean_test_accepts_a_clear_gain():
     assert gate.mean_test(np.array([0.2, 0.3, 0.25, 0.3, 0.2, 0.25])).accept
 

@@ -37,6 +37,10 @@ intersphinx_mapping = {
     "scipy": ("https://docs.scipy.org/doc/scipy", None),
 }
 
-exclude_patterns = ["_build", "figures/gate/comparison.md"]
+exclude_patterns = [
+    "_build",
+    "figures/gate/comparison.md",
+    "figures/calibration/calibration.md",
+]
 html_theme = "sphinx_rtd_theme"
 html_static_path: list[str] = []

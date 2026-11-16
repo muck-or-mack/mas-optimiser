@@ -1,0 +1,9 @@
+quantity,measured,uncertainty,expected,bar
+mean of T,-0.00152971,0.00225584,0,
+width of T,1.00884,0.00159512,1.00816,
+splits accepted at one decision at 5% (%),4.9685,0.0485883,5,1.65723
+"splits accepted at 5% shared over a run (REUSE), decision 1 (%)",1.1955,0.0243023,1.25,2.26895
+splits accepted at 5% shared equally over 20 decisions (%),0.213,0.0103089,0.25,2.85813
+splits accepted at 3 sigma (%),0.1065,0.00729337,0.13499,3.06162
+splits accepted by any gain (%),50.0445,0.111803,,
+T of the two runs as they were run,0.524729,,,
