@@ -1,7 +1,7 @@
 # The acceptance gate
 
 The optimiser proposes a changed harness, the candidate, and must decide
-whether it is better than the harness it has, the current one (the papers call it the current harness). The decision is
+whether it is better than the harness it has, the current one (the papers call it the incumbent). The decision is
 made on the validation tasks and is a statistical test: the candidate's gain
 has to be larger than the gain that chance alone produces between two runs of
 one and the same harness. This page defines the quantities, states the test
@@ -64,18 +64,63 @@ Student's $t$; at $N = 125$ the two thresholds differ by 0.01. The test is
 The second error is missing a real gain: $\beta = P(T < X_0 \mid H_1)$, and
 $1 - \beta$ is the *power*. With a true gain $g$ the statistic is centred on
 $g / \text{SE}$, so the power at $g$ is $1 - \Phi(X_0 - g/\text{SE})$
-(`stats.gate.power`), and the smallest gain found with power $0.8$, the
-*minimum detectable gain* or noise floor, is
+(`stats.gate.power`), and the smallest gain found with power $0.8$ is the
+*noise floor* (the minimum detectable effect of the statistics literature):
 
 $$g_{\min} = (z_{1-\alpha} + z_{0.8})\,\text{SE} = 2.49\,\text{SE} \quad
 \text{at } \alpha = 0.05$$
 
-(`stats.gate.detectable`). The floor is a property of the data's noise, not
-of any rule: a rule either respects it or accepts noise.
+(`stats.gate.detectable`; the column `detectable (points)` of the report). A
+real gain below the floor is missed more often than one time in five. The
+standard error is a property of the data; the floor follows from it and from
+the level of the decision, so a stricter level has a higher floor, and a rule
+with no level has no floor and accepts noise.
 
-![The null and alternative distributions of the statistic, the threshold, the two error regions and the observed value on the baseline runs](../figures/gate/threshold.png)
+:::{figure} ../figures/gate/threshold.png
+:alt: Two normal curves of the statistic with the threshold and the observed value
 
-![The power of the test against the true gain, on the baseline runs' standard error](../figures/gate/power.png)
+The statistic $T$ when there is no real gain (first curve) and when the true
+gain equals the noise floor (second curve). Both are drawn from the normal
+density, not from the data. The vertical line at $X_0$ is the threshold: the
+shaded area of the first curve to its right is $\alpha$, the shaded area of
+the second to its left is $\beta$. The other vertical line is the value of
+$T$ observed on the two baseline runs.
+:::
+
+:::{figure} ../figures/gate/power.png
+:alt: Power of the test against the true gain
+
+The chance that the test accepts a candidate, its power, against the size of
+the candidate's true gain, at the standard error of the two baseline runs and
+$\alpha = 0.05$. The curve starts at $\alpha$ for no gain and crosses $0.8$,
+the dashed line, at the noise floor, the vertical line.
+:::
+
+### Where the bell curves come from
+
+The central limit theorem states that the mean of many independent values,
+none of which dominates the rest, is close to normally distributed whatever
+the distribution of the single values (Barlow, 1989, the chapter on errors).
+The single values here are the per-task differences $d_i$, which are far
+from normal: most are exactly zero and the rest are small fractions. Their
+mean $\bar d$ averages 125 of them, so it is close to normal, with standard
+deviation $\text{SE}$. Dividing by $\text{SE}$ gives $T$ a standard deviation
+of one, and a centre of $g/\text{SE}$ when the true gain is $g$. The curve of
+a normal variable with centre zero and standard deviation one is the standard
+normal density,
+
+$$\varphi(t) = \frac{1}{\sqrt{2\pi}}\, e^{-t^2/2},$$
+
+and $\Phi(x) = \int_{-\infty}^{x} \varphi(t)\,\mathrm{d}t$ is the area under
+it up to $x$, the function in the threshold and the p-value above.
+
+The first figure draws $\varphi(t)$ and $\varphi(t - g_{\min}/\text{SE})$. At
+$\alpha = 0.05$ the second curve's centre is $z_{1-\alpha} + z_{0.8} = 2.49$
+whatever the data, so the picture is the same for every comparison except for
+the observed $T$ and the size of the noise floor in points. The data itself
+is the figure of per-task differences further down. The theorem is an
+approximation for a finite number of tasks; the permutation test and the
+bootstrap, next, check it on the data without assuming it.
 
 Three checks are reported beside the test, none in its place
 (`stats.gate`):
@@ -137,7 +182,7 @@ about three times larger than $T$ does before it clears zero (table below);
 with $T$ the guarantee holds in the large-sample sense that the central limit
 theorem provides.
 
-## The baseline runs: what chance alone produces
+## The noise floor on the baseline runs
 
 The two baseline runs of 27 October and 3 November are the same harness,
 model and tasks, so the true gain between them is zero and every acceptance
@@ -145,7 +190,7 @@ below would be false. On the 125 validation tasks of the split
 `haiku-20-40-40`, three attempts each (`figures/gate/comparison.md` holds
 the full report):
 
-| Outcome | $\bar d$ (points) | SE (points) | $T$ | $p$ | Detectable gain (points) | Sign test | Permutation $p$ | Bootstrap SE | Bernstein bound |
+| Outcome | $\bar d$ (points) | SE (points) | $T$ | $p$ | Noise floor (points) | Sign test | Permutation $p$ | Bootstrap SE | Bernstein bound |
 |---|---|---|---|---|---|---|---|---|---|
 | Fraction of checks passed | +0.71 | 1.36 | +0.52 | 0.30 | 3.4 | 32 up, 27 down, $p$ 0.30 | 0.30 | 1.37 | −8.4 |
 | Task success | +2.13 | 1.96 | +1.09 | 0.14 | 4.9 | 17 up, 13 down, $p$ 0.29 | 0.14 | 1.97 | −8.4 |
@@ -160,13 +205,25 @@ domains and logs per-domain scores without deciding on them. At the plan's
 two attempts per task the pooled standard error grows by $\sqrt{3/2}$ and the
 floor to about 4.2 points on the fraction.
 
-![The per-task differences on the fraction of checks passed: most tasks unchanged, the rest spread either side of zero](../figures/gate/differences.png)
+:::{figure} ../figures/gate/differences.png
+:alt: The number of tasks at each value of the per-task difference
 
-![Mean score of each run per domain and pooled, on the fraction of checks passed](../figures/gate/domains.png)
+The data: the number of tasks at each value of the per-task difference in
+the fraction of checks passed, second baseline run minus first. Most tasks
+do not move and the rest spread either side of zero; the marked mean is the
+estimated gain $\bar d$.
+:::
+
+:::{figure} ../figures/gate/domains.png
+:alt: Mean score of each run per domain and pooled
+
+The mean fraction of checks passed in each domain and over all 125 tasks,
+for the first baseline run ("current") and the second ("candidate").
+:::
 
 The decision rules on the pooled fraction, same data:
 
-| Rule | Level | $X_0$ | Verdict | Detectable gain (points) |
+| Rule | Level | $X_0$ | Verdict | Noise floor (points) |
 |---|---|---|---|---|
 | level as given, 0.05 | 0.05 | 1.64 | reject | 3.4 |
 | fixed 3 sigma | 0.0013 | 3.00 | reject | 5.2 |

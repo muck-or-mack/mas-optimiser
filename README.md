@@ -350,6 +350,38 @@ and cost, and the check verdict as two scores (`task_success` and
 `check_fraction`). Attempts from one evaluation share a session named after the
 evaluation folder, and traces are tagged with the domain, mode, arm and model.
 
+Every run goes to the one Langfuse project whose keys are in `.env`, and
+runs are told apart inside it:
+
+| Level in Langfuse | What it is here                     | Named or valued                                                 |
+|-------------------|-------------------------------------|-----------------------------------------------------------------|
+| session           | one evaluation: a run on one domain | the run and the domain, such as `2026-11-16-0808/itsm`          |
+| trace             | one attempt at one task             | the task ID                                                     |
+| tags              | labels to filter traces by          | the domain, the mode, `arm:default`, the model, `attempt:<n>`   |
+| scores            | the verdict, on each trace          | `task_success` (true or false), `check_fraction` (from 0 to 1)  |
+
+To find a run, open the list of sessions and pick the one named after the
+run's folder; its traces are that evaluation's attempts. To look across
+runs, filter the list of traces by tag (a domain, a mode, a model) or by
+score (every attempt whose `task_success` is false, say).
+
+A trace reads from the top down:
+
+- its input is the attempt's settings (the task ID, the attempt number and
+  the dataset revision);
+- under it comes one entry per model call, in order, with the messages sent
+  (the policy and the request first, then the conversation so far), the
+  model's reply, the tool calls it asked for, and the tokens and cost of
+  that call;
+- its output, written when the attempt ends, is the verdict: whether the
+  task passed, the benchmark's own verdict, and for every check what it
+  expected, what it found and why it failed, followed by the rows the
+  attempt changed.
+
+The same verdict, in full, is the attempt's page in the evaluation folder
+(`tasks/<task_id>/attempt-<n>.md`); the trace adds what the model was sent
+and what it answered at each call.
+
 One command installs and starts a self-hosted copy with Docker, outside this
 repository (the stack wants about 16 GiB of memory):
 
