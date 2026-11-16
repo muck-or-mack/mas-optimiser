@@ -33,6 +33,9 @@ The package's modules, from their docstrings. The command line is
 
 .. automodule:: mas_optimiser.tracing
    :members:
+
+.. automodule:: mas_optimiser.markdown
+   :members:
 ```
 
 ## Benchmark adapter

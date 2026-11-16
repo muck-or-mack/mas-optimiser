@@ -24,6 +24,7 @@ from datetime import datetime
 from pathlib import Path
 
 from mas_optimiser.benchmarks.enterpriseops.runner import EVALUATIONS
+from mas_optimiser.markdown import align_tables
 from mas_optimiser.stats import budget, figures, gate
 from mas_optimiser.stats.outcomes import OUTCOMES, Comparison, paired
 
@@ -344,7 +345,7 @@ def run(args: argparse.Namespace) -> None:
     written.append(figures.differences(primary, out / "figures"))
     written.append(figures.domains(primary, out / "figures"))
     lines += ["## Figures", ""] + [f"- `{p.relative_to(out)}`" for p in written] + [""]
-    (out / "comparison.md").write_text("\n".join(lines))
+    (out / "comparison.md").write_text(align_tables("\n".join(lines)))
 
     with open(out / "differences.csv", "w", newline="") as f:
         writer = csv.writer(f)
