@@ -50,7 +50,7 @@ from datasets import load_dataset
 from dotenv import load_dotenv
 
 import mas_optimiser
-from mas_optimiser import tracing
+from mas_optimiser import markdown, tracing
 from mas_optimiser.benchmarks.enterpriseops import (
     GYM_ROOT,
     REPO_ROOT,
@@ -598,7 +598,7 @@ def write_run_summary(run_dir: Path, experiment: str) -> dict:
     ]
     for domain in domains:
         lines.append("| " + " | ".join(cells(domain, records[domain]["totals"])) + " |")
-    (run_dir / "summary.md").write_text("\n".join(lines) + "\n")
+    (run_dir / "summary.md").write_text(markdown.align_tables("\n".join(lines)) + "\n")
     return record
 
 
@@ -874,17 +874,19 @@ def write_tables(
             writer.writeheader()
             writer.writerows(rows)
     (out / "summary.md").write_text(
-        report.summary(
-            name,
-            {
-                "domain": settings.get("domain"),
-                "mode": settings.get("mode"),
-                "model": model,
-            },
-            outcomes,
-            check_rows,
-            cell_rows,
-            change_rows,
+        markdown.align_tables(
+            report.summary(
+                name,
+                {
+                    "domain": settings.get("domain"),
+                    "mode": settings.get("mode"),
+                    "model": model,
+                },
+                outcomes,
+                check_rows,
+                cell_rows,
+                change_rows,
+            )
         )
     )
 

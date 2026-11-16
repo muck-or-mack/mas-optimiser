@@ -152,9 +152,11 @@ def test_write_run_summary_pools_the_domains(tmp_path):
     assert record["started"] == "2026-11-03T08:03:00"
     assert list(record["domains"]) == ["itsm", "csm"]
     text = (run_dir / "summary.md").read_text()
-    assert "| all | 200 | 139 of 600 |" in text
-    assert "| itsm | 100 | 58 of 300 |" in text
-    assert "| csm | 100 | 81 of 300 |" in text
+    assert "| all  | 200   | 139 of 600      |" in text
+    assert "| itsm | 100   | 58 of 300       |" in text
+    assert "| csm  | 100   | 81 of 300       |" in text
+    # The table's columns line up in the source.
+    assert len({len(line) for line in text.split("\n") if line.startswith("|")}) == 1
     assert (
         runner.json.loads((run_dir / "run.json").read_text())["run"]
         == "2026-11-03-0803"
