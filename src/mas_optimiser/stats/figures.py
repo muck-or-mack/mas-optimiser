@@ -90,9 +90,9 @@ def differences(cmp: Comparison, out: Path) -> Path:
 def threshold(test: MeanTest, out: Path, gain: float | None = None) -> Path:
     """The null and alternative distributions of the statistic, with the threshold.
 
-    The null distribution is the standard normal; the alternative is the same
-    bell centred on ``gain / se``, by default the minimum detectable gain at
-    power 0.8. The shaded tail beyond ``x0`` under the null is the Type-I
+    The null distribution is Student's t with ``n - 1`` degrees of freedom;
+    the alternative is the noncentral t with noncentrality ``gain / se``, by
+    default at the minimum detectable gain at power 0.8. The shaded tail beyond ``x0`` under the null is the Type-I
     error, the shaded part below ``x0`` under the alternative the Type-II
     error; the observed statistic is marked.
 
@@ -106,11 +106,11 @@ def threshold(test: MeanTest, out: Path, gain: float | None = None) -> Path:
         The path of the PDF ``threshold.pdf``.
     """
     if gain is None:
-        gain = detectable(test.se, test.alpha)
+        gain = detectable(test.se, test.n, test.alpha)
     centre = gain / test.se
     x = np.linspace(-4, centre + 4, 400)
-    null = stats.norm.pdf(x)
-    alternative = stats.norm.pdf(x, loc=centre)
+    null = stats.t.pdf(x, test.n - 1)
+    alternative = stats.nct.pdf(x, test.n - 1, centre)
     with plt.style.context(STYLE):
         fig, ax = plt.subplots()
         ax.plot(x, null, label="no real gain")
@@ -137,21 +137,21 @@ def threshold(test: MeanTest, out: Path, gain: float | None = None) -> Path:
     )
 
 
-def power_curve(se: float, alpha: float, out: Path) -> Path:
+def power_curve(se: float, n: int, alpha: float, out: Path) -> Path:
     """The power of the test against the true gain, with the detectable gain marked.
 
     Args:
         se: The standard error of the mean difference.
+        n: The number of tasks.
         alpha: The Type-I error level of the decision.
         out: The folder to write into.
 
     Returns:
         The path of the PDF ``power.pdf``.
     """
-    mde = detectable(se, alpha)
+    mde = detectable(se, n, alpha)
     gains = np.linspace(0, 2.5 * mde, 200)
-    x0 = stats.norm.ppf(1 - alpha)
-    powers = stats.norm.sf(x0 - gains / se)
+    powers = stats.nct.sf(stats.t.ppf(1 - alpha, n - 1), n - 1, gains / se)
     with plt.style.context(STYLE):
         fig, ax = plt.subplots()
         ax.plot(gains * 100, powers)

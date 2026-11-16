@@ -75,6 +75,22 @@ def test_compare_writes_the_tables_the_differences_and_the_figures(tmp_path):
             assert (out / "figures" / f"{name}.{ext}").exists()
 
 
+def test_the_permutation_check_is_the_exact_sign_flip_test_and_is_reproducible():
+    # Three non-zero differences of equal size: the observed sum, +1/3 - 1/3 + 1/3,
+    # is matched or beaten by 4 of the 8 sign patterns, so p is exactly 0.5.
+    d = np.array([1 / 3, 0.0, -1 / 3, 1 / 3, 0.0])
+    cmp = outcomes.Comparison(
+        tasks=tuple(f"t{i}" for i in range(5)),
+        domains=("itsm",) * 5,
+        a=np.full(5, 0.5),
+        b=0.5 + d,
+        outcome="checks",
+    )
+    cells = compare._row("pooled", cmp, 0.05)
+    assert cells[compare.COLUMNS.index("permutation p")] == "0.500"
+    assert compare._row("pooled", cmp, 0.05) == cells
+
+
 def test_figures_save_the_numbers_they_plot(tmp_path):
     rng = np.random.default_rng(0)
     d = rng.choice([-1 / 3, 0.0, 1 / 3], size=40, p=[0.2, 0.5, 0.3])
@@ -87,7 +103,7 @@ def test_figures_save_the_numbers_they_plot(tmp_path):
     )
     test = gate.mean_test(cmp.d)
     figures.threshold(test, tmp_path)
-    figures.power_curve(test.se, 0.05, tmp_path)
+    figures.power_curve(test.se, test.n, 0.05, tmp_path)
     figures.differences(cmp, tmp_path)
     figures.domains(cmp, tmp_path)
     with open(tmp_path / "power.csv") as f:

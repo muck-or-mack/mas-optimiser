@@ -46,42 +46,51 @@ observed mean in units of its standard error,
 $$\text{SE} = \frac{s_d}{\sqrt{N}}, \qquad T = \frac{\bar d}{\text{SE}},$$
 
 with $s_d$ the sample standard deviation of the differences (Bessel's
-correction). The mean of many bounded differences is close to normal by the
-central limit theorem, so under $H_0$ the statistic is a standard normal
-variable, and the gate keeps the candidate when
+correction). This is the one-sided paired $t$-test. The mean of many bounded
+differences is close to normal by the central limit theorem, and because
+$\text{SE}$ is itself estimated from the same $N$ differences, the statistic
+under $H_0$ follows Student's $t$ distribution with $N - 1$ degrees of
+freedom, a little wider than the standard normal. The gate keeps the
+candidate when
 
-$$T > X_0 = \Phi^{-1}(1 - \alpha),$$
+$$T > X_0 = F_{N-1}^{-1}(1 - \alpha),$$
 
-where $\alpha = P(T > X_0 \mid H_0)$ is the Type-I error allowed for the
-decision, the chance of accepting a candidate that is no better. The
-p-value is $P(T \ge t_{\text{obs}} \mid H_0) = 1 - \Phi(t_{\text{obs}})$, and
+where $F_{N-1}$ is the cumulative distribution of Student's $t$ and
+$\alpha = P(T > X_0 \mid H_0)$ is the Type-I error allowed for the decision,
+the chance of accepting a candidate that is no better. At $N = 125$ and
+$\alpha = 0.05$, $X_0 = 1.657$; the normal quantile is 1.645. The p-value is
+$P(T \ge t_{\text{obs}} \mid H_0) = 1 - F_{N-1}(t_{\text{obs}})$, and
 $\bar d - X_0\,\text{SE}$ is a one-sided lower confidence bound on the true
-gain at confidence $1 - \alpha$. The normal quantile is used rather than
-Student's $t$; at $N = 125$ the two thresholds differ by 0.01. The test is
-`stats.gate.mean_test`; the theory is textbook (Barlow, *Statistics*, Wiley,
-1989, the chapters on errors and on hypothesis testing).
+gain at confidence $1 - \alpha$. The test is `stats.gate.mean_test`, which
+calls `scipy.stats.ttest_1samp` on the differences; the theory is textbook
+(Barlow, *Statistics*, Wiley, 1989, the chapters on errors and on hypothesis
+testing).
 
 The second error is missing a real gain: $\beta = P(T < X_0 \mid H_1)$, and
-$1 - \beta$ is the *power*. With a true gain $g$ the statistic is centred on
-$g / \text{SE}$, so the power at $g$ is $1 - \Phi(X_0 - g/\text{SE})$
-(`stats.gate.power`), and the smallest gain found with power $0.8$ is the
+$1 - \beta$ is the *power*. With a true gain $g$ the statistic follows the
+noncentral $t$ distribution with $N - 1$ degrees of freedom and
+noncentrality $g / \text{SE}$, which sits close to $g / \text{SE}$, and the
+power at $g$ is the part of that distribution beyond $X_0$
+(`stats.gate.power`). The smallest gain found with power $0.8$ is the
 *noise floor* (the minimum detectable effect of the statistics literature):
 
-$$g_{\min} = (z_{1-\alpha} + z_{0.8})\,\text{SE} = 2.49\,\text{SE} \quad
-\text{at } \alpha = 0.05$$
+$$g_{\min} = 2.50\,\text{SE} \quad \text{at } \alpha = 0.05,\ N = 125,$$
 
-(`stats.gate.detectable`; the column `detectable (points)` of the report). A
+found numerically (`stats.gate.detectable`; the column `detectable (points)`
+of the report). The normal approximation,
+$(z_{1-\alpha} + z_{0.8})\,\text{SE} = 2.49\,\text{SE}$, is within one
+percent of it at this $N$. A
 real gain below the floor is missed more often than one time in five. The
 standard error is a property of the data; the floor follows from it and from
 the level of the decision, so a stricter level has a higher floor, and a rule
 with no level has no floor and accepts noise.
 
 :::{figure} ../figures/gate/threshold.png
-:alt: Two normal curves of the statistic with the threshold and the observed value
+:alt: Two curves of the statistic with the threshold and the observed value
 
 The statistic $T$ when there is no real gain (first curve) and when the true
-gain equals the noise floor (second curve). Both are drawn from the normal
-density, not from the data. The vertical line at $X_0$ is the threshold: the
+gain equals the noise floor (second curve). Both are theory, not data:
+Student's $t$ and its noncentral form. The vertical line at $X_0$ is the threshold: the
 shaded area of the first curve to its right is $\alpha$, the shaded area of
 the second to its left is $\beta$. The other vertical line is the value of
 $T$ observed on the two baseline runs.
@@ -104,26 +113,29 @@ the distribution of the single values (Barlow, 1989, the chapter on errors).
 The single values here are the per-task differences $d_i$, which are far
 from normal: most are exactly zero and the rest are small fractions. Their
 mean $\bar d$ averages 125 of them, so it is close to normal, with standard
-deviation $\text{SE}$. Dividing by $\text{SE}$ gives $T$ a standard deviation
-of one, and a centre of $g/\text{SE}$ when the true gain is $g$. The curve of
-a normal variable with centre zero and standard deviation one is the standard
-normal density,
+deviation $\text{SE}$. Dividing by the true $\text{SE}$ would give a
+variable with standard deviation one, centred on $g/\text{SE}$ when the true
+gain is $g$, whose curve for no gain is the standard normal density,
 
-$$\varphi(t) = \frac{1}{\sqrt{2\pi}}\, e^{-t^2/2},$$
+$$\varphi(t) = \frac{1}{\sqrt{2\pi}}\, e^{-t^2/2}.$$
 
-and $\Phi(x) = \int_{-\infty}^{x} \varphi(t)\,\mathrm{d}t$ is the area under
-it up to $x$, the function in the threshold and the p-value above.
+The test divides by the estimated $\text{SE}$, which adds a little spread:
+that is Student's $t$ distribution, whose density approaches $\varphi$ as
+$N$ grows and at $N = 125$ has standard deviation 1.008. With a true gain it
+becomes the noncentral $t$.
 
-The first figure draws $\varphi(t)$ and $\varphi(t - g_{\min}/\text{SE})$. At
-$\alpha = 0.05$ the second curve's centre is $z_{1-\alpha} + z_{0.8} = 2.49$
-whatever the data, so the picture is the same for every comparison except for
+The first figure draws those two densities, for no gain and for a gain equal
+to the noise floor. At $\alpha = 0.05$ and a given $N$ the second curve sits
+at the same place whatever the data (2.50 at $N = 125$), so the picture is
+the same for every comparison except for
 the observed $T$ and the size of the noise floor in points. The data itself
 is the figure of per-task differences further down. The theorem is an
 approximation for a finite number of tasks; the permutation test and the
 bootstrap, next, check it on the data without assuming it.
 
-Three checks are reported beside the test, none in its place
-(`stats.gate`):
+Three checks are reported beside the test, none in its place (the sign test
+is `stats.gate.sign_test`; the other two are SciPy's `permutation_test` and
+`bootstrap`, called by `stats.compare`):
 
 - the *exact sign test* on the tasks whose score changed: under $H_0$ each
   changed task is a fair coin, so $p = P(\text{Bin}(M, 1/2) \ge n_+)$ with
@@ -136,9 +148,8 @@ Three checks are reported beside the test, none in its place
   Chapman and Hall, 1993, the chapter on permutation tests); it assumes
   nothing about the differences' distribution;
 - the *bootstrap*: the tasks resampled with replacement, giving the spread of
-  the mean difference as a check on the analytic standard error and a
-  quantile lower bound (Efron and Tibshirani, 1993, the chapters on the
-  bootstrap standard error and on percentile intervals).
+  the mean difference as a check on the analytic standard error (Efron and
+  Tibshirani, 1993, the chapter on the bootstrap standard error).
 
 ## The level of each decision
 
@@ -171,9 +182,10 @@ three ways to set each decision's level, shown side by side by `compare`:
 - **Fixed significance**: the same threshold in standard deviations at every
   decision, three for evidence and five for discovery by the conventions of
   particle physics ($\alpha = 0.00135$ and $2.9 \times 10^{-7}$ one-sided).
-  It controls each decision, not the run.
+  The level is what is fixed: with Student's $t$ at $N = 125$ the three-sigma
+  level puts the threshold at 3.06. It controls each decision, not the run.
 
-The test statistic under the REUSE allocation is the normal-form $T$ above.
+The test statistic under the REUSE allocation is the $T$ above.
 The paper proves its guarantee for its own exact sign test on pass/fail
 scores and, for bounded scores, for a distribution-free lower confidence
 bound (its appendix A.1, `stats.gate.bernstein_bound`). That bound is
@@ -193,14 +205,17 @@ the full report):
 | Outcome | $\bar d$ (points) | SE (points) | $T$ | $p$ | Noise floor (points) | Sign test | Permutation $p$ | Bootstrap SE | Bernstein bound |
 |---|---|---|---|---|---|---|---|---|---|
 | Fraction of checks passed | +0.71 | 1.36 | +0.52 | 0.30 | 3.4 | 32 up, 27 down, $p$ 0.30 | 0.30 | 1.37 | −8.4 |
-| Task success | +2.13 | 1.96 | +1.09 | 0.14 | 4.9 | 17 up, 13 down, $p$ 0.29 | 0.14 | 1.97 | −8.4 |
+| Task success | +2.13 | 1.96 | +1.09 | 0.14 | 4.9 | 17 up, 13 down, $p$ 0.29 | 0.17 | 1.97 | −8.4 |
 
-No test accepts the null change. The three p-values of each row agree, which
-is the normal approximation checked by two methods that do not assume it,
-and the bootstrap reproduces the analytic standard error. The fraction's
+No test accepts the null change. For the fraction the three p-values agree,
+which is the test's distribution checked by two methods that do not assume
+it, and the bootstrap reproduces the analytic standard error. For task
+success, whose differences take only five values, the permutation p-value
+(0.17) sits above the $t$-test's (0.14): about 6% of the relabellings tie
+with the observed mean, and ties count towards it. The fraction's
 floor is 3.4 points against 4.9 for task success because its per-task
 differences take 32 distinct values rather than 5 and so spread less. Per
-domain the floors are 5 to 9 points, which is why the gate pools the three
+domain the floors are 5 to 10 points, which is why the gate pools the three
 domains and logs per-domain scores without deciding on them. At the plan's
 two attempts per task the pooled standard error grows by $\sqrt{3/2}$ and the
 floor to about 4.2 points on the fraction.
@@ -225,10 +240,10 @@ The decision rules on the pooled fraction, same data:
 
 | Rule | Level | $X_0$ | Verdict | Noise floor (points) |
 |---|---|---|---|---|
-| level as given, 0.05 | 0.05 | 1.64 | reject | 3.4 |
-| fixed 3 sigma | 0.0013 | 3.00 | reject | 5.2 |
-| equal split over 20 decisions | 0.0025 | 2.81 | reject | 5.0 |
-| REUSE allocation, round 1, no promotions, 1 candidate | 0.013 | 2.24 | reject | 4.2 |
+| level as given, 0.05 | 0.05 | 1.66 | reject | 3.4 |
+| fixed 3 sigma | 0.0013 | 3.06 | reject | 5.3 |
+| equal split over 20 decisions | 0.0025 | 2.86 | reject | 5.0 |
+| REUSE allocation, round 1, no promotions, 1 candidate | 0.013 | 2.27 | reject | 4.2 |
 
 Earlier work on acceptance rules for harness edits showed what happens
 without a noise term: on the same two runs, a rule that keeps any candidate
@@ -240,7 +255,8 @@ eight, and a rule with a band calibrated from the runs it judged in four
 
 - The gate's outcome is the fraction of checks passed; task success is
   reported beside it.
-- The gate's statistic is the one-sided normal-form $T$, pooled over domains;
+- The gate's test is the one-sided paired $t$-test (Student's $t$), pooled
+  over domains;
   the sign test, the permutation test and the bootstrap are reported beside
   it, and the Bernstein bound for comparison.
 - Each decision's level comes from the REUSE allocation with a run budget of

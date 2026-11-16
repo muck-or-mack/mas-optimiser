@@ -23,6 +23,9 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+import numpy as np
+from scipy import stats
+
 from mas_optimiser.benchmarks.enterpriseops.runner import EVALUATIONS
 from mas_optimiser.markdown import align_tables
 from mas_optimiser.stats import budget, figures, gate
@@ -30,6 +33,10 @@ from mas_optimiser.stats.outcomes import OUTCOMES, Comparison, paired
 
 DESCRIPTION = "compare two sets of evaluations task by task: the gate's test, its companions and the figures"
 LABELS = {"checks": "Fraction of checks passed", "success": "Task success"}
+# The random relabellings of the permutation test and the resamples of the
+# bootstrap, and the seed each starts from, so that a report can be reproduced.
+RESAMPLES = 9999
+SEED = 0
 COLUMNS = [
     "set",
     "tasks",
@@ -226,6 +233,23 @@ def _row(name: str, cmp: Comparison, alpha: float) -> list[str]:
     except ValueError:
         return cells + ["n/a"] * (len(COLUMNS) - len(cells))
     sign = gate.sign_test(d, alpha)
+    # The two checks that do not assume the test's distribution: each
+    # difference given a random sign, and the tasks resampled.
+    permutation = stats.permutation_test(
+        (d,),
+        np.mean,
+        permutation_type="samples",
+        alternative="greater",
+        n_resamples=RESAMPLES,
+        rng=np.random.default_rng(SEED),
+    )
+    spread = stats.bootstrap(
+        (d,),
+        np.mean,
+        n_resamples=RESAMPLES,
+        method="percentile",
+        rng=np.random.default_rng(SEED),
+    )
     cells += [
         f"{test.mean * 100:+.2f}",
         f"{test.se * 100:.2f}",
@@ -233,10 +257,10 @@ def _row(name: str, cmp: Comparison, alpha: float) -> list[str]:
         f"{test.x0:.3f}",
         f"{test.p:.3f}",
         "accept" if test.accept else "reject",
-        f"{gate.detectable(test.se, alpha) * 100:.1f}",
+        f"{gate.detectable(test.se, test.n, alpha) * 100:.1f}",
         f"{sign.n_plus}/{sign.n_minus}, {sign.p:.3f}",
-        f"{gate.permutation_test(d, alpha).p:.3f}",
-        f"{gate.bootstrap(d, alpha).se * 100:.2f}",
+        f"{permutation.pvalue:.3f}",
+        f"{spread.standard_error * 100:.2f}",
         f"{test.lower * 100:+.2f}",
         f"{gate.bernstein_bound(d, alpha) * 100:+.2f}",
     ]
@@ -325,7 +349,7 @@ def run(args: argparse.Namespace) -> None:
                     f"{level:.2g}",
                     f"{test.x0:.2f}",
                     "accept" if test.accept else "reject",
-                    f"{gate.detectable(test.se, level) * 100:.1f}",
+                    f"{gate.detectable(test.se, test.n, level) * 100:.1f}",
                 ]
             )
         except ValueError:
@@ -339,7 +363,9 @@ def run(args: argparse.Namespace) -> None:
     try:
         test = gate.mean_test(primary.d, args.alpha)
         written.append(figures.threshold(test, out / "figures"))
-        written.append(figures.power_curve(test.se, args.alpha, out / "figures"))
+        written.append(
+            figures.power_curve(test.se, test.n, args.alpha, out / "figures")
+        )
     except ValueError:
         pass
     written.append(figures.differences(primary, out / "figures"))
