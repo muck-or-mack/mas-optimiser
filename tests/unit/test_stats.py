@@ -122,14 +122,16 @@ def test_paired_refuses_sides_with_different_tasks(tmp_path):
 D = np.array([1 / 3, 0.0, -1 / 3, 1 / 3, 0.0])
 
 
-def test_mean_test_matches_the_hand_computation():
+def test_mean_test_is_the_one_sided_t_test_of_the_differences():
     result = gate.mean_test(D, alpha=0.05)
     assert result.n == 5
     assert result.mean == pytest.approx(1 / 15)
     assert result.se == pytest.approx(0.27889 / math.sqrt(5), rel=1e-3)
     assert result.t == pytest.approx(0.5345, rel=1e-3)
-    assert result.p == pytest.approx(0.2965, rel=1e-3)
-    assert result.x0 == pytest.approx(1.6449, rel=1e-4)
+    # Student's t with four degrees of freedom: the 0.95 quantile is 2.132 in
+    # any table, and the tail beyond 0.5345 is 0.3107.
+    assert result.x0 == pytest.approx(2.1318, rel=1e-4)
+    assert result.p == pytest.approx(0.3107, rel=1e-3)
     assert result.lower == pytest.approx(result.mean - result.x0 * result.se)
     assert not result.accept
 
@@ -167,30 +169,13 @@ def test_bernstein_bound_sits_below_the_mean_and_tightens_with_delta():
         gate.bernstein_bound(np.array([0.0, 1.5]), delta=0.05)
 
 
-def test_detectable_is_the_sum_of_two_normal_quantiles_times_se():
-    se = 0.0196
-    mde = gate.detectable(se)
-    assert mde == pytest.approx(2.4865 * se, rel=1e-3)
-    assert gate.power(se, mde) == pytest.approx(0.8, abs=1e-6)
-    assert gate.power(se, 0.0) == pytest.approx(0.05, abs=1e-6)
-    assert gate.detectable(se, power=0.9) > mde
-
-
-def test_permutation_test_recovers_the_exact_sign_flip_probability():
-    # Three non-zero differences of equal size: the observed sum of +1/3 - 1/3 + 1/3
-    # is matched or beaten by 4 of the 8 sign patterns, so p = 0.5.
-    result = gate.permutation_test(D, draws=20_000, seed=1)
-    assert result.p == pytest.approx(0.5, abs=0.02)
-    assert not result.accept
-    assert gate.permutation_test(D, draws=20_000, seed=1).p == result.p
-    assert gate.permutation_test(np.full(30, 0.2) + np.linspace(-0.05, 0.05, 30)).accept
-
-
-def test_bootstrap_spread_agrees_with_the_analytic_standard_error():
-    rng = np.random.default_rng(3)
-    d = rng.choice([-1 / 3, 0.0, 1 / 3], size=125, p=[0.1, 0.8, 0.1])
-    analytic = gate.mean_test(d)
-    boot = gate.bootstrap(d, seed=3)
-    assert boot.se == pytest.approx(analytic.se, rel=0.1)
-    assert boot.lower < d.mean()
-    assert gate.bootstrap(d, seed=3).lower == boot.lower
+def test_the_noise_floor_is_the_gain_found_with_the_chosen_power():
+    se, n = 0.0196, 125
+    floor = gate.detectable(se, n)
+    assert floor == pytest.approx(2.500 * se, rel=1e-3)
+    assert gate.power(se, n, floor) == pytest.approx(0.8, abs=1e-6)
+    assert gate.power(se, n, 0.0) == pytest.approx(0.05, abs=1e-6)
+    assert gate.detectable(se, n, power=0.9) > floor
+    # With very many tasks Student's t becomes the normal curve, and the floor
+    # the sum of two normal quantiles.
+    assert gate.detectable(se, 10**6) == pytest.approx(2.4865 * se, rel=1e-3)

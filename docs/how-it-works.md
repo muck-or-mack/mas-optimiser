@@ -462,8 +462,9 @@ is credited in `NOTICE.md` as well.
 | `splits` | stratified sampling (Cochran, *Sampling Techniques*, Wiley, 1977) | strata as domain crossed with baseline outcome, quotas by largest remainder | `splits.quotas`, `draw` |
 | `splits` | REUSE (arXiv:2609.33180); Kapoor et al. (arXiv:2407.01502); SEAL (arXiv:2607.24300) | the gate set returns only accept or reject to the proposer; a sealed test set opened once; a split drawn once and never redrawn | `splits.build_split` |
 | `stats` | own design | per-task scores for two outcomes, the paired comparison over the same tasks, the `compare` command, and figures saved with their numbers | `stats.outcomes`, `stats.compare`, `stats.figures` |
-| `stats` | Barlow, *Statistics* (Wiley, 1989), estimation and hypothesis testing | the standard error of a mean, the one-sided normal test, the Type-I and Type-II errors, power and the detectable gain | `stats.gate.mean_test`, `detectable`, `power` |
-| `stats` | Efron and Tibshirani, *An Introduction to the Bootstrap* (Chapman and Hall, 1993) | the bootstrap spread of the mean difference and the permutation test | `stats.gate.bootstrap`, `permutation_test` |
+| `stats` | Barlow, *Statistics* (Wiley, 1989), estimation and hypothesis testing | the standard error of a mean, the one-sided paired t-test, the Type-I and Type-II errors, power and the noise floor | `stats.gate.mean_test`, `detectable`, `power` |
+| `stats` | Efron and Tibshirani, *An Introduction to the Bootstrap* (Chapman and Hall, 1993) | the bootstrap spread of the mean difference and the permutation test | `stats.compare`, through SciPy |
+| `stats` | SciPy (`scipy.stats`, `scipy.special`) | the t-test, the noncentral t behind power and the noise floor, the permutation test, the bootstrap and the relative entropy are its functions, called and not rewritten | `stats.gate`, `stats.compare` |
 | `stats` | REUSE (arXiv:2609.33180) | the error budget over a run's decisions (Eq. 4), the exact sign test (Lemma A2) and the bounded-score lower confidence bound (appendix A.1) | `stats.budget.reuse_level`, `stats.gate.sign_test`, `bernstein_bound` |
 | `stats` | Bonferroni's inequality; the significance conventions of particle physics | the equal split of the budget and the fixed threshold in standard deviations, shown beside the allocation | `stats.budget.bonferroni_level`, `fixed_level` |
 
