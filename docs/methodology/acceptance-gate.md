@@ -17,23 +17,25 @@ the database must hold afterwards. An *attempt* is one run of the agent on
 one task; each task is attempted $K$ times per harness ($K = 3$ in the
 baselines). Two outcomes score an attempt:
 
-- *task success*: 1 if every check passed, else 0;
-- *fraction of checks passed*: checks passed over checks total.
+- *checks passed*: the share of the attempt's checks that passed;
+- *attempts fully passed*: 1 if every check passed, else 0.
 
-A task's score under a harness is the mean of its attempts' outcomes. With
-task success and three attempts it is one of $0, 1/3, 2/3, 1$; with the
-fraction it takes many values. For a candidate $B$ and the current harness $A$ run
-on the same $N$ tasks, the per-task difference is
+A task's score under a harness is the mean of its attempts' outcomes, written
+in the reports as a percentage. With attempts fully passed and three attempts
+it is one of 0, 33, 67 or 100%; with checks passed it takes many values. For
+a candidate $B$ and the current harness $A$ run on the same $N$ tasks, the
+per-task difference is
 
 $$d_i = \text{score}_i(B) - \text{score}_i(A), \qquad i = 1, \dots, N,$$
 
-and the estimated gain is $\bar d$, the mean of the $d_i$. Pairing on the
+and the estimated gain is $\bar d$, the mean of the $d_i$, in percentage
+points, a difference of two percentages. Pairing on the
 task removes the task's own difficulty from the comparison, so the sides must
 have scored the same tasks (`stats.outcomes.paired`).
 
-The gate uses the fraction of checks passed, declared as the primary outcome
-before any comparison was run, and reports task success beside it. The
-fraction has the lower noise floor (below), at the price of meaning: partial
+The gate uses checks passed, declared as the primary outcome before any
+comparison was run, and reports attempts fully passed beside it. Checks
+passed has the lower noise floor (below), at the price of meaning: partial
 credit can rise without more tasks being finished, which is why the coarser
 outcome is always shown.
 
@@ -58,7 +60,8 @@ $$T > X_0 = F_{N-1}^{-1}(1 - \alpha),$$
 where $F_{N-1}$ is the cumulative distribution of Student's $t$ and
 $\alpha = P(T > X_0 \mid H_0)$ is the Type-I error allowed for the decision,
 the chance of accepting a candidate that is no better. At $N = 125$ and
-$\alpha = 0.05$, $X_0 = 1.657$; the normal quantile is 1.645. The p-value is
+$\alpha = 0.05$, $X_0 = 1.657$ (the reports call $X_0$ the bar on $T$); the
+normal quantile is 1.645. The p-value is
 $P(T \ge t_{\text{obs}} \mid H_0) = 1 - F_{N-1}(t_{\text{obs}})$, and
 $\bar d - X_0\,\text{SE}$ is a one-sided lower confidence bound on the true
 gain at confidence $1 - \alpha$. The test is `stats.gate.mean_test`, which
@@ -76,8 +79,8 @@ power at $g$ is the part of that distribution beyond $X_0$
 
 $$g_{\min} = 2.50\,\text{SE} \quad \text{at } \alpha = 0.05,\ N = 125,$$
 
-found numerically (`stats.gate.detectable`; the column `detectable (points)`
-of the report). The normal approximation,
+found numerically (`stats.gate.detectable`; `noise_floor_percentage_points`
+in `tests.csv`). The normal approximation,
 $(z_{1-\alpha} + z_{0.8})\,\text{SE} = 2.49\,\text{SE}$, is within one
 percent of it at this $N$. A
 real gain below the floor is missed more often than one time in five. The
@@ -85,7 +88,7 @@ standard error is a property of the data; the floor follows from it and from
 the level of the decision, so a stricter level has a higher floor, and a rule
 with no level has no floor and accepts noise.
 
-:::{figure} ../figures/gate/threshold.png
+:::{figure} ../figures/gate/figures/threshold.png
 :alt: Two curves of the statistic with the threshold and the observed value
 
 The statistic $T$ when there is no real gain (first curve) and when the true
@@ -96,7 +99,7 @@ the second to its left is $\beta$. The other vertical line is the value of
 $T$ observed on the two baseline runs.
 :::
 
-:::{figure} ../figures/gate/power.png
+:::{figure} ../figures/gate/figures/power.png
 :alt: Power of the test against the true gain
 
 The chance that the test accepts a candidate, its power, against the size of
@@ -128,7 +131,7 @@ The first figure draws those two densities, for no gain and for a gain equal
 to the noise floor. At $\alpha = 0.05$ and a given $N$ the second curve sits
 at the same place whatever the data (2.50 at $N = 125$), so the picture is
 the same for every comparison except for
-the observed $T$ and the size of the noise floor in points. The data itself
+the observed $T$ and the size of the noise floor in percentage points. The data itself
 is the figure of per-task differences further down. The theorem is an
 approximation for a finite number of tasks; the permutation test and the
 bootstrap, next, check it on the data without assuming it.
@@ -199,51 +202,54 @@ theorem provides.
 The two baseline runs of 27 October and 3 November are the same harness,
 model and tasks, so the true gain between them is zero and every acceptance
 below would be false. On the 125 validation tasks of the split
-`haiku-20-40-40`, three attempts each (`figures/gate/comparison.md` holds
-the full report):
+`haiku-20-40-40`, three attempts each (`docs/figures/gate/` is that
+comparison as `compare` wrote it: the report and its data files):
 
-| Outcome | $\bar d$ (points) | SE (points) | $T$ | $p$ | Noise floor (points) | Sign test | Permutation $p$ | Bootstrap SE | Bernstein bound |
+| Outcome | $\bar d$ | SE | $T$ | $p$ | Noise floor | Sign test | Permutation $p$ | Bootstrap SE | Bernstein bound |
 |---|---|---|---|---|---|---|---|---|---|
-| Fraction of checks passed | +0.71 | 1.36 | +0.52 | 0.30 | 3.4 | 32 up, 27 down, $p$ 0.30 | 0.30 | 1.37 | −8.4 |
-| Task success | +2.13 | 1.96 | +1.09 | 0.14 | 4.9 | 17 up, 13 down, $p$ 0.29 | 0.17 | 1.97 | −8.4 |
+| Checks passed | +0.71 | 1.36 | +0.52 | 0.30 | 3.4 | 32 up, 27 down, $p$ 0.30 | 0.30 | 1.37 | −8.4 |
+| Attempts fully passed | +2.13 | 1.96 | +1.09 | 0.14 | 4.9 | 17 up, 13 down, $p$ 0.29 | 0.17 | 1.97 | −8.4 |
 
-No test accepts the null change. For the fraction the three p-values agree,
-which is the test's distribution checked by two methods that do not assume
-it, and the bootstrap reproduces the analytic standard error. For task
-success, whose differences take only five values, the permutation p-value
-(0.17) sits above the $t$-test's (0.14): about 6% of the relabellings tie
-with the observed mean, and ties count towards it. The fraction's
-floor is 3.4 points against 4.9 for task success because its per-task
-differences take 32 distinct values rather than 5 and so spread less. Per
-domain the floors are 5 to 10 points, which is why the gate pools the three
+$\bar d$, SE, the noise floor and the Bernstein bound are in percentage
+points. No test accepts the null change. For checks passed the three
+p-values agree, which is the test's distribution checked by two methods that
+do not assume it, and the bootstrap reproduces the analytic standard error.
+For attempts fully passed, whose differences take only five values, the
+permutation p-value (0.17) sits above the $t$-test's (0.14): about 6% of the
+relabellings tie with the observed mean, and ties count towards it. The
+floor of checks passed is 3.4 percentage points against 4.9 for attempts
+fully passed because its per-task differences take 32 distinct values rather
+than 5 and so spread less. Per domain the floors are 5 to 10 percentage
+points, which is why the gate pools the three
 domains and logs per-domain scores without deciding on them. At the plan's
 two attempts per task the pooled standard error grows by $\sqrt{3/2}$ and the
-floor to about 4.2 points on the fraction.
+floor to about 4.2 percentage points on checks passed.
 
-:::{figure} ../figures/gate/differences.png
+:::{figure} ../figures/gate/figures/differences.png
 :alt: The number of tasks at each value of the per-task difference
 
 The data: the number of tasks at each value of the per-task difference in
-the fraction of checks passed, second baseline run minus first. Most tasks
+checks passed, second baseline run minus first. Most tasks
 do not move and the rest spread either side of zero; the marked mean is the
 estimated gain $\bar d$.
 :::
 
-:::{figure} ../figures/gate/domains.png
+:::{figure} ../figures/gate/figures/domains.png
 :alt: Mean score of each run per domain and pooled
 
-The mean fraction of checks passed in each domain and over all 125 tasks,
+The mean of checks passed in each domain and over all 125 tasks,
 for the first baseline run ("current") and the second ("candidate").
 :::
 
-The decision rules on the pooled fraction, same data:
+The decision rules on checks passed over all 125 tasks, same data, the
+strictest last:
 
-| Rule | Level | $X_0$ | Verdict | Noise floor (points) |
+| Rule | False acceptances allowed | Bar on $T$ | Verdict | Noise floor (percentage points) |
 |---|---|---|---|---|
-| level as given, 0.05 | 0.05 | 1.66 | reject | 3.4 |
-| fixed 3 sigma | 0.0013 | 3.06 | reject | 5.3 |
-| equal split over 20 decisions | 0.0025 | 2.86 | reject | 5.0 |
-| REUSE allocation, round 1, no promotions, 1 candidate | 0.013 | 2.27 | reject | 4.2 |
+| one decision at 5% | 5% | 1.66 | reject | 3.4 |
+| 5% shared over a run (REUSE), decision 1 | 1.25% | 2.27 | reject | 4.2 |
+| 5% shared equally over 20 decisions | 0.25% | 2.86 | reject | 5.0 |
+| 3 sigma | 0.135% | 3.06 | reject | 5.3 |
 
 Earlier work on acceptance rules for harness edits showed what happens
 without a noise term: on the same two runs, a rule that keeps any candidate
@@ -253,8 +259,8 @@ eight, and a rule with a band calibrated from the runs it judged in four
 
 ## Decisions recorded here
 
-- The gate's outcome is the fraction of checks passed; task success is
-  reported beside it.
+- The gate's outcome is checks passed; attempts fully passed is reported
+  beside it.
 - The gate's test is the one-sided paired $t$-test (Student's $t$), pooled
   over domains;
   the sign test, the permutation test and the bootstrap are reported beside

@@ -10,12 +10,12 @@ difference.
 Sources: ``docs/how-it-works.md``, section 6, the rows for ``stats``.
 """
 
-import csv
 import json
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 
 from mas_optimiser.benchmarks.enterpriseops.splits import load_split
 
@@ -43,18 +43,13 @@ def task_scores(evaluation: Path, outcome: str) -> dict[str, float]:
     """
     if outcome not in OUTCOMES:
         raise ValueError(f"outcome must be one of {OUTCOMES}, not {outcome!r}")
-    scores: dict[str, list[float]] = {}
-    with open(Path(evaluation) / "tasks.csv", newline="") as f:
-        for row in csv.DictReader(f):
-            total = int(row["checks_total"])
-            if total == 0:
-                continue
-            if outcome == "success":
-                score = 1.0 if row["success"] == "True" else 0.0
-            else:
-                score = int(row["checks_passed"]) / total
-            scores.setdefault(row["task_id"], []).append(score)
-    return {task: float(np.mean(values)) for task, values in scores.items()}
+    attempts = pd.read_csv(Path(evaluation) / "tasks.csv")
+    attempts = attempts[attempts["checks_total"] > 0]
+    if outcome == "success":
+        score = attempts["success"].astype(str).eq("True").astype(float)
+    else:
+        score = attempts["checks_passed"] / attempts["checks_total"]
+    return score.groupby(attempts["task_id"]).mean().to_dict()
 
 
 @dataclass(frozen=True)

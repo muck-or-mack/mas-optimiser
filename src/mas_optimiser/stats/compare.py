@@ -8,11 +8,15 @@ Each side is one evaluation per domain; ``--a`` is the current harness, ``--b``
 the candidate. A side is named by evaluation folders, repeated once per
 domain, by a run folder, or by a run name, a day (``20261027`` or
 ``2026-10-27``) or the start of a name within ``--experiment``, which the
-experiment's ``index.csv`` resolves through each evaluation's start time. The command writes ``comparison.md`` (the gate's test, its
-companions and the decision rules, pooled and per domain, for both outcomes),
-``differences.csv`` (one row per task) and ``figures/`` (each figure as PDF
-and PNG with its numbers as CSV) into ``--out``, by default
-``comparisons/<timestamp>``.
+experiment's ``index.csv`` resolves through each evaluation's start time.
+
+The command writes its results as data into ``--out`` (by default
+``comparisons/<timestamp>``): ``tests.csv``, a row per outcome and set of
+tasks with every number of the test; ``rules.csv``, a row per decision rule;
+``sides.csv``, a row per side with its settings, cost and time; and
+``differences.csv``, a row per task. ``comparison.md`` is a view of those
+files for reading, with the figures of ``figures/`` embedded. Scores are in
+percent and differences in percentage points.
 
 Sources: ``docs/how-it-works.md``, section 6, the rows for ``stats``.
 """
@@ -24,6 +28,7 @@ from datetime import datetime
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 from scipy import stats
 
 from mas_optimiser.benchmarks.enterpriseops.runner import EVALUATIONS
@@ -32,29 +37,54 @@ from mas_optimiser.stats import budget, figures, gate
 from mas_optimiser.stats.outcomes import OUTCOMES, Comparison, paired
 
 DESCRIPTION = "compare two sets of evaluations task by task: the gate's test, its companions and the figures"
-LABELS = {"checks": "Fraction of checks passed", "success": "Task success"}
+# How each outcome is named in the data files and the report.
+LABELS = {"checks": "checks passed", "success": "attempts fully passed"}
 # The random relabellings of the permutation test and the resamples of the
 # bootstrap, and the seed each starts from, so that a report can be reproduced.
 RESAMPLES = 9999
 SEED = 0
-COLUMNS = [
+TEST_COLUMNS = [
+    "outcome",
     "set",
     "tasks",
-    "current",
-    "candidate",
-    "gain (points)",
-    "SE (points)",
-    "T",
-    "X0",
+    "current_percent",
+    "candidate_percent",
+    "gain_percentage_points",
+    "false_acceptances_allowed_percent",
+    "standard_error_percentage_points",
+    "t",
+    "bar",
     "p",
     "verdict",
-    "detectable (points)",
-    "sign test (up/down, p)",
-    "permutation p",
-    "bootstrap SE (points)",
-    "lower bound (points)",
-    "Bernstein bound (points)",
+    "lower_bound_percentage_points",
+    "noise_floor_percentage_points",
+    "tasks_up",
+    "tasks_down",
+    "tasks_unchanged",
+    "sign_test_p",
+    "permutation_p",
+    "bootstrap_standard_error_percentage_points",
+    "bernstein_bound_percentage_points",
 ]
+RULE_COLUMNS = [
+    "rule",
+    "false_acceptances_allowed_percent",
+    "bar",
+    "t",
+    "verdict",
+    "noise_floor_percentage_points",
+]
+# The figures, each with the caption the report gives it.
+CAPTIONS = {
+    "threshold": "The statistic T when nothing changed (first curve) and when the "
+    "true gain equals the noise floor (second curve), both theory; the bar and "
+    "the observed T are the vertical lines.",
+    "power": "The chance that a real gain of each size is accepted; it crosses "
+    "80% at the noise floor.",
+    "differences": "The number of tasks at each value of the per-task "
+    "difference, candidate minus current.",
+    "domains": "The mean score of each side, per domain and over all tasks.",
+}
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
@@ -202,36 +232,33 @@ def evaluations(experiment: str | None, spec: str) -> list[Path]:
     return [folder / names[0] for names in by_domain.values()]
 
 
-def _name(evaluation: Path) -> str:
-    """An evaluation's name within its experiment, ``<run>/<domain>`` where recorded.
+def _row(set_name: str, cmp: Comparison, alpha: float) -> dict:
+    """One row of ``tests.csv``: every number of the test on one set of tasks.
 
     Args:
-        evaluation: The evaluation's folder.
-
-    Returns:
-        The ``evaluation`` field of its ``evaluation.json``, or the folder's name.
-    """
-    record = json.loads((evaluation / "evaluation.json").read_text())
-    return record.get("evaluation") or evaluation.name
-
-
-def _row(name: str, cmp: Comparison, alpha: float) -> list[str]:
-    """One table row: the tests of a comparison at one level.
-
-    Args:
-        name: The row's label, ``pooled`` or a domain.
+        set_name: The set's name, ``all`` or a domain.
         cmp: The comparison, or the part of it for the domain.
         alpha: The Type-I error level of the decision.
 
     Returns:
-        The cells, formatted; ``n/a`` where a test cannot be computed.
+        The row, keyed by ``TEST_COLUMNS``, scores in percent and differences
+        in percentage points; only the first seven when the test cannot be
+        computed (fewer than two tasks, or every difference equal).
     """
     d = cmp.d
-    cells = [name, str(len(cmp.tasks)), f"{cmp.a.mean():.3f}", f"{cmp.b.mean():.3f}"]
+    row = {
+        "outcome": LABELS[cmp.outcome],
+        "set": set_name,
+        "tasks": len(cmp.tasks),
+        "current_percent": 100 * cmp.a.mean(),
+        "candidate_percent": 100 * cmp.b.mean(),
+        "gain_percentage_points": 100 * d.mean(),
+        "false_acceptances_allowed_percent": 100 * alpha,
+    }
     try:
         test = gate.mean_test(d, alpha)
     except ValueError:
-        return cells + ["n/a"] * (len(COLUMNS) - len(cells))
+        return row
     sign = gate.sign_test(d, alpha)
     # The two checks that do not assume the test's distribution: each
     # difference given a random sign, and the tasks resampled.
@@ -250,25 +277,256 @@ def _row(name: str, cmp: Comparison, alpha: float) -> list[str]:
         method="percentile",
         rng=np.random.default_rng(SEED),
     )
-    cells += [
-        f"{test.mean * 100:+.2f}",
-        f"{test.se * 100:.2f}",
-        f"{test.t:+.2f}",
-        f"{test.x0:.3f}",
-        f"{test.p:.3f}",
-        "accept" if test.accept else "reject",
-        f"{gate.detectable(test.se, test.n, alpha) * 100:.1f}",
-        f"{sign.n_plus}/{sign.n_minus}, {sign.p:.3f}",
-        f"{permutation.pvalue:.3f}",
-        f"{spread.standard_error * 100:.2f}",
-        f"{test.lower * 100:+.2f}",
-        f"{gate.bernstein_bound(d, alpha) * 100:+.2f}",
+    return row | {
+        "standard_error_percentage_points": 100 * test.se,
+        "t": test.t,
+        "bar": test.x0,
+        "p": test.p,
+        "verdict": "accept" if test.accept else "reject",
+        "lower_bound_percentage_points": 100 * test.lower,
+        "noise_floor_percentage_points": 100 * gate.detectable(test.se, test.n, alpha),
+        "tasks_up": sign.n_plus,
+        "tasks_down": sign.n_minus,
+        "tasks_unchanged": len(d) - sign.n_plus - sign.n_minus,
+        "sign_test_p": sign.p,
+        "permutation_p": permutation.pvalue,
+        "bootstrap_standard_error_percentage_points": 100 * spread.standard_error,
+        "bernstein_bound_percentage_points": 100 * gate.bernstein_bound(d, alpha),
+    }
+
+
+def _report(
+    basis: str,
+    sides: pd.DataFrame,
+    tests: pd.DataFrame,
+    rules: pd.DataFrame,
+    outcome: str,
+    drawn: list[str],
+) -> str:
+    """The comparison as a page for reading, a view of the data files.
+
+    Every number shown is read from the frames, which are what the command
+    writes to ``sides.csv``, ``tests.csv`` and ``rules.csv``.
+
+    Args:
+        basis: One sentence saying which tasks were compared.
+        sides: The two sides, as ``sides.csv`` holds them.
+        tests: The tests, as ``tests.csv`` holds them.
+        rules: The decision rules, as ``rules.csv`` holds them.
+        outcome: The outcome that decides, as ``LABELS`` names it.
+        drawn: The names of the figures drawn, in the order to show them.
+
+    Returns:
+        The page as Markdown.
+    """
+
+    def shown(value: object, form: str) -> str:
+        return "n/a" if pd.isna(value) else format(value, form)
+
+    current, candidate = sides.to_dict("records")
+    whole = tests[tests["set"] == "all"]
+    gate_rows = tests[tests["outcome"] == outcome]
+    decides = gate_rows.iloc[0]
+    level = f"{decides['false_acceptances_allowed_percent']:g}%"
+    quantities = [
+        ("gain", "gain_percentage_points", "+.2f"),
+        ("standard error", "standard_error_percentage_points", ".2f"),
+        ("T", "t", "+.2f"),
+        ("bar on T", "bar", ".2f"),
+        ("p", "p", ".3f"),
+        ("lower bound", "lower_bound_percentage_points", "+.2f"),
+        ("noise floor", "noise_floor_percentage_points", ".1f"),
+        ("sign test p", "sign_test_p", ".3f"),
+        ("permutation p", "permutation_p", ".3f"),
+        (
+            "bootstrap standard error",
+            "bootstrap_standard_error_percentage_points",
+            ".2f",
+        ),
     ]
-    return cells
+    meaning = {
+        "gain": "mean over tasks of candidate minus current",
+        "standard error": "how far the gain would move if both runs were repeated",
+        "T": "gain divided by standard error",
+        "bar on T": "T must exceed this to be accepted",
+        "p": "chance that a change that does nothing gives a T this large",
+        "lower bound": "the true gain is above this with "
+        f"{100 - decides['false_acceptances_allowed_percent']:g}% confidence",
+        "noise floor": "smallest true gain the test catches 4 times in 5",
+        "tasks up / down / same": "tasks whose score rose, fell or stayed the same",
+        "sign test p": "cross-check using only the direction of each change",
+        "permutation p": "cross-check that does not assume the test's distribution",
+        "bootstrap standard error": "cross-check of the standard error by resampling tasks",
+    }
+    full = [
+        [name]
+        + [shown(row[column], form) for _, row in whole.iterrows()]
+        + [meaning[name]]
+        for name, column, form in quantities
+    ]
+    full.insert(
+        7,
+        ["tasks up / down / same"]
+        + [
+            " / ".join(
+                shown(row[c], ".0f")
+                for c in ("tasks_up", "tasks_down", "tasks_unchanged")
+            )
+            for _, row in whole.iterrows()
+        ]
+        + [meaning["tasks up / down / same"]],
+    )
+    lines = [
+        f"# Comparison: {candidate['run']} against {current['run']}",
+        "",
+        "## What is compared",
+        "",
+        table(
+            ["side", "run", "mode", "model", "harness", "attempts per task"],
+            [
+                [
+                    side["side"],
+                    side["run"],
+                    side["mode"],
+                    side["model"],
+                    side["harness"],
+                    str(side["attempts_per_task"]),
+                ]
+                for side in (current, candidate)
+            ],
+        ),
+        "",
+        basis,
+        "",
+        "## Result",
+        "",
+        table(
+            [
+                "outcome",
+                "current",
+                "candidate",
+                "gain",
+                f"verdict at {level}",
+                "noise floor",
+            ],
+            [
+                [
+                    row["outcome"],
+                    f"{row['current_percent']:.1f}%",
+                    f"{row['candidate_percent']:.1f}%",
+                    f"{row['gain_percentage_points']:+.1f} percentage points",
+                    "n/a"
+                    if pd.isna(row["verdict"])
+                    else f"{row['verdict']} (p {row['p']:.3f})",
+                    f"{shown(row['noise_floor_percentage_points'], '.1f')} percentage points",
+                ]
+                for _, row in whole.iterrows()
+            ],
+        ),
+        "",
+        f'The decision uses "{outcome}". Checks passed is each task\'s percentage of '
+        "checks passed, averaged over its attempts and then over tasks, so every "
+        "task counts equally. Attempts fully passed is the percentage of attempts "
+        "in which every check passed.",
+        "",
+        "## Cost and time",
+        "",
+        table(
+            [
+                "side",
+                "attempts",
+                "cost per attempt",
+                "total cost",
+                "seconds per attempt",
+                "errors",
+            ],
+            [
+                [
+                    side["side"],
+                    str(side["attempts"]),
+                    f"${side['cost_per_attempt_usd']:.4f}",
+                    f"${side['total_cost_usd']:.2f}",
+                    f"{side['seconds_per_attempt']:.1f}",
+                    str(side["errors"]),
+                ]
+                for side in (current, candidate)
+            ],
+        ),
+        "",
+        f"## By domain ({outcome})",
+        "",
+        table(
+            [
+                "tasks",
+                "current",
+                "candidate",
+                "gain (percentage points)",
+                "noise floor (percentage points)",
+                f"verdict at {level}",
+            ],
+            [
+                [
+                    f"{row['set']}, {row['tasks']}",
+                    f"{row['current_percent']:.1f}%",
+                    f"{row['candidate_percent']:.1f}%",
+                    f"{row['gain_percentage_points']:+.1f}",
+                    shown(row["noise_floor_percentage_points"], ".1f"),
+                    "n/a" if pd.isna(row["verdict"]) else row["verdict"],
+                ]
+                for _, row in gate_rows.iterrows()
+            ],
+        ),
+        "",
+        "The domain rows are for information. Only the first row decides.",
+        "",
+        f"## The test in full (all {decides['tasks']} tasks)",
+        "",
+        table(["quantity", *whole["outcome"], "what it is"], full),
+        "",
+        "Gain, standard error, lower bound, noise floor and bootstrap standard "
+        "error are in percentage points.",
+        "",
+        f"## Decision rules ({outcome}; T is {shown(decides['t'], '+.2f')})",
+        "",
+        table(
+            [
+                "rule",
+                "false acceptances allowed",
+                "bar on T",
+                "verdict",
+                "noise floor (percentage points)",
+            ],
+            [
+                [
+                    row["rule"],
+                    f"{row['false_acceptances_allowed_percent']:.3g}%",
+                    shown(row["bar"], ".2f"),
+                    "n/a" if pd.isna(row["verdict"]) else row["verdict"],
+                    shown(row["noise_floor_percentage_points"], ".1f"),
+                ]
+                for _, row in rules.iterrows()
+            ],
+        ),
+        "",
+        "## Figures",
+        "",
+    ]
+    for name in drawn:
+        lines += [f"![{name}](figures/{name}.png)", "", f"*{CAPTIONS[name]}*", ""]
+    lines += [
+        "## Data",
+        "",
+        "- `tests.csv`: every number above, for every outcome and set of tasks",
+        "- `rules.csv`: the decision rules",
+        "- `sides.csv`: the two sides, with their cost and time",
+        "- `differences.csv`: one row per task",
+        "",
+    ]
+    return "\n".join(lines)
 
 
 def run(args: argparse.Namespace) -> None:
-    """Compare the two sides and write the tables and figures.
+    """Compare the two sides and write the data files, the figures and the report.
 
     Args:
         args: The parsed options, as ``add_arguments`` defines them.
@@ -281,99 +539,125 @@ def run(args: argparse.Namespace) -> None:
         outcome: paired(a, b, outcome, args.split, args.subset) for outcome in OUTCOMES
     }
     primary = comparisons[args.outcome]
-    names = (
-        "candidate "
-        + ", ".join(_name(p) for p in b)
-        + " against current "
-        + ", ".join(_name(p) for p in a)
-    )
-    where = (
-        f"the {args.subset} tasks of split {args.split}"
-        if args.split
-        else "every task both sides scored"
-    )
-    lines = [
-        f"# Comparison: {names}",
-        "",
-        f"Candidate (second) against current (first) on {where}: {len(primary.tasks)} "
-        f"tasks. Scores are per-task means over attempts; a point is a hundredth. "
-        f"Decisions at level {args.alpha:g}, one-sided.",
-        "",
-    ]
     domains = sorted(set(primary.domains))
-    for outcome, cmp in comparisons.items():
-        title = LABELS[outcome] + (
-            " (the gate's outcome)" if outcome == args.outcome else ""
-        )
-        rows = [_row("pooled", cmp, args.alpha)]
-        rows += [_row(domain, cmp.domain(domain), args.alpha) for domain in domains]
-        lines += [f"## {title}", "", table(COLUMNS, rows), ""]
 
-    levels = [
-        (f"level as given ({args.alpha:g})", args.alpha),
-        (f"fixed {args.sigma:g} sigma", budget.fixed_level(args.sigma)),
-        (
-            f"equal split over {args.decisions} decisions",
-            budget.bonferroni_level(args.alpha, args.decisions),
+    tests = pd.DataFrame(
+        [
+            _row(name, part, args.alpha)
+            for cmp in comparisons.values()
+            for name, part in [("all", cmp)]
+            + [(domain, cmp.domain(domain)) for domain in domains]
+        ],
+        columns=TEST_COLUMNS,
+    )
+
+    share = f"{100 * args.alpha:g}%"
+    reuse = f"{share} shared over a run (REUSE), decision {args.round_number}"
+    if args.promotions:
+        reuse += f", after {args.promotions} accepted"
+    if args.candidates > 1:
+        reuse += f", {args.candidates} candidates a round"
+    levels = {
+        f"one decision at {share}": args.alpha,
+        reuse: budget.reuse_level(
+            args.alpha, args.round_number, args.promotions, args.candidates
         ),
-        (
-            f"REUSE allocation, round {args.round_number}, {args.promotions} promotions, "
-            f"{args.candidates} candidates",
-            budget.reuse_level(
-                args.alpha, args.round_number, args.promotions, args.candidates
-            ),
+        f"{share} shared equally over {args.decisions} decisions": budget.bonferroni_level(
+            args.alpha, args.decisions
         ),
-    ]
+        f"{args.sigma:g} sigma": budget.fixed_level(args.sigma),
+    }
     rule_rows = []
-    for label, level in levels:
+    for name, level in levels.items():
+        row = {"rule": name, "false_acceptances_allowed_percent": 100 * level}
         try:
             test = gate.mean_test(primary.d, level)
-            rule_rows.append(
-                [
-                    label,
-                    f"{level:.2g}",
-                    f"{test.x0:.2f}",
-                    "accept" if test.accept else "reject",
-                    f"{gate.detectable(test.se, test.n, level) * 100:.1f}",
-                ]
-            )
+            row |= {
+                "bar": test.x0,
+                "t": test.t,
+                "verdict": "accept" if test.accept else "reject",
+                "noise_floor_percentage_points": 100
+                * gate.detectable(test.se, test.n, level),
+            }
         except ValueError:
-            rule_rows.append([label, f"{level:.2g}", "n/a", "n/a", "n/a"])
-    lines += [f"## Decision rules on the pooled {LABELS[args.outcome].lower()}", ""]
-    lines += [
-        table(["rule", "level", "X0", "verdict", "detectable (points)"], rule_rows),
-        "",
-    ]
+            pass
+        rule_rows.append(row)
+    rules = pd.DataFrame(rule_rows, columns=RULE_COLUMNS).sort_values(
+        "false_acceptances_allowed_percent", ascending=False
+    )
 
-    written = []
+    side_rows = []
+    for side, folders in (("current", a), ("candidate", b)):
+        settings = pd.DataFrame(
+            json.loads((p / "evaluation.json").read_text()) for p in folders
+        )
+        settings["model"] = settings["model"].map(
+            lambda model: model["llm_model"] if isinstance(model, dict) else model
+        )
+        attempts = pd.concat(pd.read_csv(p / "tasks.csv") for p in folders)
+        attempts = attempts[attempts["task_id"].isin(primary.tasks)]
+        # A setting the side's evaluations share is written once.
+        row = {"side": side} | {
+            field: ", ".join(settings[field].astype(str).unique())
+            for field in ("run", "mode", "model", "harness", "attempts")
+        }
+        row["attempts_per_task"] = row.pop("attempts")
+        side_rows.append(
+            row
+            | {
+                "attempts": len(attempts),
+                "cost_per_attempt_usd": attempts["cost_usd"].mean(),
+                "total_cost_usd": attempts["cost_usd"].sum(),
+                "seconds_per_attempt": attempts["seconds"].mean(),
+                "errors": int(attempts["error"].notna().sum()),
+            }
+        )
+    sides = pd.DataFrame(side_rows)
+
+    differences = pd.DataFrame({"task_id": primary.tasks, "domain": primary.domains})
+    for outcome, cmp in comparisons.items():
+        name = LABELS[outcome].replace(" ", "_")
+        differences[f"{name}_current_percent"] = 100 * cmp.a
+        differences[f"{name}_candidate_percent"] = 100 * cmp.b
+        differences[f"{name}_difference_percentage_points"] = 100 * cmp.d
+
+    tests.to_csv(out / "tests.csv", index=False, float_format="%.6g")
+    rules.to_csv(out / "rules.csv", index=False, float_format="%.6g")
+    sides.to_csv(out / "sides.csv", index=False, float_format="%.6g")
+    differences.to_csv(out / "differences.csv", index=False, float_format="%.2f")
+
+    drawn = []
     try:
         test = gate.mean_test(primary.d, args.alpha)
-        written.append(figures.threshold(test, out / "figures"))
-        written.append(
-            figures.power_curve(test.se, test.n, args.alpha, out / "figures")
-        )
+        figures.threshold(test, out / "figures")
+        figures.power_curve(test.se, test.n, args.alpha, out / "figures")
+        drawn += ["threshold", "power"]
     except ValueError:
         pass
-    written.append(figures.differences(primary, out / "figures"))
-    written.append(figures.domains(primary, out / "figures"))
-    lines += ["## Figures", ""] + [f"- `{p.relative_to(out)}`" for p in written] + [""]
-    (out / "comparison.md").write_text("\n".join(lines))
+    figures.differences(primary, out / "figures")
+    figures.domains(primary, out / "figures")
+    drawn += ["differences", "domains"]
 
-    with open(out / "differences.csv", "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(
-            ["task_id", "domain"]
-            + [f"{side}_{outcome}" for outcome in OUTCOMES for side in ("a", "b", "d")]
-        )
-        for i, task in enumerate(primary.tasks):
-            row = [task, primary.domains[i]]
-            for outcome in OUTCOMES:
-                cmp = comparisons[outcome]
-                row += [f"{cmp.a[i]:.4f}", f"{cmp.b[i]:.4f}", f"{cmp.d[i]:+.4f}"]
-            writer.writerow(row)
+    counts = ", ".join(f"{d} {primary.domains.count(d)}" for d in domains)
+    basis = (
+        f"The same {len(primary.tasks)} {args.subset} tasks of split {args.split} "
+        f"on both sides ({counts})."
+        if args.split
+        else f"Every task both sides scored: {len(primary.tasks)} tasks ({counts})."
+    )
+    (out / "comparison.md").write_text(
+        _report(basis, sides, tests, rules, LABELS[args.outcome], drawn)
+    )
+
+    decides = tests[tests["outcome"] == LABELS[args.outcome]].iloc[0]
     print(out)
-    cells = _row("pooled", primary, args.alpha)
     print(
-        f"pooled {LABELS[args.outcome].lower()}: gain {cells[4]} points, "
-        f"T {cells[6]}, p {cells[8]}, {cells[9]}"
+        f"all {decides['tasks']} tasks, {decides['outcome']}: "
+        f"{decides['current_percent']:.1f}% to {decides['candidate_percent']:.1f}%, "
+        f"gain {decides['gain_percentage_points']:+.2f} percentage points"
+        + (
+            ""
+            if pd.isna(decides["verdict"])
+            else f", T {decides['t']:+.2f}, p {decides['p']:.3f}, {decides['verdict']}"
+        )
     )

@@ -23,6 +23,7 @@ dependencies = [
     "langchain-core",
     "langfuse>=5.0.4",
     "matplotlib>=3.11.2",
+    "pandas>=3.0.6",
     "python-dotenv",
     "pyyaml",
     "scipy>=1.17.1",
