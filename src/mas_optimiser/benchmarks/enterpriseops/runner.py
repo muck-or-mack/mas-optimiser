@@ -853,8 +853,9 @@ def write_tables(
 
     Args:
         out: The evaluation folder.
-        settings: The ``domain``, ``mode`` and ``model`` (a name, or the model
-            config as ``evaluation.json`` keeps it) that head the summary.
+        settings: The ``evaluation`` name, ``domain``, ``mode`` and ``model``
+            (a name, or the model config as ``evaluation.json`` keeps it) that
+            head the summary; without a name the folder's is used.
         outcomes: The ``tasks.csv`` rows, one per attempt.
         check_rows: The ``checks.csv`` rows.
         cell_rows: The ``cells.csv`` rows.
@@ -863,20 +864,20 @@ def write_tables(
     model = settings.get("model")
     if isinstance(model, dict):
         model = model.get("llm_model", "?")
-    for name, columns, rows in (
+    for file_name, columns, rows in (
         ("tasks.csv", list(outcomes[0]) if outcomes else [], outcomes),
         ("checks.csv", checks.COLUMNS, check_rows),
         ("cells.csv", report.CELL_COLUMNS, cell_rows),
         ("changes.csv", report.CHANGE_COLUMNS, change_rows),
     ):
-        with (out / name).open("w", newline="") as f:
+        with (out / file_name).open("w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=columns)
             writer.writeheader()
             writer.writerows(rows)
     (out / "summary.md").write_text(
         markdown.align_tables(
             report.summary(
-                name,
+                settings.get("evaluation", out.name),
                 {
                     "domain": settings.get("domain"),
                     "mode": settings.get("mode"),
@@ -1280,7 +1281,12 @@ def evaluate(
 
     write_tables(
         out,
-        {"domain": domain, "mode": experiment["mode"], "model": model.llm_model},
+        {
+            "evaluation": name,
+            "domain": domain,
+            "mode": experiment["mode"],
+            "model": model.llm_model,
+        },
         outcomes,
         check_rows,
         cell_rows,

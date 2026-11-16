@@ -279,7 +279,9 @@ def test_evaluate_writes_the_tables_the_settings_and_the_index_row(
         settings["totals"]["total_attempts"] == 1 and settings["totals"]["errors"] == 1
     )
     assert "llm_api_key" not in settings["model"]
-    assert (folder / "summary.md").exists() and (folder / "tasks.csv").exists()
+    assert (folder / "tasks.csv").exists()
+    # The summary is headed by the evaluation's name, not by a file's.
+    assert (folder / "summary.md").read_text().startswith("# e1\n")
     index = (tmp_path / "exp" / "index.csv").read_text().splitlines()
     assert index[0].startswith("evaluation,run,started,domain,mode,model,harness,")
     assert index[1].startswith("e1,") and ",itsm,oracle,m,default," in index[1]
