@@ -592,13 +592,13 @@ def write_run_summary(run_dir: Path, experiment: str) -> dict:
         f"task, started {record['started']}. Each domain's own summary is "
         f"`<domain>/summary.md`.",
         "",
-        "| " + " | ".join(header) + " |",
-        "|" + "---|" * len(header),
-        "| " + " | ".join(cells("all", pooled)) + " |",
+        markdown.table(
+            header,
+            [cells("all", pooled)]
+            + [cells(domain, records[domain]["totals"]) for domain in domains],
+        ),
     ]
-    for domain in domains:
-        lines.append("| " + " | ".join(cells(domain, records[domain]["totals"])) + " |")
-    (run_dir / "summary.md").write_text(markdown.align_tables("\n".join(lines)) + "\n")
+    (run_dir / "summary.md").write_text("\n".join(lines) + "\n")
     return record
 
 
@@ -875,19 +875,17 @@ def write_tables(
             writer.writeheader()
             writer.writerows(rows)
     (out / "summary.md").write_text(
-        markdown.align_tables(
-            report.summary(
-                settings.get("evaluation", out.name),
-                {
-                    "domain": settings.get("domain"),
-                    "mode": settings.get("mode"),
-                    "model": model,
-                },
-                outcomes,
-                check_rows,
-                cell_rows,
-                change_rows,
-            )
+        report.summary(
+            settings.get("evaluation", out.name),
+            {
+                "domain": settings.get("domain"),
+                "mode": settings.get("mode"),
+                "model": model,
+            },
+            outcomes,
+            check_rows,
+            cell_rows,
+            change_rows,
         )
     )
 

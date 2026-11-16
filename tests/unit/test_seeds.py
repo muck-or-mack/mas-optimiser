@@ -6,6 +6,7 @@ import httpx
 import pytest
 
 from mas_optimiser.benchmarks.enterpriseops import seeds
+from tests.unit.test_markdown import cells
 
 SCHEMA = (
     "CREATE TABLE incident (\n\tincident_id VARCHAR(32) NOT NULL, \n"
@@ -196,13 +197,12 @@ def test_schema_markdown_lists_each_table_with_its_key_columns_and_references():
     )
     page = seeds.schema_markdown("itsm", schema)
     assert "# ITSM data model\n\n2 tables" in page
-    assert "| [`incident`](#incident) | 3 | `service`, `users` |" in page
-    assert (
-        "## users\n\nKey: `user_id`.\n\n| column | type |\n|---|---|\n| `user_id` | VARCHAR(32) |"
-        in page
-    )
+    rows = [cells(line) for line in page.split("\n") if line.startswith("|")]
+    assert ["[`incident`](#incident)", "3", "`service`, `users`"] in rows
+    assert "## users\n\nKey: `user_id`.\n\n| column" in page
+    assert ["`user_id`", "VARCHAR(32)"] in rows
     assert (
         "## incident\n\nKey: `incident_id`.\nReferences: `caller_id` to `users.user_id`; `service` to `service.service_id`."
         in page
     )
-    assert "| `status` | TEXT |" in page
+    assert ["`status`", "TEXT"] in rows

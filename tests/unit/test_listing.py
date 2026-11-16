@@ -6,6 +6,7 @@ import csv
 import pytest
 
 from mas_optimiser.benchmarks.enterpriseops import listing
+from tests.unit.test_markdown import cells
 
 FIELDS = [
     "evaluation",
@@ -96,17 +97,17 @@ def write_index(folder):
 
 def test_table_groups_rows_by_run_with_a_summed_row_first(tmp_path):
     lines = listing.table(write_index(tmp_path / "exp")).splitlines()
-    assert lines[0].startswith("| run ")
+    assert cells(lines[0])[0] == "run"
     # The older row has no run name and stands alone under its day.
-    assert lines[2].startswith("| 2026-10-27      | itsm   |")
+    assert cells(lines[2])[:2] == ["2026-10-27", "itsm"]
     assert "59 of 306" in lines[2]
     # The named run: the summed row, then its domains in start order.
-    assert lines[3].startswith("| 2026-11-03-0803 | all    |")
+    assert cells(lines[3])[:2] == ["2026-11-03-0803", "all"]
     assert (
         "139 of 615" in lines[3] and "1230 of 2331" in lines[3] and "5.68" in lines[3]
     )
-    assert lines[4].startswith("| 2026-11-03-0803 | itsm   |")
-    assert lines[5].startswith("| 2026-11-03-0803 | csm    |")
+    assert cells(lines[4])[:2] == ["2026-11-03-0803", "itsm"]
+    assert cells(lines[5])[:2] == ["2026-11-03-0803", "csm"]
     assert len({len(line) for line in lines}) == 1
 
 

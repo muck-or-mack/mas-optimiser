@@ -14,6 +14,7 @@ import argparse
 import csv
 from pathlib import Path
 
+from mas_optimiser import markdown
 from mas_optimiser.benchmarks.enterpriseops.runner import EVALUATIONS
 
 DESCRIPTION = "list an experiment's runs and their domains from its index"
@@ -101,22 +102,7 @@ def table(experiment: Path, domain: str | None = None) -> str:
             body.append(_cells(run, "all", members))
         for r in members:
             body.append(_cells(run, r["domain"], [r]))
-    widths = [
-        max(len(cell) for cell in column) for column in zip(COLUMNS, *body, strict=True)
-    ]
-    lines = [
-        "| "
-        + " | ".join(name.ljust(w) for name, w in zip(COLUMNS, widths, strict=True))
-        + " |",
-        "|" + "|".join("-" * (w + 2) for w in widths) + "|",
-    ]
-    for cells in body:
-        lines.append(
-            "| "
-            + " | ".join(cell.ljust(w) for cell, w in zip(cells, widths, strict=True))
-            + " |"
-        )
-    return "\n".join(lines)
+    return markdown.table(COLUMNS, body)
 
 
 def run(args: argparse.Namespace) -> None:

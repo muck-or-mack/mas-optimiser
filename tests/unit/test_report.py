@@ -3,6 +3,7 @@
 import json
 
 from mas_optimiser.benchmarks.enterpriseops import report
+from tests.unit.test_markdown import cells
 
 
 def wrapped(text):
@@ -334,12 +335,13 @@ def test_summary_counts_steps_and_names_the_worst_tasks():
         report.cell_rows("t1", 1, results),
         report.change_rows("t1", 1, CHANGES, queries),
     )
-    assert "| 1 of 2 (50.0%) | 1 of 2 | 3 of 6 | 1 | 1 |" in text
+    rows = [cells(line) for line in text.split("\n") if line.startswith("|")]
+    assert ["1 of 2 (50.0%)", "1 of 2", "3 of 6", "1", "1"] in rows
     assert "Failed checks by step: skipped 1, failed 1, wrong 1." in text
     assert "Steps skipped (no call wrote the table), by table: incident_task 1." in text
     assert "Cells wrong, by column: channel 1, priority 1." in text
-    assert "| t1 | 0 of 1 | " in text
-    assert "| t2 |" not in text
+    assert any(row[:2] == ["t1", "0 of 1"] for row in rows)
+    assert not any(row[0] == "t2" for row in rows)
 
 
 def test_a_call_that_names_a_row_without_writing_its_table_is_not_its_writer():

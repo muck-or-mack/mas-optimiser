@@ -1,40 +1,25 @@
-"""Unit tests of ``markdown``: tables padded so the source reads as a table."""
+"""Unit tests of ``markdown``: tables written so that the source reads as a table."""
 
-from mas_optimiser.markdown import align_tables
-
-TEXT = """# Title
-
-Some text with a | pipe that is no table.
-
-| set | tasks | attempts passed |
-|---|---|--:|
-| all | 125 | 97 of 375 |
-| itsm | 42 | 34 of 126 |
-
-After the table.
-"""
+from mas_optimiser.markdown import table
 
 
-def test_tables_are_padded_to_the_widest_cell_and_other_text_is_untouched():
-    lines = align_tables(TEXT).split("\n")
-    assert lines[:4] == TEXT.split("\n")[:4]
-    assert lines[4] == "| set  | tasks | attempts passed |"
-    assert lines[5] == "|------|-------|----------------:|"
-    assert lines[6] == "| all  | 125   | 97 of 375       |"
-    assert lines[7] == "| itsm | 42    | 34 of 126       |"
-    assert lines[8:] == TEXT.split("\n")[8:]
+def cells(line):
+    """The cells of one table line, without their padding."""
+    return [cell.strip() for cell in line.strip().strip("|").split("|")]
 
 
-def test_aligning_twice_changes_nothing():
-    once = align_tables(TEXT)
-    assert align_tables(once) == once
+def test_columns_are_padded_and_cells_are_written_as_given():
+    lines = table(
+        ["set", "gain", "attempts passed"],
+        [["all", "+3.69", "97 of 375"], ["itsm", "-0.22", "34 of 126"]],
+    ).split("\n")
+    assert len(lines) == 4
+    assert len({len(line) for line in lines}) == 1
+    assert set(lines[1]) == {"|", "-"}
+    # A signed number stays as written: number parsing is off.
+    assert "| +3.69 " in lines[2] and "| -0.22 " in lines[3]
 
 
-def test_an_escaped_pipe_stays_in_its_cell_and_short_rows_are_filled():
-    text = "| a | b |\n|---|---|\n| x \\| y | z |\n| only |"
-    assert align_tables(text).split("\n") == [
-        "| a      | b   |",
-        "|--------|-----|",
-        "| x \\| y | z   |",
-        "| only   |     |",
-    ]
+def test_a_table_without_rows_keeps_its_header():
+    lines = table(["task", "passed"], []).split("\n")
+    assert len(lines) == 2 and lines[0].startswith("| task")
