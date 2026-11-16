@@ -67,6 +67,7 @@ TEST_COLUMNS = [
     "bernstein_bound_percentage_points",
 ]
 RULE_COLUMNS = [
+    "outcome",
     "rule",
     "false_acceptances_allowed_percent",
     "bar",
@@ -76,14 +77,20 @@ RULE_COLUMNS = [
 ]
 # The figures, each with the caption the report gives it.
 CAPTIONS = {
-    "threshold": "The statistic T when nothing changed (first curve) and when the "
-    "true gain equals the noise floor (second curve), both theory; the bar and "
-    "the observed T are the vertical lines.",
-    "power": "The chance that a real gain of each size is accepted; it crosses "
-    "80% at the noise floor.",
-    "differences": "The number of tasks at each value of the per-task "
-    "difference, candidate minus current.",
-    "domains": "The mean score of each side, per domain and over all tasks.",
+    "gains": "The gain on all tasks and in each domain. Each bar spans the gain "
+    "plus and minus the bar on T times the standard error, so a row is accepted "
+    "when its bar lies wholly to the right of the no-gain line. Only the row "
+    "for all tasks decides.",
+    "differences": "How many tasks rose, fell and stayed the same, in bins ten "
+    "percentage points wide. The grey bar is the tasks that did not change; "
+    "the line is the mean, which is the gain.",
+    "decisions": "The T observed (the vertical line) against the bar of each "
+    "decision rule (the marks). A rule accepts when its bar lies to the left "
+    "of the line.",
+    "detectable": "The chance that a real gain of each size would be accepted "
+    "under each decision rule: theory, from this comparison's standard error. "
+    "Each curve crosses 80% at that rule's noise floor, marked; the vertical "
+    "line is the gain observed.",
 }
 
 
@@ -314,7 +321,8 @@ def _report(
         tests: The tests, as ``tests.csv`` holds them.
         rules: The decision rules, as ``rules.csv`` holds them.
         outcome: The outcome that decides, as ``LABELS`` names it.
-        drawn: The names of the figures drawn, in the order to show them.
+        drawn: The names of the figures drawn; each is embedded under the
+            table it illustrates.
 
     Returns:
         The page as Markdown.
@@ -376,6 +384,12 @@ def _report(
         ]
         + [meaning["tasks up / down / same"]],
     )
+
+    def figure(name: str) -> list[str]:
+        if name not in drawn:
+            return []
+        return [f"![{name}](figures/{name}.png)", "", f"*{CAPTIONS[name]}*", ""]
+
     lines = [
         f"# Comparison: {candidate['run']} against {current['run']}",
         "",
@@ -479,6 +493,7 @@ def _report(
         "",
         "The domain rows are for information. Only the first row decides.",
         "",
+        *figure("gains"),
         f"## The test in full (all {decides['tasks']} tasks)",
         "",
         table(["quantity", *whole["outcome"], "what it is"], full),
@@ -486,6 +501,7 @@ def _report(
         "Gain, standard error, lower bound, noise floor and bootstrap standard "
         "error are in percentage points.",
         "",
+        *figure("differences"),
         f"## Decision rules ({outcome}; T is {shown(decides['t'], '+.2f')})",
         "",
         table(
@@ -508,12 +524,8 @@ def _report(
             ],
         ),
         "",
-        "## Figures",
-        "",
-    ]
-    for name in drawn:
-        lines += [f"![{name}](figures/{name}.png)", "", f"*{CAPTIONS[name]}*", ""]
-    lines += [
+        *figure("decisions"),
+        *figure("detectable"),
         "## Data",
         "",
         "- `tests.csv`: every number above, for every outcome and set of tasks",
@@ -569,7 +581,11 @@ def run(args: argparse.Namespace) -> None:
     }
     rule_rows = []
     for name, level in levels.items():
-        row = {"rule": name, "false_acceptances_allowed_percent": 100 * level}
+        row = {
+            "outcome": LABELS[args.outcome],
+            "rule": name,
+            "false_acceptances_allowed_percent": 100 * level,
+        }
         try:
             test = gate.mean_test(primary.d, level)
             row |= {
@@ -626,17 +642,7 @@ def run(args: argparse.Namespace) -> None:
     sides.to_csv(out / "sides.csv", index=False, float_format="%.6g")
     differences.to_csv(out / "differences.csv", index=False, float_format="%.2f")
 
-    drawn = []
-    try:
-        test = gate.mean_test(primary.d, args.alpha)
-        figures.threshold(test, out / "figures")
-        figures.power_curve(test.se, test.n, args.alpha, out / "figures")
-        drawn += ["threshold", "power"]
-    except ValueError:
-        pass
-    figures.differences(primary, out / "figures")
-    figures.domains(primary, out / "figures")
-    drawn += ["differences", "domains"]
+    drawn = figures.draw(out)
 
     counts = ", ".join(f"{d} {primary.domains.count(d)}" for d in domains)
     basis = (
