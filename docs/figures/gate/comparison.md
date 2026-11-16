@@ -1,37 +1,89 @@
-# Comparison: candidate 2026-11-03-0803/itsm, 2026-11-03-0803/csm, 2026-11-03-0803/hr against current 2026-10-27-0528/itsm, 2026-10-27-0528/csm, 2026-10-27-0528/hr
+# Comparison: 2026-11-03-0803 against 2026-10-27-0528
 
-Candidate (second) against current (first) on the validation tasks of split haiku-20-40-40: 125 tasks. Scores are per-task means over attempts; a point is a hundredth. Decisions at level 0.05, one-sided.
+## What is compared
 
-## Fraction of checks passed (the gate's outcome)
+| side      | run             | mode   | model            | harness   | attempts per task   |
+|-----------|-----------------|--------|------------------|-----------|---------------------|
+| current   | 2026-10-27-0528 | oracle | claude-haiku-5-5 | default   | 3                   |
+| candidate | 2026-11-03-0803 | oracle | claude-haiku-5-5 | default   | 3                   |
 
-| set    | tasks | current | candidate | gain (points) | SE (points) | T     | X0    | p     | verdict | detectable (points) | sign test (up/down, p) | permutation p | bootstrap SE (points) | lower bound (points) | Bernstein bound (points) |
-|--------|-------|---------|-----------|---------------|-------------|-------|-------|-------|---------|---------------------|------------------------|---------------|-----------------------|----------------------|--------------------------|
-| pooled | 125   | 0.522   | 0.529     | +0.71         | 1.36        | +0.52 | 1.657 | 0.300 | reject  | 3.4                 | 32/27, 0.301           | 0.300         | 1.37                  | -1.54                | -8.37                    |
-| csm    | 42    | 0.527   | 0.557     | +2.95         | 2.60        | +1.14 | 1.683 | 0.131 | reject  | 6.6                 | 13/8, 0.192            | 0.132         | 2.57                  | -1.42                | -20.44                   |
-| hr     | 41    | 0.556   | 0.550     | -0.62         | 2.15        | -0.29 | 1.684 | 0.612 | reject  | 5.4                 | 10/10, 0.588           | 0.609         | 2.12                  | -4.25                | -23.48                   |
-| itsm   | 42    | 0.484   | 0.482     | -0.22         | 2.31        | -0.09 | 1.683 | 0.538 | reject  | 5.8                 | 9/9, 0.593             | 0.540         | 2.28                  | -4.11                | -22.95                   |
+The same 125 validation tasks of split haiku-20-40-40 on both sides (csm 42, hr 41, itsm 42).
 
-## Task success
+## Result
 
-| set    | tasks | current | candidate | gain (points) | SE (points) | T     | X0    | p     | verdict | detectable (points) | sign test (up/down, p) | permutation p | bootstrap SE (points) | lower bound (points) | Bernstein bound (points) |
-|--------|-------|---------|-----------|---------------|-------------|-------|-------|-------|---------|---------------------|------------------------|---------------|-----------------------|----------------------|--------------------------|
-| pooled | 125   | 0.205   | 0.227     | +2.13         | 1.96        | +1.09 | 1.657 | 0.139 | reject  | 4.9                 | 17/13, 0.292           | 0.169         | 1.97                  | -1.11                | -8.41                    |
-| csm    | 42    | 0.214   | 0.270     | +5.56         | 3.75        | +1.48 | 1.683 | 0.073 | reject  | 9.5                 | 10/4, 0.090            | 0.103         | 3.68                  | -0.76                | -20.42                   |
-| hr     | 41    | 0.187   | 0.187     | +0.00         | 3.08        | +0.00 | 1.684 | 0.500 | reject  | 7.8                 | 3/5, 0.855             | 0.511         | 3.01                  | -5.19                | -24.74                   |
-| itsm   | 42    | 0.214   | 0.222     | +0.79         | 3.31        | +0.24 | 1.683 | 0.406 | reject  | 8.4                 | 4/4, 0.637             | 0.505         | 3.26                  | -4.78                | -24.02                   |
+| outcome               | current   | candidate   | gain                   | verdict at 5%    | noise floor           |
+|-----------------------|-----------|-------------|------------------------|------------------|-----------------------|
+| checks passed         | 52.2%     | 52.9%       | +0.7 percentage points | reject (p 0.300) | 3.4 percentage points |
+| attempts fully passed | 20.5%     | 22.7%       | +2.1 percentage points | reject (p 0.139) | 4.9 percentage points |
 
-## Decision rules on the pooled fraction of checks passed
+The decision uses "checks passed". Checks passed is each task's percentage of checks passed, averaged over its attempts and then over tasks, so every task counts equally. Attempts fully passed is the percentage of attempts in which every check passed.
 
-| rule                                                  | level  | X0   | verdict | detectable (points) |
-|-------------------------------------------------------|--------|------|---------|---------------------|
-| level as given (0.05)                                 | 0.05   | 1.66 | reject  | 3.4                 |
-| fixed 3 sigma                                         | 0.0013 | 3.06 | reject  | 5.3                 |
-| equal split over 20 decisions                         | 0.0025 | 2.86 | reject  | 5.0                 |
-| REUSE allocation, round 1, 0 promotions, 1 candidates | 0.013  | 2.27 | reject  | 4.2                 |
+## Cost and time
+
+| side      | attempts   | cost per attempt   | total cost   | seconds per attempt   | errors   |
+|-----------|------------|--------------------|--------------|-----------------------|----------|
+| current   | 375        | $0.0087            | $3.26        | 16.5                  | 0        |
+| candidate | 375        | $0.0093            | $3.48        | 17.6                  | 0        |
+
+## By domain (checks passed)
+
+| tasks    | current   | candidate   | gain (percentage points)   | noise floor (percentage points)   | verdict at 5%   |
+|----------|-----------|-------------|----------------------------|-----------------------------------|-----------------|
+| all, 125 | 52.2%     | 52.9%       | +0.7                       | 3.4                               | reject          |
+| csm, 42  | 52.7%     | 55.7%       | +3.0                       | 6.6                               | reject          |
+| hr, 41   | 55.6%     | 55.0%       | -0.6                       | 5.4                               | reject          |
+| itsm, 42 | 48.4%     | 48.2%       | -0.2                       | 5.8                               | reject          |
+
+The domain rows are for information. Only the first row decides.
+
+## The test in full (all 125 tasks)
+
+| quantity                 | checks passed   | attempts fully passed   | what it is                                                  |
+|--------------------------|-----------------|-------------------------|-------------------------------------------------------------|
+| gain                     | +0.71           | +2.13                   | mean over tasks of candidate minus current                  |
+| standard error           | 1.36            | 1.96                    | how far the gain would move if both runs were repeated      |
+| T                        | +0.52           | +1.09                   | gain divided by standard error                              |
+| bar on T                 | 1.66            | 1.66                    | T must exceed this to be accepted                           |
+| p                        | 0.300           | 0.139                   | chance that a change that does nothing gives a T this large |
+| lower bound              | -1.54           | -1.11                   | the true gain is above this with 95% confidence             |
+| noise floor              | 3.4             | 4.9                     | smallest true gain the test catches 4 times in 5            |
+| tasks up / down / same   | 32 / 27 / 66    | 17 / 13 / 95            | tasks whose score rose, fell or stayed the same             |
+| sign test p              | 0.301           | 0.292                   | cross-check using only the direction of each change         |
+| permutation p            | 0.300           | 0.169                   | cross-check that does not assume the test's distribution    |
+| bootstrap standard error | 1.37            | 1.97                    | cross-check of the standard error by resampling tasks       |
+
+Gain, standard error, lower bound, noise floor and bootstrap standard error are in percentage points.
+
+## Decision rules (checks passed; T is +0.52)
+
+| rule                                     | false acceptances allowed   | bar on T   | verdict   | noise floor (percentage points)   |
+|------------------------------------------|-----------------------------|------------|-----------|-----------------------------------|
+| one decision at 5%                       | 5%                          | 1.66       | reject    | 3.4                               |
+| 5% shared over a run (REUSE), decision 1 | 1.25%                       | 2.27       | reject    | 4.2                               |
+| 5% shared equally over 20 decisions      | 0.25%                       | 2.86       | reject    | 5.0                               |
+| 3 sigma                                  | 0.135%                      | 3.06       | reject    | 5.3                               |
 
 ## Figures
 
-- `figures/threshold.pdf`
-- `figures/power.pdf`
-- `figures/differences.pdf`
-- `figures/domains.pdf`
+![threshold](figures/threshold.png)
+
+*The statistic T when nothing changed (first curve) and when the true gain equals the noise floor (second curve), both theory; the bar and the observed T are the vertical lines.*
+
+![power](figures/power.png)
+
+*The chance that a real gain of each size is accepted; it crosses 80% at the noise floor.*
+
+![differences](figures/differences.png)
+
+*The number of tasks at each value of the per-task difference, candidate minus current.*
+
+![domains](figures/domains.png)
+
+*The mean score of each side, per domain and over all tasks.*
+
+## Data
+
+- `tests.csv`: every number above, for every outcome and set of tasks
+- `rules.csv`: the decision rules
+- `sides.csv`: the two sides, with their cost and time
+- `differences.csv`: one row per task

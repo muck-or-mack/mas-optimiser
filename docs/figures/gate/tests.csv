@@ -1,0 +1,9 @@
+outcome,set,tasks,current_percent,candidate_percent,gain_percentage_points,false_acceptances_allowed_percent,standard_error_percentage_points,t,bar,p,verdict,lower_bound_percentage_points,noise_floor_percentage_points,tasks_up,tasks_down,tasks_unchanged,sign_test_p,permutation_p,bootstrap_standard_error_percentage_points,bernstein_bound_percentage_points
+checks passed,all,125,52.2069,52.9212,0.714314,5,1.3613,0.524729,1.65723,0.300354,reject,-1.54168,3.40346,32,27,66,0.301462,0.3001,1.3722,-8.37339
+checks passed,csm,42,52.7315,55.6816,2.95013,5,2.596,1.13641,1.68288,0.131191,reject,-1.41862,6.56415,13,8,21,0.191655,0.1316,2.56741,-20.4436
+checks passed,hr,41,55.5698,54.9501,-0.619757,5,2.15401,-0.287723,1.68385,0.612478,reject,-4.24678,5.44886,10,10,21,0.588099,0.609,2.11906,-23.4756
+checks passed,itsm,42,48.3995,48.1803,-0.219199,5,2.31015,-0.094885,1.68288,0.537566,reject,-4.1069,5.84135,9,9,24,0.592735,0.5404,2.27634,-22.9504
+attempts fully passed,all,125,20.5333,22.6667,2.13333,5,1.95813,1.08948,1.65723,0.139028,reject,-1.11174,4.89562,17,13,95,0.292332,0.1686,1.97057,-8.40719
+attempts fully passed,csm,42,21.4286,26.9841,5.55556,5,3.75338,1.48015,1.68288,0.0732387,reject,-0.76092,9.49063,10,4,28,0.0897827,0.1028,3.67559,-20.4169
+attempts fully passed,hr,41,18.6992,18.6992,0,5,3.07979,0,1.68385,0.5,reject,-5.1859,7.79075,3,5,33,0.855469,0.5108,3.00862,-24.7357
+attempts fully passed,itsm,42,21.4286,22.2222,0.793651,5,3.30965,0.239799,1.68288,0.405841,reject,-4.77609,8.36865,4,4,34,0.636719,0.5046,3.25822,-24.0166

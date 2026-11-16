@@ -9,13 +9,34 @@ import pytest
 
 from mas_optimiser.stats import gate, outcomes
 
-COLUMNS = ["task_id", "attempt", "success", "checks_passed", "checks_total", "error"]
+COLUMNS = [
+    "task_id",
+    "attempt",
+    "success",
+    "checks_passed",
+    "checks_total",
+    "error",
+    "cost_usd",
+    "seconds",
+]
 
 
 def write_evaluation(folder, domain, rows):
-    """Write a minimal evaluation: ``evaluation.json`` and ``tasks.csv`` rows."""
+    """Write a minimal evaluation: ``evaluation.json`` and ``tasks.csv`` rows.
+
+    The run is the folder's name up to its first hyphen; every attempt costs
+    a cent and takes ten seconds.
+    """
     folder.mkdir(parents=True)
-    (folder / "evaluation.json").write_text(json.dumps({"domain": domain}))
+    settings = {
+        "domain": domain,
+        "run": folder.name.split("-")[0],
+        "mode": "oracle",
+        "model": {"llm_model": "m"},
+        "harness": "default",
+        "attempts": 2,
+    }
+    (folder / "evaluation.json").write_text(json.dumps(settings))
     with open(folder / "tasks.csv", "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=COLUMNS)
         writer.writeheader()
@@ -28,6 +49,8 @@ def write_evaluation(folder, domain, rows):
                     "checks_passed": passed,
                     "checks_total": total,
                     "error": "",
+                    "cost_usd": 0.01,
+                    "seconds": 10.0,
                 }
             )
     return folder

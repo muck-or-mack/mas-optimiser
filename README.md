@@ -221,7 +221,7 @@ Every evaluation folder is written to be read without a tracing server:
 | the tables a domain has, with keys and references | `docs/data-model/<domain>.md`; the schema in `data/schemas/<domain>.sql` | `mas-optimiser schema` |
 | which tasks are training, validation and test | `configs/splits/<name>.json` | `mas-optimiser split` |
 | every run of an experiment, at a glance, with its domains | `mas-optimiser list <experiment>`, from `index.csv` | `listing` |
-| whether a candidate beat the current harness, by how much, and the smallest gain the data could show | `comparison.md` and `figures/` in the folder `mas-optimiser compare` writes | `stats.compare` |
+| whether a candidate beat the current harness, by how much, and the smallest gain the data could show | `comparison.md`, its data files and `figures/` in the folder `mas-optimiser compare` writes | `stats.compare` |
 
 ## Splitting the tasks
 
@@ -333,14 +333,18 @@ The two baseline runs of the same harness, which set the noise floor:
 ```
 mas-optimiser compare --experiment baseline-haiku --a 2026-10-27-0528 --b 2026-11-03-0803 --split haiku-20-40-40
 ```
- It writes
-`comparison.md` with the paired test, its companions and the decision
-rules, pooled and per domain, for both outcomes (fraction of checks passed
-and task success); `differences.csv` with one row per task; and `figures/`
-with each figure as PDF and PNG and its numbers as CSV. The method is in
-`docs/methodology/acceptance-gate.md`. Running it on the 27 October and
-3 November baselines, two runs of one harness, gives the noise floor every
-later gain is measured against.
+
+It writes its results as data: `tests.csv`, a row per outcome and set of
+tasks with every number of the test; `rules.csv`, a row per decision rule;
+`sides.csv`, the two sides with their settings, cost and time; and
+`differences.csv`, a row per task. `comparison.md` is a report of those
+files for reading, with the figures of `figures/` embedded: what is
+compared, the result for both outcomes (checks passed and attempts fully
+passed, in percent, their difference in percentage points), cost and time,
+the result by domain, the test in full with what each quantity is, and the
+decision rules. The method is in `docs/methodology/acceptance-gate.md`.
+Running it on the 27 October and 3 November baselines, two runs of one
+harness, gives the noise floor every later gain is measured against.
 
 ## Watching an attempt in Langfuse
 

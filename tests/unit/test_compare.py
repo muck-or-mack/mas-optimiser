@@ -4,6 +4,7 @@ import argparse
 import csv
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from mas_optimiser.stats import compare, figures, gate, outcomes
@@ -31,7 +32,7 @@ def sides(tmp_path):
     return a, b
 
 
-def test_compare_writes_the_tables_the_differences_and_the_figures(tmp_path):
+def test_compare_writes_its_results_as_data_and_a_report_of_them(tmp_path):
     a, b = sides(tmp_path)
     out = tmp_path / "cmp"
     compare.run(
@@ -51,28 +52,81 @@ def test_compare_writes_the_tables_the_differences_and_the_figures(tmp_path):
             out=out,
         )
     )
-    text = (out / "comparison.md").read_text()
-    assert "## Fraction of checks passed (the gate's outcome)" in text
-    assert "## Task success" in text
-    assert "## Decision rules on the pooled fraction of checks passed" in text
-    assert "REUSE allocation, round 1" in text
-    assert text.count("| pooled |") == 2
-    with open(out / "differences.csv") as f:
-        rows = list(csv.DictReader(f))
-    assert len(rows) == 8
-    assert set(rows[0]) == {
+    tests = pd.read_csv(out / "tests.csv")
+    assert list(tests.columns) == compare.TEST_COLUMNS
+    # Two outcomes, each on all eight tasks and on each of the two domains.
+    assert list(tests["set"]) == ["all", "csm", "itsm"] * 2
+    assert set(tests["outcome"]) == {"checks passed", "attempts fully passed"}
+    whole = tests[(tests["set"] == "all") & (tests["outcome"] == "checks passed")].iloc[
+        0
+    ]
+    assert whole["tasks"] == 8
+    assert whole["gain_percentage_points"] == pytest.approx(
+        whole["candidate_percent"] - whole["current_percent"]
+    )
+    assert whole["tasks_up"] + whole["tasks_down"] + whole["tasks_unchanged"] == 8
+
+    rules = pd.read_csv(out / "rules.csv")
+    assert list(rules.columns) == compare.RULE_COLUMNS
+    assert list(rules["rule"]) == [
+        "one decision at 5%",
+        "5% shared over a run (REUSE), decision 1",
+        "5% shared equally over 20 decisions",
+        "3 sigma",
+    ]
+    # A stricter rule allows fewer false acceptances and sets a higher bar.
+    assert rules["bar"].is_monotonic_increasing
+
+    both = pd.read_csv(out / "sides.csv")
+    assert list(both["side"]) == ["current", "candidate"]
+    assert list(both["run"]) == ["a", "b"]
+    assert list(both["attempts"]) == [16, 16]
+    assert both["total_cost_usd"].tolist() == pytest.approx([0.16, 0.16])
+
+    differences = pd.read_csv(out / "differences.csv")
+    assert len(differences) == 8
+    assert list(differences.columns) == [
         "task_id",
         "domain",
-        "a_checks",
-        "b_checks",
-        "d_checks",
-        "a_success",
-        "b_success",
-        "d_success",
-    }
+        "checks_passed_current_percent",
+        "checks_passed_candidate_percent",
+        "checks_passed_difference_percentage_points",
+        "attempts_fully_passed_current_percent",
+        "attempts_fully_passed_candidate_percent",
+        "attempts_fully_passed_difference_percentage_points",
+    ]
+
+    text = (out / "comparison.md").read_text()
+    assert text.startswith("# Comparison: b against a\n")
+    for heading in (
+        "## What is compared",
+        "## Result",
+        "## Cost and time",
+        "## By domain (checks passed)",
+        "## The test in full (all 8 tasks)",
+        "## Decision rules (checks passed;",
+        "## Figures",
+        "## Data",
+    ):
+        assert heading in text
+    # The report shows what the data file holds.
+    assert f"{whole['gain_percentage_points']:+.1f} percentage points" in text
     for name in ("differences", "threshold", "power", "domains"):
-        for ext in ("pdf", "png", "csv"):
-            assert (out / "figures" / f"{name}.{ext}").exists()
+        assert f"![{name}](figures/{name}.png)" in text
+        assert (out / "figures" / f"{name}.png").exists()
+
+
+def test_a_set_whose_differences_are_all_equal_has_no_test():
+    cmp = outcomes.Comparison(
+        tasks=("t1", "t2", "t3"),
+        domains=("itsm",) * 3,
+        a=np.full(3, 0.5),
+        b=np.full(3, 0.75),
+        outcome="checks",
+    )
+    row = compare._row("all", cmp, 0.05)
+    assert row["gain_percentage_points"] == pytest.approx(25.0)
+    assert "verdict" not in row
 
 
 def test_the_permutation_check_is_the_exact_sign_flip_test_and_is_reproducible():
@@ -86,9 +140,9 @@ def test_the_permutation_check_is_the_exact_sign_flip_test_and_is_reproducible()
         b=0.5 + d,
         outcome="checks",
     )
-    cells = compare._row("pooled", cmp, 0.05)
-    assert cells[compare.COLUMNS.index("permutation p")] == "0.500"
-    assert compare._row("pooled", cmp, 0.05) == cells
+    row = compare._row("all", cmp, 0.05)
+    assert row["permutation_p"] == pytest.approx(0.5)
+    assert compare._row("all", cmp, 0.05) == row
 
 
 def test_figures_save_the_numbers_they_plot(tmp_path):
