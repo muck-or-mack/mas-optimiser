@@ -88,7 +88,7 @@ standard error is a property of the data; the floor follows from it and from
 the level of the decision, so a stricter level has a higher floor, and a rule
 with no level has no floor and accepts noise.
 
-:::{figure} ../figures/gate/figures/threshold.png
+:::{figure} ../figures/threshold.png
 :alt: Two curves of the statistic with the threshold and the observed value
 
 The statistic $T$ when there is no real gain (first curve) and when the true
@@ -99,13 +99,14 @@ the second to its left is $\beta$. The other vertical line is the value of
 $T$ observed on the two baseline runs.
 :::
 
-:::{figure} ../figures/gate/figures/power.png
-:alt: Power of the test against the true gain
+:::{figure} ../figures/gate/figures/detectable.png
+:alt: The chance of acceptance against the true gain, one curve per decision rule
 
-The chance that the test accepts a candidate, its power, against the size of
-the candidate's true gain, at the standard error of the two baseline runs and
-$\alpha = 0.05$. The curve starts at $\alpha$ for no gain and crosses $0.8$,
-the dashed line, at the noise floor, the vertical line.
+The chance that a real gain of each size would be accepted, its power, under
+each decision rule of the next section, at the standard error of the two
+baseline runs: theory, from `stats.gate.power`. Each curve starts at the
+rule's level for no gain and crosses 80% at that rule's noise floor, marked.
+The vertical line is the gain observed between the two runs.
 :::
 
 ### Where the bell curves come from
@@ -226,19 +227,20 @@ two attempts per task the pooled standard error grows by $\sqrt{3/2}$ and the
 floor to about 4.2 percentage points on checks passed.
 
 :::{figure} ../figures/gate/figures/differences.png
-:alt: The number of tasks at each value of the per-task difference
+:alt: How many tasks rose, fell and stayed the same between the two baseline runs
 
-The data: the number of tasks at each value of the per-task difference in
-checks passed, second baseline run minus first. Most tasks
-do not move and the rest spread either side of zero; the marked mean is the
+The data: how many tasks rose, fell and stayed the same in checks passed,
+second baseline run minus first, in bins ten percentage points wide. The
+grey bar is the tasks that did not change; the line is the mean, the
 estimated gain $\bar d$.
 :::
 
-:::{figure} ../figures/gate/figures/domains.png
-:alt: Mean score of each run per domain and pooled
+:::{figure} ../figures/gate/figures/gains.png
+:alt: The gain on all tasks and in each domain, each with its interval
 
-The mean of checks passed in each domain and over all 125 tasks,
-for the first baseline run ("current") and the second ("candidate").
+The gain in checks passed on all 125 tasks and in each domain. Each bar
+spans the gain plus and minus $X_0\,\text{SE}$; every bar crosses the
+no-gain line, so no set of tasks would be accepted.
 :::
 
 The decision rules on checks passed over all 125 tasks, same data, the
@@ -250,6 +252,23 @@ strictest last:
 | 5% shared over a run (REUSE), decision 1 | 1.25% | 2.27 | reject | 4.2 |
 | 5% shared equally over 20 decisions | 0.25% | 2.86 | reject | 5.0 |
 | 3 sigma | 0.135% | 3.06 | reject | 5.3 |
+
+:::{figure} ../figures/gate/figures/decisions.png
+:alt: The observed statistic against the bar of each decision rule
+
+The $T$ observed between the two baseline runs, the vertical line, against
+the bar of each rule; it lies to the left of every bar.
+:::
+
+Each figure of a comparison is drawn from the comparison's data files by
+`stats.figures`, and `stats.figures.draw` redraws all four from a folder:
+
+| Figure | Drawn from | By |
+|---|---|---|
+| `gains` | `tests.csv`: `set`, `tasks`, `gain_percentage_points`, `lower_bound_percentage_points` | `stats.figures.gains` |
+| `differences` | `differences.csv`: `checks_passed_difference_percentage_points` | `stats.figures.differences` |
+| `detectable` | `tests.csv`: `standard_error_percentage_points`, `tasks`, `gain_percentage_points`; `rules.csv`: `false_acceptances_allowed_percent`, `noise_floor_percentage_points`; the curves from `stats.gate.power` | `stats.figures.detectable` |
+| `decisions` | `tests.csv`: `t`; `rules.csv`: `bar`, `verdict` | `stats.figures.decisions` |
 
 Earlier work on acceptance rules for harness edits showed what happens
 without a noise term: on the same two runs, a rule that keeps any candidate

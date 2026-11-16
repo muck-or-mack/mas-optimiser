@@ -36,6 +36,10 @@ The decision uses "checks passed". Checks passed is each task's percentage of ch
 
 The domain rows are for information. Only the first row decides.
 
+![gains](figures/gains.png)
+
+*The gain on all tasks and in each domain. Each bar spans the gain plus and minus the bar on T times the standard error, so a row is accepted when its bar lies wholly to the right of the no-gain line. Only the row for all tasks decides.*
+
 ## The test in full (all 125 tasks)
 
 | quantity                 | checks passed   | attempts fully passed   | what it is                                                  |
@@ -54,6 +58,10 @@ The domain rows are for information. Only the first row decides.
 
 Gain, standard error, lower bound, noise floor and bootstrap standard error are in percentage points.
 
+![differences](figures/differences.png)
+
+*How many tasks rose, fell and stayed the same, in bins ten percentage points wide. The grey bar is the tasks that did not change; the line is the mean, which is the gain.*
+
 ## Decision rules (checks passed; T is +0.52)
 
 | rule                                     | false acceptances allowed   | bar on T   | verdict   | noise floor (percentage points)   |
@@ -63,23 +71,13 @@ Gain, standard error, lower bound, noise floor and bootstrap standard error are 
 | 5% shared equally over 20 decisions      | 0.25%                       | 2.86       | reject    | 5.0                               |
 | 3 sigma                                  | 0.135%                      | 3.06       | reject    | 5.3                               |
 
-## Figures
+![decisions](figures/decisions.png)
 
-![threshold](figures/threshold.png)
+*The T observed (the vertical line) against the bar of each decision rule (the marks). A rule accepts when its bar lies to the left of the line.*
 
-*The statistic T when nothing changed (first curve) and when the true gain equals the noise floor (second curve), both theory; the bar and the observed T are the vertical lines.*
+![detectable](figures/detectable.png)
 
-![power](figures/power.png)
-
-*The chance that a real gain of each size is accepted; it crosses 80% at the noise floor.*
-
-![differences](figures/differences.png)
-
-*The number of tasks at each value of the per-task difference, candidate minus current.*
-
-![domains](figures/domains.png)
-
-*The mean score of each side, per domain and over all tasks.*
+*The chance that a real gain of each size would be accepted under each decision rule: theory, from this comparison's standard error. Each curve crosses 80% at that rule's noise floor, marked; the vertical line is the gain observed.*
 
 ## Data
 

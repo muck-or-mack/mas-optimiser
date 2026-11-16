@@ -1,26 +1,34 @@
-# Figure style for the statistics module: small, print-ready figures with
-# inward ticks and a light grid. Loaded by figures.py.
+# Figure style for the comparison's figures: sized for one column of a paper
+# (3.4 in wide), 8 pt text, no title on the figure (the caption carries it),
+# light axes, no grid. Loaded by figures.py.
 
-figure.figsize : 5.0, 3.2
-figure.autolayout : True
+figure.figsize : 3.4, 2.4
 figure.dpi : 100
-savefig.dpi : 150
+figure.constrained_layout.use : True
+savefig.dpi : 300
+savefig.bbox : tight
+# TrueType fonts in the PDF, so the text stays text.
+pdf.fonttype : 42
 
-font.size : 10
-axes.labelsize : 11
-axes.titlesize : 11
-legend.fontsize : 9
+font.family : sans-serif
+font.sans-serif : Arial, Helvetica, DejaVu Sans
+font.size : 8
+axes.labelsize : 8
+legend.fontsize : 7
+xtick.labelsize : 7
+ytick.labelsize : 7
+
+axes.spines.top : False
+axes.spines.right : False
+axes.edgecolor : c3c2b7
+axes.linewidth : 0.6
+axes.labelcolor : 0b0b0b
+xtick.color : 52514e
+ytick.color : 52514e
+xtick.major.width : 0.6
+ytick.major.width : 0.6
+axes.grid : False
+
+lines.linewidth : 1.4
+lines.markersize : 4
 legend.frameon : False
-
-xtick.labelsize : 9
-ytick.labelsize : 9
-xtick.direction : in
-ytick.direction : in
-xtick.minor.visible : True
-ytick.minor.visible : True
-
-axes.grid : True
-grid.alpha : 0.3
-grid.linewidth : 0.5
-
-lines.linewidth : 1.5

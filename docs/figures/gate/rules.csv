@@ -1,5 +1,5 @@
-rule,false_acceptances_allowed_percent,bar,t,verdict,noise_floor_percentage_points
-one decision at 5%,5,1.65723,0.524729,reject,3.40346
-"5% shared over a run (REUSE), decision 1",1.25,2.26895,0.524729,reject,4.23999
-5% shared equally over 20 decisions,0.25,2.85813,0.524729,reject,5.04729
-3 sigma,0.13499,3.06162,0.524729,reject,5.32647
+outcome,rule,false_acceptances_allowed_percent,bar,t,verdict,noise_floor_percentage_points
+checks passed,one decision at 5%,5,1.65723,0.524729,reject,3.40346
+checks passed,"5% shared over a run (REUSE), decision 1",1.25,2.26895,0.524729,reject,4.23999
+checks passed,5% shared equally over 20 decisions,0.25,2.85813,0.524729,reject,5.04729
+checks passed,3 sigma,0.13499,3.06162,0.524729,reject,5.32647
