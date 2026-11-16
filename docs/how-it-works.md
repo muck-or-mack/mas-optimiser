@@ -462,9 +462,10 @@ is credited in `NOTICE.md` as well.
 | `splits` | stratified sampling (Cochran, *Sampling Techniques*, Wiley, 1977) | strata as domain crossed with baseline outcome, quotas by largest remainder | `splits.quotas`, `draw` |
 | `splits` | REUSE (arXiv:2609.33180); Kapoor et al. (arXiv:2407.01502); SEAL (arXiv:2607.24300) | the gate set returns only accept or reject to the proposer; a sealed test set opened once; a split drawn once and never redrawn | `splits.build_split` |
 | `stats` | own design | per-task scores for two outcomes, the paired comparison over the same tasks, the `compare` command with its results as data files and a report of them, and the figures | `stats.outcomes`, `stats.compare`, `stats.figures` |
+| `stats` | own design, on the exchangeability argument of permutation tests (Efron and Tibshirani, below) | the calibration of the test on two runs of one harness: its statistic over random splits of their attempts, against Student's t | `stats.calibrate` |
 | `stats` | Barlow, *Statistics* (Wiley, 1989), estimation and hypothesis testing | the standard error of a mean, the one-sided paired t-test, the Type-I and Type-II errors, power and the noise floor | `stats.gate.mean_test`, `detectable`, `power` |
 | `stats` | Efron and Tibshirani, *An Introduction to the Bootstrap* (Chapman and Hall, 1993) | the bootstrap spread of the mean difference and the permutation test | `stats.compare`, through SciPy |
-| `stats` | SciPy (`scipy.stats`, `scipy.special`) | the t-test, the noncentral t behind power and the noise floor, the permutation test, the bootstrap and the relative entropy are its functions, called and not rewritten | `stats.gate`, `stats.compare` |
+| `stats` | SciPy (`scipy.stats`, `scipy.special`) | the t-test, the noncentral t behind power and the noise floor, the permutation test, the random splits of the calibration, the bootstrap and the relative entropy are its functions, called and not rewritten | `stats.gate`, `stats.compare`, `stats.calibrate` |
 | `stats` | REUSE (arXiv:2609.33180) | the error budget over a run's decisions (Eq. 4), the exact sign test (Lemma A2) and the bounded-score lower confidence bound (appendix A.1) | `stats.budget.reuse_level`, `stats.gate.sign_test`, `bernstein_bound` |
 | `stats` | Bonferroni's inequality; the significance conventions of particle physics | the equal split of the budget and the fixed threshold in standard deviations, shown beside the allocation | `stats.budget.bonferroni_level`, `fixed_level` |
 
@@ -478,7 +479,8 @@ is credited in `NOTICE.md` as well.
 | `src/mas_optimiser/stats/outcomes.py` | per-task scores and the paired differences of two evaluations |
 | `src/mas_optimiser/stats/gate.py` | the gate's test, the detectable gain, and the sign, permutation, bootstrap and Bernstein checks |
 | `src/mas_optimiser/stats/budget.py` | the level of each decision: the REUSE allocation, the equal split, a fixed significance |
-| `src/mas_optimiser/stats/figures.py` | the comparison's four figures, drawn from its data files |
+| `src/mas_optimiser/stats/figures.py` | the comparison's four figures and the calibration's three, drawn from their data files |
+| `src/mas_optimiser/stats/calibrate.py` | the `calibrate` command |
 | `src/mas_optimiser/stats/compare.py` | the `compare` command |
 | `.../enterpriseops/runner.py` | experiments, tasks, the executor subclass, attempts in parallel, the results files |
 | `.../enterpriseops/checks.py` | distinct checks, the patch list, the numeric recheck, the benchmark's verdict beside ours |

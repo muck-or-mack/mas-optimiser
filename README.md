@@ -222,6 +222,7 @@ Every evaluation folder is written to be read without a tracing server:
 | which tasks are training, validation and test | `configs/splits/<name>.json` | `mas-optimiser split` |
 | every run of an experiment, at a glance, with its domains | `mas-optimiser list <experiment>`, from `index.csv` | `listing` |
 | whether a candidate beat the current harness, by how much, and the smallest gain the data could show | `comparison.md`, its data files and `figures/` in the folder `mas-optimiser compare` writes | `stats.compare` |
+| whether that test can be trusted on this benchmark and model | `calibration.md` and its data files in the folder `mas-optimiser calibrate` writes | `stats.calibrate` |
 
 ## Splitting the tasks
 
@@ -345,6 +346,30 @@ the result by domain, the test in full with what each quantity is, and the
 decision rules. The method is in `docs/methodology/acceptance-gate.md`.
 Running it on the 27 October and 3 November baselines, two runs of one
 harness, gives the noise floor every later gain is measured against.
+
+## Checking the test on two runs of one harness
+
+```
+mas-optimiser calibrate --experiment <experiment> --a <run> --b <run> [--split <name>] [--out <folder>]
+```
+
+When two runs are of the same harness, any difference between them is
+chance. The command pools each task's attempts from both runs, splits them
+at random into two halves 200,000 times, and computes the comparison's
+statistic for each split, so every split compares the harness with itself:
+
+```
+mas-optimiser calibrate --experiment baseline-haiku --a 2026-10-27-0528 --b 2026-11-03-0803 --split haiku-20-40-40
+```
+
+It writes `calibration.csv` (the mean and width of the statistic and the
+share of splits each decision rule accepts, each measured against the
+value expected), `pulls.csv` (the statistic of every split), `scores.csv`
+(each task's score in each run) and `calibration.md`, a report of them
+with three figures. It refuses two runs that differ in mode, model or
+harness. Run it on a new model or benchmark before relying on a
+comparison's verdicts there; the method is in
+`docs/methodology/acceptance-gate.md`.
 
 ## Watching an attempt in Langfuse
 

@@ -1,4 +1,4 @@
-"""The figures of a comparison, drawn from its data files.
+"""The figures of a comparison and of a calibration, drawn from their data files.
 
 ``draw`` reads ``tests.csv``, ``rules.csv`` and ``differences.csv`` from a
 comparison's folder and writes four figures into its ``figures/`` folder,
@@ -10,8 +10,15 @@ each as PDF and PNG, each with one thing to show:
   each decision rule, with the noise floors and the gain observed;
 - ``decisions``: the observed statistic against the bar of each rule.
 
-Nothing is computed here that the data files do not hold, except the power
-curves of ``detectable``, which are theory (``gate.power``). A figure carries
+``draw_calibration`` does the same for a calibration's folder
+(``scores.csv``, ``pulls.csv``, ``calibration.csv``) with three figures:
+``scatter``, each task's score in one run against the other;
+``distributions``, what the test assumes of its statistic; and
+``calibration``, the statistic of many no-change splits against that
+assumption, with the pull of each bin.
+
+Nothing is computed here that the data files do not hold, except the curves
+of theory (``gate.power``, Student's t and its noncentral form). A figure carries
 no title: the report gives each one a caption. Data is drawn as points with
 error bars or as bars, theory as lines; the gain observed is always the same
 accent colour, the rules one hue from light to dark as they grow stricter.
@@ -32,6 +39,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 from matplotlib.colors import LinearSegmentedColormap  # noqa: E402
+from scipy import stats  # noqa: E402
 
 from mas_optimiser.stats import gate  # noqa: E402
 
@@ -308,3 +316,218 @@ def draw(folder: Path) -> list[str]:
     detectable(tests, rules, folder / "figures")
     decisions(tests, rules, folder / "figures")
     return ["gains", "differences", "detectable", "decisions"]
+
+
+def scatter(scores: pd.DataFrame, out: Path) -> None:
+    """Each task's score in one run against its score in the other.
+
+    Tasks with the same pair of scores share a dot, whose area grows with
+    their number. On the diagonal a task scored the same in both runs.
+
+    Args:
+        scores: The per-task scores, as a calibration's ``scores.csv`` holds them.
+        out: The folder to write ``scatter.pdf`` and ``scatter.png`` into.
+    """
+    outcome = scores["outcome"].iloc[0]
+    points = scores.groupby(
+        ["first_run_percent", "second_run_percent"], as_index=False
+    ).size()
+    with plt.style.context(STYLE):
+        fig, ax = plt.subplots(figsize=(3.4, 3.4))
+        ax.plot([0, 100], [0, 100], color=REFERENCE, linewidth=0.8)
+        ax.scatter(
+            points["first_run_percent"],
+            points["second_run_percent"],
+            s=8 * points["size"],
+            color=INK,
+            alpha=0.75,
+            linewidths=0,
+        )
+        for count in sorted({1, int(points["size"].max())}):
+            ax.scatter(
+                [],
+                [],
+                s=8 * count,
+                color=INK,
+                alpha=0.75,
+                linewidths=0,
+                label=f"{count} task" + ("s" if count > 1 else ""),
+            )
+        ax.set_aspect("equal")
+        ax.set_xlim(-4, 104)
+        ax.set_ylim(-4, 104)
+        ax.set_xlabel(f"{outcome} in the first run [%]")
+        ax.set_ylabel(f"{outcome} in the second run [%]")
+        ax.legend(loc="upper left")
+    _save(fig, out, "scatter")
+
+
+def distributions(n: int, alpha: float, out: Path) -> None:
+    """What the test assumes of its statistic, with and without a real gain.
+
+    Student's t with ``n - 1`` degrees of freedom when nothing changed, and
+    the noncentral t when the true gain equals the noise floor, with the bar
+    between them. Theory only: the tail of the first curve beyond the bar is
+    the share of false acceptances allowed, the part of the second below it
+    the share of real gains missed.
+
+    Args:
+        n: The number of tasks.
+        alpha: The Type-I error level of the decision.
+        out: The folder to write ``distributions.pdf`` and ``distributions.png`` into.
+    """
+    bar = gate.bar(n, alpha)
+    shift = gate.detectable(1.0, n, alpha)
+    x = np.linspace(-4, shift + 4, 300)
+    null = stats.t.pdf(x, n - 1)
+    gain = stats.nct.pdf(x, n - 1, shift)
+    with plt.style.context(STYLE):
+        fig, ax = plt.subplots()
+        ax.plot(x, null, color=THEORY, label="nothing changed")
+        # Both curves are theory, so both wear its colour; the dashes tell
+        # them apart.
+        ax.plot(
+            x,
+            gain,
+            color=THEORY,
+            linestyle="--",
+            label="true gain equal to the noise floor",
+        )
+        ax.fill_between(x, null, where=x >= bar, color=THEORY, alpha=0.35, linewidth=0)
+        ax.fill_between(x, gain, where=x <= bar, color=THEORY, alpha=0.15, linewidth=0)
+        ax.axvline(bar, color=REFERENCE, linewidth=0.8)
+        ax.text(
+            bar,
+            1.01,
+            f"bar {bar:.2f}",
+            transform=ax.get_xaxis_transform(),
+            ha="center",
+            va="bottom",
+            color=INK,
+            fontsize=7,
+        )
+        # The two shaded shares, named where they lie.
+        ax.text(
+            bar + 0.45,
+            stats.t.pdf(bar + 0.45, n - 1) + 0.015,
+            f"{100 * alpha:g}%",
+            color=INK,
+            fontsize=7,
+        )
+        ax.text(
+            bar - 0.75,
+            0.4 * stats.nct.pdf(bar - 0.75, n - 1, shift),
+            f"{100 * stats.nct.cdf(bar, n - 1, shift):.0f}%",
+            color=INK,
+            fontsize=7,
+            ha="center",
+        )
+        ax.set_ylim(0, None)
+        ax.set_xlabel("T = gain / standard error")
+        ax.set_ylabel("probability density of T")
+        ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.24), ncol=1)
+    _save(fig, out, "distributions")
+
+
+def calibration(pulls: pd.DataFrame, table: pd.DataFrame, n: int, out: Path) -> None:
+    """The statistic of many no-change splits against the curve the test assumes.
+
+    Top, on a logarithmic scale: the number of splits in each bin of T as
+    points with their counting errors, and the number Student's t with
+    ``n - 1`` degrees of freedom expects as a line; the bars of the decision
+    rules are marked, and the T of the two runs as they were run. Bottom: the
+    pull of each bin, its count minus the expected one in units of the
+    expected count's error, for the bins expecting at least five splits.
+
+    Args:
+        pulls: The statistic of every split, as ``pulls.csv`` holds it.
+        table: The calibration, as ``calibration.csv`` holds it.
+        n: The number of tasks.
+        out: The folder to write ``calibration.pdf`` and ``calibration.png`` into.
+    """
+    t = pulls["t"].to_numpy()
+    edges = np.arange(-4.5, 4.75, 0.25)
+    centres = (edges[:-1] + edges[1:]) / 2
+    counts = np.histogram(t, bins=edges)[0]
+    expected = len(t) * np.diff(stats.t.cdf(edges, n - 1))
+    seen, enough = counts > 0, expected >= 5
+    rules = table[table["bar"].notna()]
+    as_run = table.loc[
+        table["quantity"] == "T of the two runs as they were run", "measured"
+    ].iloc[0]
+    with plt.style.context(STYLE):
+        fig, (top, bottom) = plt.subplots(
+            2, 1, sharex=True, figsize=(3.4, 4.4), height_ratios=(3, 1)
+        )
+        top.plot(centres, expected, color=THEORY, label="Student's t (theory)")
+        top.errorbar(
+            centres[seen],
+            counts[seen],
+            yerr=np.sqrt(counts[seen]),
+            fmt="o",
+            markersize=2.5,
+            color=INK,
+            elinewidth=0.8,
+            label="random splits (data)",
+        )
+        for (_, rule), colour in zip(
+            rules.iterrows(), RAMP(np.linspace(0, 1, len(rules))), strict=True
+        ):
+            name = (
+                rule["quantity"]
+                .removeprefix("splits accepted at ")
+                .removesuffix(" (%)")
+            )
+            top.axvline(
+                rule["bar"],
+                ymax=0.35,
+                color=colour,
+                label=f"{name}: bar {rule['bar']:.2f}",
+            )
+        if not np.isnan(as_run):
+            top.axvline(
+                as_run,
+                color=OBSERVED,
+                linewidth=1.2,
+                label=f"the two runs as run: T {as_run:+.2f}",
+            )
+        top.set_yscale("log")
+        top.set_ylabel("splits per bin")
+        bottom.axhline(0, color=REFERENCE, linewidth=0.8)
+        bottom.errorbar(
+            centres[enough],
+            (counts[enough] - expected[enough]) / np.sqrt(expected[enough]),
+            yerr=1,
+            fmt="o",
+            markersize=2.5,
+            color=INK,
+            elinewidth=0.8,
+        )
+        bottom.set_ylim(-4, 4)
+        bottom.set_ylabel("pull")
+        bottom.set_xlabel("T of a split in which nothing changed")
+        fig.legend(loc="outside lower center", ncol=1)
+    _save(fig, out, "calibration")
+
+
+def draw_calibration(folder: Path) -> list[str]:
+    """Draw a calibration's figures from the data files in its folder.
+
+    Args:
+        folder: The calibration's folder, holding ``scores.csv``,
+            ``pulls.csv`` and ``calibration.csv``; the figures go into its
+            ``figures/``.
+
+    Returns:
+        The names of the figures drawn.
+    """
+    scores = pd.read_csv(folder / "scores.csv")
+    table = pd.read_csv(folder / "calibration.csv")
+    # The first rule is one decision on its own, at the level the rest share.
+    alpha = table.loc[table["bar"].notna(), "expected"].iloc[0] / 100
+    scatter(scores, folder / "figures")
+    distributions(len(scores), alpha, folder / "figures")
+    calibration(
+        pd.read_csv(folder / "pulls.csv"), table, len(scores), folder / "figures"
+    )
+    return ["calibration", "scatter", "distributions"]

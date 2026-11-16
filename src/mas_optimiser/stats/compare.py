@@ -563,22 +563,14 @@ def run(args: argparse.Namespace) -> None:
         columns=TEST_COLUMNS,
     )
 
-    share = f"{100 * args.alpha:g}%"
-    reuse = f"{share} shared over a run (REUSE), decision {args.round_number}"
-    if args.promotions:
-        reuse += f", after {args.promotions} accepted"
-    if args.candidates > 1:
-        reuse += f", {args.candidates} candidates a round"
-    levels = {
-        f"one decision at {share}": args.alpha,
-        reuse: budget.reuse_level(
-            args.alpha, args.round_number, args.promotions, args.candidates
-        ),
-        f"{share} shared equally over {args.decisions} decisions": budget.bonferroni_level(
-            args.alpha, args.decisions
-        ),
-        f"{args.sigma:g} sigma": budget.fixed_level(args.sigma),
-    }
+    levels = budget.levels(
+        args.alpha,
+        args.round_number,
+        args.promotions,
+        args.candidates,
+        args.decisions,
+        args.sigma,
+    )
     rule_rows = []
     for name, level in levels.items():
         row = {

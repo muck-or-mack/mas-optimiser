@@ -11,7 +11,16 @@ def test_help_lists_every_command(capsys):
     assert exit_info.value.code == 0
     out = capsys.readouterr().out
     assert all(
-        name in out for name in ("run", "rescore", "split", "schema", "compare", "list")
+        name in out
+        for name in (
+            "run",
+            "rescore",
+            "split",
+            "schema",
+            "compare",
+            "calibrate",
+            "list",
+        )
     )
 
 

@@ -54,6 +54,20 @@ class MeanTest:
     lower: float
 
 
+def bar(n: int, alpha: float = 0.05) -> float:
+    """The bar the statistic must clear for a decision at one level.
+
+    Args:
+        n: The number of tasks.
+        alpha: The Type-I error allowed for the decision.
+
+    Returns:
+        The ``1 - alpha`` quantile of Student's t with ``n - 1`` degrees of
+        freedom.
+    """
+    return float(stats.t.ppf(1 - alpha, n - 1))
+
+
 def mean_test(d: np.ndarray, alpha: float = 0.05) -> MeanTest:
     """Test whether the mean paired difference is above zero.
 
@@ -86,7 +100,7 @@ def mean_test(d: np.ndarray, alpha: float = 0.05) -> MeanTest:
     if sd == 0.0:
         raise ValueError("every difference is equal, so the standard error is zero")
     result = stats.ttest_1samp(d, 0.0, alternative="greater")
-    x0 = float(stats.t.ppf(1 - alpha, result.df))
+    x0 = bar(n, alpha)
     return MeanTest(
         n=n,
         mean=float(d.mean()),
@@ -211,9 +225,8 @@ def detectable(se: float, n: int, alpha: float = 0.05, power: float = 0.8) -> fl
     Returns:
         The minimum detectable gain, in the score's units.
     """
-    df = n - 1
-    x0 = stats.t.ppf(1 - alpha, df)
-    shift = optimize.brentq(lambda c: stats.nct.sf(x0, df, c) - power, 0.0, 50.0)
+    x0 = bar(n, alpha)
+    shift = optimize.brentq(lambda c: stats.nct.sf(x0, n - 1, c) - power, 0.0, 50.0)
     return float(shift * se)
 
 
@@ -234,5 +247,4 @@ def power(se: float, n: int, gain: float, alpha: float = 0.05) -> float:
     Returns:
         The power, between 0 and 1.
     """
-    df = n - 1
-    return float(stats.nct.sf(stats.t.ppf(1 - alpha, df), df, gain / se))
+    return float(stats.nct.sf(bar(n, alpha), n - 1, gain / se))

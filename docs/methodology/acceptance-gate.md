@@ -88,15 +88,15 @@ standard error is a property of the data; the floor follows from it and from
 the level of the decision, so a stricter level has a higher floor, and a rule
 with no level has no floor and accepts noise.
 
-:::{figure} ../figures/threshold.png
-:alt: Two curves of the statistic with the threshold and the observed value
+:::{figure} ../figures/calibration/figures/distributions.png
+:alt: Two curves of the statistic, with the bar between them
 
-The statistic $T$ when there is no real gain (first curve) and when the true
-gain equals the noise floor (second curve). Both are theory, not data:
-Student's $t$ and its noncentral form. The vertical line at $X_0$ is the threshold: the
-shaded area of the first curve to its right is $\alpha$, the shaded area of
-the second to its left is $\beta$. The other vertical line is the value of
-$T$ observed on the two baseline runs.
+What the test assumes: the statistic $T$ when nothing changed (solid curve)
+and when the true gain equals the noise floor (dashed curve), at 125 tasks.
+Both are theory, not data: Student's $t$ and its noncentral form. The
+vertical line is the bar $X_0$: the shaded tail of the first curve beyond it
+is $\alpha$, the false acceptances allowed, and the shaded part of the
+second below it is $\beta$, the real gains missed.
 :::
 
 :::{figure} ../figures/gate/figures/detectable.png
@@ -131,11 +131,12 @@ becomes the noncentral $t$.
 The first figure draws those two densities, for no gain and for a gain equal
 to the noise floor. At $\alpha = 0.05$ and a given $N$ the second curve sits
 at the same place whatever the data (2.50 at $N = 125$), so the picture is
-the same for every comparison except for
-the observed $T$ and the size of the noise floor in percentage points. The data itself
-is the figure of per-task differences further down. The theorem is an
-approximation for a finite number of tasks; the permutation test and the
-bootstrap, next, check it on the data without assuming it.
+the same for every comparison of that many tasks; only the size of the
+noise floor in percentage points differs. The data itself is the figure of
+per-task differences further down. The theorem is an approximation for a
+finite number of tasks: the permutation test and the bootstrap, next, check
+it on the data without assuming it, and the calibration section below
+measures how well it holds on two runs of one harness.
 
 Three checks are reported beside the test, none in its place (the sign test
 is `stats.gate.sign_test`; the other two are SciPy's `permutation_test` and
@@ -276,6 +277,68 @@ whose mean is higher accepted the null change in three comparisons out of
 eight, and a rule with a band calibrated from the runs it judged in four
 (the project's gate evidence). Every rule with a noise term accepted none.
 
+## Calibration on the baseline runs
+
+The bars rest on one claim: that when nothing has changed, $T$ follows
+Student's $t$. The two baseline runs allow a direct check
+(`mas-optimiser calibrate`, `stats.calibrate`). Each of the 125 validation
+tasks has six attempts of the same harness, three from each run.
+
+:::{figure} ../figures/calibration/figures/scatter.png
+:alt: Each task's score in the first run against its score in the second
+
+Each task's checks passed in the first baseline run against the second; a
+larger dot is more tasks. On the diagonal a task scored the same both times.
+The spread around it is the noise between two runs of one harness, which
+any gain has to stand out from.
+:::
+
+The six attempts of each task are split at random into two halves, 200,000
+times (SciPy's `permutation_test`, exchanging each task's attempts between
+the six attempt columns), and each split is compared as the gate compares a candidate with the
+current harness. Every split is a comparison in which nothing changed, so
+every acceptance is a false one (`docs/figures/calibration/` holds the
+command's report and its table):
+
+| Quantity | Measured | Expected |
+|---|---|---|
+| Mean of $T$ | −0.002 ± 0.002 | 0 |
+| Width of $T$ | 1.009 ± 0.002 | 1.008 |
+| Splits accepted at one decision at 5% | 4.97 ± 0.05% | 5% |
+| Splits accepted at 5% shared over a run (REUSE), decision 1 | 1.20 ± 0.02% | 1.25% |
+| Splits accepted at 5% shared equally over 20 decisions | 0.21 ± 0.01% | 0.25% |
+| Splits accepted at 3 sigma | 0.11 ± 0.01% | 0.135% |
+| Splits accepted by any gain | 50.0 ± 0.1% | |
+
+The mean and the width are those of Student's $t$, whose standard deviation
+at 124 degrees of freedom is 1.008 where a normal curve has 1, and at 5% the
+test accepts the share it should. At the stricter bars it accepts slightly
+fewer no-change splits than the rule allows, 1.20% against 1.25%: the tails
+of $T$ are a little thinner than those of Student's $t$, most likely because
+the scores are bounded, and the error is on the safe side. A rule that keeps
+any gain accepts half of the no-change splits.
+
+:::{figure} ../figures/calibration/figures/calibration.png
+:alt: The statistic of 200,000 no-change splits against Student's t, with the pull of each bin
+
+Top: the $T$ of every random split (points, with their counting errors)
+against Student's $t$ (the line), on a logarithmic scale so that the tails
+show; the short marks are the bars of the decision rules and the long line
+is the $T$ of the two runs as they were run. Bottom: the pull of each bin,
+its count minus the expected one in units of the expected count's error.
+:::
+
+The check has limits:
+
+- It measures false acceptance, not how often a real gain is found.
+- It treats a task's six attempts as interchangeable, so any difference
+  between the days of the two runs counts as noise.
+- It covers one decision at a time, not what a loop adds by reusing one run
+  of the current harness across many candidates.
+- The uncertainties in the table are those of the random splitting alone.
+  Every split draws on the same 750 attempts, so another pair of runs would
+  give slightly different numbers.
+
 ## Decisions recorded here
 
 - The gate's outcome is checks passed; attempts fully passed is reported
@@ -288,3 +351,5 @@ eight, and a rule with a band calibrated from the runs it judged in four
   $\alpha = 0.05$; the equal split and the fixed significance are shown
   beside it.
 - Per-domain scores are logged at every decision and never gated on.
+- The test is checked on two runs of one harness before its verdicts are
+  relied on for a new model or benchmark (`mas-optimiser calibrate`).
