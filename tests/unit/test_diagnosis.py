@@ -213,3 +213,9 @@ def test_a_source_that_is_not_a_table_is_left_alone(run_sql):
     )
     found = asyncio.run(diagnosis.diagnose(verdict(query), CHANGES, KEYS, run_sql))
     assert found == {"kind": "unsupported"}
+    # The same when the check found too many rows: no sample query is built
+    # from a source the parser cannot take apart.
+    surplus = asyncio.run(
+        diagnosis.diagnose(verdict(query, 0, 1), CHANGES, KEYS, run_sql)
+    )
+    assert surplus == {"kind": "unsupported"}

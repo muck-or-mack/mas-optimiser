@@ -221,17 +221,21 @@ async def diagnose(result: dict, changes: dict, keys: dict, run_sql: RunSQL) -> 
     if parsed is None or expected is None or actual is None:
         return {"kind": "unsupported"}
     count, source, conditions = parsed
+    # A source that does not open with a table name (a subquery) is not taken
+    # apart reliably, so no query is built from it.
+    main = MAIN_TABLE.match(source)
+    if main is None:
+        return {"kind": "unsupported"}
     if comparison == "less_than" or (comparison == "equals" and actual > expected):
         rows = await run_sql(
             f"SELECT * FROM {source} WHERE {' AND '.join(conditions)} LIMIT {SAMPLE_ROWS}"
         )
         return {
             "kind": "too_many_rows",
-            "table": MAIN_TABLE.match(source)["table"],
+            "table": main["table"],
             "rows": rows if isinstance(rows, list) else [rows],
         }
-    main = MAIN_TABLE.match(source)
-    if main is None or main["table"] not in keys:
+    if main["table"] not in keys:
         return {"kind": "unsupported"}
     table, alias = main["table"], main["alias"] or main["table"]
     rows = _touched(changes, table, keys[table])

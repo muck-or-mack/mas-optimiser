@@ -214,10 +214,11 @@ def _column_of(condition: str) -> str:
     match = diagnosis.COLUMN.match(condition)
     if not match:
         return ""
-    # Inside a function, the first name is the column: COALESCE(notes, '').
-    name = re.sub(r"^\w+\((.*)\)$", r"\1", match[1])
-    name = re.match(r"[\w.]+", name)[0] if name else ""
-    return name.split(".")[-1]
+    # Inside a function, the first name that is not a quoted value is the
+    # column: COALESCE(notes, ''), strftime('%Y', opened).
+    inside = re.sub(r"^\w+\((.*)\)$", r"\1", match[1])
+    name = re.search(r"[A-Za-z_][\w.]*", diagnosis.QUOTED.sub("", inside))
+    return name[0].split(".")[-1] if name else ""
 
 
 def trace(result: dict, agent_calls: list[dict], keys: dict) -> dict:
