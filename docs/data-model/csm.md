@@ -3,25 +3,25 @@
 17 tables, from `data/schemas/csm.sql`, the schema the server builds
 each attempt's database from. Written by `mas-optimiser schema`; do not edit.
 
-| table                                     | columns   | references                                                         |
-|-------------------------------------------|-----------|--------------------------------------------------------------------|
-| [`account`](#account)                     | 7         |                                                                    |
-| [`case_knowledge`](#case_knowledge)       | 4         | `customer_case`, `knowledge`                                       |
-| [`case_sla`](#case_sla)                   | 8         | `customer_case`, `sla_definition`                                  |
-| [`contact`](#contact)                     | 7         | `account`                                                          |
-| [`contract`](#contract)                   | 9         | `account`                                                          |
-| [`customer_case`](#customer_case)         | 18        | `account`, `contact`, `installed_product`, `product`, `user_group` |
-| [`entitlement`](#entitlement)             | 10        | `account`, `contract`, `product`                                   |
-| [`installed_product`](#installed_product) | 9         | `account`, `location`, `product`                                   |
-| [`interaction`](#interaction)             | 10        | `account`, `contact`, `customer_case`                              |
-| [`knowledge`](#knowledge)                 | 10        | `product`                                                          |
-| [`location`](#location)                   | 9         |                                                                    |
-| [`notification`](#notification)           | 7         | `customer_case`, `knowledge`                                       |
-| [`product`](#product)                     | 7         |                                                                    |
-| [`sla_definition`](#sla_definition)       | 9         |                                                                    |
-| [`user`](#user)                           | 10        | `location`                                                         |
-| [`user_group`](#user_group)               | 6         |                                                                    |
-| [`user_group_member`](#user_group_member) | 4         | `user_group`                                                       |
+| table                                     | columns   | references                                                                 |
+|-------------------------------------------|-----------|----------------------------------------------------------------------------|
+| [`account`](#account)                     | 7         |                                                                            |
+| [`case_knowledge`](#case_knowledge)       | 4         | `customer_case`, `knowledge`                                               |
+| [`case_sla`](#case_sla)                   | 8         | `customer_case`, `sla_definition`                                          |
+| [`contact`](#contact)                     | 7         | `account`, `user`                                                          |
+| [`contract`](#contract)                   | 9         | `account`                                                                  |
+| [`customer_case`](#customer_case)         | 18        | `account`, `contact`, `installed_product`, `product`, `user_group`, `user` |
+| [`entitlement`](#entitlement)             | 10        | `account`, `contract`, `product`                                           |
+| [`installed_product`](#installed_product) | 9         | `account`, `location`, `product`                                           |
+| [`interaction`](#interaction)             | 10        | `account`, `contact`, `customer_case`, `user`                              |
+| [`knowledge`](#knowledge)                 | 10        | `product`, `user`                                                          |
+| [`location`](#location)                   | 9         |                                                                            |
+| [`notification`](#notification)           | 7         | `customer_case`, `knowledge`                                               |
+| [`product`](#product)                     | 7         |                                                                            |
+| [`sla_definition`](#sla_definition)       | 9         |                                                                            |
+| [`user`](#user)                           | 10        | `location`                                                                 |
+| [`user_group`](#user_group)               | 6         |                                                                            |
+| [`user_group_member`](#user_group_member) | 4         | `user_group`, `user`                                                       |
 
 ## account
 
@@ -68,7 +68,7 @@ References: `case_id` to `customer_case.case_id`; `sla_def_id` to `sla_definitio
 ## contact
 
 Key: `contact_id`.
-References: `account_id` to `account.account_id`.
+References: `account_id` to `account.account_id`; `portal_user_id` to `user.user_id`.
 
 | column           | type     |
 |------------------|----------|
@@ -100,7 +100,7 @@ References: `account_id` to `account.account_id`.
 ## customer_case
 
 Key: `case_id`.
-References: `account_id` to `account.account_id`; `contact_id` to `contact.contact_id`; `product_id` to `product.product_id`; `installed_product_id` to `installed_product.installed_product_id`; `assignment_group_id` to `user_group.group_id`.
+References: `account_id` to `account.account_id`; `contact_id` to `contact.contact_id`; `product_id` to `product.product_id`; `installed_product_id` to `installed_product.installed_product_id`; `assignment_group_id` to `user_group.group_id`; `assigned_to` to `user.user_id`.
 
 | column                 | type         |
 |------------------------|--------------|
@@ -161,7 +161,7 @@ References: `account_id` to `account.account_id`; `product_id` to `product.produ
 ## interaction
 
 Key: `interaction_id`.
-References: `account_id` to `account.account_id`; `contact_id` to `contact.contact_id`; `case_id` to `customer_case.case_id`.
+References: `account_id` to `account.account_id`; `contact_id` to `contact.contact_id`; `case_id` to `customer_case.case_id`; `interacted_user` to `user.user_id`.
 
 | column            | type     |
 |-------------------|----------|
@@ -179,7 +179,7 @@ References: `account_id` to `account.account_id`; `contact_id` to `contact.conta
 ## knowledge
 
 Key: `knowledge_id`.
-References: `product_id` to `product.product_id`.
+References: `product_id` to `product.product_id`; `owner_id` to `user.user_id`.
 
 | column           | type         |
 |------------------|--------------|
@@ -289,7 +289,7 @@ Key: `group_id`.
 ## user_group_member
 
 Key: `member_id`.
-References: `group_id` to `user_group.group_id`.
+References: `group_id` to `user_group.group_id`; `user_id` to `user.user_id`.
 
 | column           | type     |
 |------------------|----------|
