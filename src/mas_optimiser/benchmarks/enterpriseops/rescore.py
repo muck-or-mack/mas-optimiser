@@ -52,6 +52,27 @@ DESCRIPTION = __doc__.split("\n\n")[0]
 NOW = re.compile(r"""(['"])now\1""", re.IGNORECASE)
 
 
+def load_record(path: Path) -> dict:
+    """An attempt's saved record, each check's benchmark verdict under its present name.
+
+    A record saved before the name changed keeps it as ``upstream_passed``.
+
+    Args:
+        path: The record, ``attempt-<n>.json``.
+
+    Returns:
+        The record, with ``benchmark_passed`` in its verdicts and in the
+        verdicts as the attempt first produced them.
+    """
+    record = json.loads(path.read_text())
+    for execution in record["runs"]:
+        for kept in ("verification_results", "verification_results_as_run"):
+            for result in execution.get(kept, {}).values():
+                if "upstream_passed" in result:
+                    result["benchmark_passed"] = result.pop("upstream_passed")
+    return record
+
+
 def local_runner(final: sqlite3.Connection, now: str) -> diagnosis.RunSQL:
     """A query function on the rebuilt database, shaped like the executor's runner.
 
@@ -89,7 +110,7 @@ async def check_locally(kept: list[dict], run_sql: diagnosis.RunSQL) -> dict[str
 
     Returns:
         Each check's verdict keyed by unique name, shaped as the executor
-        records it, with ``upstream_passed`` from ``checks.recheck``.
+        records it, with ``benchmark_passed`` from ``checks.recheck``.
     """
     results = {}
     for check in kept:
@@ -135,7 +156,7 @@ def keep_live_verdicts(results: dict[str, dict], as_run: dict[str, dict]) -> dic
         ):
             result["passed"] = live["passed"]
             result["actual"] = live.get("actual")
-            result["upstream_passed"] = live.get("upstream_passed", live["passed"])
+            result["benchmark_passed"] = live.get("benchmark_passed", live["passed"])
     return results
 
 
@@ -159,7 +180,7 @@ async def rescore_attempt(
     saved = folder / f"{stem}.changes.json"
     if not saved.exists():
         return None
-    record = json.loads((folder / f"{stem}.json").read_text())
+    record = load_record(folder / f"{stem}.json")
     execution = record["runs"][0]
     changes = json.loads(saved.read_text())["changes"]
     seed, layout = states.seed_copy(
@@ -220,7 +241,7 @@ async def rescore(evaluation: Path) -> Counter:
                 continue
             if not judged:
                 # The page is rewritten in the current layout; nothing is judged.
-                record = json.loads(stem.with_suffix(".json").read_text())
+                record = load_record(stem.with_suffix(".json"))
                 saved = folder / f"attempt-{attempt}.changes.json"
                 changes = (
                     json.loads(saved.read_text())["changes"] if saved.exists() else None
@@ -234,7 +255,7 @@ async def rescore(evaluation: Path) -> Counter:
                 # No saved changes: the attempt raised before it finished. Its
                 # row stays as the runner made it, a failure.
                 counts["no saved changes"] += 1
-                execution = json.loads(stem.with_suffix(".json").read_text())["runs"][0]
+                execution = load_record(stem.with_suffix(".json"))["runs"][0]
                 outcome = runner.task_outcome(
                     task_id, attempt, execution, names, settings["pricing"]
                 )

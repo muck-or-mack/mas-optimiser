@@ -14,8 +14,8 @@ compares the two with ``==``, so those checks can never pass.
 ``unique_names`` drops exact copies and renames the clashes that remain
 before an attempt, so the executor keeps every distinct check once, and
 ``recheck`` compares count checks numerically after it, while the executor's
-own verdict stays beside the corrected one as ``upstream_passed``.
-``upstream_verdict`` then recovers what the benchmark would have reported for
+own verdict stays beside the corrected one as ``benchmark_passed``.
+``benchmark_verdict`` then recovers what the benchmark would have reported for
 the task, so both conventions can be shown side by side, and
 ``check_records`` flattens one attempt's verdicts into the rows of
 ``checks.csv``.
@@ -46,7 +46,7 @@ COLUMNS = (
     "position",
     "name",
     "passed",
-    "upstream_passed",
+    "benchmark_passed",
     "comparison",
     "expected",
     "actual",
@@ -65,14 +65,14 @@ class Names(NamedTuple):
         original: Each kept check's unique name to the name the task gave
             it (``verifier_<n>`` for an unnamed one, as the executor names
             them).
-        upstream: Each task-given name to the unique name of the copy the
+        benchmark: Each task-given name to the unique name of the copy the
             executor's own dict would have ended up holding, the last one.
         patched: Each patched check's unique name to its disposition and
             the original query, expected value and comparison.
     """
 
     original: dict[str, str]
-    upstream: dict[str, str]
+    benchmark: dict[str, str]
     patched: dict[str, dict] = {}
 
 
@@ -91,7 +91,7 @@ def unique_names(verifiers: list[dict]) -> tuple[list[dict], Names]:
     """
     renamed = []
     original = {}
-    upstream = {}
+    benchmark = {}
     seen = {}
     for i, verifier in enumerate(verifiers, start=1):
         name = verifier.get("name") or f"verifier_{i}"
@@ -103,7 +103,7 @@ def unique_names(verifiers: list[dict]) -> tuple[list[dict], Names]:
             check.get("comparison_type"),
         )
         if key in seen:
-            upstream[name] = seen[key]
+            benchmark[name] = seen[key]
             continue
         unique = name
         n = 1
@@ -112,9 +112,9 @@ def unique_names(verifiers: list[dict]) -> tuple[list[dict], Names]:
             unique = f"{name} ({n})"
         renamed.append(verifier | {"name": unique})
         original[unique] = name
-        upstream[name] = unique
+        benchmark[name] = unique
         seen[key] = unique
-    return renamed, Names(original, upstream)
+    return renamed, Names(original, benchmark)
 
 
 @functools.cache
@@ -168,7 +168,7 @@ def apply_patches(
                 "comparison_type": patch["comparison_type"],
             }
             to_run.append(check | {"validation_config": config | repaired})
-    return to_run, Names(names.original, names.upstream, patched)
+    return to_run, Names(names.original, names.benchmark, patched)
 
 
 def prepare(task_id: str, verifiers: list[dict]) -> tuple[list[dict], Names, dict]:
@@ -224,7 +224,7 @@ async def original_verdicts(
 ) -> None:
     """Run each patched check's original query and keep the benchmark's verdict beside ours.
 
-    A repaired check's result gets ``upstream_passed`` from its original
+    A repaired check's result gets ``benchmark_passed`` from its original
     query and ``patch`` "repaired". An excluded check, which did not run,
     gets a result of its own with ``passed`` ``None``, so it is listed but
     counts for neither side's total here and for the benchmark's own verdict
@@ -241,7 +241,7 @@ async def original_verdicts(
         if patch["disposition"] == "excluded":
             results[unique] = {
                 "passed": None,
-                "upstream_passed": verdict,
+                "benchmark_passed": verdict,
                 "expected": patch["expected_value"],
                 "actual": actual,
                 "comparison_type": patch["comparison_type"],
@@ -249,7 +249,7 @@ async def original_verdicts(
                 "patch": "excluded",
             }
         elif unique in results:
-            results[unique]["upstream_passed"] = verdict
+            results[unique]["benchmark_passed"] = verdict
             results[unique]["patch"] = "repaired"
             results[unique]["original_query"] = patch["query"]
 
@@ -257,7 +257,7 @@ async def original_verdicts(
 def recheck(result: dict) -> None:
     """Record the executor's verdict and correct it for a numeric string.
 
-    Sets ``result["upstream_passed"]`` to the verdict as the executor gave it,
+    Sets ``result["benchmark_passed"]`` to the verdict as the executor gave it,
     then, for an equality check whose expected value is a number written as a
     string and whose actual value is a number, replaces ``result["passed"]``
     with the numeric comparison.
@@ -265,7 +265,7 @@ def recheck(result: dict) -> None:
     Args:
         result: One check's verdict as the executor recorded it, edited in place.
     """
-    result["upstream_passed"] = result["passed"]
+    result["benchmark_passed"] = result["passed"]
     expected, actual = result.get("expected"), result.get("actual")
     if (
         result.get("comparison_type", "equals") == "equals"
@@ -293,7 +293,7 @@ def passed(results: dict[str, dict]) -> bool:
     return bool(counted) and all(counted)
 
 
-def upstream_verdict(results: dict[str, dict], names: Names) -> tuple[int, int, bool]:
+def benchmark_verdict(results: dict[str, dict], names: Names) -> tuple[int, int, bool]:
     """What the benchmark's executor would have reported for one attempt.
 
     The executor keys verdicts by name, so of checks sharing a name only the
@@ -309,11 +309,11 @@ def upstream_verdict(results: dict[str, dict], names: Names) -> tuple[int, int, 
         not the attempt got as far as running them), and whether the task passed.
     """
     verdicts = {
-        name: results[unique]["upstream_passed"]
-        for name, unique in names.upstream.items()
+        name: results[unique]["benchmark_passed"]
+        for name, unique in names.benchmark.items()
         if unique in results
     }
-    total = len(names.upstream)
+    total = len(names.benchmark)
     return (
         sum(verdicts.values()),
         total,
@@ -352,7 +352,7 @@ def check_records(
                         position,
                         names.original[unique],
                         result["passed"],
-                        result["upstream_passed"],
+                        result["benchmark_passed"],
                         result.get("comparison_type", ""),
                         result.get("expected"),
                         result.get("actual"),

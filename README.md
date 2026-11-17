@@ -144,7 +144,7 @@ checked), and `evaluation.json` and `index.csv` carry the evaluation's total.
 
 A task passes when every one of its checks (the benchmark's "verifiers") passes.
 Three things differ from
-the benchmark's own count, and the `upstream_` columns of `tasks.csv` and
+the benchmark's own count, and the `benchmark_` columns of `tasks.csv` and
 `checks.csv` give that count alongside. All three are applied to a task's
 check list before each attempt (`checks.prepare`), so the server's verdicts
 come back for every check under a unique name. The benchmark keys verdicts by
@@ -159,7 +159,7 @@ as numbers. And a short patch list (`data/check_patches.json`) excludes the
 few checks that no correct attempt can satisfy and repairs the few whose query
 names the wrong record, each entry with its evidence; the benchmark's own
 verdict on every patched check is still recorded beside ours (the
-`upstream_passed` and `patch` columns of `checks.csv`). A task whose every
+`benchmark_passed` and `patch` columns of `checks.csv`). A task whose every
 check is excluded cannot be judged and is not run (one ITSM task at the
 current patch list).
 
