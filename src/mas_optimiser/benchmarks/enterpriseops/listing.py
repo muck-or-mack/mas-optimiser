@@ -25,7 +25,7 @@ COLUMNS = [
     "started",
     "model",
     "label",
-    "attempts passed",
+    "attempts fully passed",
     "errors",
     "checks passed",
     "cost (USD)",
@@ -77,7 +77,7 @@ def _cells(run: str, domain: str, rows: list[dict]) -> list[str]:
         f"{total['successes']:.0f} of {total['total_attempts']:.0f}",
         f"{total['errors']:.0f}",
         f"{total['checks_passed']:.0f} of {total['checks_total']:.0f}",
-        f"{total['cost_usd']:.2f}",
+        markdown.amount(total["cost_usd"]),
     ]
 
 

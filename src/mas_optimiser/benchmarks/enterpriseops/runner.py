@@ -571,8 +571,8 @@ def write_run_summary(run_dir: Path, experiment: str) -> dict:
     header = [
         "set",
         "tasks",
-        "attempts passed",
-        "tasks passed every attempt",
+        "attempts fully passed",
+        "tasks passed on every attempt",
         "errors",
         "checks passed",
         "cost (USD)",
@@ -587,8 +587,8 @@ def write_run_summary(run_dir: Path, experiment: str) -> dict:
             f"{t['tasks_passed_every_attempt']} of {t['tasks']}",
             str(t["errors"]),
             f"{t['checks_passed']} of {t['checks_total']}",
-            f"{t['cost_usd']:.2f}",
-            f"{t['seconds'] / 3600:.2f}",
+            markdown.amount(t["cost_usd"]),
+            markdown.amount(t["seconds"] / 3600),
         ]
 
     lines = [
@@ -942,7 +942,7 @@ def write_tables(
     ] + [
         c | {"failure": "wrong value"} for c in cell_rows if not c["ok"] and c["column"]
     ]
-    (
+    failures = (
         pd.DataFrame(failed, columns=["task_id", "attempt", *place])
         .drop_duplicates()
         .groupby(place, as_index=False)
@@ -950,8 +950,8 @@ def write_tables(
         .sort_values(
             ["attempts", "tasks", *place], ascending=[False, False, *[True] * 4]
         )
-        .to_csv(out / "failures.csv", index=False)
     )
+    failures.to_csv(out / "failures.csv", index=False)
     (out / "summary.md").write_text(
         report.summary(
             settings.get("evaluation", out.name),
@@ -964,6 +964,7 @@ def write_tables(
             check_rows,
             cell_rows,
             table_rows,
+            failures.to_dict("records"),
         )
     )
 
