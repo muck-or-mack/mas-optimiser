@@ -40,10 +40,11 @@ Sources: ``docs/how-it-works.md``, section 6, the rows for ``report``.
 
 import json
 import re
+import textwrap
 from collections import Counter
 
 from mas_optimiser import markdown
-from mas_optimiser.benchmarks.enterpriseops import diagnosis, sql, states
+from mas_optimiser.benchmarks.enterpriseops import diagnosis, sql
 
 CELL_COLUMNS = (
     "task_id",
@@ -91,6 +92,9 @@ WRITING = {
 WORST_TASKS = 10
 # Items of a list shown on an attempt's page before the rest are counted.
 LISTED = 10
+# The longest cell of a check's table: every row of a table is padded to its
+# widest cell, and the whole value is in the turn that passed it.
+TABLE_CHARS = 80
 FAILURES = (
     "table not written",
     "call failed",
@@ -209,6 +213,20 @@ FILLER = {
 }
 
 
+def writes(tool: str, table: str) -> bool:
+    """Whether a tool writes a table, going by its name: a writing verb, then the table's words.
+
+    Args:
+        tool: The tool's name (``create_incident``).
+        table: The table (``incident``).
+
+    Returns:
+        ``True`` when the name says so.
+    """
+    verb, *rest = tool.split("_")
+    return verb in WRITING and set(rest) - FILLER == set(table.split("_"))
+
+
 def writers_of(agent_calls: list[dict], table: str, key: list[str]) -> list[dict]:
     """The calls that write ``table``: writing calls named after it, or, failing that, whose result echoes its key column.
 
@@ -223,21 +241,18 @@ def writers_of(agent_calls: list[dict], table: str, key: list[str]) -> list[dict
     Returns:
         The calls, in order; empty when none wrote the table.
     """
-    writing = [c for c in agent_calls if c["tool"].split("_")[0] in WRITING]
-    named = [
-        c
-        for c in writing
-        if set(c["tool"].split("_")[1:]) - FILLER == set(table.split("_"))
-    ]
+    named = [c for c in agent_calls if writes(c["tool"], table)]
     return named or [
         c
-        for c in writing
-        if c.get("success") and any(f'"{k}"' in c.get("result", "") for k in key)
+        for c in agent_calls
+        if c["tool"].split("_")[0] in WRITING
+        and c.get("success")
+        and any(f'"{k}"' in c.get("result", "") for k in key)
     ]
 
 
 def trace(
-    result: dict, agent_calls: list[dict], keys: dict, arguments: dict[str, set[str]]
+    result: dict, agent_calls: list[dict], keys: dict, arguments: dict[str, list[str]]
 ) -> dict:
     """How a failed check's row was handled: the calls that wrote it, where each cell's value came from, the failure.
 
@@ -363,14 +378,42 @@ def _fields(data: object, max_chars: int | None) -> list[str]:
     return lines
 
 
-def _check_lines(result: dict, changes: dict | None, max_chars: int) -> list[str]:
-    """Under a failed check: a table of what it wants against each touched row, and the turns behind it.
+def _own_table(result: dict) -> str:
+    """The table a check belongs to: the one whose rows it counts or reads a value from.
+
+    Args:
+        result: A check's result with its ``query``.
+
+    Returns:
+        The table in lower case; for a query that cannot be taken apart, the
+        table it names when it names one only, and empty otherwise.
+    """
+    query = result.get("query", "")
+    parsed = sql.parse(query, {})
+    if parsed:
+        return parsed["table"].lower()
+    named = sql.tables(query)
+    return next(iter(named)) if len(named) == 1 else ""
+
+
+def _check_lines(
+    result: dict,
+    changes: dict | None,
+    max_chars: int,
+    given: list[str],
+    arguments: dict[str, list[str]],
+) -> list[str]:
+    """Under a failed check: what it wants against what the attempt left, and where each value came from.
 
     Args:
         result: A failed check's result with its ``diagnosis`` and ``trace``.
         changes: The attempt's changes, as ``states.diff`` gives them, or
             ``None`` when they were not read.
-        max_chars: The length a long value is clipped to.
+        max_chars: The length a long value is clipped to, ``TABLE_CHARS`` at
+            most.
+        given: The tools the task was given.
+        arguments: Each tool's argument names; empty when the evaluation
+            saved no tool list.
 
     Returns:
         The lines, as Markdown; empty for a kind with nothing to show.
@@ -381,107 +424,119 @@ def _check_lines(result: dict, changes: dict | None, max_chars: int) -> list[str
     linked = followed.get("related", [])
 
     def cell(value: object) -> str:
-        return _clip(value, max_chars).replace("|", "\\|")
+        return _clip(value, min(max_chars, TABLE_CHARS)).replace("|", "\\|")
 
     if kind in ("cells", "value"):
         touched = (changes or {}).get(found["table"], {})
-        lines, shown, new, old = [], object(), None, None
+        writer = next((c for c in linked if c.get("success")), None)
+        by_row: dict[str, list[dict]] = {}
         for row in found["rows"]:
-            key = row.get("row")
-            if key != shown:
-                shown = key
-                # The row as the attempt left it: every column of one it
-                # inserted, the changed columns of one it updated.
-                new = key and next(
-                    (
-                        r
-                        for r in touched.get("inserted", [])
-                        if key.items() <= r.items()
-                    ),
-                    None,
-                )
-                old = key and next(
-                    (
-                        u["changes"]
-                        for u in touched.get("updated", [])
-                        if u["key"] == key
-                    ),
-                    None,
-                )
-                if key:
-                    how = (
-                        "not in the seed, inserted"
-                        if new
-                        else "in the seed, updated"
-                        if old is not None
-                        else "touched"
-                    )
-                    writer = next((c for c in linked if c.get("success")), None)
-                    where = (
-                        f" at turn {writer['turn']} by `{writer['tool']}`"
-                        if writer
-                        else ""
-                    )
-                    label = ", ".join(f"{k} {v}" for k, v in key.items())
-                    if lines:
-                        # A blank line ends the table of the row before.
-                        lines.append("")
-                    lines += [f"Row `{label}`: {how}{where}.", ""]
-                before = ["Before"] if old is not None else []
-                heads = [
-                    f"Check wants in `{found['table']}`",
-                    *before,
-                    "After the attempt",
-                    "",
-                    "Where the value came from",
-                ]
-                lines += [
-                    "| " + " | ".join(heads) + " |",
-                    "|" + "---|" * len(heads),
-                ]
-            column = row["column"]
-            after = ", ".join(str(v) for v in row.get("actual", []))
-            setter = followed.get("set_by", {}).get(column, {})
-            source = (
-                ""
-                if row["ok"]
-                else f"turn {setter['turn']}, `{setter['tool']}({column}={setter['value']!r})`"
-                if setter.get("how") == "passed"
-                else "not in any call's arguments"
+            label = ", ".join(f"{k} {v}" for k, v in row.get("row", {}).items())
+            by_row.setdefault(label, []).append(row)
+        lines = []
+        for label, rows in by_row.items():
+            key = rows[0].get("row")
+            # An updated row shows each changed cell's value before.
+            old = key and next(
+                (u["changes"] for u in touched.get("updated", []) if u["key"] == key),
+                None,
             )
-            cells = [cell(row["condition"])]
-            if old is not None:
-                cells.append(cell(old[column][0]) if column in old else "unchanged")
-            cells += [
-                cell(after or ("" if row["ok"] else "no value")),
-                "ok" if row["ok"] else "WRONG",
-                cell(source),
+            if key:
+                how = "in the seed, updated" if old is not None else "inserted"
+                where = (
+                    f" at turn {writer['turn']} by `{writer['tool']}`" if writer else ""
+                )
+                lines += [f"Row `{label}`: {how}{where}.", ""]
+            body = []
+            for row in rows:
+                column = row["column"]
+                setter = followed.get("set_by", {}).get(column, {})
+                how = setter.get("how")
+                if how == "passed":
+                    source = f"passed at turn {setter['turn']}: `{setter['tool']}({column}={setter['value']!r})`"
+                elif how == "left out":
+                    source = f"left out at turn {setter['turn']}: `{setter['tool']}` takes `{column}`"
+                elif how == "no argument":
+                    source = (
+                        f"set by the server: `{setter['tool']}` takes no `{column}`"
+                    )
+                else:
+                    source = "not passed in any call" if how else ""
+                after = ", ".join(_shown(v) for v in row.get("actual", []))
+                cells = [f"`{column}`" if column else "(several)", cell(row["wanted"])]
+                if old is not None:
+                    cells.append(
+                        cell(_shown(old[column][0])) if column in old else "unchanged"
+                    )
+                cells += [cell(after), "ok" if row["ok"] else "WRONG", cell(source)]
+                body.append(cells)
+            before = ["before"] if old is not None else []
+            header = [
+                "column",
+                "wanted",
+                *before,
+                "found",
+                "ok",
+                "where the value came from",
             ]
-            lines.append("| " + " | ".join(cells) + " |")
-        return lines
+            lines += [markdown.table(header, body), ""]
+        return lines[:-1]
     if kind == "no_rows":
         table = found["table"]
-        lines = [
-            f"No row inserted or updated in `{table}`"
-            + ("." if linked else f"; no call wrote `{table}`.")
-        ]
-        lines += [
-            f"- turn {c['turn']}, `{c['tool']}`: "
-            + ("failed" if c.get("success") is False else "ok")
-            for c in linked
-        ]
+        writing = [tool for tool in given if writes(tool, table)]
+        if linked:
+            tried = ", ".join(
+                f"turn {c['turn']} `{c['tool']}` "
+                + ("failed" if c.get("success") is False else "succeeded")
+                for c in linked
+            )
+            lines = [
+                f"No row of `{table}` was inserted or updated. Calls that write it: {tried}."
+            ]
+        elif writing:
+            tools = " and ".join(f"`{tool}`" for tool in writing)
+            lines = [
+                f"No call wrote `{table}`. The task was given {tools} to write it."
+            ]
+        else:
+            lines = [f"No call wrote `{table}`."]
         cut = sql.clauses(result.get("query", ""))
         if cut:
+            body = []
+            for condition in cut[1]:
+                column = sql.column_of(condition)
+                takers = [t for t in writing if column in arguments.get(t, ())]
+                known = any(tool in arguments for tool in writing)
+                body.append(
+                    [
+                        cell(condition),
+                        "no row",
+                        ", ".join(f"`{t}`" for t in takers)
+                        or ("none" if known and column else ""),
+                    ]
+                )
             lines += [
                 "",
-                f"| Check wants in `{table}` | After the attempt |",
-                "|---|---|",
+                markdown.table(
+                    ["check wants", "found", "tool given that takes it"], body
+                ),
             ]
-            lines += [f"| {cell(condition)} | no row |" for condition in cut[1]]
         return lines
     if kind == "too_many_rows":
         return [_clip(diagnosis.describe(found), max_chars)]
     return []
+
+
+def _shown(value: object) -> str:
+    """A database value for a table cell; an empty cell says so.
+
+    Args:
+        value: The value as the database returned it.
+
+    Returns:
+        ``(empty)`` for ``None``, else the value as text.
+    """
+    return "(empty)" if value is None else str(value)
 
 
 def attempt_text(
@@ -489,16 +544,22 @@ def attempt_text(
     attempt: int,
     execution: dict,
     changes: dict | None,
+    given: list[str],
+    arguments: dict[str, list[str]],
     max_chars: int = 300,
 ) -> str:
-    """One attempt as a page: request, turns, changes, and every check with its table and trace.
+    """One attempt as a page: the request, how it did table by table, the tools it had, every check, the turns and the rows it changed.
 
-    A turn is one reply of the model: its text as a quote, then each tool
-    call it asked for with the arguments, never cut, and beneath, what came
-    back (fields the tool left empty are not shown; the record has them).
-    Under the changes against the seed, every row the attempt touched: an
-    inserted row with its values, an updated row with each changed cell
-    before and after, a deleted row by its key.
+    The page goes from the whole to the detail. After the request, one row
+    per table the checks look at says whether the attempt got it right
+    (``table_rows``). Then the tools the task was given, the turns each was
+    called at and the arguments each takes, and every check with, under a failure, what it wanted
+    against what was found and where each value came from. Then the turns:
+    one reply of the model each, its text as a quote and each tool call it
+    asked for with the arguments, never cut, and what came back (fields the
+    tool left empty are not shown; the record has them). Last, every row the
+    attempt changed: an inserted row with all its columns, an updated row
+    with each changed cell before and after, a deleted row by its key.
 
     Args:
         task_id: The task's dataset ID.
@@ -506,6 +567,9 @@ def attempt_text(
         execution: The executor's account of the attempt.
         changes: The attempt's changes, as ``states.diff`` gives them, or
             ``None`` when they were not read.
+        given: The tools the task was given.
+        arguments: Each tool's argument names; empty when the evaluation
+            saved no tool list.
         max_chars: The length one field of an answer, one cell of a row or
             one cell of a check's table is clipped to.
 
@@ -513,10 +577,12 @@ def attempt_text(
         The page as Markdown.
     """
     results = execution.get("verification_results", {})
-    passed = sum(1 for r in results.values() if r["passed"])
+    # An excluded check is listed on the page and is not counted.
+    scored = [r for r in results.values() if r.get("patch") != "excluded"]
+    passed = sum(1 for r in scored if r["passed"])
     verdict = "PASS" if execution.get("overall_success") else "FAIL"
     lines = [
-        f"# {task_id}, attempt {attempt}: {verdict} ({passed} of {len(results)} checks passed)",
+        f"# {task_id}, attempt {attempt}: {verdict} ({passed} of {len(scored)} checks passed)",
         "",
     ]
     flow = execution.get("conversation_flow", [])
@@ -525,8 +591,111 @@ def attempt_text(
             lines + [f"Raised before it started: {execution['error']}", ""]
         )
     request = next((s["content"] for s in flow if s["type"] == "user_message"), "")
-    lines += ["## Request", "", request, "", "## What the agent did", ""]
+    lines += ["## Request", "", request, "", "## Tables the checks look at", ""]
+    if changes is None:
+        lines += ["The attempt's changes were not saved.", ""]
+    else:
+        tables = table_rows(task_id, attempt, results, changes)
+        names: dict[str, list[str]] = {}
+        for name, result in results.items():
+            if result.get("patch") != "excluded":
+                names.setdefault(_own_table(result), []).append(name)
+        judged = [t["result"] for t in tables if t["checks"]]
+        counts = ", ".join(
+            f"{judged.count(r)} {r}" for r in ("correct", "wrong", "missed")
+        )
+        body = [
+            [
+                f"`{t['table']}`",
+                ", ".join(names.get(t["table"], [])) or "none",
+                ", ".join(
+                    f"{t[how]} {how}"
+                    for how in ("inserted", "updated", "deleted")
+                    if t[how]
+                )
+                or "none",
+                t["result"],
+            ]
+            for t in tables
+        ]
+        lines += [
+            f"{len(judged)} tables with a check on them: {counts}.",
+            "",
+            markdown.table(["table", "checks on it", "rows changed", "result"], body),
+            "",
+        ]
+        if names.get(""):
+            lines += [
+                "Checks whose table could not be read from their query: "
+                + ", ".join(names[""])
+                + ".",
+                "",
+            ]
     agent_calls = calls(execution)
+    turns: dict[str, list[str]] = {}
+    for call in agent_calls:
+        turns.setdefault(call["tool"], []).append(str(call["turn"]))
+    # Every tool when the task has a few; only those called when it was
+    # given the whole toolbox.
+    listed = given if len(given) <= 2 * LISTED else [t for t in given if t in turns]
+    lines += ["## Tools the task was given", ""]
+    if len(listed) < len(given):
+        lines += [
+            f"{len(given)} tools; the {len(listed)} the agent called are shown, "
+            "the rest are in `tools.json`.",
+            "",
+        ]
+    lines += [
+        markdown.table(
+            ["tool", "called at turn", "arguments"],
+            [
+                [
+                    f"`{tool}`",
+                    ", ".join(turns.get(tool, [])) or "never",
+                    str(len(arguments[tool])) if tool in arguments else "not saved",
+                ]
+                for tool in listed
+            ],
+        ),
+        "",
+    ]
+    if any(tool in arguments for tool in listed):
+        # Each tool with the arguments it takes, wrapped: one tool takes 26.
+        lines += ["What each tool takes:", "", "```"]
+        lines += [
+            textwrap.fill(
+                f"{tool}({', '.join(arguments[tool])})",
+                width=100,
+                subsequent_indent="    ",
+            )
+            for tool in listed
+            if tool in arguments
+        ]
+        lines += ["```", ""]
+    lines += ["## Checks", ""]
+    for name, result in results.items():
+        excluded = result.get("patch") == "excluded"
+        if excluded:
+            verdict = "pass" if result["benchmark_passed"] else "fail"
+            lines.append(
+                f"### EXCLUDED  {name} (no correct attempt can satisfy it; "
+                f"the benchmark's own verdict: {verdict})"
+            )
+        else:
+            flag = "PASS" if result["passed"] else "FAIL"
+            patched = " (repaired)" if result.get("patch") == "repaired" else ""
+            lines.append(
+                f"### {flag}  {name}{patched} (expected {result.get('expected')!r}, got {result.get('actual')!r})"
+            )
+        lines.append("")
+        if result.get("query"):
+            lines += ["```sql", " ".join(result["query"].split()), "```", ""]
+        if not excluded and not result["passed"]:
+            lines += [
+                *_check_lines(result, changes, max_chars, given, arguments),
+                "",
+            ]
+    lines += ["## What the agent did", ""]
     replies = [step for step in flow if step["type"] == "ai_message"]
     for turn, reply in enumerate(replies, start=1):
         lines += [f"### Turn {turn}", ""]
@@ -553,65 +722,41 @@ def attempt_text(
             if isinstance(answer, dict):
                 answer = {k: v for k, v in answer.items() if v is not None}
             lines += ["returned", "", "```", *_fields(answer, max_chars), "```", ""]
-    lines += ["## Changes against the seed", ""]
+    lines += ["## Rows the attempt changed", ""]
     if changes is None:
         lines.append("not saved")
-    else:
-        queries = [r.get("query", "") for r in results.values()]
-        lines += [f"- {line}" for line in states.summary(changes, queries)]
-        for table, change in changes.items():
-            lines += ["", f"### {table}"]
-            # An inserted row is labelled by its first column, the key in
-            # every table of the three schemas; the others carry their key.
-            touched = (
-                [("inserted", next(iter(r.items())), r) for r in change["inserted"]]
-                + [
-                    ("updated", next(iter(u["key"].items())), u)
-                    for u in change["updated"]
-                ]
-                + [("deleted", next(iter(k.items())), None) for k in change["deleted"]]
-            )
-            for how, (column, value), row in touched[:LISTED]:
-                lines += [
-                    "",
-                    f"Row `{column} {value}`, {how}"
-                    + ("." if how == "deleted" else ":"),
-                ]
-                if how == "inserted":
-                    kept = {k: v for k, v in row.items() if v is not None}
-                    lines += ["", "```", *_fields(kept, max_chars), "```"]
-                elif how == "updated":
-                    width = max(map(len, row["changes"]), default=0)
-                    lines += (
-                        ["", "```"]
-                        + [
-                            f"{c:<{width}} = {_clip(before, max_chars)} -> {_clip(after, max_chars)}"
-                            for c, (before, after) in row["changes"].items()
-                        ]
-                        + ["```"]
-                    )
-            if len(touched) > LISTED:
-                lines += ["", f"... {len(touched) - LISTED} more rows"]
-    lines += ["", "## Checks", ""]
-    for name, result in results.items():
-        excluded = result.get("patch") == "excluded"
-        if excluded:
-            verdict = "pass" if result["benchmark_passed"] else "fail"
-            lines.append(
-                f"### EXCLUDED  {name} (no correct attempt can satisfy it; "
-                f"the benchmark's own verdict: {verdict})"
-            )
-        else:
-            flag = "PASS" if result["passed"] else "FAIL"
-            patched = " (repaired)" if result.get("patch") == "repaired" else ""
-            lines.append(
-                f"### {flag}  {name}{patched} (expected {result.get('expected')!r}, got {result.get('actual')!r})"
-            )
+    elif not changes:
+        lines.append("none")
+    for table, change in (changes or {}).items():
+        lines += [f"### {table}"]
+        # An inserted row is labelled by its first column, the key in
+        # every table of the three schemas; the others carry their key.
+        touched = (
+            [("inserted", next(iter(r.items())), r) for r in change["inserted"]]
+            + [("updated", next(iter(u["key"].items())), u) for u in change["updated"]]
+            + [("deleted", next(iter(k.items())), None) for k in change["deleted"]]
+        )
+        for how, (column, value), row in touched[:LISTED]:
+            lines += [
+                "",
+                f"Row `{column} {value}`, {how}" + ("." if how == "deleted" else ":"),
+            ]
+            if how == "inserted":
+                shown = {k: _shown(v) for k, v in row.items()}
+                lines += ["", "```", *_fields(shown, max_chars), "```"]
+            elif how == "updated":
+                width = max(map(len, row["changes"]), default=0)
+                lines += (
+                    ["", "```"]
+                    + [
+                        f"{c:<{width}} = {_clip(_shown(before), max_chars)} -> {_clip(_shown(after), max_chars)}"
+                        for c, (before, after) in row["changes"].items()
+                    ]
+                    + ["```"]
+                )
+        if len(touched) > LISTED:
+            lines += ["", f"... {len(touched) - LISTED} more rows"]
         lines.append("")
-        if result.get("query"):
-            lines += ["```sql", " ".join(result["query"].split()), "```", ""]
-        if not excluded and not result["passed"]:
-            lines += [*_check_lines(result, changes, max_chars), ""]
     return "\n".join(lines)
 
 
@@ -686,9 +831,8 @@ def table_rows(
         read |= named
         if result.get("patch") == "excluded":
             continue
-        parsed = sql.parse(query, {})
-        if parsed or len(named) == 1:
-            own = parsed["table"].lower() if parsed else next(iter(named))
+        own = _own_table(result)
+        if own:
             verdicts.setdefault(own, []).append(bool(result["passed"]))
     changed = {table.lower(): change for table, change in changes.items()}
     rows = []

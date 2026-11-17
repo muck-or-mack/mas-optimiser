@@ -166,7 +166,7 @@ async def rescore_attempt(
     config: dict,
     domain: str,
     pricing: dict,
-    arguments: dict[str, set[str]],
+    arguments: dict[str, list[str]],
 ) -> tuple | None:
     """Recompute one attempt's verdicts, diagnosis and files from its saved record and changes.
 
@@ -221,7 +221,9 @@ async def rescore_attempt(
         pricing,
         arguments,
     )
-    runner.save_attempt(folder, attempt, record, changes)
+    runner.save_attempt(
+        folder, attempt, record, changes, config["selected_tools"], arguments
+    )
     return outputs
 
 
@@ -260,7 +262,14 @@ async def rescore(evaluation: Path) -> Counter:
                 changes = (
                     json.loads(saved.read_text())["changes"] if saved.exists() else None
                 )
-                runner.save_attempt(folder, attempt, record, changes)
+                runner.save_attempt(
+                    folder,
+                    attempt,
+                    record,
+                    changes,
+                    configs[task_id]["selected_tools"],
+                    arguments,
+                )
                 continue
             out = await rescore_attempt(
                 folder,

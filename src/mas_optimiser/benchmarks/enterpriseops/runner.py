@@ -661,8 +661,8 @@ async def save_tools(out: Path, tasks: dict[str, dict]) -> None:
     (out / "tools.json").write_text(json.dumps(tools, indent=2))
 
 
-def tool_arguments(out: Path) -> dict[str, set[str]]:
-    """Each tool's argument names, from an evaluation's ``tools.json``.
+def tool_arguments(out: Path) -> dict[str, list[str]]:
+    """Each tool's argument names in the tool's own order, from an evaluation's ``tools.json``.
 
     Args:
         out: The evaluation folder.
@@ -675,7 +675,7 @@ def tool_arguments(out: Path) -> dict[str, set[str]]:
     if not path.exists():
         return {}
     return {
-        tool["name"]: set((tool.get("inputSchema") or {}).get("properties", {}))
+        tool["name"]: list((tool.get("inputSchema") or {}).get("properties", {}))
         for tools in json.loads(path.read_text()).values()
         for tool in tools
     }
@@ -821,7 +821,7 @@ def outputs(
     keys: dict,
     names: checks.Names,
     pricing: dict,
-    arguments: dict[str, set[str]],
+    arguments: dict[str, list[str]],
 ) -> tuple[dict, list[dict], list[dict], list[dict]]:
     """Trace each failed check, then one attempt's rows for ``tasks.csv``, ``checks.csv``, ``cells.csv`` and ``tables.csv``.
 
@@ -858,7 +858,12 @@ def outputs(
 
 
 def save_attempt(
-    folder: Path, attempt: int, result: dict, changes: dict | None
+    folder: Path,
+    attempt: int,
+    result: dict,
+    changes: dict | None,
+    selected: list[str],
+    arguments: dict[str, list[str]],
 ) -> None:
     """Write an attempt's record, its changes against the seed and its page into the task's folder.
 
@@ -867,6 +872,9 @@ def save_attempt(
         attempt: The attempt number, from 1.
         result: What the executor returned (its ``runs`` list holds the one execution).
         changes: The attempt's changes, or ``None`` when they were not read.
+        selected: The task's ``selected_tools``; empty when the agent was
+            given every tool the server offers.
+        arguments: Each tool's argument names, from ``tool_arguments``.
     """
     folder.mkdir(exist_ok=True)
     (folder / f"attempt-{attempt}.json").write_text(
@@ -877,7 +885,14 @@ def save_attempt(
             json.dumps({"changes": changes}, indent=1, default=str)
         )
     (folder / f"attempt-{attempt}.md").write_text(
-        report.attempt_text(folder.name, attempt, result["runs"][0], changes)
+        report.attempt_text(
+            folder.name,
+            attempt,
+            result["runs"][0],
+            changes,
+            selected or list(arguments),
+            arguments,
+        )
     )
 
 
@@ -965,7 +980,7 @@ async def run_task(
     trace: bool,
     thinking: dict | None,
     tags: list[str],
-    arguments: dict[str, set[str]],
+    arguments: dict[str, list[str]],
 ) -> tuple[dict, list[dict], list[dict], list[dict]]:
     """Run one task once with the benchmark's ReAct agent, save the attempt and return its rows.
 
@@ -1064,7 +1079,14 @@ async def run_task(
                 rows,
                 states.summary(changes, queries) if changes is not None else None,
             )
-    save_attempt(out / "tasks" / task_id, attempt, result, changes)
+    save_attempt(
+        out / "tasks" / task_id,
+        attempt,
+        result,
+        changes,
+        config["selected_tools"],
+        arguments,
+    )
     return outcome, rows, cells, changed
 
 

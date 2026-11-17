@@ -120,7 +120,7 @@ evaluations/<experiment>/
     failures.csv                 one row per table, column and kind of failure, most frequent first
     evaluation.log                      the benchmark's log of every request
     tasks/<task_id>/
-      attempt-<n>.md             the attempt as a page: request, turns, changes, checks
+      attempt-<n>.md             the attempt as a page: request, tables, tools, checks, turns, rows
       attempt-<n>.json           the executor's complete record of the attempt
       attempt-<n>.changes.json   every row the attempt inserted, updated or deleted
 ```
@@ -199,12 +199,14 @@ Every evaluation folder is written to be read without a tracing server:
   check, touched row and condition, wanted against found, with the turn the
   value came from), `tables.csv` (one per attempt and table, with its
   result) and `failures.csv` (one per table, column and kind of failure);
-- `tasks/<task_id>/attempt-<n>.md`: the attempt as a page: the request; what
-  the agent did turn by turn, each call with its arguments and what came
-  back; every row it inserted, updated or deleted, with the values; and
-  every check with, under a failure, a table of what the check wants against
-  the row, each condition marked ok or WRONG and the turn behind it. Beside
-  it, the full record (`.json`) and the changes (`.changes.json`).
+- `tasks/<task_id>/attempt-<n>.md`: the attempt as a page: the request; one
+  row per table the checks look at, with the result; the tools the task
+  was given and the arguments each takes; every check with, under a
+  failure, a table of each column wanted against found, marked ok or
+  WRONG, with where the value came from; what the agent did turn by turn,
+  each call with its arguments and what came back; and every row it
+  inserted, updated or deleted. Beside it, the full record (`.json`) and
+  the changes (`.changes.json`).
 
 ## Where to find what
 
@@ -219,7 +221,7 @@ Every evaluation folder is written to be read without a tracing server:
 | every cell a failed check tests, wanted against found, and the turn its value came from | `cells.csv` | `report.cell_rows` |
 | which tables each attempt got right, got wrong, missed or changed unasked | `tables.csv` | `report.table_rows` |
 | every row each attempt changed in the database | `attempt-<n>.changes.json` | `states.diff` |
-| one attempt, readable: turns, rows, checks | `tasks/<task_id>/attempt-<n>.md` | `report.attempt_text` |
+| one attempt, readable: tables, tools, checks, turns, rows | `tasks/<task_id>/attempt-<n>.md` | `report.attempt_text` |
 | one attempt, complete and raw | `attempt-<n>.json` | the benchmark's executor |
 | every tool the domain server offered, with its description and argument schema | `tools.json` | `runner.save_tools` |
 | the database an attempt ended with | `mas-optimiser rebuild`, then `attempt-<n>.sqlite` | `rebuild` |
