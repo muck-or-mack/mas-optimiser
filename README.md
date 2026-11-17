@@ -113,10 +113,11 @@ evaluations/<experiment>/
   <evaluation>/
     summary.md                   how the evaluation went and what went wrong, one page
     evaluation.json                     every setting, the task list and the totals
-    tasks.csv                    one row per attempt: verdict, checks, tool errors, tokens, cost
-    checks.csv                one row per attempt and check: verdict, diagnosis, kind, step, patch
-    cells.csv                    one row per failed check, touched row and condition
-    changes.csv                  one row per attempt and changed table
+    tasks.csv                    one row per attempt: verdict, checks, tables by result, tool errors, tokens, cost
+    checks.csv                   one row per attempt and check: verdict, diagnosis, kind, failure, patch
+    cells.csv                    one row per failed check, touched row and condition: wanted against found
+    tables.csv                   one row per attempt and table: the checks on it, the rows changed, the result
+    failures.csv                 one row per table, column and kind of failure, most frequent first
     evaluation.log                      the benchmark's log of every request
     tasks/<task_id>/
       attempt-<n>.md             the attempt as a page: request, turns, changes, checks
@@ -125,13 +126,18 @@ evaluations/<experiment>/
 ```
 
 To read an evaluation, open `summary.md` first: the headline table, then the failed
-checks by step and the cells wrong by column, then the worst tasks with
+checks by failure and the cells wrong by column, then the worst tasks with
 their dominant failure. For a task on that list, open its `attempt-<n>.md`:
 under each failed check, the row the agent wrote, which turn wrote it, and
 each condition marked `ok` or `WRONG` with the value found and the turn that
 set it. `cells.csv` holds the same conditions as data, for filtering across
-an evaluation (every wrong `status`, say), and `changes.csv` shows what each
-attempt touched, including tables no check mentions.
+an evaluation (every wrong `status`, say). `tables.csv` says for each
+attempt which tables the checks look at and how the attempt did on each:
+`correct`, `wrong` (changed, and a check on it failed) or `missed` (a check
+on it failed and the attempt changed nothing in it), with the tables it
+changed that were `not asked for`. `failures.csv` ranks what went wrong
+across the evaluation: tables not written, and wrong cells by column with
+whether the value was passed wrong or left out of the call.
 
 `attempts` in the experiment file (or `--attempts`) runs every task that many
 times, each attempt from a freshly seeded database, so that a task the agent
@@ -164,7 +170,7 @@ check is excluded cannot be judged and is not run (one ITSM task at the
 current patch list).
 
 How a failed check is diagnosed cell by cell and traced to the turn that
-set each wrong value, and what the `kind` and `step` columns of `checks.csv`
+set each wrong value, and what the `kind` and `failure` columns of `checks.csv`
 mean, is in `docs/how-it-works.md` (sections 2.6 and 2.7), which follows
 one real attempt through the whole pipeline.
 
@@ -189,9 +195,10 @@ Every evaluation folder is written to be read without a tracing server:
 - `summary.md`: a page on how the evaluation went and what went wrong, by table and
   column, with the worst tasks and where the files are;
 - `tasks.csv` (one row per attempt), `checks.csv` (one per attempt and
-  check, with the failure's kind and step), `cells.csv` (one per failed
-  check, touched row and condition, with the turn that set a wrong cell) and
-  `changes.csv` (one per attempt and changed table);
+  check, with the failure and its kind), `cells.csv` (one per failed
+  check, touched row and condition, wanted against found, with the turn the
+  value came from), `tables.csv` (one per attempt and table, with its
+  result) and `failures.csv` (one per table, column and kind of failure);
 - `tasks/<task_id>/attempt-<n>.md`: the attempt as a page: the request; what
   the agent did turn by turn, each call with its arguments and what came
   back; every row it inserted, updated or deleted, with the values; and
@@ -205,11 +212,13 @@ Every evaluation folder is written to be read without a tracing server:
 |---|---|---|
 | whether it passed, and how many | `summary.md` (headline); `index.csv`, one row per evaluation of the experiment | `report.summary`, `runner.write_index_row` |
 | the run as a whole: the headline pooled over its domains, then a row per domain | the run's `summary.md` and `run.json` | `runner.write_run_summary` |
-| what went wrong overall: by step, table and column; the worst tasks | `summary.md`, "What went wrong" | `report.summary` |
-| each attempt's verdict, errors, tokens and cost | `tasks.csv` | `runner.task_outcome` |
-| each check's verdict, kind, step and patch | `checks.csv` | `checks.check_records` |
-| every wrong field and the turn that set it, across the evaluation | `cells.csv` | `report.cell_rows` |
-| what each attempt changed in the database | `changes.csv`; `attempt-<n>.changes.json` | `states.diff` |
+| what went wrong overall: by failure, table and column; the worst tasks | `summary.md`, "What went wrong" | `report.summary` |
+| what went wrong most often, as data | `failures.csv` | `runner.write_tables` |
+| each attempt's verdict, tables by result, errors, tokens and cost | `tasks.csv` | `runner.task_outcome` |
+| each check's verdict, kind, failure and patch | `checks.csv` | `checks.check_records` |
+| every cell a failed check tests, wanted against found, and the turn its value came from | `cells.csv` | `report.cell_rows` |
+| which tables each attempt got right, got wrong, missed or changed unasked | `tables.csv` | `report.table_rows` |
+| every row each attempt changed in the database | `attempt-<n>.changes.json` | `states.diff` |
 | one attempt, readable: turns, rows, checks | `tasks/<task_id>/attempt-<n>.md` | `report.attempt_text` |
 | one attempt, complete and raw | `attempt-<n>.json` | the benchmark's executor |
 | every tool the domain server offered, with its description and argument schema | `tools.json` | `runner.save_tools` |

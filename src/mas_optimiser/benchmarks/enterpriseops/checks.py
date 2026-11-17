@@ -44,7 +44,7 @@ COLUMNS = (
     "task_id",
     "attempt",
     "position",
-    "name",
+    "check",
     "passed",
     "benchmark_passed",
     "comparison",
@@ -53,7 +53,7 @@ COLUMNS = (
     "diagnosis",
     "kind",
     "table",
-    "step",
+    "failure",
     "patch",
 )
 
@@ -321,20 +321,18 @@ def benchmark_verdict(results: dict[str, dict], names: Names) -> tuple[int, int,
     )
 
 
-def check_records(
-    task_id: str, attempt: int, results: dict[str, dict], names: Names
-) -> list[dict]:
+def check_records(task_id: str, attempt: int, results: dict[str, dict]) -> list[dict]:
     """Flatten one attempt's verdicts into ``checks.csv`` rows (``COLUMNS``), one per check.
 
-    A failed verdict carries the ``kind`` and ``table`` of its diagnosis and
-    the ``step`` its trace gave it (see ``report``); a passed one leaves them
-    empty.
+    A check goes by its unique name, the one the attempt's page and
+    ``cells.csv`` use, so the files join on it. A failed verdict carries the
+    ``kind`` and ``table`` of its diagnosis and the ``failure`` its trace
+    gave it (see ``report``); a passed one leaves them empty.
 
     Args:
         task_id: The task's dataset ID.
         attempt: The attempt number, from 1.
         results: The run's ``verification_results``, in the order the checks ran.
-        names: The maps from ``prepare``.
 
     Returns:
         The rows, in the order the checks ran.
@@ -350,7 +348,7 @@ def check_records(
                         task_id,
                         attempt,
                         position,
-                        names.original[unique],
+                        unique,
                         result["passed"],
                         result["benchmark_passed"],
                         result.get("comparison_type", ""),
@@ -359,7 +357,7 @@ def check_records(
                         diagnosis.describe(found),
                         found.get("kind", ""),
                         found.get("table", ""),
-                        (result.get("trace") or {}).get("step", ""),
+                        (result.get("trace") or {}).get("failure", ""),
                         result.get("patch", ""),
                     ),
                     strict=True,

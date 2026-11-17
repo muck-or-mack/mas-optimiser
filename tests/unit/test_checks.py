@@ -101,8 +101,7 @@ def test_benchmark_verdict_keeps_only_the_last_of_a_name():
     assert checks.benchmark_verdict({}, names) == (0, 2, False)
 
 
-def test_check_records_use_the_original_names_in_order():
-    _, names = checks.unique_names([check("a", "q1"), check("a", "q2")])
+def test_check_records_use_the_unique_names_in_order():
     results = {
         "a": {"passed": True, "benchmark_passed": True, "expected": 1, "actual": 1},
         "a (2)": {
@@ -114,16 +113,16 @@ def test_check_records_use_the_original_names_in_order():
         },
     }
     results["a (2)"]["diagnosis"] = {"kind": "no_rows", "table": "t"}
-    rows = checks.check_records("t", 2, results, names)
-    assert [(r["position"], r["name"], r["passed"]) for r in rows] == [
+    rows = checks.check_records("t", 2, results)
+    assert [(r["position"], r["check"], r["passed"]) for r in rows] == [
         (1, "a", True),
-        (2, "a", False),
+        (2, "a (2)", False),
     ]
     assert rows[1] == {
         "task_id": "t",
         "attempt": 2,
         "position": 2,
-        "name": "a",
+        "check": "a (2)",
         "passed": False,
         "benchmark_passed": False,
         "comparison": "equals",
@@ -132,7 +131,7 @@ def test_check_records_use_the_original_names_in_order():
         "diagnosis": "no row inserted or updated in t",
         "kind": "no_rows",
         "table": "t",
-        "step": "",
+        "failure": "",
         "patch": "",
     }
     assert rows[0]["diagnosis"] == ""
@@ -181,10 +180,10 @@ def test_patches_drop_excluded_checks_and_swap_repaired_queries(monkeypatch):
     assert results["b (2)"]["patch"] == "repaired"
     assert results["b (2)"]["benchmark_passed"] is False
     assert results["a"]["passed"] is None and results["a"]["benchmark_passed"] is False
-    rows = checks.check_records("t", 1, results, names)
-    assert [(r["name"], r["passed"], r["patch"]) for r in rows] == [
+    rows = checks.check_records("t", 1, results)
+    assert [(r["check"], r["passed"], r["patch"]) for r in rows] == [
         ("b", True, ""),
-        ("b", True, "repaired"),
+        ("b (2)", True, "repaired"),
         ("a", None, "excluded"),
     ]
 

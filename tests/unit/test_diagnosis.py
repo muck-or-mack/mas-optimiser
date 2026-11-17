@@ -76,16 +76,22 @@ def test_each_condition_is_tested_on_the_rows_the_attempt_touched(run_sql):
     )
     key = {"incident_id": "INC_024"}
     assert found["kind"] == "cells"
+    wanted = [
+        ("incident_id", "= 'INC_024'", True, ["INC_024"]),
+        ("channel", "= 'phone'", False, ["chat"]),
+        ("status", "= 'new'", True, ["new"]),
+        ("priority", "= 'moderate'", False, [None]),
+    ]
     assert found["rows"] == [
-        {"row": key, "condition": "incident_id = 'INC_024'", "ok": True},
-        {"row": key, "condition": "channel = 'phone'", "ok": False, "actual": ["chat"]},
-        {"row": key, "condition": "status = 'new'", "ok": True},
         {
             "row": key,
-            "condition": "priority = 'moderate'",
-            "ok": False,
-            "actual": [None],
-        },
+            "condition": f"{column} {want}",
+            "column": column,
+            "wanted": want,
+            "ok": ok,
+            "actual": actual,
+        }
+        for column, want, ok, actual in wanted
     ]
     assert (
         diagnosis.describe(found)
@@ -172,7 +178,15 @@ def test_a_value_check_is_wanted_against_actual(run_sql):
     assert found == {
         "kind": "value",
         "table": "incident",
-        "rows": [{"condition": "status = 'resolved'", "ok": False, "actual": ["new"]}],
+        "rows": [
+            {
+                "condition": "status = 'resolved'",
+                "column": "status",
+                "wanted": "= 'resolved'",
+                "ok": False,
+                "actual": ["new"],
+            }
+        ],
     }
 
 

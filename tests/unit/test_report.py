@@ -75,17 +75,24 @@ EXECUTION = {
                     {
                         "row": {"incident_id": "INC_024"},
                         "condition": "incident_id = 'INC_024'",
+                        "column": "incident_id",
+                        "wanted": "= 'INC_024'",
                         "ok": True,
+                        "actual": ["INC_024"],
                     },
                     {
                         "row": {"incident_id": "INC_024"},
                         "condition": "channel = 'phone'",
+                        "column": "channel",
+                        "wanted": "= 'phone'",
                         "ok": False,
                         "actual": ["chat"],
                     },
                     {
                         "row": {"incident_id": "INC_024"},
                         "condition": "priority = 'critical'",
+                        "column": "priority",
+                        "wanted": "= 'critical'",
                         "ok": False,
                         "actual": ["moderate"],
                     },
@@ -124,6 +131,8 @@ CHANGES = {
     },
     "incident_knowledge": {"inserted": [{"id": 1}], "updated": [], "deleted": []},
 }
+# The arguments each tool takes, as the evaluation's tool list gives them.
+ARGUMENTS = {"create_incident": {"caller_id", "channel", "priority", "impact"}}
 
 
 def traced():
@@ -131,7 +140,7 @@ def traced():
     agent_calls = report.calls(execution)
     for check in execution["verification_results"].values():
         if not check["passed"]:
-            check["trace"] = report.trace(check, agent_calls, KEYS)
+            check["trace"] = report.trace(check, agent_calls, KEYS, ARGUMENTS)
     return execution
 
 
@@ -155,26 +164,76 @@ def test_calls_pair_each_tool_call_with_its_result():
     assert '"incident_id": "INC_024"' in agent_calls[1]["result"]
 
 
+def test_a_lookup_that_finds_no_record_is_told_from_an_error():
+    def flow(tool, text):
+        return {
+            "conversation_flow": [
+                {"type": "ai_message", "tool_calls": [{"name": tool, "args": {}}]},
+                {"type": "tool_result", "result": {"success": False, "result": text}},
+            ]
+        }
+
+    def found_nothing(tool, text):
+        return report.calls(flow(tool, text))[0]["nothing_found"]
+
+    # The three servers' wordings: an error code, a message, a validation type.
+    assert found_nothing("find_item_by_serial_number", '{"error_code": "NOT_FOUND"}')
+    assert found_nothing("get_user", '{"detail": "User 9 not found"}')
+    assert found_nothing("list_cases", '{"type": "value_error.not_found"}')
+    # A bad argument is an error, and so is a write that names a missing record.
+    assert not found_nothing("get_user", '{"detail": "user_id must be a string"}')
+    assert not found_nothing("create_incident", '{"detail": "User 9 not found"}')
+    assert not report.calls(EXECUTION)[0]["nothing_found"]
+
+
 def test_a_wrong_cell_is_traced_to_the_call_that_set_it():
     found = traced()["verification_results"]["Incident"]["trace"]
-    assert found["step"] == "wrong"
+    assert found["failure"] == "wrong values"
     # The create call wrote the row; the notification call, though it names
     # the incident, does not write incidents.
     assert [c["turn"] for c in found["related"]] == [2]
     assert found["set_by"]["channel"] == {
         "turn": 2,
         "tool": "create_incident",
+        "how": "passed",
         "value": "chat",
     }
-    assert found["set_by"]["priority"]["turn"] == 2
+    assert found["set_by"]["priority"]["how"] == "passed"
+    # The key was not passed and the tool has no argument for it: the
+    # server set it when the call wrote the row.
+    assert found["set_by"]["incident_id"] == {
+        "turn": 2,
+        "tool": "create_incident",
+        "how": "no argument",
+    }
 
 
-def test_a_missing_row_is_skipped_or_failed_by_its_calls():
+def test_a_cell_no_call_passed_is_left_out_when_the_tool_takes_it():
+    check = json.loads(json.dumps(EXECUTION["verification_results"]["Incident"]))
+    check["diagnosis"]["rows"].append(
+        {
+            "row": {"incident_id": "INC_024"},
+            "condition": "impact = 'high'",
+            "column": "impact",
+            "wanted": "= 'high'",
+            "ok": False,
+            "actual": ["low"],
+        }
+    )
+    agent_calls = report.calls(EXECUTION)
+    known = report.trace(check, agent_calls, KEYS, ARGUMENTS)["set_by"]["impact"]
+    assert known == {"turn": 2, "tool": "create_incident", "how": "left out"}
+    # Without the evaluation's tool list the two cannot be told apart.
+    unknown = report.trace(check, agent_calls, KEYS, {})["set_by"]
+    assert unknown["impact"]["how"] == unknown["incident_id"]["how"] == "not passed"
+
+
+def test_a_missing_row_is_told_by_its_calls():
     results = traced()["verification_results"]
     # send_notification was called for the row and returned an error.
-    assert results["Notification"]["trace"]["step"] == "failed"
+    assert results["Notification"]["trace"]["failure"] == "call failed"
     # No call wrote incident_task at all.
-    assert results["Task"]["trace"]["step"] == "skipped"
+    assert results["Task"]["trace"]["failure"] == "table not written"
 
 
 def test_the_attempt_page_shows_request_turns_changes_and_traced_checks():
@@ -280,26 +339,62 @@ def test_an_updated_row_shows_its_value_before_the_attempt():
         "| channel = 'phone' | email | chat | WRONG | turn 2, `create_incident(channel='chat')` |"
         in text
     )
-    assert "| incident_id = 'INC_024' | unchanged |  | ok |  |" in text
+    assert "| incident_id = 'INC_024' | unchanged | INC_024 | ok |  |" in text
 
 
-def test_cell_and_change_rows_carry_the_trace():
-    execution = traced()
-    rows = report.cell_rows("task_x", 1, execution["verification_results"])
-    assert [(r["condition"], r["ok"], r["turn"], r["tool"]) for r in rows] == [
-        ("incident_id = 'INC_024'", True, "", ""),
-        ("channel = 'phone'", False, 2, "create_incident"),
-        ("priority = 'critical'", False, 2, "create_incident"),
-    ]
-    queries = [r.get("query", "") for r in execution["verification_results"].values()]
-    changed = report.change_rows("task_x", 1, CHANGES, queries)
-    assert [(c["table"], c["inserted"], c["mentioned"]) for c in changed] == [
-        ("incident", 1, True),
-        ("incident_knowledge", 1, False),
+def test_cell_rows_give_wanted_against_found_and_where_the_value_came_from():
+    rows = report.cell_rows("task_x", 1, traced()["verification_results"])
+    assert [tuple(r[k] for k in report.CELL_COLUMNS[5:]) for r in rows] == [
+        ("incident_id", "incident_id = 'INC_024'", "= 'INC_024'", "INC_024", True)
+        + ("no argument", 2, "create_incident"),
+        ("channel", "channel = 'phone'", "= 'phone'", "chat", False)
+        + ("passed", 2, "create_incident"),
+        ("priority", "priority = 'critical'", "= 'critical'", "moderate", False)
+        + ("passed", 2, "create_incident"),
     ]
 
 
-def test_summary_counts_steps_and_names_the_worst_tasks():
+def test_table_rows_say_how_the_attempt_did_on_each_table():
+    results = traced()["verification_results"]
+    tables = report.table_rows("task_x", 1, results, CHANGES)
+    assert [tuple(t[k] for k in report.TABLE_COLUMNS[2:]) for t in tables] == [
+        ("incident", 1, 0, 1, 0, 0, "wrong"),
+        ("notification", 1, 0, 0, 0, 0, "missed"),
+        ("incident_task", 1, 0, 0, 0, 0, "missed"),
+        ("incident_knowledge", 0, 0, 1, 0, 0, "not asked for"),
+    ]
+    # Without the changes nothing can be said of a table.
+    assert report.table_rows("task_x", 1, results, None) == []
+
+
+def test_a_table_belongs_to_the_check_that_counts_its_rows():
+    results = {
+        "user": {"passed": True, "query": "SELECT COUNT(*) FROM users WHERE id = 7"},
+        "sla": {
+            "passed": True,
+            "query": "SELECT COUNT(*) FROM incident_sla s JOIN sla_definition d "
+            "ON d.id = s.sla_id WHERE d.name = 'gold'",
+        },
+        "dropped": {
+            "passed": None,
+            "patch": "excluded",
+            "query": "SELECT COUNT(*) FROM incident WHERE status = 'new'",
+        },
+    }
+    one = {"inserted": [{"id": 1}], "updated": [], "deleted": []}
+    changes = {"incident_sla": one, "sla_definition": one, "incident": one}
+    tables = report.table_rows("task_x", 1, results, changes)
+    assert [(t["table"], t["checks"], t["result"]) for t in tables] == [
+        # A check that asks for nothing new is met by leaving its table alone.
+        ("users", 1, "correct"),
+        ("incident_sla", 1, "correct"),
+        # Read through the join, or only by a check that is not counted.
+        ("sla_definition", 0, "read by a check"),
+        ("incident", 0, "read by a check"),
+    ]
+
+
+def test_summary_counts_failures_and_names_the_worst_tasks():
     execution = traced()
     results = execution["verification_results"]
     outcomes = [
@@ -318,27 +413,33 @@ def test_summary_counts_steps_and_names_the_worst_tasks():
             "tool_errors": 0,
         },
     ]
+    failed = (
+        ("wrong values", "incident"),
+        ("call failed", "notification"),
+        ("table not written", "incident_task"),
+    )
     check_rows = [
-        {"task_id": "t1", "passed": False, "step": "wrong", "table": "incident"},
-        {"task_id": "t1", "passed": False, "step": "failed", "table": "notification"},
-        {"task_id": "t1", "passed": False, "step": "skipped", "table": "incident_task"},
-        {"task_id": "t1", "passed": True, "step": "", "table": ""},
-        {"task_id": "t2", "passed": True, "step": "", "table": ""},
-        {"task_id": "t2", "passed": True, "step": "", "table": ""},
+        {"task_id": "t1", "passed": False, "failure": failure, "table": table}
+        for failure, table in failed
+    ] + [
+        {"task_id": task, "passed": True, "failure": "", "table": ""}
+        for task in ("t1", "t2", "t2")
     ]
-    queries = [r.get("query", "") for r in results.values()]
     text = report.summary(
         "eval",
         {"domain": "itsm", "mode": "oracle", "model": "haiku-5-5"},
         outcomes,
         check_rows,
         report.cell_rows("t1", 1, results),
-        report.change_rows("t1", 1, CHANGES, queries),
+        report.table_rows("t1", 1, results, CHANGES),
     )
     rows = [cells(line) for line in text.split("\n") if line.startswith("|")]
     assert ["1 of 2 (50.0%)", "1 of 2", "3 of 6", "1", "1"] in rows
-    assert "Failed checks by step: skipped 1, failed 1, wrong 1." in text
-    assert "Steps skipped (no call wrote the table), by table: incident_task 1." in text
+    assert (
+        "Failed checks by failure: table not written 1, call failed 1, wrong values 1."
+        in text
+    )
+    assert "Tables not written (no call wrote the table): incident_task 1." in text
     assert "Cells wrong, by column: channel 1, priority 1." in text
     assert any(row[:2] == ["t1", "0 of 1"] for row in rows)
     assert not any(row[0] == "t2" for row in rows)
@@ -385,13 +486,17 @@ def test_a_call_that_names_a_row_without_writing_its_table_is_not_its_writer():
                 {
                     "row": {"hr_case_id": 1},
                     "condition": "status = 'work_in_progress'",
+                    "column": "status",
+                    "wanted": "= 'work_in_progress'",
                     "ok": False,
                     "actual": ["draft"],
                 }
             ],
         },
     }
-    found = report.trace(check, report.calls(execution), {"hr_case": ["hr_case_id"]})
+    found = report.trace(
+        check, report.calls(execution), {"hr_case": ["hr_case_id"]}, {}
+    )
     assert [c["tool"] for c in found["related"]] == ["create_new_hr_case"]
     assert found["set_by"]["status"]["tool"] == "create_new_hr_case"
 
@@ -405,7 +510,7 @@ def test_a_surplus_rows_diagnosis_is_traced_without_conditions():
             "rows": [{"incident_id": "INC_024", "status": "new"}],
         },
     }
-    found = report.trace(check, report.calls(EXECUTION), KEYS)
-    assert found["step"] == "attempted"
+    found = report.trace(check, report.calls(EXECUTION), KEYS, {})
+    assert found["failure"] == "too many rows"
     assert [c["tool"] for c in found["related"]] == ["create_incident"]
     assert found["set_by"] == {}

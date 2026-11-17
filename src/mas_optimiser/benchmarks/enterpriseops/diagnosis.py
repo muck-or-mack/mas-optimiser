@@ -12,7 +12,8 @@ does the reading) and tests each condition on its own against the rows the
 attempt inserted or updated in the query's table (``states.diff`` says
 which), so a condition that an untouched row happens to satisfy is never
 mistaken for one the attempt met. For a
-failing condition on a column, the column's value in that row is fetched. A
+condition on a column, the column's value in that row is fetched, so every
+cell is wanted against found. A
 check that counts too many rows (an integrity check expecting none) gets the
 surplus rows instead; a check that reads one value (``SELECT col FROM t WHERE
 key``) is already wanted against actual; a query with a top-level OR or
@@ -21,7 +22,7 @@ them.
 
 Every query runs against the attempt's own database, on the server before
 the executor deletes it or on a local rebuild afterwards. A check with n
-conditions on r touched rows (at most ``SAMPLE_ROWS``) costs at most r(2n)
+conditions on r touched rows (at most ``SAMPLE_ROWS``) costs at most 2rn
 cheap queries, and no model is involved.
 
 Sources: ``docs/how-it-works.md``, section 6, the rows for ``diagnosis``.
@@ -130,18 +131,23 @@ async def diagnose(
     Returns:
         A dict with ``kind`` and the evidence for it: ``cells`` (``rows``: for
         each of the first ``SAMPLE_ROWS`` touched rows and each condition,
-        whether it holds and, when it does not, the ``actual`` values found),
-        ``no_rows`` (the attempt touched no
-        row of the ``table``), ``too_many_rows`` (sample ``rows``), ``value``
-        (one row of wanted against actual), or ``unsupported``.
+        the ``column`` it tests, what it ``wanted`` of it (the condition
+        without its left side, or whole when it tests no single column),
+        whether it holds, and the ``actual`` values found), ``no_rows`` (the
+        attempt touched no row of the ``table``), ``too_many_rows`` (sample
+        ``rows``), ``value`` (one row of wanted against actual), or
+        ``unsupported``.
     """
     parsed = sql.parse(result.get("query", ""), columns)
     if parsed is None:
         return {"kind": "unsupported"}
     table = parsed["table"]
     if parsed["kind"] == "value":
+        condition = f"{parsed['column']} = {result.get('expected')!r}"
         row = {
-            "condition": f"{parsed['column']} = {result.get('expected')!r}",
+            "condition": condition,
+            "column": sql.column_of(condition),
+            "wanted": f"= {result.get('expected')!r}",
             "ok": False,
             "actual": [result.get("actual")],
         }
@@ -183,10 +189,19 @@ async def diagnose(
                     f"SELECT COUNT(*) FROM {scope} WHERE {where} AND {condition['text']}"
                 )
             )
-            cell = {"row": key, "condition": condition["text"], "ok": bool(held)}
-            if condition["left"] and not cell["ok"]:
+            text, left = condition["text"], condition["left"]
+            cell = {
+                "row": key,
+                "condition": text,
+                "column": sql.column_of(text),
+                "wanted": text[len(left) :].strip()
+                if left and text.startswith(left)
+                else text,
+                "ok": bool(held),
+            }
+            if left:
                 found = await run_sql(
-                    f"SELECT DISTINCT {condition['left']} FROM {scope} WHERE {where}"
+                    f"SELECT DISTINCT {left} FROM {scope} WHERE {where}"
                 )
                 cell["actual"] = _values(found)
             cells.append(cell)

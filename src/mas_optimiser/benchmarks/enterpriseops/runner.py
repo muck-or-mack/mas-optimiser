@@ -4,8 +4,8 @@ The runner loads one domain's tasks, runs each with the benchmark's ReAct
 agent against the Docker domain servers, and writes one run folder under
 ``evaluations/<experiment>/`` with one evaluation folder per domain inside it
 (``2026-11-03-0803/itsm``): ``summary.md``, ``tasks.csv`` (a row per
-attempt), ``checks.csv``, ``cells.csv`` and ``changes.csv`` (see ``report``),
-``evaluation.json`` with the settings and totals, ``evaluation.log``, and per attempt under
+attempt), ``checks.csv``, ``cells.csv``, ``tables.csv`` and ``failures.csv``
+(see ``report``), ``evaluation.json`` with the settings and totals, ``evaluation.log``, and per attempt under
 ``tasks/<task_id>/`` the executor's full record (``attempt-<n>.json``), its
 changes against the seed (``attempt-<n>.changes.json``) and a readable page
 (``attempt-<n>.md``). Each experiment folder keeps an ``index.csv`` with one
@@ -45,6 +45,7 @@ from datetime import datetime
 from pathlib import Path
 
 import httpx
+import pandas as pd
 import yaml
 from datasets import load_dataset
 from dotenv import load_dotenv
@@ -660,6 +661,26 @@ async def save_tools(out: Path, tasks: dict[str, dict]) -> None:
     (out / "tools.json").write_text(json.dumps(tools, indent=2))
 
 
+def tool_arguments(out: Path) -> dict[str, set[str]]:
+    """Each tool's argument names, from an evaluation's ``tools.json``.
+
+    Args:
+        out: The evaluation folder.
+
+    Returns:
+        The names by tool; empty for an evaluation saved before the tool
+        list was kept.
+    """
+    path = out / "tools.json"
+    if not path.exists():
+        return {}
+    return {
+        tool["name"]: set((tool.get("inputSchema") or {}).get("properties", {}))
+        for tools in json.loads(path.read_text()).values()
+        for tool in tools
+    }
+
+
 def load_model(path: Path) -> tuple[LLMConfig, dict]:
     """The benchmark's model config and the price table from a model file.
 
@@ -728,6 +749,7 @@ def task_outcome(
     execution: dict,
     names: checks.Names,
     pricing: dict,
+    tables: list[dict],
 ) -> dict:
     """One attempt's ``tasks.csv`` row from the executor's record of it.
 
@@ -740,9 +762,14 @@ def task_outcome(
             failed with none of its checks passed and zero tokens.
         names: The maps from ``checks.prepare``.
         pricing: The price table from the model file.
+        tables: The attempt's ``tables.csv`` rows, from ``report.table_rows``;
+            empty when its changes were not read.
 
     Returns:
-        The row; the ``benchmark_`` columns give the benchmark's own count.
+        The row. The ``tables_`` columns count the tables with a check on
+        them by result; the ``benchmark_`` columns give the benchmark's own
+        count; ``lookups_empty`` counts the lookups that found no record,
+        which are not among the ``tool_errors``.
     """
     usage = [
         step["usage_metadata"]
@@ -754,6 +781,8 @@ def task_outcome(
     benchmark_passed, benchmark_total, benchmark_success = checks.benchmark_verdict(
         results, names
     )
+    agent_calls = report.calls(execution)
+    judged = [table["result"] for table in tables if table["checks"]]
     return {
         "task_id": task_id,
         "attempt": attempt,
@@ -761,15 +790,19 @@ def task_outcome(
         "checks_passed": sum(bool(r["passed"]) for r in results.values()),
         "checks_total": len(names.original)
         - sum(p["disposition"] == "excluded" for p in names.patched.values()),
+        "tables_checked": len(judged),
+        "tables_correct": judged.count("correct"),
+        "tables_wrong": judged.count("wrong"),
+        "tables_missed": judged.count("missed"),
         "benchmark_success": benchmark_success,
         "benchmark_checks_passed": benchmark_passed,
         "benchmark_checks_total": benchmark_total,
         "error": execution.get("error", ""),
         "tool_errors": sum(
-            not report.succeeded(step.get("result") or {})
-            for step in execution.get("conversation_flow", [])
-            if step["type"] == "tool_result"
+            call.get("success") is False and not call["nothing_found"]
+            for call in agent_calls
         ),
+        "lookups_empty": sum(call.get("nothing_found", False) for call in agent_calls),
         "model_calls": len(usage),
         "input_tokens": sum(u["input_tokens"] for u in usage),
         "output_tokens": sum(u["output_tokens"] for u in usage),
@@ -788,8 +821,9 @@ def outputs(
     keys: dict,
     names: checks.Names,
     pricing: dict,
+    arguments: dict[str, set[str]],
 ) -> tuple[dict, list[dict], list[dict], list[dict]]:
-    """Trace each failed check, then one attempt's rows for ``tasks.csv``, ``checks.csv``, ``cells.csv`` and ``changes.csv``.
+    """Trace each failed check, then one attempt's rows for ``tasks.csv``, ``checks.csv``, ``cells.csv`` and ``tables.csv``.
 
     The trace is attached to the check's result before anything is written,
     so the record, the CSVs and the page agree.
@@ -803,22 +837,23 @@ def outputs(
         keys: Each table's primary key columns.
         names: The maps from ``checks.prepare``.
         pricing: The price table from the model file.
+        arguments: Each tool's argument names, from ``tool_arguments``.
 
     Returns:
         The ``tasks.csv`` row, then the ``checks.csv``, ``cells.csv`` and
-        ``changes.csv`` rows.
+        ``tables.csv`` rows.
     """
     results = execution.get("verification_results", {})
     agent_calls = report.calls(execution)
     for check in results.values():
         if not check["passed"] and check.get("diagnosis"):
-            check["trace"] = report.trace(check, agent_calls, keys)
-    queries = [r.get("query", "") for r in results.values()]
+            check["trace"] = report.trace(check, agent_calls, keys, arguments)
+    tables = report.table_rows(task_id, attempt, results, changes)
     return (
-        task_outcome(task_id, attempt, execution, names, pricing),
-        checks.check_records(task_id, attempt, results, names),
+        task_outcome(task_id, attempt, execution, names, pricing, tables),
+        checks.check_records(task_id, attempt, results),
         report.cell_rows(task_id, attempt, results),
-        report.change_rows(task_id, attempt, changes, queries),
+        tables,
     )
 
 
@@ -852,9 +887,14 @@ def write_tables(
     outcomes: list[dict],
     check_rows: list[dict],
     cell_rows: list[dict],
-    change_rows: list[dict],
+    table_rows: list[dict],
 ) -> None:
-    """Write an evaluation's ``tasks.csv``, ``checks.csv``, ``cells.csv``, ``changes.csv`` and ``summary.md``.
+    """Write an evaluation's ``tasks.csv``, ``checks.csv``, ``cells.csv``, ``tables.csv``, ``failures.csv`` and ``summary.md``.
+
+    ``failures.csv`` counts the failures by where they are and of what
+    kind, most frequent first: a failed check with no row to compare by its
+    table, and a wrong cell by its table and column and by how its value
+    came about. Each is counted once per attempt it occurs in.
 
     Args:
         out: The evaluation folder.
@@ -864,7 +904,7 @@ def write_tables(
         outcomes: The ``tasks.csv`` rows, one per attempt.
         check_rows: The ``checks.csv`` rows.
         cell_rows: The ``cells.csv`` rows.
-        change_rows: The ``changes.csv`` rows.
+        table_rows: The ``tables.csv`` rows.
     """
     model = settings.get("model")
     if isinstance(model, dict):
@@ -873,12 +913,30 @@ def write_tables(
         ("tasks.csv", list(outcomes[0]) if outcomes else [], outcomes),
         ("checks.csv", checks.COLUMNS, check_rows),
         ("cells.csv", report.CELL_COLUMNS, cell_rows),
-        ("changes.csv", report.CHANGE_COLUMNS, change_rows),
+        ("tables.csv", report.TABLE_COLUMNS, table_rows),
     ):
         with (out / file_name).open("w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=columns)
             writer.writeheader()
             writer.writerows(rows)
+    place = ["table", "column", "failure", "how"]
+    failed = [
+        c | {"column": "", "how": ""}
+        for c in check_rows
+        if c["passed"] is False and c["failure"] not in ("", "wrong values")
+    ] + [
+        c | {"failure": "wrong value"} for c in cell_rows if not c["ok"] and c["column"]
+    ]
+    (
+        pd.DataFrame(failed, columns=["task_id", "attempt", *place])
+        .drop_duplicates()
+        .groupby(place, as_index=False)
+        .agg(attempts=("attempt", "size"), tasks=("task_id", "nunique"))
+        .sort_values(
+            ["attempts", "tasks", *place], ascending=[False, False, *[True] * 4]
+        )
+        .to_csv(out / "failures.csv", index=False)
+    )
     (out / "summary.md").write_text(
         report.summary(
             settings.get("evaluation", out.name),
@@ -890,7 +948,7 @@ def write_tables(
             outcomes,
             check_rows,
             cell_rows,
-            change_rows,
+            table_rows,
         )
     )
 
@@ -907,6 +965,7 @@ async def run_task(
     trace: bool,
     thinking: dict | None,
     tags: list[str],
+    arguments: dict[str, set[str]],
 ) -> tuple[dict, list[dict], list[dict], list[dict]]:
     """Run one task once with the benchmark's ReAct agent, save the attempt and return its rows.
 
@@ -921,6 +980,7 @@ async def run_task(
         trace: Send the attempt to Langfuse as one trace, scored with its verdict.
         thinking: A ``thinking`` setting for the model, or ``None``.
         tags: The trace's tags; the attempt number is added.
+        arguments: Each tool's argument names, from ``tool_arguments``.
 
     Returns:
         What ``outputs`` returns.
@@ -978,6 +1038,7 @@ async def run_task(
                 executor.layout["keys"],
                 executor.names,
                 pricing,
+                arguments,
             )
         except Exception as exc:  # noqa: BLE001
             # A fault in the trace or the rows must not end the evaluation;
@@ -985,12 +1046,11 @@ async def run_task(
             execution["report_error"] = repr(exc)
             for check in execution.get("verification_results", {}).values():
                 check.pop("trace", None)
-            outcome = task_outcome(task_id, attempt, execution, executor.names, pricing)
+            outcome = task_outcome(
+                task_id, attempt, execution, executor.names, pricing, []
+            )
             rows = checks.check_records(
-                task_id,
-                attempt,
-                execution.get("verification_results", {}),
-                executor.names,
+                task_id, attempt, execution.get("verification_results", {})
             )
             cells, changed = [], []
         if span is not None:
@@ -1041,9 +1101,10 @@ async def run_tasks(
 
     Returns:
         The ``tasks.csv`` rows, then the ``checks.csv``, ``cells.csv`` and
-        ``changes.csv`` rows, in task order and then attempt order.
+        ``tables.csv`` rows, in task order and then attempt order.
     """
     await save_tools(out, tasks)
+    arguments = tool_arguments(out)
     semaphore = asyncio.Semaphore(concurrency)
     total = len(tasks) * attempts
     done = 0
@@ -1062,6 +1123,7 @@ async def run_tasks(
                 trace=trace,
                 thinking=thinking,
                 tags=tags,
+                arguments=arguments,
             )
         done += 1
         status = (
@@ -1264,7 +1326,7 @@ def evaluate(
     root.addHandler(handler)
     tags = [domain, experiment["mode"], "arm:default", model.llm_model]
     try:
-        outcomes, check_rows, cell_rows, change_rows = asyncio.run(
+        outcomes, check_rows, cell_rows, table_rows = asyncio.run(
             run_tasks(
                 tasks,
                 model,
@@ -1293,7 +1355,7 @@ def evaluate(
         outcomes,
         check_rows,
         cell_rows,
-        change_rows,
+        table_rows,
     )
     counted = totals(outcomes, len(tasks), experiment["attempts"])
     kept = ("experiment", "experiment_file", "label", "overrides", "mode", "limit")
