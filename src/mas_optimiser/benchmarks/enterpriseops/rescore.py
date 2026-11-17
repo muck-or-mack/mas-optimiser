@@ -5,8 +5,9 @@ Each attempt's record (``attempt-<n>.json``) and its changes against the seed
 locally and run every check again: the task's checks as they now stand, the
 same diagnosis and trace, and the same files the runner writes
 (``summary.md``, ``tasks.csv``, ``checks.csv``, ``cells.csv``,
-``changes.csv`` and ``attempt-<n>.md``), the totals in ``evaluation.json``
-and the evaluation's row in the experiment's ``index.csv``. Use it after a
+``changes.csv`` and ``attempt-<n>.md``), the totals in ``evaluation.json``,
+the evaluation's row in the experiment's ``index.csv`` and, for one domain
+of a run, the run's ``run.json`` and pooled ``summary.md``. Use it after a
 change to the diagnosis or to the checks. An attempt with no saved changes
 (one that raised before it finished) keeps its record and counts as failed,
 as the runner counted it; a task with no check left to judge by gets its
@@ -260,7 +261,13 @@ async def rescore(evaluation: Path) -> Counter:
         "at": datetime.now().astimezone().isoformat(timespec="seconds"),
     }
     (evaluation / "evaluation.json").write_text(json.dumps(settings, indent=2))
-    runner.write_index_row(evaluation.parent, runner.index_row(settings, counted))
+    # One domain of a run sits a level below the experiment, and the run's
+    # own record and summary pool the totals of its domains.
+    experiment_dir = evaluation.parent
+    if settings.get("run"):
+        experiment_dir = evaluation.parent.parent
+        runner.write_run_summary(evaluation.parent, settings["experiment"])
+    runner.write_index_row(experiment_dir, runner.index_row(settings, counted))
     return counts
 
 

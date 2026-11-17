@@ -146,3 +146,35 @@ def test_an_attempt_that_raised_keeps_a_failed_row_and_the_index_follows(
         ",1,0,0,1," in index[1]
     )  # total_attempts 1, successes 0, tasks passed 0, errors 1
     assert "rescored" in json.loads((evaluation / "evaluation.json").read_text())
+
+
+def test_a_domain_of_a_run_is_indexed_under_the_experiment_and_the_run_follows(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(rescore.runner, "load_tasks", lambda domain, mode: {})
+    experiment = tmp_path / "exp"
+    evaluation = experiment / "2026-11-06-0900" / "itsm"
+    evaluation.mkdir(parents=True)
+    settings = {
+        "experiment": "exp",
+        "evaluation": "2026-11-06-0900/itsm",
+        "run": "2026-11-06-0900",
+        "started": "2026-11-06T09:00:00+00:00",
+        "finished": "2026-11-06T09:01:00+00:00",
+        "domain": "itsm",
+        "mode": "oracle",
+        "model": {"llm_model": "m"},
+        "tasks": [],
+        "attempts": 1,
+        "pricing": dict.fromkeys(rescore.runner.PRICING_KEYS, 1),
+    }
+    (evaluation / "evaluation.json").write_text(json.dumps(settings))
+    # The run's record as it stood before the rescore, with a count to replace.
+    (evaluation.parent / "run.json").write_text(json.dumps({"totals": {"tasks": 9}}))
+    asyncio.run(rescore.rescore(evaluation))
+    index = (experiment / "index.csv").read_text().splitlines()
+    assert len(index) == 2 and index[1].startswith("2026-11-06-0900/itsm,")
+    assert not (evaluation.parent / "index.csv").exists()
+    record = json.loads((evaluation.parent / "run.json").read_text())
+    assert record["totals"]["tasks"] == 0 and record["experiment"] == "exp"
+    assert (evaluation.parent / "summary.md").read_text().startswith("# exp 2026-11-06")
