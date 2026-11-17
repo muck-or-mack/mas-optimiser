@@ -38,7 +38,7 @@ def test_clashing_names_are_made_unique_and_mapped_back():
         "Add CI (3)": "Add CI",
     }
     # The executor's dict would end up holding the last "Add CI".
-    assert names.upstream == {"Add CI": "Add CI (3)", "verifier_3": "verifier_3"}
+    assert names.benchmark == {"Add CI": "Add CI (3)", "verifier_3": "verifier_3"}
 
 
 def test_exact_copies_are_one_check():
@@ -55,7 +55,7 @@ def test_exact_copies_are_one_check():
     )
     assert [v["name"] for v in renamed] == ["a", "b", "a (2)"]
     assert names.original == {"a": "a", "b": "b", "a (2)": "a"}
-    assert names.upstream == {"a": "a (2)", "b": "b"}
+    assert names.benchmark == {"a": "a (2)", "b": "b"}
     # The same query with a different expected value is a different check.
     renamed, _ = checks.unique_names([check("a", "q1", 1), check("a", "q1", 0)])
     assert len(renamed) == 2
@@ -69,7 +69,7 @@ def test_recheck_compares_a_numeric_string_as_a_number():
         "comparison_type": "equals",
     }
     checks.recheck(result)
-    assert result["passed"] is True and result["upstream_passed"] is False
+    assert result["passed"] is True and result["benchmark_passed"] is False
 
     unchanged = {
         "passed": False,
@@ -82,32 +82,32 @@ def test_recheck_compares_a_numeric_string_as_a_number():
 
     text = {"passed": True, "expected": "in_progress", "actual": "in_progress"}
     checks.recheck(text)
-    assert text["passed"] is True and text["upstream_passed"] is True
+    assert text["passed"] is True and text["benchmark_passed"] is True
 
 
-def test_upstream_verdict_keeps_only_the_last_of_a_name():
+def test_benchmark_verdict_keeps_only_the_last_of_a_name():
     _, names = checks.unique_names(
         [check("a", "q1"), check("a", "q2"), check("b", "q3")]
     )
     results = {
-        "a": {"passed": True, "upstream_passed": True},
-        "a (2)": {"passed": False, "upstream_passed": False},
-        "b": {"passed": True, "upstream_passed": True},
+        "a": {"passed": True, "benchmark_passed": True},
+        "a (2)": {"passed": False, "benchmark_passed": False},
+        "b": {"passed": True, "benchmark_passed": True},
     }
-    assert checks.upstream_verdict(results, names) == (1, 2, False)
-    results["a (2)"]["upstream_passed"] = True
-    assert checks.upstream_verdict(results, names) == (2, 2, True)
+    assert checks.benchmark_verdict(results, names) == (1, 2, False)
+    results["a (2)"]["benchmark_passed"] = True
+    assert checks.benchmark_verdict(results, names) == (2, 2, True)
     # A run that raised before the checks ran still counts them all.
-    assert checks.upstream_verdict({}, names) == (0, 2, False)
+    assert checks.benchmark_verdict({}, names) == (0, 2, False)
 
 
 def test_check_records_use_the_original_names_in_order():
     _, names = checks.unique_names([check("a", "q1"), check("a", "q2")])
     results = {
-        "a": {"passed": True, "upstream_passed": True, "expected": 1, "actual": 1},
+        "a": {"passed": True, "benchmark_passed": True, "expected": 1, "actual": 1},
         "a (2)": {
             "passed": False,
-            "upstream_passed": False,
+            "benchmark_passed": False,
             "comparison_type": "equals",
             "expected": 1,
             "actual": 0,
@@ -125,7 +125,7 @@ def test_check_records_use_the_original_names_in_order():
         "position": 2,
         "name": "a",
         "passed": False,
-        "upstream_passed": False,
+        "benchmark_passed": False,
         "comparison": "equals",
         "expected": 1,
         "actual": 0,
@@ -172,15 +172,15 @@ def test_patches_drop_excluded_checks_and_swap_repaired_queries(monkeypatch):
         return {"qa": 0, "q2": 0, "q2 fixed": 1}[query]
 
     results = {
-        "b": {"passed": True, "upstream_passed": True},
-        "b (2)": {"passed": True, "upstream_passed": True, "query": "q2 fixed"},
+        "b": {"passed": True, "benchmark_passed": True},
+        "b (2)": {"passed": True, "benchmark_passed": True, "query": "q2 fixed"},
     }
     asyncio.run(checks.original_verdicts(results, names, lambda name: run_sql))
     # The repaired check passes here and fails for the benchmark; the excluded
     # one is listed with no verdict of ours.
     assert results["b (2)"]["patch"] == "repaired"
-    assert results["b (2)"]["upstream_passed"] is False
-    assert results["a"]["passed"] is None and results["a"]["upstream_passed"] is False
+    assert results["b (2)"]["benchmark_passed"] is False
+    assert results["a"]["passed"] is None and results["a"]["benchmark_passed"] is False
     rows = checks.check_records("t", 1, results, names)
     assert [(r["name"], r["passed"], r["patch"]) for r in rows] == [
         ("b", True, ""),

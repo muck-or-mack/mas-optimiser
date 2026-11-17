@@ -547,7 +547,7 @@ def attempt_text(
     for name, result in results.items():
         excluded = result.get("patch") == "excluded"
         if excluded:
-            verdict = "pass" if result["upstream_passed"] else "fail"
+            verdict = "pass" if result["benchmark_passed"] else "fail"
             lines.append(
                 f"### EXCLUDED  {name} (no correct attempt can satisfy it; "
                 f"the benchmark's own verdict: {verdict})"

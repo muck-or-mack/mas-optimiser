@@ -151,10 +151,10 @@ def test_task_outcome_counts_an_errored_run_as_a_failed_task():
     assert not outcome["success"] and outcome["attempt"] == 2
     assert outcome["cost_usd"] == 0
     assert (outcome["checks_passed"], outcome["checks_total"]) == (0, 3)
-    assert not outcome["upstream_success"]
+    assert not outcome["benchmark_success"]
     assert (
-        outcome["upstream_checks_passed"],
-        outcome["upstream_checks_total"],
+        outcome["benchmark_checks_passed"],
+        outcome["benchmark_checks_total"],
     ) == (
         0,
         2,
@@ -172,9 +172,9 @@ def test_task_outcome_counts_every_check_and_sums_the_agents_token_use():
         "run_number": 1,
         "overall_success": False,
         "verification_results": {
-            "a": {"passed": False, "upstream_passed": False},
-            "a (2)": {"passed": True, "upstream_passed": True},
-            "b": {"passed": True, "upstream_passed": True},
+            "a": {"passed": False, "benchmark_passed": False},
+            "a (2)": {"passed": True, "benchmark_passed": True},
+            "b": {"passed": True, "benchmark_passed": True},
         },
         "execution_time_ms": 1500,
         "conversation_flow": [
@@ -186,13 +186,13 @@ def test_task_outcome_counts_every_check_and_sums_the_agents_token_use():
     }
     outcome = runner.task_outcome("t", 1, execution, names, PRICING)
     # The benchmark keeps only the last "a", which passed, so it calls this a pass.
-    assert not outcome["success"] and outcome["upstream_success"]
+    assert not outcome["success"] and outcome["benchmark_success"]
     assert outcome["cost_usd"] == pytest.approx(2000 * 0.10e-6 + 100 * 0.50e-6)
     assert (outcome["cache_read_tokens"], outcome["cache_write_tokens"]) == (0, 0)
     assert (outcome["checks_passed"], outcome["checks_total"]) == (2, 3)
     assert (
-        outcome["upstream_checks_passed"],
-        outcome["upstream_checks_total"],
+        outcome["benchmark_checks_passed"],
+        outcome["benchmark_checks_total"],
     ) == (
         2,
         2,
@@ -210,14 +210,14 @@ def test_task_outcome_does_not_read_an_excluded_check_as_a_failure():
         "run_number": 1,
         "overall_success": False,
         "verification_results": {
-            "a": {"passed": True, "upstream_passed": True},
-            "b": {"passed": None, "upstream_passed": False, "patch": "excluded"},
+            "a": {"passed": True, "benchmark_passed": True},
+            "b": {"passed": None, "benchmark_passed": False, "patch": "excluded"},
         },
         "conversation_flow": [],
     }
     outcome = runner.task_outcome("t", 1, execution, names, PRICING)
     assert outcome["success"] is True
-    assert not outcome["upstream_success"]
+    assert not outcome["benchmark_success"]
 
 
 def test_evaluate_writes_the_tables_the_settings_and_the_index_row(

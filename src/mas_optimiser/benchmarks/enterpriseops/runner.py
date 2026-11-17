@@ -67,8 +67,8 @@ from benchmark.models import BenchmarkConfig, LLMConfig
 from orchestrators.react import ReactOrchestrator
 
 HF_DATASET = "ServiceNow-AI/EnterpriseOps-Gym"
-# Dataset commit of 30/04/2026, pinned so that an upstream edit cannot change
-# the tasks between runs.
+# Dataset commit of 30/04/2026, pinned so that a later edit of the dataset
+# cannot change the tasks between runs.
 HF_REVISION = "c8e538eae8a6205294f0a86675fefdc1fac408f6"
 # Dataset columns stored as JSON strings, and columns that are not part of a
 # task config (as in evaluate.py).
@@ -113,14 +113,14 @@ PRICING_KEYS = {
     "long_prompt_multiplier",
 }
 # The totals an evaluation sums over its ``tasks.csv`` rows, in index order;
-# ``upstream_successes`` counts the rows' ``upstream_success``, the rest are
+# ``benchmark_successes`` counts the rows' ``benchmark_success``, the rest are
 # columns of the same name.
 SUMMED = (
     "checks_passed",
     "checks_total",
-    "upstream_successes",
-    "upstream_checks_passed",
-    "upstream_checks_total",
+    "benchmark_successes",
+    "benchmark_checks_passed",
+    "benchmark_checks_total",
     "input_tokens",
     "output_tokens",
     "cache_read_tokens",
@@ -206,7 +206,7 @@ class TaskExecutor(BenchmarkExecutor):
             task_result: The orchestrator's result, as the benchmark passes it.
 
         Returns:
-            The verdicts keyed by unique check name, each with ``upstream_passed``
+            The verdicts keyed by unique check name, each with ``benchmark_passed``
             and, when failed, its ``diagnosis``.
         """
         results = await super()._run_verifiers(task_result)
@@ -458,7 +458,7 @@ def totals(outcomes: list[dict], tasks: int, attempts: int) -> dict:
         "errors": sum(bool(r["error"]) for r in outcomes),
     }
     for key in SUMMED:
-        column = "upstream_success" if key == "upstream_successes" else key
+        column = "benchmark_success" if key == "benchmark_successes" else key
         counted[key] = round(sum(r[column] for r in outcomes), 4)
     return counted
 
@@ -497,6 +497,8 @@ def write_index_row(experiment_dir: Path, row: dict) -> None:
 
     A column the file does not have yet is added at the end, empty for the
     earlier rows, so an older index keeps its rows when the row gains a field.
+    An index written when the benchmark's own counts were named ``upstream_``
+    is read under their present names, so its rows keep those counts.
 
     Args:
         experiment_dir: The ``evaluations/<experiment>`` folder.
@@ -506,8 +508,10 @@ def write_index_row(experiment_dir: Path, row: dict) -> None:
     rows, columns = [], list(row)
     if path.exists():
         with path.open(newline="") as f:
-            reader = csv.DictReader(f)
-            columns = list(reader.fieldnames or columns)
+            header = next(csv.reader(f), None)
+            if header:
+                columns = [c.replace("upstream_", "benchmark_") for c in header]
+            reader = csv.DictReader(f, fieldnames=columns)
             rows = [r for r in reader if r["evaluation"] != row["evaluation"]]
         columns += [key for key in row if key not in columns]
     with path.open("w", newline="") as f:
@@ -738,7 +742,7 @@ def task_outcome(
         pricing: The price table from the model file.
 
     Returns:
-        The row; the ``upstream_`` columns give the benchmark's own count.
+        The row; the ``benchmark_`` columns give the benchmark's own count.
     """
     usage = [
         step["usage_metadata"]
@@ -747,7 +751,7 @@ def task_outcome(
     ]
     details = [u.get("input_token_details") or {} for u in usage]
     results = execution.get("verification_results", {})
-    upstream_passed, upstream_total, upstream_success = checks.upstream_verdict(
+    benchmark_passed, benchmark_total, benchmark_success = checks.benchmark_verdict(
         results, names
     )
     return {
@@ -757,9 +761,9 @@ def task_outcome(
         "checks_passed": sum(bool(r["passed"]) for r in results.values()),
         "checks_total": len(names.original)
         - sum(p["disposition"] == "excluded" for p in names.patched.values()),
-        "upstream_success": upstream_success,
-        "upstream_checks_passed": upstream_passed,
-        "upstream_checks_total": upstream_total,
+        "benchmark_success": benchmark_success,
+        "benchmark_checks_passed": benchmark_passed,
+        "benchmark_checks_total": benchmark_total,
         "error": execution.get("error", ""),
         "tool_errors": sum(
             not report.succeeded(step.get("result") or {})

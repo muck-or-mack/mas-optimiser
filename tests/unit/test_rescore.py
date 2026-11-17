@@ -77,7 +77,7 @@ def test_checks_run_locally_keep_the_executor_verdict_beside_the_corrected_one()
     run_sql = rescore.local_runner(database(), ENDED)
     results = asyncio.run(rescore.check_locally(checks, run_sql))
     # A numeric string expected value fails the executor's == and passes the recheck.
-    assert results["count"]["upstream_passed"] is False
+    assert results["count"]["benchmark_passed"] is False
     assert results["count"]["passed"] is True
     assert results["value"]["passed"] is False and results["value"]["actual"] == "high"
     # A query the database rejects has no value, as under the executor.
@@ -99,6 +99,26 @@ def test_the_server_verdict_stands_for_a_check_that_has_not_changed():
     # is what the local rebuild says.
     assert merged["same"]["passed"] is True and merged["same"]["actual"] == 1
     assert merged["patched"]["passed"] is True
+
+
+def test_a_record_saved_under_the_old_name_is_read_under_the_new_one(tmp_path):
+    old = {"passed": True, "upstream_passed": False}
+    new = {"passed": True, "benchmark_passed": True}
+    record = {
+        "runs": [
+            {
+                "verification_results": {"a": dict(old), "b": dict(new)},
+                "verification_results_as_run": {"a": dict(old)},
+            },
+            {"error": "down"},
+        ]
+    }
+    path = tmp_path / "attempt-1.json"
+    path.write_text(json.dumps(record))
+    first = rescore.load_record(path)["runs"][0]
+    renamed = {"passed": True, "benchmark_passed": False}
+    assert first["verification_results"] == {"a": renamed, "b": new}
+    assert first["verification_results_as_run"] == {"a": renamed}
 
 
 def test_an_attempt_that_raised_keeps_a_failed_row_and_the_index_follows(

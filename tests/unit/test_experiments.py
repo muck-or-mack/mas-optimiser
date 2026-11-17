@@ -115,6 +115,13 @@ def test_write_index_row_adds_a_new_column_without_losing_old_rows(tmp_path):
     assert rows[0]["run"] == "" and rows[1]["run"] == "r"
 
 
+def test_write_index_row_reads_an_index_under_the_old_names(tmp_path):
+    (tmp_path / "index.csv").write_text("evaluation,upstream_successes\na,3\n")
+    runner.write_index_row(tmp_path, {"evaluation": "b", "benchmark_successes": 4})
+    lines = (tmp_path / "index.csv").read_text().splitlines()
+    assert lines == ["evaluation,benchmark_successes", "a,3", "b,4"]
+
+
 def test_write_run_summary_pools_the_domains(tmp_path):
     run_dir = tmp_path / "2026-11-03-0803"
     for domain, successes, cost in (("csm", 81, 3.1), ("itsm", 58, 2.5)):

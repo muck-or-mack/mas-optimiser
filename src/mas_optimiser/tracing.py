@@ -100,7 +100,7 @@ def record_outcome(
                 "success",
                 "checks_passed",
                 "checks_total",
-                "upstream_success",
+                "benchmark_success",
                 "error",
             )
         }
