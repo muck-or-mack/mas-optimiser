@@ -285,8 +285,9 @@ Recomputes every attempt of an evaluation from its saved record and its
 changes against the seed, without running the agent: the final database is
 rebuilt locally, every check is run again as the benchmark's engine would run
 it, each failure is diagnosed and traced, and the tables, pages and summary
-are rewritten, with the totals in `evaluation.json` and the evaluation's
-row in `index.csv`. Use it after a change to the diagnosis or to the
+are rewritten, with the totals in `evaluation.json`, the evaluation's row
+in the experiment's `index.csv` and, for one domain of a run, the run's
+`run.json` and `summary.md`. Use it after a change to the diagnosis or to the
 checks. An attempt with no saved changes (one that raised before it
 finished) keeps its record and counts as failed, as the runner counted it;
 a task with no check left to judge by has its pages rewritten and stays out
