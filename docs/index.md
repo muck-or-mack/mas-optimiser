@@ -13,6 +13,7 @@ decisions, the data model of each domain and the API.
 :caption: Using the package
 
 Install, run, read the results <usage>
+results
 ```
 
 ```{toctree}

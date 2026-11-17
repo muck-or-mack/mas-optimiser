@@ -198,6 +198,9 @@ def test_schema_markdown_lists_each_table_with_its_key_columns_and_references():
     )
     page = seeds.schema_markdown("itsm", schema)
     assert "# ITSM data model\n\n2 tables" in page
+    # The page says what a key and a reference are before it lists them.
+    assert "A table's key is the column whose value identifies a row." in page
+    assert "it is written `column` to `table.column`." in page
     rows = [cells(line) for line in page.split("\n") if line.startswith("|")]
     assert ["[`incident`](#incident)", "4", "`service`, `users`"] in rows
     assert "## users\n\nKey: `user_id`.\n\n| column" in page
