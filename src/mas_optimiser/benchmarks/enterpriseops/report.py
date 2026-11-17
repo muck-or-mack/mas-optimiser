@@ -102,6 +102,49 @@ FAILURES = (
     "wrong values",
     "too many rows",
 )
+# The words of ``tables.csv``, ``checks.csv`` and ``cells.csv``, as the summary
+# explains them under its tables.
+WORDS = [
+    ["table not written", "no call wrote the table"],
+    ["call failed", "a call that writes the table answered with an error"],
+    ["no row written", "the calls succeeded and no row of the table changed"],
+    ["too many rows", "more rows match than the check allows"],
+    ["wrong value", "the row is there and the column holds another value"],
+    ["passed", "a call passed that value for the column"],
+    ["left out", "no call passed the column, which the tool takes as an argument"],
+    ["no argument", "the tool takes no such argument, so the server set the value"],
+    ["not passed", "no call passed the column; the tool list was not saved"],
+]
+# What each file of an evaluation holds, as the summary lists them.
+FILES = [
+    [
+        "`tasks.csv`",
+        "attempt",
+        "verdict, checks, tables by result, errors, tokens, cost",
+    ],
+    [
+        "`tables.csv`",
+        "attempt and table",
+        "the checks on it, the rows changed, the result",
+    ],
+    ["`checks.csv`", "attempt and check", "verdict, expected and found, the failure"],
+    [
+        "`cells.csv`",
+        "failed check, touched row and condition",
+        "wanted against found, and the call the value came from",
+    ],
+    [
+        "`failures.csv`",
+        "table, column and kind of failure",
+        "attempts and tasks it occurs in",
+    ],
+    [
+        "`tasks/<task_id>/attempt-<n>.md`",
+        "attempt",
+        "the attempt as a page; beside it the full record (`.json`) and the "
+        "rows it changed (`.changes.json`)",
+    ],
+]
 # How a lookup says it found no record, in the three servers' wordings: an
 # error code, a message, a validation type.
 NOT_FOUND = re.compile(r"not[ _]found", re.IGNORECASE)
@@ -869,8 +912,15 @@ def summary(
     check_rows: list[dict],
     cells: list[dict],
     tables: list[dict],
+    failures: list[dict],
 ) -> str:
-    """``summary.md``: how the evaluation went and what went wrong, by table and column.
+    """``summary.md``: how the evaluation went and what went wrong, as tables.
+
+    The headline is turned on its side: a row per measure, with what it
+    counts. "What went wrong" has the tables by result, from the
+    ``tables.csv`` rows, and the most frequent failures, the head of
+    ``failures.csv``, with the words they use. Then the tasks that passed
+    least, and what each file holds.
 
     Args:
         name: The evaluation folder's name.
@@ -879,87 +929,154 @@ def summary(
         check_rows: The ``checks.csv`` rows.
         cells: The ``cells.csv`` rows.
         tables: The ``tables.csv`` rows.
+        failures: The ``failures.csv`` rows, most frequent first.
 
     Returns:
         The page as Markdown.
     """
+
+    def share(count: int, total: int) -> str:
+        percent = f" ({100 * count / total:.1f}%)" if total else ""
+        return f"{count} of {total}{percent}"
+
     attempts = len(outcomes)
-    passed = sum(r["success"] for r in outcomes)
     by_task: dict[str, list[dict]] = {}
     for r in outcomes:
         by_task.setdefault(r["task_id"], []).append(r)
-    every = sum(all(r["success"] for r in rs) for rs in by_task.values())
-    checks_passed = sum(r["checks_passed"] for r in outcomes)
-    checks_total = sum(r["checks_total"] for r in outcomes)
-    errored = sum(r.get("tool_errors", 0) > 0 for r in outcomes)
+    judged = [t for t in tables if t["checks"]]
+    results = Counter(t["result"] for t in judged)
     unasked = {
         (t["task_id"], t["attempt"]) for t in tables if t["result"] == "not asked for"
     }
-    failed = [c for c in check_rows if c["passed"] is False]
-    failures = Counter(c["failure"] for c in failed if c["failure"])
-    unwritten = Counter(
-        c["table"] for c in failed if c["failure"] == "table not written"
+    headline = [
+        [
+            "attempts fully passed",
+            share(sum(r["success"] for r in outcomes), attempts),
+            "attempts in which every check passed",
+        ],
+        [
+            "tasks passed on every attempt",
+            share(
+                sum(all(r["success"] for r in rs) for rs in by_task.values()),
+                len(by_task),
+            ),
+            "tasks all of whose attempts fully passed",
+        ],
+        [
+            "checks passed",
+            share(
+                sum(r["checks_passed"] for r in outcomes),
+                sum(r["checks_total"] for r in outcomes),
+            ),
+            "checks, over all attempts",
+        ],
+        [
+            "tables correct",
+            share(results["correct"], len(judged)),
+            "tables with a check on them, once per attempt: every check on the table passed",
+        ],
+        [
+            "tables wrong",
+            share(results["wrong"], len(judged)),
+            "a check on the table failed and the attempt changed the table",
+        ],
+        [
+            "tables missed",
+            share(results["missed"], len(judged)),
+            "a check on the table failed and the attempt changed nothing in it",
+        ],
+        [
+            "attempts with a tool error",
+            share(sum(r.get("tool_errors", 0) > 0 for r in outcomes), attempts),
+            "a tool answered with an error; a lookup that found no record is not one",
+        ],
+        [
+            "lookups that found nothing",
+            str(sum(r.get("lookups_empty", 0) for r in outcomes)),
+            "calls, over all attempts",
+        ],
+        [
+            "attempts that changed a table not asked for",
+            share(len(unasked), attempts),
+            "a table that no check reads",
+        ],
+    ]
+    by_table: dict[str, Counter] = {}
+    for t in judged:
+        by_table.setdefault(t["table"], Counter())[t["result"]] += 1
+    failing = sorted(
+        (t for t in by_table if by_table[t]["wrong"] + by_table[t]["missed"]),
+        key=lambda t: (-by_table[t]["wrong"] - by_table[t]["missed"], t),
     )
-    broke = Counter(c["table"] for c in failed if c["failure"] == "call failed")
-    # A failing bracketed group names no single column and is left out here.
-    wrong = Counter(c["column"] for c in cells if not c["ok"] and c["column"])
-    pct = f"{100 * passed / attempts:.1f}%" if attempts else "n/a"
     lines = [
         f"# {name}",
         "",
         f"{settings.get('domain', '?')}, {settings.get('mode', '?')}, model {settings.get('model', '?')}: "
         f"{len(by_task)} tasks, {attempts} attempts.",
         "",
-        markdown.table(
-            [
-                "attempts passed",
-                "tasks passed every attempt",
-                "checks passed",
-                "attempts with a tool error",
-                "attempts changing a table no check mentions",
-            ],
-            [
-                [
-                    f"{passed} of {attempts} ({pct})",
-                    f"{every} of {len(by_task)}",
-                    f"{checks_passed} of {checks_total}",
-                    str(errored),
-                    str(len(unasked)),
-                ]
-            ],
-        ),
+        markdown.table(["measure", "value", "what it counts"], headline),
         "",
         "## What went wrong",
         "",
-        "Failed checks by failure: "
-        + (", ".join(f"{f} {failures[f]}" for f in FAILURES if failures[f]) or "none")
-        + ".",
-    ]
-    if unwritten:
-        lines.append(
-            "Tables not written (no call wrote the table): " + _listed(unwritten) + "."
-        )
-    if broke:
-        lines.append("Tables whose call returned an error: " + _listed(broke) + ".")
-    if wrong:
-        lines.append("Cells wrong, by column: " + _listed(wrong) + ".")
-    lines += [
+        f"### Tables wrong or missed ({min(LISTED, len(failing))} of {len(failing)} "
+        "shown; every table is in `tables.csv`)",
         "",
-        f"## Worst tasks ({WORST_TASKS} shown; every task is in tasks.csv)",
+        markdown.table(
+            ["table", "attempts with a check on it", "correct", "wrong", "missed"],
+            [
+                [
+                    f"`{t}`",
+                    str(sum(by_table[t].values())),
+                    *(str(by_table[t][r]) for r in ("correct", "wrong", "missed")),
+                ]
+                for t in failing[:LISTED]
+            ],
+        ),
+        "",
+        f"### Most frequent failures ({min(LISTED, len(failures))} of {len(failures)} "
+        "shown; all are in `failures.csv`)",
+        "",
+        markdown.table(
+            [
+                "table",
+                "column",
+                "failure",
+                "how the value came about",
+                "attempts",
+                "tasks",
+            ],
+            [
+                [
+                    f"`{f['table']}`",
+                    f"`{f['column']}`" if f["column"] else "",
+                    f["failure"],
+                    f["how"],
+                    str(f["attempts"]),
+                    str(f["tasks"]),
+                ]
+                for f in failures[:LISTED]
+            ],
+        ),
+        "",
+        "A failure is counted once per attempt it occurs in.",
+        "",
+        markdown.table(["word", "meaning"], WORDS),
+        "",
+        f"## Tasks that passed least ({WORST_TASKS} shown; every task is in `tasks.csv`)",
         "",
     ]
-    # A task's dominant failure: the most common label over its failed
-    # checks, a failure by table or a wrong cell by column.
+    # A task's most frequent failure, over its attempts: a failed check with
+    # no row to compare by its table, or a wrong cell by its column.
     failures_by_task: dict[str, Counter] = {}
-    for c in failed:
-        if c["failure"] and c["failure"] != "wrong values":
+    for c in check_rows:
+        if c["passed"] is False and c["failure"] not in ("", "wrong values"):
             failures_by_task.setdefault(c["task_id"], Counter())[
-                f"{c['failure']}: {c['table']}"
+                f"{c['failure']}: `{c['table']}`"
             ] += 1
     for cell in cells:
         if not cell["ok"] and cell["column"]:
             failures_by_task.setdefault(cell["task_id"], Counter())[
-                f"wrong {cell['column']}"
+                f"wrong value: `{cell['table']}.{cell['column']}`"
             ] += 1
     ranked = sorted(
         by_task,
@@ -975,28 +1092,13 @@ def summary(
             [task, f"{wins} of {len(by_task[task])}", top[0][0] if top else ""]
         )
     lines += [
-        markdown.table(["task", "passed", "dominant failure"], worst),
+        markdown.table(
+            ["task", "attempts fully passed", "most frequent failure"], worst
+        ),
         "",
         "## Where things are",
         "",
-        "`tasks.csv` one row per attempt; `checks.csv` one row per attempt and check with its kind and failure; "
-        "`cells.csv` one row per failed check, touched row and condition, wanted against found; "
-        "`tables.csv` one row per attempt and table the checks look at or the attempt changed; "
-        "`failures.csv` one row per table, column and kind of failure; "
-        "`tasks/<task_id>/attempt-<n>.md` the attempt as a page, beside its full record (`.json`) and its "
-        "changes against the seed (`.changes.json`).",
+        markdown.table(["file", "one row per", "what it holds"], FILES),
         "",
     ]
     return "\n".join(lines)
-
-
-def _listed(counts: Counter) -> str:
-    """Counts as ``key n`` pairs, most common first.
-
-    Args:
-        counts: What to list.
-
-    Returns:
-        The pairs joined with commas.
-    """
-    return ", ".join(f"{key} {n}" for key, n in counts.most_common())

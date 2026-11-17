@@ -1,6 +1,6 @@
 """Unit tests of ``markdown``: tables written so that the source reads as a table."""
 
-from mas_optimiser.markdown import table
+from mas_optimiser.markdown import amount, table
 
 
 def cells(line):
@@ -23,3 +23,13 @@ def test_columns_are_padded_and_cells_are_written_as_given():
 def test_a_table_without_rows_keeps_its_header():
     lines = table(["task", "passed"], []).split("\n")
     assert len(lines) == 2 and lines[0].startswith("| task")
+
+
+def test_a_small_amount_keeps_two_significant_figures():
+    assert [amount(x) for x in (12.26, 1, 0.566, 0.004026, 0.00447)] == [
+        "12.26",
+        "1.00",
+        "0.57",
+        "0.0040",
+        "0.0045",
+    ]

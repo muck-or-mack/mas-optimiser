@@ -494,6 +494,12 @@ def test_summary_counts_failures_and_names_the_worst_tasks():
         {"task_id": task, "passed": True, "failure": "", "table": ""}
         for task in ("t1", "t2", "t2")
     ]
+    failures = [
+        {"table": "incident", "column": "channel", "failure": "wrong value"}
+        | {"how": "passed", "attempts": 1, "tasks": 1},
+        {"table": "incident_task", "column": "", "failure": "table not written"}
+        | {"how": "", "attempts": 1, "tasks": 1},
+    ]
     text = report.summary(
         "eval",
         {"domain": "itsm", "mode": "oracle", "model": "haiku-5-5"},
@@ -501,16 +507,32 @@ def test_summary_counts_failures_and_names_the_worst_tasks():
         check_rows,
         report.cell_rows("t1", 1, results),
         report.table_rows("t1", 1, results, CHANGES),
+        failures,
     )
-    rows = [cells(line) for line in text.split("\n") if line.startswith("|")]
-    assert ["1 of 2 (50.0%)", "1 of 2", "3 of 6", "1", "1"] in rows
-    assert (
-        "Failed checks by failure: table not written 1, call failed 1, wrong values 1."
-        in text
-    )
-    assert "Tables not written (no call wrote the table): incident_task 1." in text
-    assert "Cells wrong, by column: channel 1, priority 1." in text
-    assert any(row[:2] == ["t1", "0 of 1"] for row in rows)
+    rows = page_rows(text)
+    # The headline on its side: a measure, its value, what it counts.
+    values = {row[0]: row[1] for row in rows if len(row) == 3}
+    assert values["attempts fully passed"] == "1 of 2 (50.0%)"
+    assert values["tasks passed on every attempt"] == "1 of 2 (50.0%)"
+    assert values["checks passed"] == "3 of 6 (50.0%)"
+    assert values["tables correct"] == "0 of 3 (0.0%)"
+    assert values["tables wrong"] == "1 of 3 (33.3%)"
+    assert values["tables missed"] == "2 of 3 (66.7%)"
+    assert values["attempts with a tool error"] == "1 of 2 (50.0%)"
+    assert values["lookups that found nothing"] == "0"
+    assert values["attempts that changed a table not asked for"] == "1 of 2 (50.0%)"
+    # The tables with a failure, then the head of the failures.
+    assert "### Tables wrong or missed (3 of 3 shown;" in text
+    assert ["`incident`", "1", "0", "1", "0"] in rows
+    assert ["`incident_task`", "1", "0", "0", "1"] in rows
+    assert "### Most frequent failures (2 of 2 shown;" in text
+    assert ["`incident`", "`channel`", "wrong value", "passed", "1", "1"] in rows
+    assert ["`incident_task`", "", "table not written", "", "1", "1"] in rows
+    # The words are explained where they are used, and the files listed.
+    assert ["table not written", "no call wrote the table"] in rows
+    assert values["`tables.csv`"] == "attempt and table"
+    # Only a task that failed is among those that passed least.
+    assert ["t1", "0 of 1", "call failed: `notification`"] in rows
     assert not any(row[0] == "t2" for row in rows)
 
 

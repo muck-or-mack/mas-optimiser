@@ -24,3 +24,18 @@ def table(header: list[str], rows: list[list[str]]) -> str:
         The table, without a trailing newline.
     """
     return tabulate(rows, headers=header, tablefmt="github", disable_numparse=True)
+
+
+def amount(value: float) -> str:
+    """A cost or a duration for a table cell: two decimals from 1 upwards, two significant figures below.
+
+    At two decimals a run that cost ``0.004026`` dollars reads as ``0.00``,
+    as if it were free.
+
+    Args:
+        value: The amount, not negative.
+
+    Returns:
+        ``12.26`` for ``12.26``, ``0.0040`` for ``0.004026``.
+    """
+    return f"{value:.2f}" if value >= 1 else f"{value:#.2g}"

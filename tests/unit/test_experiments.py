@@ -164,6 +164,9 @@ def test_write_run_summary_pools_the_domains(tmp_path):
     assert cells(table[2])[:3] == ["all", "200", "139 of 600"]
     assert cells(table[3])[:3] == ["itsm", "100", "58 of 300"]
     assert cells(table[4])[:3] == ["csm", "100", "81 of 300"]
+    # Cost and hours: two decimals from 1 upwards, two significant figures below.
+    assert cells(table[2])[-2:] == ["5.60", "1.00"]
+    assert cells(table[3])[-2:] == ["2.50", "0.50"]
     # The table's columns line up in the source.
     assert len({len(line) for line in table}) == 1
     assert (

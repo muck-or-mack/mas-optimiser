@@ -125,9 +125,10 @@ evaluations/<experiment>/
       attempt-<n>.changes.json   every row the attempt inserted, updated or deleted
 ```
 
-To read an evaluation, open `summary.md` first: the headline table, then the failed
-checks by failure and the cells wrong by column, then the worst tasks with
-their dominant failure. For a task on that list, open its `attempt-<n>.md`:
+To read an evaluation, open `summary.md` first: the headline table (a row
+per measure, with what it counts), then the tables that were wrong or
+missed and the most frequent failures, then the tasks that passed least
+with their most frequent failure. For a task on that list, open its `attempt-<n>.md`:
 under each failed check, the row the agent wrote, which turn wrote it, and
 each condition marked `ok` or `WRONG` with the value found and the turn that
 set it. `cells.csv` holds the same conditions as data, for filtering across
@@ -193,7 +194,7 @@ counts for such an attempt.
 Every evaluation folder is written to be read without a tracing server:
 
 - `summary.md`: a page on how the evaluation went and what went wrong, by table and
-  column, with the worst tasks and where the files are;
+  column, with the tasks that passed least and what each file holds;
 - `tasks.csv` (one row per attempt), `checks.csv` (one per attempt and
   check, with the failure and its kind), `cells.csv` (one per failed
   check, touched row and condition, wanted against found, with the turn the
@@ -214,7 +215,7 @@ Every evaluation folder is written to be read without a tracing server:
 |---|---|---|
 | whether it passed, and how many | `summary.md` (headline); `index.csv`, one row per evaluation of the experiment | `report.summary`, `runner.write_index_row` |
 | the run as a whole: the headline pooled over its domains, then a row per domain | the run's `summary.md` and `run.json` | `runner.write_run_summary` |
-| what went wrong overall: by failure, table and column; the worst tasks | `summary.md`, "What went wrong" | `report.summary` |
+| what went wrong overall: by table, then by failure and column; the tasks that passed least | `summary.md`, "What went wrong" | `report.summary` |
 | what went wrong most often, as data | `failures.csv` | `runner.write_tables` |
 | each attempt's verdict, tables by result, errors, tokens and cost | `tasks.csv` | `runner.task_outcome` |
 | each check's verdict, kind, failure and patch | `checks.csv` | `checks.check_records` |

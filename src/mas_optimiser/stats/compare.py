@@ -32,7 +32,7 @@ import pandas as pd
 from scipy import stats
 
 from mas_optimiser.benchmarks.enterpriseops.runner import EVALUATIONS
-from mas_optimiser.markdown import table
+from mas_optimiser.markdown import amount, table
 from mas_optimiser.stats import budget, figures, gate
 from mas_optimiser.stats.outcomes import OUTCOMES, Comparison, paired
 
@@ -459,7 +459,7 @@ def _report(
                     side["side"],
                     str(side["attempts"]),
                     f"${side['cost_per_attempt_usd']:.4f}",
-                    f"${side['total_cost_usd']:.2f}",
+                    f"${amount(side['total_cost_usd'])}",
                     f"{side['seconds_per_attempt']:.1f}",
                     str(side["errors"]),
                 ]
