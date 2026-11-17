@@ -31,7 +31,7 @@ numbers refer to the files at the commit that last changed this document
 |---|---|---|---|
 | The harness (the agent, to be improved) | `vendor/enterpriseops-gym/orchestrators/react.py`, `base.py`; `benchmark/executor.py`, `llm_client.py`, `mcp_client.py`, `verifier.py`, `models.py` | about 2,100 | the loop of model calls and tool calls, the database set-up on the domain server, the SQL checks |
 | The runner (ours) | `src/mas_optimiser/cli.py`, `tracing.py`, `benchmarks/enterpriseops/runner.py` | about 1,300 | loads the tasks, runs attempts in parallel, applies the patch list, saves every record and the tables |
-| The measure (ours) | `checks.py`, `states.py`, `diagnosis.py`, `report.py`, `rescore.py`, `rebuild.py` | about 2,100 | verdicts, changes against the seed, the cell-by-cell diagnosis, the trace to the turn, the results files, recomputation |
+| The measure (ours) | `checks.py`, `states.py`, `sql.py`, `diagnosis.py`, `report.py`, `rescore.py`, `rebuild.py` | about 2,300 | verdicts, changes against the seed, the cell-by-cell diagnosis, the trace to the turn, the results files, recomputation |
 | Set-up tools (ours) | `seeds.py`, `splits.py` | about 770 | local copies of the seed databases; the one-off draw of the training, validation and test sets |
 
 Line counts are from `wc -l` on 6 November 2026; a third of this package's
@@ -51,20 +51,20 @@ sub-command per module in `COMMANDS` (`cli.py:24`): `run`, `rescore`,
 `split`, `schema`. Each module gives its options in `add_arguments` and its
 work in `run`.
 
-`runner.run` (`runner.py:1038`) reads the experiment file
+`runner.run` (`runner.py:1146`) reads the experiment file
 `configs/experiments/baseline-haiku.yaml` through `load_experiment`
-(`runner.py:328`), which layers the defaults in `EXPERIMENT_DEFAULTS`
-(`runner.py:86`), then the file, then any command-line override, and stops
-on a bad setting before any money is spent. `load_model` (`runner.py:552`)
+(`runner.py:332`), which layers the defaults in `EXPERIMENT_DEFAULTS`
+(`runner.py:89`), then the file, then any command-line override, and stops
+on a bad setting before any money is spent. `load_model` (`runner.py:659`)
 reads `configs/models/haiku-5-5.yaml`: the benchmark's model fields, the
 name of the environment variable that holds the API key (read from `.env`,
 never written to a config), and a price table. Then one `evaluate` per
-domain (`runner.py:1073`).
+domain (`runner.py:1188`).
 
 ### 2.2 The tasks
 
-`load_tasks` (`runner.py:265`) reads the Hugging Face dataset at a pinned
-commit (`HF_REVISION`, `runner.py:69`), so an upstream edit cannot change
+`load_tasks` (`runner.py:269`) reads the Hugging Face dataset at a pinned
+commit (`HF_REVISION`, `runner.py:72`), so an upstream edit cannot change
 the tasks between evaluations. In oracle mode the benchmark's corrected
 copies under `vendor/enterpriseops-gym/data/revised/` replace the dataset's
 versions, and the agent gets only the tools the task needs. The all-tools
@@ -104,22 +104,22 @@ Each expects the count 1. A task passes only when every check passes.
 
 ### 2.3 The executor
 
-`evaluate` (`runner.py:1073`) keeps the tasks of one split set if asked, cuts
+`evaluate` (`runner.py:1188`) keeps the tasks of one split set if asked, cuts
 to `--limit`, checks that the domain servers answer (`check_servers`,
-`runner.py:499`), makes the evaluation folder, sends the benchmark's
-logging to `evaluation.log` there, and calls `run_tasks` (`runner.py:899`), which
-runs every attempt through `run_task` (`runner.py:786`) with at most
+`runner.py:606`), makes the evaluation folder, sends the benchmark's
+logging to `evaluation.log` there, and calls `run_tasks` (`runner.py:1007`), which
+runs every attempt through `run_task` (`runner.py:894`) with at most
 `concurrency` in flight (four in the baseline). Each attempt seeds its own
 database on the server, so attempts share nothing.
 
-`run_task` builds a `TaskExecutor` (`runner.py:134`), our subclass of the
+`run_task` builds a `TaskExecutor` (`runner.py:137`), our subclass of the
 benchmark's `BenchmarkExecutor` (`executor.py:23`). The subclass adds three
 things: the checks are renamed and patched before the attempt
-(`checks.prepare`, called at `runner.py:169`, section 2.5); the Langfuse
+(`checks.prepare`, called at `runner.py:172`, section 2.5); the Langfuse
 callback is attached to
-the model once the executor has built it (`runner.py:189`); and after the
+the model once the executor has built it (`runner.py:192`); and after the
 checks run, while the database still exists, the final state is read and
-every failed check diagnosed (`runner.py:193`, section 2.6).
+every failed check diagnosed (`runner.py:196`, section 2.6).
 
 The benchmark's `execute_benchmark` (`executor.py:482`) then does the work:
 
@@ -228,16 +228,16 @@ failed, under both conventions.
 
 A failed count check says only that a conjunction did not hold. To say
 which condition failed, and what the agent left instead, our
-`_run_verifiers` override (`runner.py:193`) does two more things while the
+`_run_verifiers` override (`runner.py:196`) does two more things while the
 database exists.
 
 First it reads back what the attempt changed. `read_changes`
-(`runner.py:227`) calls `states.read_state` (`states.py:98`), which reads
+(`runner.py:231`) calls `states.read_state` (`states.py:96`), which reads
 every table of the attempt's database through the SQL runner a page at a
-time, and `states.diff` (`states.py:145`), which compares it row by row
+time, and `states.diff` (`states.py:143`), which compares it row by row
 with a local copy of the seed: the rows inserted, the rows deleted, and for
 each updated row the cells that changed with their values before and after.
-The local seed copy comes from `seed_copy` (`states.py:80`), built once per
+The local seed copy comes from `seed_copy` (`states.py:78`), built once per
 seed file by `seeds.build_seed_database` (`seeds.py:200`) from the schema
 committed under `data/schemas/` (fetched from the servers once by
 `mas-optimiser schema`, which also writes the readable data-model pages
@@ -245,16 +245,22 @@ under `docs/data-model/`) and the seed file's inserts. The example changed
 two tables: one row inserted in `incident`, one in `notification`.
 
 Then each failed check goes through `diagnosis.diagnose`
-(`diagnosis.py:188`). A query that reads one value (`SELECT col FROM t
-WHERE key`) is already wanted against actual (206-213). A count query is
-taken apart into its table and its top-level AND conditions
-(`parse_count_query`, 94; `split_conditions`, 63). If the count was too
-high, the surplus rows are fetched (221-229). If the attempt touched no row
-of the table, the kind is `no_rows` (234-236). Otherwise every condition is
-tested on its own against each touched row (237-259), and for a condition
-that fails, the column's actual value is fetched (254-258). Every query
-runs on the attempt's own database; no model is involved, and a condition
-an untouched row happens to satisfy is never credited.
+(`diagnosis.py:115`). The query is read by `sql.parse` (`sql.py:184`), the
+one place in the package that reads SQL: the structure (count or single
+value, the main table, which table a condition reads) comes from sqlglot's
+syntax tree of the query, and the text of each condition is cut out of the
+query as it was written (`sql.clauses`, `sql.py:98`), so the outputs keep
+the benchmark's wording and no rewritten SQL is run. A query that reads one
+value (`SELECT col FROM t WHERE key`) is already wanted against actual
+(142-148). A count query is taken apart into its main table and its
+top-level AND conditions. If the count was too high, the surplus rows are
+fetched (155-164). If the attempt touched no row of the table, the kind is
+`no_rows` (167-169). Otherwise every condition is tested on its own against
+each touched row (171-192), on the main table alone unless the condition
+reads a joined table, and for a condition that fails, the column's actual
+value is fetched (187-191). Every query runs on the attempt's own database;
+no model is involved, and a condition an untouched row happens to satisfy
+is never credited.
 
 The example's diagnosis:
 
@@ -267,14 +273,14 @@ The example's diagnosis:
 ### 2.7 From a wrong cell to the turn that set it
 
 `report.py` makes the link back to the conversation, mechanically.
-`calls` (`report.py:114`) pairs each tool call with its result, numbered by
-turn, and marks whether it succeeded (`succeeded`, `report.py:96`: the
+`calls` (`report.py:115`) pairs each tool call with its result, numbered by
+turn, and marks whether it succeeded (`succeeded`, `report.py:97`: the
 request got through and the tool did not answer with an error).
-`writers_of` (`report.py:178`) finds the calls that write a table: a
+`writers_of` (`report.py:179`) finds the calls that write a table: a
 writing verb in the tool's name and the table's words in the rest of it
 (`create_incident` writes `incident`; `send_notification` does not), with a
 successful call whose result echoes the table's key column as the fallback.
-`trace` (`report.py:223`) then links those calls to the touched row through
+`trace` (`report.py:206`) then links those calls to the touched row through
 its key, names for each wrong cell the last linked call whose arguments set
 that column (250-260), and gives the check a step (261-268):
 
@@ -301,26 +307,26 @@ turn into `impact = high`; and the policy says the system determines the
 priority from impact and urgency, so the agent passed none, while
 `create_incident` only falls back to `planning`.
 
-`outputs` (`runner.py:672`) attaches the trace to each failed check and
-builds the attempt's rows: `task_outcome` (`runner.py:614`) for `tasks.csv`
+`outputs` (`runner.py:779`) attaches the trace to each failed check and
+builds the attempt's rows: `task_outcome` (`runner.py:721`) for `tasks.csv`
 (verdicts under both conventions, tool errors, model calls, tokens, cost in
 US dollars from the price table, seconds), `check_records` for
-`checks.csv`, `cell_rows` (`report.py:586`) for `cells.csv` and
-`change_rows` (`report.py:623`) for `changes.csv`. `save_attempt`
-(`runner.py:714`) writes the record (`attempt-N.json`), the changes
+`checks.csv`, `cell_rows` (`report.py:569`) for `cells.csv` and
+`change_rows` (`report.py:606`) for `changes.csv`. `save_attempt`
+(`runner.py:821`) writes the record (`attempt-N.json`), the changes
 (`attempt-N.changes.json`) and the page (`attempt-N.md`, from
-`attempt_text`, `report.py:459`). The page has a heading per turn, with the
+`attempt_text`, `report.py:442`). The page has a heading per turn, with the
 model's text as a quote and each tool call followed by its arguments, never
 cut, and what came back; then every row the attempt inserted, updated or
 deleted, with its values; then, for each failed check, a table of what the
 check wants against the row the attempt left, the value before for a row
 that was already in the seed, and the call behind each wrong cell. When
 every attempt is done, `write_tables`
-(`runner.py:738`) writes the four CSVs and `summary.md` (`summary`,
-`report.py:653`: the headline numbers, failed checks by step, skipped
+(`runner.py:845`) writes the four CSVs and `summary.md` (`summary`,
+`report.py:636`: the headline numbers, failed checks by step, skipped
 steps by table, wrong cells by column, the worst tasks), and `evaluate`
 writes `evaluation.json` (every setting and total) and a row in the experiment's
-`index.csv` (`index_row` and `write_index_row`, `runner.py:452`).
+`index.csv` (`index_row` and `write_index_row`, `runner.py:495`).
 
 With Langfuse configured, `tracing.task_trace` (`tracing.py:39`) wraps each
 attempt in one trace, `attach` (66) routes the model's calls into it, and
@@ -416,14 +422,14 @@ What goes wrong, and where to look:
 
 | Symptom | Meaning | Where |
 |---|---|---|
-| `error: domain server ... is not answering` | the Docker servers are down | `check_servers`, `runner.py:499`; start them and rerun |
-| `ANTHROPIC_API_KEY is not set` | no `.env`, or the key missing from it | `load_model`, `runner.py:552` |
+| `error: domain server ... is not answering` | the Docker servers are down | `check_servers`, `runner.py:606`; start them and rerun |
+| `ANTHROPIC_API_KEY is not set` | no `.env`, or the key missing from it | `load_model`, `runner.py:659` |
 | a `tasks.csv` row with `error` filled and zero checks | the attempt raised before the agent started (a server fault, a bad config) | the record's `error`; the traceback in `evaluation.log` |
 | `diagnosis_error` on the run in `attempt-N.json` | the checks ran but the diagnosis raised; verdicts are intact | `runner.py:193-219` |
-| `report_error` on the run | the trace or the rows raised; the page has no trace | `run_task`, `runner.py:786` |
-| a failed check with `kind` empty in `checks.csv` | a query shape the diagnosis cannot take apart (a top-level OR, a GROUP BY, a derived table) | `diagnosis.py:96-111` |
+| `report_error` on the run | the trace or the rows raised; the page has no trace | `run_task`, `runner.py:894` |
+| a failed check with `kind` empty in `checks.csv` | a query shape the diagnosis cannot take apart (a top-level OR, a GROUP BY, a derived table) | `sql.parse`, `sql.py:184` |
 | an attempt with 50 model calls | the agent hit `max_iterations` | `react.py:34`, `base.py:23` |
-| `tool_errors` above zero | a tool answered with an error; the page marks the call `ERROR` | `succeeded`, `report.py:96` |
+| `tool_errors` above zero | a tool answered with an error; the page marks the call `ERROR` | `succeeded`, `report.py:97` |
 
 
 ## 6. Sources
@@ -450,7 +456,8 @@ is credited in `NOTICE.md` as well.
 | `checks` | EnterpriseOps-Gym `benchmark/verifier.py` and `executor.py` | `_compare_values` reproduced branch for branch so that a local verdict matches the executor's (see `NOTICE.md`); the verdict-by-name behaviour that `prepare` corrects | `checks.compare`, `checks.prepare` |
 | `checks` | own design | every distinct check counted and clashing names renamed; the patch list `data/check_patches.json`, with the benchmark's own verdict kept beside the corrected one | `checks.prepare`, `apply_patches`, `passed`, `upstream_verdict` |
 | `diagnosis` | own design | each condition of a failed check's query tested on the rows the attempt touched, with the kinds `cells`, `value`, `no_rows`, `too_many_rows` and `unsupported` | `diagnosis.diagnose`, `describe` |
-| `diagnosis` | EnterpriseOps-Gym check queries | the query forms the parser understands, from a survey of every check query in the three domains | `diagnosis.parse_count_query`, `split_conditions` |
+| `sql` | sqlglot (MIT licence) | a check query's syntax tree, read as SQLite, and its tokens with their positions: the query's shape, its tables, the column a condition tests, and where each condition starts and ends in the query's own text | `sql.parse`, `clauses`, `column_of`, `tables` |
+| `sql` | EnterpriseOps-Gym check queries; SQLite's rule for a double-quoted name | the two query shapes taken apart, from a survey of every check query in the three domains; a double-quoted name read as a column only where the schema has one | `sql.parse` |
 | `states` | own design | the final database read back page by page and compared with the seed by primary key, so the record holds the changes and a scoring change re-scores instead of re-running; the rebuild from seed plus changes | `states.read_state`, `diff`, `rebuild` |
 | `states` | the EnterpriseOps-Gym servers | the facts worked around: the attempt's database deleted after the checks, pages of at most 100 rows, columns a server stamps at load | `states.STAMPED`, `read_state` |
 | `report` | own design | the attempt page, the three CSV tables, the summary, and the trace from a wrong cell to the turn and tool call that set it | `report.attempt_text`, `trace`, `cell_rows`, `summary` |
@@ -485,6 +492,7 @@ is credited in `NOTICE.md` as well.
 | `.../enterpriseops/runner.py` | experiments, tasks, the executor subclass, attempts in parallel, the results files |
 | `.../enterpriseops/checks.py` | distinct checks, the patch list, the numeric recheck, the benchmark's verdict beside ours |
 | `.../enterpriseops/states.py` | the final state read back, the diff against the seed, the local rebuild |
+| `.../enterpriseops/sql.py` | a check query read with sqlglot: its shape, tables, conditions and columns |
 | `.../enterpriseops/diagnosis.py` | each condition of a failed check tested on the touched rows |
 | `.../enterpriseops/report.py` | the trace to the turn, the attempt page, the CSV rows, the summary |
 | `.../enterpriseops/rescore.py` | recompute an evaluation from its saved changes |

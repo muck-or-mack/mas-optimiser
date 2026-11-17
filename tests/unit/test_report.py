@@ -409,11 +409,3 @@ def test_a_surplus_rows_diagnosis_is_traced_without_conditions():
     assert found["step"] == "attempted"
     assert [c["tool"] for c in found["related"]] == ["create_incident"]
     assert found["set_by"] == {}
-
-
-def test_the_column_of_a_condition_is_read_through_a_function():
-    assert report._column_of("i.status = 'new'") == "status"
-    assert report._column_of("COALESCE(notes, '') = ''") == "notes"
-    # A quoted argument before the column is skipped, where it once raised.
-    assert report._column_of("strftime('%Y', opened) = '2025'") == "opened"
-    assert report._column_of("(a = 1 OR b = 2)") == ""
