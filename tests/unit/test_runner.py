@@ -146,7 +146,7 @@ def test_task_outcome_counts_an_errored_run_as_a_failed_task():
         + [{"name": "b", "validation_config": {"query": "q3"}}]
     )
     outcome = runner.task_outcome(
-        "t", 2, {"run_number": 1, "error": "down"}, names, PRICING
+        "t", 2, {"run_number": 1, "error": "down"}, names, PRICING, []
     )
     assert not outcome["success"] and outcome["attempt"] == 2
     assert outcome["cost_usd"] == 0
@@ -184,7 +184,7 @@ def test_task_outcome_counts_every_check_and_sums_the_agents_token_use():
             {"type": "ai_message", "usage_metadata": usage},
         ],
     }
-    outcome = runner.task_outcome("t", 1, execution, names, PRICING)
+    outcome = runner.task_outcome("t", 1, execution, names, PRICING, [])
     # The benchmark keeps only the last "a", which passed, so it calls this a pass.
     assert not outcome["success"] and outcome["benchmark_success"]
     assert outcome["cost_usd"] == pytest.approx(2000 * 0.10e-6 + 100 * 0.50e-6)
@@ -215,7 +215,7 @@ def test_task_outcome_does_not_read_an_excluded_check_as_a_failure():
         },
         "conversation_flow": [],
     }
-    outcome = runner.task_outcome("t", 1, execution, names, PRICING)
+    outcome = runner.task_outcome("t", 1, execution, names, PRICING, [])
     assert outcome["success"] is True
     assert not outcome["benchmark_success"]
 
@@ -248,7 +248,7 @@ def test_evaluate_writes_the_tables_the_settings_and_the_index_row(
         # still has to write its tables, settings and index row.
         outcomes = [
             runner.task_outcome(
-                t, 1, {"run_number": 1, "error": "down"}, names, pricing
+                t, 1, {"run_number": 1, "error": "down"}, names, pricing, []
             )
             for t in tasks
         ]
@@ -317,7 +317,7 @@ def test_run_tasks_returns_every_attempt_outcome_and_prints_its_progress(
 
     monkeypatch.setattr(runner, "run_task", fake_run_task)
     monkeypatch.setattr(runner, "save_tools", no_tools)
-    outcomes, rows, cells, changes = asyncio.run(
+    outcomes, rows, cells, tables = asyncio.run(
         runner.run_tasks(
             {"task_a": {}, "task_b": {}},
             None,
@@ -339,7 +339,7 @@ def test_run_tasks_returns_every_attempt_outcome_and_prints_its_progress(
         ("task_b", 1),
         ("task_b", 2),
     ]
-    assert len(rows) == 4 and cells == [] and changes == []
+    assert len(rows) == 4 and cells == [] and tables == []
     lines = capsys.readouterr().out.splitlines()
     assert sorted(line.split()[0] for line in lines) == [
         f"[{n}/4]" for n in (1, 2, 3, 4)
@@ -352,3 +352,91 @@ def test_run_tasks_returns_every_attempt_outcome_and_prints_its_progress(
         for line in lines
     )
     assert any("task_b attempt 2 error: checks 2/3" in line for line in lines)
+
+
+def test_task_outcome_counts_tables_by_result_and_tells_an_empty_lookup_from_an_error():
+    def step(tool, text):
+        return [
+            {"type": "ai_message", "tool_calls": [{"name": tool, "args": {}}]},
+            {"type": "tool_result", "result": {"success": False, "result": text}},
+        ]
+
+    execution = {
+        "conversation_flow": step("get_user", "User 9 not found")
+        + step("create_incident", "caller_id is required")
+    }
+    tables = [
+        {"checks": 1, "result": "correct"},
+        {"checks": 2, "result": "missed"},
+        {"checks": 0, "result": "not asked for"},
+    ]
+    _, names = checks.unique_names([])
+    outcome = runner.task_outcome("t", 1, execution, names, PRICING, tables)
+    counted = ("tables_checked", "tables_correct", "tables_wrong", "tables_missed")
+    assert [outcome[key] for key in counted] == [2, 1, 0, 1]
+    assert (outcome["tool_errors"], outcome["lookups_empty"]) == (1, 1)
+
+
+def test_tool_arguments_come_from_the_saved_tool_list(tmp_path):
+    assert runner.tool_arguments(tmp_path) == {}
+    listed = [
+        {"name": "create_incident", "inputSchema": {"properties": {"a": {}, "b": {}}}},
+        {"name": "ping"},
+    ]
+    (tmp_path / "tools.json").write_text(runner.json.dumps({"http://x": listed}))
+    assert runner.tool_arguments(tmp_path) == {
+        "create_incident": {"a", "b"},
+        "ping": set(),
+    }
+
+
+def test_write_tables_counts_each_failure_once_per_attempt(tmp_path):
+    def check(task, attempt, table, failure):
+        return {
+            "task_id": task,
+            "attempt": attempt,
+            "passed": False,
+            "table": table,
+            "failure": failure,
+        }
+
+    def cell(task, column, how, ok=False):
+        return {
+            "task_id": task,
+            "attempt": 1,
+            "table": "incident",
+            "column": column,
+            "ok": ok,
+            "how": how,
+        }
+
+    check_rows = [
+        check("t1", 1, "incident_task", "table not written"),
+        check("t1", 2, "incident_task", "table not written"),
+        check("t2", 1, "incident_task", "table not written"),
+        check("t1", 1, "notification", "call failed"),
+        # A check with wrong values is counted by its cells.
+        check("t1", 1, "incident", "wrong values"),
+    ]
+    cell_rows = [
+        # Two touched rows of one attempt with the same wrong column.
+        cell("t1", "priority", "left out"),
+        cell("t1", "priority", "left out"),
+        cell("t2", "priority", "left out"),
+        cell("t1", "channel", "passed"),
+        cell("t1", "status", "passed", ok=True),
+        # A failing group of conditions names no single column.
+        cell("t1", "", ""),
+    ]
+    outcome = {"task_id": "t1", "success": False, "checks_passed": 0, "checks_total": 1}
+    runner.write_tables(tmp_path, {}, [outcome], check_rows, cell_rows, [])
+    assert (tmp_path / "failures.csv").read_text().splitlines() == [
+        "table,column,failure,how,attempts,tasks",
+        "incident_task,,table not written,,3,2",
+        "incident,priority,wrong value,left out,2,2",
+        "incident,channel,wrong value,passed,1,1",
+        "notification,,call failed,,1,1",
+    ]
+    assert (tmp_path / "tables.csv").read_text().splitlines() == [
+        ",".join(runner.report.TABLE_COLUMNS)
+    ]

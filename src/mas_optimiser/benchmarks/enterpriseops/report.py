@@ -6,9 +6,11 @@ the request, what the agent did turn by turn, what changed against the seed,
 and every check with, under a failure, each condition marked ok or WRONG
 against the row the agent wrote and the turn that wrote it. Beside
 ``tasks.csv`` and ``checks.csv``, ``cells.csv`` (one row per failed
-check, touched row and condition, with the turn that set a wrong cell) and
-``changes.csv`` (one row per attempt and changed table). And ``summary.md``,
-a page that says how the attempt went and what went wrong, by table and column.
+check, touched row and condition: what was wanted, what was found and the
+call the value came from) and ``tables.csv`` (one row per attempt and table
+that a check counts rows of or that the attempt changed, with whether the
+attempt got the table right). And ``summary.md``, a page that says how the
+attempt went and what went wrong, by table and column.
 
 The trace from a failed check back to the agent's turns is mechanical. The
 calls that write the check's table are those with a writing verb in the
@@ -16,13 +18,22 @@ tool's name and the table's words in the rest of it (``create_incident``
 writes ``incident``) or, when none is named so, the writing calls whose
 result echoes the table's key column. Among them, the calls whose arguments
 or result name the touched row's key (``hr_case_id: 61``) are the ones
-linked to the check; when none does, all of them are. A wrong cell was set
-by the last linked call whose arguments name that column; a column no call
-names was left to the server. The step of a failed check is ``wrong`` when
-the row is there with wrong cells, else ``skipped`` when no call wrote the
-table, ``failed`` when one of those calls returned an error, and
-``attempted`` when they all succeeded and the check still fails, as when
-the row went elsewhere.
+linked to the check; when none does, all of them are. A cell's value was
+``passed`` by the last linked call whose arguments name its column; a
+column no call names came from the call that wrote the row, which ``left
+out`` an argument its tool takes or has ``no argument`` of that name. The
+failure of a check is ``wrong values`` when the row is there with wrong
+cells and ``too many rows`` when more rows match than it allows; else
+``table not written`` when no call wrote the table, ``call failed`` when
+one of those calls returned an error, and ``no row written`` when they all
+succeeded and no row of the table changed.
+
+A table's result puts the checks on it together with what the attempt
+changed in it: ``correct`` when every check on it passed, ``wrong`` when
+one failed and the attempt changed the table, ``missed`` when one failed
+and the attempt changed nothing in it. A changed table that no check
+counts rows of is ``not asked for``, or ``read by a check`` when a check
+on another table reads it.
 
 Sources: ``docs/how-it-works.md``, section 6, the rows for ``report``.
 """
@@ -40,20 +51,25 @@ CELL_COLUMNS = (
     "check",
     "table",
     "row",
+    "column",
     "condition",
+    "wanted",
+    "found",
     "ok",
-    "actual",
+    "how",
     "turn",
     "tool",
 )
-CHANGE_COLUMNS = (
+TABLE_COLUMNS = (
     "task_id",
     "attempt",
     "table",
+    "checks",
+    "checks_passed",
     "inserted",
     "updated",
     "deleted",
-    "mentioned",
+    "result",
 )
 # Tool name verbs that write to the database.
 WRITING = {
@@ -75,7 +91,16 @@ WRITING = {
 WORST_TASKS = 10
 # Items of a list shown on an attempt's page before the rest are counted.
 LISTED = 10
-STEPS = ("skipped", "failed", "wrong", "attempted")
+FAILURES = (
+    "table not written",
+    "call failed",
+    "no row written",
+    "wrong values",
+    "too many rows",
+)
+# How a lookup says it found no record, in the three servers' wordings: an
+# error code, a message, a validation type.
+NOT_FOUND = re.compile(r"not[ _]found", re.IGNORECASE)
 
 
 def _result_text(result: dict) -> str:
@@ -120,7 +145,10 @@ def calls(execution: dict) -> list[dict]:
 
     Returns:
         One dict per call: ``turn``, ``tool``, ``args`` and, once its result
-        arrived, ``success`` and ``result`` (the result's text).
+        arrived, ``success``, ``result`` (the result's text) and
+        ``nothing_found``: a lookup that answered that no such record exists,
+        which the server reports as an error and which is the lookup doing
+        its work.
     """
     out, pending, turn = [], [], 0
     for step in execution.get("conversation_flow", []):
@@ -136,6 +164,11 @@ def calls(execution: dict) -> list[dict]:
             result = step.get("result") or {}
             call["success"] = succeeded(result)
             call["result"] = _result_text(result)
+            call["nothing_found"] = (
+                not call["success"]
+                and call["tool"].split("_")[0] not in WRITING
+                and bool(NOT_FOUND.search(call["result"]))
+            )
     return out
 
 
@@ -203,23 +236,32 @@ def writers_of(agent_calls: list[dict], table: str, key: list[str]) -> list[dict
     ]
 
 
-def trace(result: dict, agent_calls: list[dict], keys: dict) -> dict:
-    """How a failed check's row was handled: the calls that wrote it, who set each wrong cell, the step.
+def trace(
+    result: dict, agent_calls: list[dict], keys: dict, arguments: dict[str, set[str]]
+) -> dict:
+    """How a failed check's row was handled: the calls that wrote it, where each cell's value came from, the failure.
 
     Args:
         result: A failed check's result with its ``diagnosis``.
         agent_calls: The calls from ``calls``.
         keys: Each table's primary key columns.
+        arguments: Each tool's argument names; empty when the evaluation
+            saved no tool list.
 
     Returns:
-        ``step`` (one of ``STEPS``; empty when the diagnosis names no table),
-        ``related`` (the linked calls: turn, tool, success) and ``set_by``
-        (each wrong column to the turn, tool and value that set it).
+        ``failure`` (one of ``FAILURES``; empty when the diagnosis names no
+        table), ``related`` (the linked calls: turn, tool, success) and
+        ``set_by``: each column a condition tests to the ``turn`` and
+        ``tool`` its value came from and ``how``. ``passed``, with the
+        ``value``, when a linked call's arguments name the column; otherwise
+        the call that wrote the row ``left out`` an argument its tool takes,
+        or its tool has ``no argument`` of that name, or the column was
+        ``not passed`` and the tool's arguments are not known.
     """
     found = result.get("diagnosis") or {}
     table = found.get("table", "")
     if not table:
-        return {"step": "", "related": [], "set_by": {}}
+        return {"failure": "", "related": [], "set_by": {}}
     writers = writers_of(agent_calls, table, keys.get(table, []))
     # Only a cells diagnosis carries condition rows with the touched row's
     # key; a too_many_rows one carries the surplus rows themselves.
@@ -231,28 +273,34 @@ def trace(result: dict, agent_calls: list[dict], keys: dict) -> dict:
     rows = [row["row"] for row in conditions if "row" in row]
     pairs = {(k, v) for row in rows for k, v in row.items()}
     linked = [c for c in writers if any(_names(c, k, v) for k, v in pairs)] or writers
+    # The call that wrote the row: the first linked one that succeeded.
+    writer = next((c for c in linked if c.get("success")), None)
     set_by = {}
-    for row in conditions:
-        column = sql.column_of(row["condition"])
-        if row.get("ok") or not column:
+    for column in dict.fromkeys(row["column"] for row in conditions):
+        passing = [c for c in linked if column in c["args"]]
+        if not column or not (passing or writer):
             continue
-        for call in linked:
-            if column in call["args"]:
-                set_by[column] = {
-                    "turn": call["turn"],
-                    "tool": call["tool"],
-                    "value": call["args"][column],
-                }
+        call = passing[-1] if passing else writer
+        set_by[column] = {"turn": call["turn"], "tool": call["tool"]}
+        if passing:
+            set_by[column] |= {"how": "passed", "value": call["args"][column]}
+        elif call["tool"] not in arguments:
+            set_by[column]["how"] = "not passed"
+        else:
+            takes = column in arguments[call["tool"]]
+            set_by[column]["how"] = "left out" if takes else "no argument"
     if found.get("kind") in ("cells", "value"):
-        step = "wrong"
+        failure = "wrong values"
+    elif found.get("kind") == "too_many_rows":
+        failure = "too many rows"
     elif not writers:
-        step = "skipped"
+        failure = "table not written"
     elif any(call.get("success") is False for call in writers):
-        step = "failed"
+        failure = "call failed"
     else:
-        step = "attempted"
+        failure = "no row written"
     return {
-        "step": step,
+        "failure": failure,
         "related": [
             {"turn": c["turn"], "tool": c["tool"], "success": c.get("success")}
             for c in linked
@@ -391,27 +439,24 @@ def _check_lines(result: dict, changes: dict | None, max_chars: int) -> list[str
                     "| " + " | ".join(heads) + " |",
                     "|" + "---|" * len(heads),
                 ]
-            column = sql.column_of(row["condition"])
-            if not row["ok"]:
-                after = ", ".join(str(v) for v in row.get("actual", [])) or "no value"
-            elif new and column in new:
-                after = new[column]
-            elif old and column in old:
-                after = old[column][1]
-            else:
-                after = ""
-            setter = followed.get("set_by", {}).get(column)
+            column = row["column"]
+            after = ", ".join(str(v) for v in row.get("actual", []))
+            setter = followed.get("set_by", {}).get(column, {})
             source = (
                 ""
                 if row["ok"]
                 else f"turn {setter['turn']}, `{setter['tool']}({column}={setter['value']!r})`"
-                if setter
+                if setter.get("how") == "passed"
                 else "not in any call's arguments"
             )
             cells = [cell(row["condition"])]
             if old is not None:
                 cells.append(cell(old[column][0]) if column in old else "unchanged")
-            cells += [cell(after), "ok" if row["ok"] else "WRONG", cell(source)]
+            cells += [
+                cell(after or ("" if row["ok"] else "no value")),
+                "ok" if row["ok"] else "WRONG",
+                cell(source),
+            ]
             lines.append("| " + " | ".join(cells) + " |")
         return lines
     if kind == "no_rows":
@@ -491,7 +536,11 @@ def attempt_text(
         for call in agent_calls:
             if call["turn"] != turn:
                 continue
-            flag = {True: "ok", False: "ERROR"}.get(call.get("success"), "no answer")
+            flag = (
+                "nothing found"
+                if call.get("nothing_found")
+                else {True: "ok", False: "ERROR"}.get(call.get("success"), "no answer")
+            )
             lines += [f"`{call['tool']}` → {flag}", ""]
             if call["args"]:
                 lines += ["```", *_fields(call["args"], None), "```", ""]
@@ -585,7 +634,7 @@ def cell_rows(task_id: str, attempt: int, results: dict) -> list[dict]:
             continue
         set_by = (result.get("trace") or {}).get("set_by", {})
         for row in found["rows"]:
-            setter = set_by.get(sql.column_of(row["condition"]), {})
+            setter = set_by.get(row["column"], {})
             rows.append(
                 {
                     "task_id": task_id,
@@ -593,9 +642,12 @@ def cell_rows(task_id: str, attempt: int, results: dict) -> list[dict]:
                     "check": name,
                     "table": found.get("table", ""),
                     "row": ", ".join(f"{k}={v}" for k, v in row.get("row", {}).items()),
+                    "column": row["column"],
                     "condition": row["condition"],
+                    "wanted": row["wanted"],
+                    "found": ", ".join(str(v) for v in row.get("actual", [])),
                     "ok": row["ok"],
-                    "actual": ", ".join(str(v) for v in row.get("actual", [])),
+                    "how": setter.get("how", ""),
                     "turn": setter.get("turn", ""),
                     "tool": setter.get("tool", ""),
                 }
@@ -603,34 +655,67 @@ def cell_rows(task_id: str, attempt: int, results: dict) -> list[dict]:
     return rows
 
 
-def change_rows(
-    task_id: str, attempt: int, changes: dict | None, queries: list[str]
+def table_rows(
+    task_id: str, attempt: int, results: dict, changes: dict | None
 ) -> list[dict]:
-    """``changes.csv`` rows: one per changed table, and whether any check mentions it.
+    """``tables.csv`` rows: one per table a check counts rows of or the attempt changed, and how the attempt did on it.
+
+    A check belongs to the one table whose rows it counts or reads a value
+    from; a check whose query cannot be taken apart belongs to the table it
+    names when it names one only, and to none otherwise. An excluded check
+    is not counted.
 
     Args:
         task_id: The task's dataset ID.
         attempt: The attempt number, from 1.
+        results: The attempt's ``verification_results``.
         changes: The attempt's changes, as ``states.diff`` gives them, or
             ``None`` when they were not read.
-        queries: The task's check queries.
 
     Returns:
-        The rows (``CHANGE_COLUMNS``).
+        The rows (``TABLE_COLUMNS``), the tables with checks first; empty
+        when the changes were not read.
     """
-    mentioned = {table for query in queries for table in sql.tables(query)}
-    return [
-        {
-            "task_id": task_id,
-            "attempt": attempt,
-            "table": table,
-            "inserted": len(change["inserted"]),
-            "updated": len(change["updated"]),
-            "deleted": len(change["deleted"]),
-            "mentioned": table.lower() in mentioned,
+    if changes is None:
+        return []
+    verdicts: dict[str, list[bool]] = {}
+    read = set()
+    for result in results.values():
+        query = result.get("query", "")
+        named = sql.tables(query)
+        read |= named
+        if result.get("patch") == "excluded":
+            continue
+        parsed = sql.parse(query, {})
+        if parsed or len(named) == 1:
+            own = parsed["table"].lower() if parsed else next(iter(named))
+            verdicts.setdefault(own, []).append(bool(result["passed"]))
+    changed = {table.lower(): change for table, change in changes.items()}
+    rows = []
+    for table in [*verdicts, *(t for t in changed if t not in verdicts)]:
+        counts = {
+            how: len(changed.get(table, {}).get(how, []))
+            for how in ("inserted", "updated", "deleted")
         }
-        for table, change in (changes or {}).items()
-    ]
+        passed = verdicts.get(table, [])
+        if not passed:
+            result = "read by a check" if table in read else "not asked for"
+        elif all(passed):
+            result = "correct"
+        else:
+            result = "wrong" if any(counts.values()) else "missed"
+        rows.append(
+            {
+                "task_id": task_id,
+                "attempt": attempt,
+                "table": table,
+                "checks": len(passed),
+                "checks_passed": sum(passed),
+            }
+            | counts
+            | {"result": result}
+        )
+    return rows
 
 
 def summary(
@@ -639,7 +724,7 @@ def summary(
     outcomes: list[dict],
     check_rows: list[dict],
     cells: list[dict],
-    change_list: list[dict],
+    tables: list[dict],
 ) -> str:
     """``summary.md``: how the evaluation went and what went wrong, by table and column.
 
@@ -649,7 +734,7 @@ def summary(
         outcomes: The ``tasks.csv`` rows, one per attempt.
         check_rows: The ``checks.csv`` rows.
         cells: The ``cells.csv`` rows.
-        change_list: The ``changes.csv`` rows.
+        tables: The ``tables.csv`` rows.
 
     Returns:
         The page as Markdown.
@@ -663,17 +748,17 @@ def summary(
     checks_passed = sum(r["checks_passed"] for r in outcomes)
     checks_total = sum(r["checks_total"] for r in outcomes)
     errored = sum(r.get("tool_errors", 0) > 0 for r in outcomes)
-    unasked = {(c["task_id"], c["attempt"]) for c in change_list if not c["mentioned"]}
+    unasked = {
+        (t["task_id"], t["attempt"]) for t in tables if t["result"] == "not asked for"
+    }
     failed = [c for c in check_rows if c["passed"] is False]
-    steps = Counter(c["step"] for c in failed if c["step"])
-    skipped = Counter(c["table"] for c in failed if c["step"] == "skipped")
-    broke = Counter(c["table"] for c in failed if c["step"] == "failed")
-    # A failing bracketed group names no single column and is left out here.
-    wrong = Counter(
-        sql.column_of(c["condition"])
-        for c in cells
-        if not c["ok"] and sql.column_of(c["condition"])
+    failures = Counter(c["failure"] for c in failed if c["failure"])
+    unwritten = Counter(
+        c["table"] for c in failed if c["failure"] == "table not written"
     )
+    broke = Counter(c["table"] for c in failed if c["failure"] == "call failed")
+    # A failing bracketed group names no single column and is left out here.
+    wrong = Counter(c["column"] for c in cells if not c["ok"] and c["column"])
     pct = f"{100 * passed / attempts:.1f}%" if attempts else "n/a"
     lines = [
         f"# {name}",
@@ -702,20 +787,16 @@ def summary(
         "",
         "## What went wrong",
         "",
-        "Failed checks by step: "
-        + (", ".join(f"{s} {steps[s]}" for s in STEPS if steps[s]) or "none")
+        "Failed checks by failure: "
+        + (", ".join(f"{f} {failures[f]}" for f in FAILURES if failures[f]) or "none")
         + ".",
     ]
-    if skipped:
+    if unwritten:
         lines.append(
-            "Steps skipped (no call wrote the table), by table: "
-            + _listed(skipped)
-            + "."
+            "Tables not written (no call wrote the table): " + _listed(unwritten) + "."
         )
     if broke:
-        lines.append(
-            "Steps whose call returned an error, by table: " + _listed(broke) + "."
-        )
+        lines.append("Tables whose call returned an error: " + _listed(broke) + ".")
     if wrong:
         lines.append("Cells wrong, by column: " + _listed(wrong) + ".")
     lines += [
@@ -724,17 +805,17 @@ def summary(
         "",
     ]
     # A task's dominant failure: the most common label over its failed
-    # checks, a skipped or failed step by table, or a wrong cell by column.
+    # checks, a failure by table or a wrong cell by column.
     failures_by_task: dict[str, Counter] = {}
     for c in failed:
-        if c["step"] and c["step"] != "wrong":
+        if c["failure"] and c["failure"] != "wrong values":
             failures_by_task.setdefault(c["task_id"], Counter())[
-                f"{c['step']} {c['table']}"
+                f"{c['failure']}: {c['table']}"
             ] += 1
     for cell in cells:
-        if not cell["ok"] and sql.column_of(cell["condition"]):
+        if not cell["ok"] and cell["column"]:
             failures_by_task.setdefault(cell["task_id"], Counter())[
-                f"wrong {sql.column_of(cell['condition'])}"
+                f"wrong {cell['column']}"
             ] += 1
     ranked = sorted(
         by_task,
@@ -754,10 +835,12 @@ def summary(
         "",
         "## Where things are",
         "",
-        "`tasks.csv` one row per attempt; `checks.csv` one row per attempt and check with its kind and step; "
-        "`cells.csv` one row per failed check, touched row and condition, with the turn that set a wrong cell; "
-        "`changes.csv` one row per attempt and changed table; `tasks/<task_id>/attempt-<n>.md` the attempt as a "
-        "page, beside its full record (`.json`) and its changes against the seed (`.changes.json`).",
+        "`tasks.csv` one row per attempt; `checks.csv` one row per attempt and check with its kind and failure; "
+        "`cells.csv` one row per failed check, touched row and condition, wanted against found; "
+        "`tables.csv` one row per attempt and table the checks look at or the attempt changed; "
+        "`failures.csv` one row per table, column and kind of failure; "
+        "`tasks/<task_id>/attempt-<n>.md` the attempt as a page, beside its full record (`.json`) and its "
+        "changes against the seed (`.changes.json`).",
         "",
     ]
     return "\n".join(lines)

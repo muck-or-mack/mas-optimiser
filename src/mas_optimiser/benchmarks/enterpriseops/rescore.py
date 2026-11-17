@@ -5,7 +5,7 @@ Each attempt's record (``attempt-<n>.json``) and its changes against the seed
 locally and run every check again: the task's checks as they now stand, the
 same diagnosis and trace, and the same files the runner writes
 (``summary.md``, ``tasks.csv``, ``checks.csv``, ``cells.csv``,
-``changes.csv`` and ``attempt-<n>.md``), the totals in ``evaluation.json``,
+``tables.csv``, ``failures.csv`` and ``attempt-<n>.md``), the totals in ``evaluation.json``,
 the evaluation's row in the experiment's ``index.csv`` and, for one domain
 of a run, the run's ``run.json`` and pooled ``summary.md``. Use it after a
 change to the diagnosis or to the checks. An attempt with no saved changes
@@ -161,7 +161,12 @@ def keep_live_verdicts(results: dict[str, dict], as_run: dict[str, dict]) -> dic
 
 
 async def rescore_attempt(
-    folder: Path, attempt: int, config: dict, domain: str, pricing: dict
+    folder: Path,
+    attempt: int,
+    config: dict,
+    domain: str,
+    pricing: dict,
+    arguments: dict[str, set[str]],
 ) -> tuple | None:
     """Recompute one attempt's verdicts, diagnosis and files from its saved record and changes.
 
@@ -171,6 +176,7 @@ async def rescore_attempt(
         config: The task's config, from ``runner.load_tasks``.
         domain: The evaluation's domain.
         pricing: The price table, from ``evaluation.json``.
+        arguments: Each tool's argument names, from ``runner.tool_arguments``.
 
     Returns:
         What ``runner.outputs`` returns, or ``None`` when the attempt has no
@@ -206,7 +212,14 @@ async def rescore_attempt(
     execution["verification_results"] = results
     execution["overall_success"] = checks.passed(results)
     outputs = runner.outputs(
-        folder.name, attempt, execution, changes, layout["keys"], names, pricing
+        folder.name,
+        attempt,
+        execution,
+        changes,
+        layout["keys"],
+        names,
+        pricing,
+        arguments,
     )
     runner.save_attempt(folder, attempt, record, changes)
     return outputs
@@ -226,8 +239,9 @@ async def rescore(evaluation: Path) -> Counter:
     settings = json.loads((evaluation / "evaluation.json").read_text())
     domain = settings["domain"]
     configs = runner.load_tasks(domain, settings["mode"])
+    arguments = runner.tool_arguments(evaluation)
     counts: Counter = Counter()
-    outcomes, rows, cells, changed = [], [], [], []
+    outcomes, rows, cells, tables = [], [], [], []
     for task_id in settings["tasks"]:
         folder = evaluation / "tasks" / task_id
         kept, names, _ = checks.prepare(task_id, configs[task_id]["verifiers"])
@@ -249,7 +263,12 @@ async def rescore(evaluation: Path) -> Counter:
                 runner.save_attempt(folder, attempt, record, changes)
                 continue
             out = await rescore_attempt(
-                folder, attempt, configs[task_id], domain, settings["pricing"]
+                folder,
+                attempt,
+                configs[task_id],
+                domain,
+                settings["pricing"],
+                arguments,
             )
             if out is None:
                 # No saved changes: the attempt raised before it finished. Its
@@ -257,20 +276,20 @@ async def rescore(evaluation: Path) -> Counter:
                 counts["no saved changes"] += 1
                 execution = load_record(stem.with_suffix(".json"))["runs"][0]
                 outcome = runner.task_outcome(
-                    task_id, attempt, execution, names, settings["pricing"]
+                    task_id, attempt, execution, names, settings["pricing"], []
                 )
                 check_rows = checks.check_records(
-                    task_id, attempt, execution.get("verification_results", {}), names
+                    task_id, attempt, execution.get("verification_results", {})
                 )
-                cell_rows, change_rows = [], []
+                cell_rows, table_rows = [], []
             else:
-                outcome, check_rows, cell_rows, change_rows = out
+                outcome, check_rows, cell_rows, table_rows = out
                 counts["pass" if outcome["success"] else "fail"] += 1
             outcomes.append(outcome)
             rows += check_rows
             cells += cell_rows
-            changed += change_rows
-    runner.write_tables(evaluation, settings, outcomes, rows, cells, changed)
+            tables += table_rows
+    runner.write_tables(evaluation, settings, outcomes, rows, cells, tables)
     counted = runner.totals(
         outcomes,
         len(settings["tasks"]) - counts["no check to judge by"],

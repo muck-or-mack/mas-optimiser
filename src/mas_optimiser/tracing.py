@@ -106,7 +106,7 @@ def record_outcome(
         }
         | {
             "checks": {
-                f"{row['position']} {row['name']}": {
+                f"{row['position']} {row['check']}": {
                     "passed": row["passed"],
                     "expected": row["expected"],
                     "actual": row["actual"],
