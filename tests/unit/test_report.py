@@ -132,7 +132,9 @@ CHANGES = {
     "incident_knowledge": {"inserted": [{"id": 1}], "updated": [], "deleted": []},
 }
 # The arguments each tool takes, as the evaluation's tool list gives them.
-ARGUMENTS = {"create_incident": {"caller_id", "channel", "priority", "impact"}}
+ARGUMENTS = {"create_incident": ["caller_id", "channel", "priority", "impact"]}
+# The tools the task was given.
+GIVEN = ["list_users", "create_incident", "send_notification", "create_incident_task"]
 
 
 def traced():
@@ -236,10 +238,62 @@ def test_a_missing_row_is_told_by_its_calls():
     assert results["Task"]["trace"]["failure"] == "table not written"
 
 
-def test_the_attempt_page_shows_request_turns_changes_and_traced_checks():
-    text = report.attempt_text("task_x", 1, traced(), CHANGES)
+def page_rows(text):
+    return [cells(line) for line in text.split("\n") if line.startswith("|")]
+
+
+def test_the_attempt_page_goes_from_the_tables_to_the_checks_to_the_turns():
+    text = report.attempt_text("task_x", 1, traced(), CHANGES, GIVEN, ARGUMENTS)
     assert text.startswith("# task_x, attempt 1: FAIL (1 of 4 checks passed)")
     assert "## Request\n\nLog a critical phone incident for Benjamin" in text
+    sections = [
+        "## Tables the checks look at",
+        "## Tools the task was given",
+        "## Checks",
+        "## What the agent did",
+        "## Rows the attempt changed",
+    ]
+    assert sorted(sections, key=text.index) == sections
+    rows = page_rows(text)
+    # One row per table: the checks on it, what the attempt changed, the result.
+    assert "3 tables with a check on them: 0 correct, 1 wrong, 2 missed." in text
+    assert ["`incident`", "Incident", "1 inserted", "wrong"] in rows
+    assert ["`notification`", "Notification", "none", "missed"] in rows
+    assert ["`incident_knowledge`", "none", "1 inserted", "not asked for"] in rows
+    assert "Checks whose table could not be read from their query: Caller." in text
+    # The tools given, when each was called and what each takes.
+    assert ["`create_incident`", "2", "4"] in rows
+    assert ["`create_incident_task`", "never", "not saved"] in rows
+    assert "create_incident(caller_id, channel, priority, impact)" in text
+    # A check with wrong values: each cell wanted against found, and where
+    # the value came from.
+    assert "Row `incident_id INC_024`: inserted at turn 2 by `create_incident`." in text
+    assert ["column", "wanted", "found", "ok", "where the value came from"] in rows
+    assert [
+        "`channel`",
+        "= 'phone'",
+        "chat",
+        "WRONG",
+        "passed at turn 2: `create_incident(channel='chat')`",
+    ] in rows
+    assert [
+        "`incident_id`",
+        "= 'INC_024'",
+        "INC_024",
+        "ok",
+        "set by the server: `create_incident` takes no `incident_id`",
+    ] in rows
+    # A check with no row: the calls that tried, or the tool that could have.
+    assert (
+        "No row of `notification` was inserted or updated. "
+        "Calls that write it: turn 3 `send_notification` failed." in text
+    )
+    assert (
+        "No call wrote `incident_task`. "
+        "The task was given `create_incident_task` to write it." in text
+    )
+    assert ["check wants", "found", "tool given that takes it"] in rows
+    assert ["incident_id = 'INC_024'", "no row", ""] in rows
     # A turn is a heading; each call sits under it with its arguments one
     # per line and what came back beneath.
     assert (
@@ -250,46 +304,58 @@ def test_the_attempt_page_shows_request_turns_changes_and_traced_checks():
     assert "`send_notification` → ERROR" in text
     assert "returned\n\n```\nemail unknown\n```" in text
     assert "### Turn 4\n\n> Logged INC_024." in text
-    assert (
-        "- incident: 1 inserted\n- incident_knowledge: 1 inserted\n"
-        "- no check of this task mentions: incident_knowledge" in text
-    )
-    assert (
-        "Row `incident_id INC_024`: not in the seed, inserted at turn 2 by `create_incident`."
-        in text
-    )
-    assert (
-        "| Check wants in `incident` | After the attempt |  | Where the value came from |"
-        in text
-    )
-    assert "| incident_id = 'INC_024' | INC_024 | ok |  |" in text
-    assert (
-        "| channel = 'phone' | chat | WRONG | turn 2, `create_incident(channel='chat')` |"
-        in text
-    )
-    assert (
-        "No row inserted or updated in `notification`.\n"
-        "- turn 3, `send_notification`: failed" in text
-    )
-    assert (
-        "No row inserted or updated in `incident_task`; no call wrote `incident_task`."
-        in text
-    )
-    # A missing row is listed as the check wants it.
-    assert "| Check wants in `notification` | After the attempt |" in text
-    assert "| incident_id = 'INC_024' | no row |" in text
-    # The rows the attempt touched, under the changes.
+    # The rows the attempt touched, last.
     assert (
         "### incident\n\nRow `incident_id INC_024`, inserted:\n\n```\nincident_id = INC_024\n```"
         in text
     )
 
 
+def test_the_page_says_which_tool_takes_a_column_no_call_wrote():
+    arguments = ARGUMENTS | {"create_incident_task": ["incident_id", "status"]}
+    execution = traced()
+    execution["verification_results"]["Task"]["query"] += " AND state = 'open'"
+    text = report.attempt_text("task_x", 1, execution, CHANGES, GIVEN, arguments)
+    rows = page_rows(text)
+    assert ["incident_id = 'INC_024'", "no row", "`create_incident_task`"] in rows
+    assert ["state = 'open'", "no row", "none"] in rows
+
+
+def test_an_excluded_check_is_listed_and_not_counted():
+    execution = traced()
+    execution["verification_results"]["Caller"] = {
+        "passed": None,
+        "benchmark_passed": False,
+        "patch": "excluded",
+    }
+    text = report.attempt_text("task_x", 1, execution, CHANGES, GIVEN, ARGUMENTS)
+    assert text.startswith("# task_x, attempt 1: FAIL (0 of 3 checks passed)")
+    assert "### EXCLUDED  Caller" in text
+
+
+def test_a_whole_toolbox_is_cut_to_the_tools_called_and_an_empty_cell_says_so():
+    given = GIVEN + [f"get_thing_{n}" for n in range(30)]
+    changes = {
+        "incident": {
+            "inserted": [{"incident_id": "INC_024", "problem": None}],
+            "updated": [],
+            "deleted": [],
+        }
+    }
+    text = report.attempt_text("task_x", 1, traced(), changes, given, ARGUMENTS)
+    assert "34 tools; the 3 the agent called are shown, the rest are in" in text
+    listed = [row[0] for row in page_rows(text) if row[1:] == ["never", "not saved"]]
+    assert "get_thing_0" not in text and listed == []
+    assert "incident_id = INC_024\nproblem     = (empty)" in text
+
+
 def test_what_the_agent_wrote_is_never_cut_and_keeps_its_lines():
     execution = traced()
     call = execution["conversation_flow"][4]["tool_calls"][0]
     call["args"] = {"message": "Dear Ben,\n\nLogged.", "channel": "chat"}
-    text = report.attempt_text("task_x", 1, execution, CHANGES, max_chars=40)
+    text = report.attempt_text(
+        "task_x", 1, execution, CHANGES, GIVEN, ARGUMENTS, max_chars=40
+    )
     assert "message = Dear Ben,\n          \n          Logged.\nchannel = chat" in text
 
 
@@ -321,25 +387,28 @@ def test_an_updated_row_shows_its_value_before_the_attempt():
             "deleted": [],
         }
     }
-    text = report.attempt_text("task_x", 1, execution, changes)
+    text = report.attempt_text("task_x", 1, execution, changes, GIVEN, ARGUMENTS)
     assert (
         "Row `incident_id INC_024`: in the seed, updated at turn 2 by `create_incident`."
         in text
     )
-    assert (
-        "| Check wants in `incident` | Before | After the attempt |  | Where the value came from |"
-        in text
-    )
+    rows = page_rows(text)
+    header = ["column", "wanted", "before", "found", "ok", "where the value came from"]
+    assert header in rows
     # An updated row shows each changed cell before and after.
     assert (
         "Row `incident_id INC_024`, updated:\n\n```\nchannel = email -> chat\n```"
         in text
     )
-    assert (
-        "| channel = 'phone' | email | chat | WRONG | turn 2, `create_incident(channel='chat')` |"
-        in text
-    )
-    assert "| incident_id = 'INC_024' | unchanged | INC_024 | ok |  |" in text
+    assert [
+        "`channel`",
+        "= 'phone'",
+        "email",
+        "chat",
+        "WRONG",
+        "passed at turn 2: `create_incident(channel='chat')`",
+    ] in rows
+    assert [row[2] for row in rows if row[0] == "`incident_id`"] == ["unchanged"]
 
 
 def test_cell_rows_give_wanted_against_found_and_where_the_value_came_from():

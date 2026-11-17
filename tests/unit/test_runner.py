@@ -385,8 +385,8 @@ def test_tool_arguments_come_from_the_saved_tool_list(tmp_path):
     ]
     (tmp_path / "tools.json").write_text(runner.json.dumps({"http://x": listed}))
     assert runner.tool_arguments(tmp_path) == {
-        "create_incident": {"a", "b"},
-        "ping": set(),
+        "create_incident": ["a", "b"],
+        "ping": [],
     }
 
 
