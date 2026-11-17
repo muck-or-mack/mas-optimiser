@@ -403,8 +403,8 @@ the request, the turns, the changes and every check with its condition
 table and trace. `cells.csv` is the same information for every failed
 check at once, one row per touched row and condition, wanted against
 found, with the turn and tool the value came from; `checks.csv` has every check's verdict under
-both conventions. The README's "Reading the results" section lists every
-column. `tools.json` holds every tool the domain server offered, with
+both conventions. [Reading the results](results.md) gives every column of
+every file and walks through one attempt's page. `tools.json` holds every tool the domain server offered, with
 its description and argument schema, so a reader can see what the agent
 could have called beyond the task's `selected_tools`.
 

@@ -11,6 +11,9 @@ final database state.
 Status: early development. The benchmark's own agent can be run on its
 tasks; the planner and the optimiser are not written yet.
 
+Documentation: <https://mas-optimiser.readthedocs.io/>, rebuilt from `main`
+on every push.
+
 How it all works, file by file, with one attempt followed from the command
 to the wrong cell and the turn that set it: `docs/how-it-works.md`, with
 its figures in `docs/figures/`.
@@ -124,6 +127,10 @@ evaluations/<experiment>/
       attempt-<n>.json           the executor's complete record of the attempt
       attempt-<n>.changes.json   every row the attempt inserted, updated or deleted
 ```
+
+`docs/results.md` ("Reading the results" in the documentation) follows one
+small run through these files: every column of every file, the words the
+results use, and how to read one attempt's page.
 
 To read an evaluation, open `summary.md` first: the headline table (a row
 per measure, with what it counts), then the tables that were wrong or

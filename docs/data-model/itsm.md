@@ -3,6 +3,11 @@
 24 tables, from `data/schemas/itsm.sql`, the schema the server builds
 each attempt's database from. Written by `mas-optimiser schema`; do not edit.
 
+A table's key is the column whose value identifies a row. A reference is a
+column whose value is the key of a row in another table, which is how two
+records are linked; it is written `column` to `table.column`.
+[Reading the results](../results.md) shows one on an example.
+
 | table                                               | columns   | references                                                                                                                           |
 |-----------------------------------------------------|-----------|--------------------------------------------------------------------------------------------------------------------------------------|
 | [`change`](#change)                                 | 23        | `configuration_item`, `organization`, `service_offering`, `service`, `user_group`, `users`                                           |
