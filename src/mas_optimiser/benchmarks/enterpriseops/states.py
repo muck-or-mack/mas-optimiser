@@ -20,18 +20,16 @@ Sources: ``docs/how-it-works.md``, section 6, the rows for ``states``.
 """
 
 import functools
-import re
 import sqlite3
 from pathlib import Path
 
-from mas_optimiser.benchmarks.enterpriseops import seeds
+from mas_optimiser.benchmarks.enterpriseops import seeds, sql
 
 # The CSM server returns at most 100 rows to a query without a limit of its
 # own, so every table is read a page at a time.
 PAGE = 1000
 STAMPED = {"hr": frozenset({"created_at", "updated_at"})}
 # The tables a query reads.
-TABLES = re.compile(r"\b(?:FROM|JOIN)\s+(\w+)", re.IGNORECASE)
 
 
 def columns_of(connection: sqlite3.Connection, table: str) -> list[str]:
@@ -214,7 +212,7 @@ def summary(changes: dict, queries: list[str]) -> list[str]:
     Returns:
         The lines, or one line saying no rows changed.
     """
-    mentioned = {t.lower() for q in queries for t in TABLES.findall(q)}
+    mentioned = {table for query in queries for table in sql.tables(query)}
     lines = []
     for table, change in changes.items():
         parts = []

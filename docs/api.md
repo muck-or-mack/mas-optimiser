@@ -50,6 +50,9 @@ The package's modules, from their docstrings. The command line is
 .. automodule:: mas_optimiser.benchmarks.enterpriseops.checks
    :members:
 
+.. automodule:: mas_optimiser.benchmarks.enterpriseops.sql
+   :members:
+
 .. automodule:: mas_optimiser.benchmarks.enterpriseops.diagnosis
    :members:
 

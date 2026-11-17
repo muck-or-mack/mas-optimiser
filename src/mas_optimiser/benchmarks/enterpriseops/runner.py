@@ -221,6 +221,7 @@ class TaskExecutor(BenchmarkExecutor):
                         result,
                         self.changes,
                         self.layout["keys"],
+                        self.layout["columns"],
                         self._sql_runner(name),
                     )
         except Exception as exc:  # noqa: BLE001

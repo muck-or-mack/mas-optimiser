@@ -179,7 +179,7 @@ async def rescore_attempt(
     for result in results.values():
         if result["passed"] is False and result.get("query"):
             result["diagnosis"] = await diagnosis.diagnose(
-                result, changes, layout["keys"], run_sql
+                result, changes, layout["keys"], layout["columns"], run_sql
             )
     execution["verification_results"] = results
     execution["overall_success"] = checks.passed(results)

@@ -12,6 +12,10 @@ INCIDENT_QUERY = (
     "channel = 'phone' AND status = 'new' AND priority = 'moderate';"
 )
 KEYS = {"incident": ["incident_id"], "users": ["user_id"]}
+COLUMNS = {
+    "incident": ["incident_id", "channel", "priority", "status", "caller"],
+    "users": ["user_id", "email"],
+}
 # The attempt inserted INC_024; INC_025 was in the seed.
 CHANGES = {
     "incident": {
@@ -66,43 +70,9 @@ def verdict(query, expected=1, actual=0, comparison="equals"):
     }
 
 
-def test_conditions_split_at_top_level_and_only():
-    where = "a = 1 AND (b = 2 OR c = 3) AND d = 'x AND y' AND e IN (1, 2)"
-    assert diagnosis.split_conditions(where) == [
-        "a = 1",
-        "(b = 2 OR c = 3)",
-        "d = 'x AND y'",
-        "e IN (1, 2)",
-    ]
-    assert diagnosis.split_conditions("a = 1 OR b = 2") is None
-
-
-def test_count_queries_parse_with_aliases_and_joins():
-    count, source, conditions = diagnosis.parse_count_query(
-        "SELECT COUNT(*) AS n FROM incident i JOIN users u ON i.caller = u.id "
-        "WHERE i.incident_id = 'INC_024' AND u.email = 'a@b.c'"
-    )
-    assert count == "COUNT(*)"
-    assert source == "incident i JOIN users u ON i.caller = u.id"
-    assert conditions == ["i.incident_id = 'INC_024'", "u.email = 'a@b.c'"]
-    assert (
-        diagnosis.parse_count_query("SELECT status FROM incident WHERE id = 1") is None
-    )
-    assert (
-        diagnosis.parse_count_query(
-            "SELECT COUNT(*) FROM t WHERE a = 1 GROUP BY b HAVING COUNT(*) > 1"
-        )
-        is None
-    )
-    assert (
-        diagnosis.parse_count_query("WITH x AS (SELECT 1) SELECT COUNT(*) FROM x")
-        is None
-    )
-
-
 def test_each_condition_is_tested_on_the_rows_the_attempt_touched(run_sql):
     found = asyncio.run(
-        diagnosis.diagnose(verdict(INCIDENT_QUERY), CHANGES, KEYS, run_sql)
+        diagnosis.diagnose(verdict(INCIDENT_QUERY), CHANGES, KEYS, COLUMNS, run_sql)
     )
     key = {"incident_id": "INC_024"}
     assert found["kind"] == "cells"
@@ -126,13 +96,17 @@ def test_each_condition_is_tested_on_the_rows_the_attempt_touched(run_sql):
 def test_an_untouched_row_that_matches_is_not_credited(run_sql):
     # INC_025 has channel = 'phone', but the attempt never touched it.
     query = "SELECT COUNT(*) FROM incident WHERE channel = 'phone' AND priority = 'moderate'"
-    found = asyncio.run(diagnosis.diagnose(verdict(query), CHANGES, KEYS, run_sql))
+    found = asyncio.run(
+        diagnosis.diagnose(verdict(query), CHANGES, KEYS, COLUMNS, run_sql)
+    )
     assert [cell["ok"] for cell in found["rows"]] == [False, False]
     assert found["rows"][0]["actual"] == ["chat"]
 
 
 def test_a_table_the_attempt_never_touched_says_so(run_sql):
-    found = asyncio.run(diagnosis.diagnose(verdict(INCIDENT_QUERY), {}, KEYS, run_sql))
+    found = asyncio.run(
+        diagnosis.diagnose(verdict(INCIDENT_QUERY), {}, KEYS, COLUMNS, run_sql)
+    )
     assert found == {"kind": "no_rows", "table": "incident"}
     assert diagnosis.describe(found) == "no row inserted or updated in incident"
 
@@ -142,7 +116,9 @@ def test_a_condition_on_a_joined_table_is_tested_through_the_join(run_sql):
         "SELECT COUNT(*) FROM incident i JOIN users u ON i.caller = u.user_id "
         "WHERE i.incident_id = 'INC_024' AND u.email = 'a@b.c'"
     )
-    found = asyncio.run(diagnosis.diagnose(verdict(query), CHANGES, KEYS, run_sql))
+    found = asyncio.run(
+        diagnosis.diagnose(verdict(query), CHANGES, KEYS, COLUMNS, run_sql)
+    )
     # The inserted incident's caller has no users row, so the join finds
     # nothing; the condition on the incident itself still holds.
     assert [(cell["condition"], cell["ok"]) for cell in found["rows"]] == [
@@ -160,7 +136,9 @@ def test_a_bracketed_condition_on_a_joined_table_is_tested_through_the_join(run_
         "SELECT COUNT(*) FROM incident i JOIN users u ON i.caller = u.user_id "
         "WHERE i.incident_id = 'INC_024' AND (u.email LIKE '%@b.c' OR u.email = 'x.y')"
     )
-    found = asyncio.run(diagnosis.diagnose(verdict(query), CHANGES, KEYS, run_sql))
+    found = asyncio.run(
+        diagnosis.diagnose(verdict(query), CHANGES, KEYS, COLUMNS, run_sql)
+    )
     assert [(cell["condition"], cell["ok"]) for cell in found["rows"]] == [
         ("i.incident_id = 'INC_024'", True),
         ("(u.email LIKE '%@b.c' OR u.email = 'x.y')", False),
@@ -170,7 +148,7 @@ def test_a_bracketed_condition_on_a_joined_table_is_tested_through_the_join(run_
 def test_surplus_rows_are_shown_for_a_check_expecting_none(run_sql):
     query = "SELECT COUNT(*) FROM incident WHERE status = 'new'"
     found = asyncio.run(
-        diagnosis.diagnose(verdict(query, 0, 2), CHANGES, KEYS, run_sql)
+        diagnosis.diagnose(verdict(query, 0, 2), CHANGES, KEYS, COLUMNS, run_sql)
     )
     assert found["kind"] == "too_many_rows"
     assert [row["incident_id"] for row in found["rows"]] == ["INC_024", "INC_025"]
@@ -187,6 +165,7 @@ def test_a_value_check_is_wanted_against_actual(run_sql):
             ),
             CHANGES,
             KEYS,
+            COLUMNS,
             run_sql,
         )
     )
@@ -199,9 +178,9 @@ def test_a_value_check_is_wanted_against_actual(run_sql):
 
 def test_other_shapes_and_older_records_are_left_alone(run_sql):
     query = "SELECT COUNT(*) FROM incident WHERE channel = 'phone' OR status = 'new'"
-    assert asyncio.run(diagnosis.diagnose(verdict(query), CHANGES, KEYS, run_sql)) == {
-        "kind": "unsupported"
-    }
+    assert asyncio.run(
+        diagnosis.diagnose(verdict(query), CHANGES, KEYS, COLUMNS, run_sql)
+    ) == {"kind": "unsupported"}
     assert diagnosis.describe({"kind": "unsupported"}) == ""
     assert diagnosis.describe({"kind": "no_match", "condition": "x = 1"}) == ""
 
@@ -211,11 +190,64 @@ def test_a_source_that_is_not_a_table_is_left_alone(run_sql):
         "SELECT COUNT(*) FROM (SELECT incident_id FROM incident WHERE status = 'new') x "
         "WHERE x.incident_id = 'INC_024'"
     )
-    found = asyncio.run(diagnosis.diagnose(verdict(query), CHANGES, KEYS, run_sql))
+    found = asyncio.run(
+        diagnosis.diagnose(verdict(query), CHANGES, KEYS, COLUMNS, run_sql)
+    )
     assert found == {"kind": "unsupported"}
     # The same when the check found too many rows: no sample query is built
     # from a source the parser cannot take apart.
     surplus = asyncio.run(
-        diagnosis.diagnose(verdict(query, 0, 1), CHANGES, KEYS, run_sql)
+        diagnosis.diagnose(verdict(query, 0, 1), CHANGES, KEYS, COLUMNS, run_sql)
     )
     assert surplus == {"kind": "unsupported"}
+
+
+def test_an_unqualified_column_of_a_joined_table_is_tested_through_the_join(run_sql):
+    # email is a column of users alone, so the condition reads the join even
+    # though it names no table; tested on incident alone it would be an SQL
+    # error.
+    query = (
+        "SELECT COUNT(*) FROM incident i JOIN users u ON i.caller = u.user_id "
+        "WHERE i.incident_id = 'INC_024' AND email = 'a@b.c'"
+    )
+    found = asyncio.run(
+        diagnosis.diagnose(verdict(query), CHANGES, KEYS, COLUMNS, run_sql)
+    )
+    assert [(cell["condition"], cell["ok"]) for cell in found["rows"]] == [
+        ("i.incident_id = 'INC_024'", True),
+        ("email = 'a@b.c'", False),
+    ]
+
+
+def test_a_double_quoted_value_is_a_value_and_a_trailing_comment_is_dropped(run_sql):
+    # "phone" is no column of either table, so SQLite reads it as a string
+    # and the condition stays on the incident table.
+    query = (
+        "SELECT COUNT(*) FROM incident i JOIN users u ON i.caller = u.user_id "
+        'WHERE i.incident_id = "INC_024" AND channel = "phone" -- the channel asked for'
+    )
+    found = asyncio.run(
+        diagnosis.diagnose(verdict(query), CHANGES, KEYS, COLUMNS, run_sql)
+    )
+    assert [(cell["condition"], cell["ok"]) for cell in found["rows"]] == [
+        ('i.incident_id = "INC_024"', True),
+        ('channel = "phone"', False),
+    ]
+    assert found["rows"][1]["actual"] == ["chat"]
+
+
+def test_a_condition_with_not_in_or_between_keeps_its_column(run_sql):
+    query = (
+        "SELECT COUNT(*) n FROM incident WHERE incident_id = 'INC_024' AND "
+        "channel NOT IN ('chat', 'email') AND LENGTH(status) BETWEEN 5 AND 9"
+    )
+    found = asyncio.run(
+        diagnosis.diagnose(verdict(query), CHANGES, KEYS, COLUMNS, run_sql)
+    )
+    assert [(cell["condition"], cell["ok"]) for cell in found["rows"]] == [
+        ("incident_id = 'INC_024'", True),
+        ("channel NOT IN ('chat', 'email')", False),
+        ("LENGTH(status) BETWEEN 5 AND 9", False),
+    ]
+    assert found["rows"][1]["actual"] == ["chat"]
+    assert found["rows"][2]["actual"] == [3]

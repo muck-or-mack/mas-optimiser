@@ -32,7 +32,7 @@ import re
 from collections import Counter
 
 from mas_optimiser import markdown
-from mas_optimiser.benchmarks.enterpriseops import diagnosis, states
+from mas_optimiser.benchmarks.enterpriseops import diagnosis, sql, states
 
 CELL_COLUMNS = (
     "task_id",
@@ -203,25 +203,6 @@ def writers_of(agent_calls: list[dict], table: str, key: list[str]) -> list[dict
     ]
 
 
-def _column_of(condition: str) -> str:
-    """The bare column a condition tests, without alias or function.
-
-    Args:
-        condition: One condition of a check, as ``diagnosis`` splits them.
-
-    Returns:
-        The column name; empty for a bracketed group.
-    """
-    match = diagnosis.COLUMN.match(condition)
-    if not match:
-        return ""
-    # Inside a function, the first name that is not a quoted value is the
-    # column: COALESCE(notes, ''), strftime('%Y', opened).
-    inside = re.sub(r"^\w+\((.*)\)$", r"\1", match[1])
-    name = re.search(r"[A-Za-z_][\w.]*", diagnosis.QUOTED.sub("", inside))
-    return name[0].split(".")[-1] if name else ""
-
-
 def trace(result: dict, agent_calls: list[dict], keys: dict) -> dict:
     """How a failed check's row was handled: the calls that wrote it, who set each wrong cell, the step.
 
@@ -252,7 +233,7 @@ def trace(result: dict, agent_calls: list[dict], keys: dict) -> dict:
     linked = [c for c in writers if any(_names(c, k, v) for k, v in pairs)] or writers
     set_by = {}
     for row in conditions:
-        column = _column_of(row["condition"])
+        column = sql.column_of(row["condition"])
         if row.get("ok") or not column:
             continue
         for call in linked:
@@ -410,7 +391,7 @@ def _check_lines(result: dict, changes: dict | None, max_chars: int) -> list[str
                     "| " + " | ".join(heads) + " |",
                     "|" + "---|" * len(heads),
                 ]
-            column = _column_of(row["condition"])
+            column = sql.column_of(row["condition"])
             if not row["ok"]:
                 after = ", ".join(str(v) for v in row.get("actual", [])) or "no value"
             elif new and column in new:
@@ -444,14 +425,14 @@ def _check_lines(result: dict, changes: dict | None, max_chars: int) -> list[str
             + ("failed" if c.get("success") is False else "ok")
             for c in linked
         ]
-        parsed = diagnosis.parse_count_query(result.get("query", ""))
-        if parsed:
+        cut = sql.clauses(result.get("query", ""))
+        if cut:
             lines += [
                 "",
                 f"| Check wants in `{table}` | After the attempt |",
                 "|---|---|",
             ]
-            lines += [f"| {cell(condition)} | no row |" for condition in parsed[2]]
+            lines += [f"| {cell(condition)} | no row |" for condition in cut[1]]
         return lines
     if kind == "too_many_rows":
         return [_clip(diagnosis.describe(found), max_chars)]
@@ -604,7 +585,7 @@ def cell_rows(task_id: str, attempt: int, results: dict) -> list[dict]:
             continue
         set_by = (result.get("trace") or {}).get("set_by", {})
         for row in found["rows"]:
-            setter = set_by.get(_column_of(row["condition"]), {})
+            setter = set_by.get(sql.column_of(row["condition"]), {})
             rows.append(
                 {
                     "task_id": task_id,
@@ -637,7 +618,7 @@ def change_rows(
     Returns:
         The rows (``CHANGE_COLUMNS``).
     """
-    mentioned = {t.lower() for q in queries for t in states.TABLES.findall(q)}
+    mentioned = {table for query in queries for table in sql.tables(query)}
     return [
         {
             "task_id": task_id,
@@ -689,9 +670,9 @@ def summary(
     broke = Counter(c["table"] for c in failed if c["step"] == "failed")
     # A failing bracketed group names no single column and is left out here.
     wrong = Counter(
-        _column_of(c["condition"])
+        sql.column_of(c["condition"])
         for c in cells
-        if not c["ok"] and _column_of(c["condition"])
+        if not c["ok"] and sql.column_of(c["condition"])
     )
     pct = f"{100 * passed / attempts:.1f}%" if attempts else "n/a"
     lines = [
@@ -751,9 +732,9 @@ def summary(
                 f"{c['step']} {c['table']}"
             ] += 1
     for cell in cells:
-        if not cell["ok"] and _column_of(cell["condition"]):
+        if not cell["ok"] and sql.column_of(cell["condition"]):
             failures_by_task.setdefault(cell["task_id"], Counter())[
-                f"wrong {_column_of(cell['condition'])}"
+                f"wrong {sql.column_of(cell['condition'])}"
             ] += 1
     ranked = sorted(
         by_task,

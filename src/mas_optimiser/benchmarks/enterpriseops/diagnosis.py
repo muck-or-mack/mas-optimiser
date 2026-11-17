@@ -7,10 +7,11 @@ not hold. Which condition failed, and what value the attempt left instead, is
 the first thing a reader of the attempt, or an optimiser proposing a fix, needs
 to know.
 
-The diagnosis takes the query apart at its top-level ANDs and tests each
-condition on its own against the rows the attempt inserted or updated in the
-query's table (``states.diff`` says which), so a condition that an untouched
-row happens to satisfy is never mistaken for one the attempt met. For a
+The diagnosis takes the query apart at its top-level ANDs (``sql.parse``
+does the reading) and tests each condition on its own against the rows the
+attempt inserted or updated in the query's table (``states.diff`` says
+which), so a condition that an untouched row happens to satisfy is never
+mistaken for one the attempt met. For a
 failing condition on a column, the column's value in that row is fetched. A
 check that counts too many rows (an integrity check expecting none) gets the
 surplus rows instead; a check that reads one value (``SELECT col FROM t WHERE
@@ -26,33 +27,10 @@ cheap queries, and no model is involved.
 Sources: ``docs/how-it-works.md``, section 6, the rows for ``diagnosis``.
 """
 
-import re
 from collections.abc import Awaitable, Callable
 
-COUNT_QUERY = re.compile(
-    r"^\s*SELECT\s+(?P<count>COUNT\s*\([^()]*\))(?:\s+AS\s+\w+)?"
-    r"\s+FROM\s+(?P<source>.+?)\s+WHERE\s+(?P<where>.+?)\s*;?\s*$",
-    re.IGNORECASE | re.DOTALL,
-)
-VALUE_QUERY = re.compile(
-    r"^\s*SELECT\s+(?P<column>[\w.]+)\s+FROM\s+(?P<table>\w+)\s+WHERE\b", re.IGNORECASE
-)
-# Clauses after WHERE that the condition tests cannot keep intact.
-TAIL = re.compile(r"\b(GROUP\s+BY|HAVING|ORDER\s+BY|LIMIT)\b", re.IGNORECASE)
-# Quoted strings are single tokens so that AND or OR inside them is skipped.
-TOKENS = re.compile(r"'[^']*'|\"[^\"]*\"|\(|\)|\bAND\b|\bOR\b", re.IGNORECASE)
-# The column (or function of one) a simple condition tests.
-COLUMN = re.compile(
-    r"^\s*(\w+\([^()]*\)|[\w.]+)\s*(=|!=|<>|>=|<=|>|<|\bIS\b|\bLIKE\b|\bIN\b)",
-    re.IGNORECASE,
-)
-# A quoted value, and the table or alias before a dot in a qualified column.
-QUOTED = re.compile(r"'[^']*'|\"[^\"]*\"")
-QUALIFIED = re.compile(r"\b(\w+)\.\w+")
-# The first table of a FROM clause, with its alias if it has one.
-MAIN_TABLE = re.compile(
-    r"^\s*(?P<table>\w+)(?:\s+(?:AS\s+)?(?P<alias>\w+))?", re.IGNORECASE
-)
+from mas_optimiser.benchmarks.enterpriseops import sql
+
 SAMPLE_ROWS = 3
 NUMBER_TYPES = (int, float)
 # The kinds of diagnosis the renderers know; a record from an older evaluation may
@@ -60,57 +38,6 @@ NUMBER_TYPES = (int, float)
 KINDS = ("cells", "value", "no_rows", "too_many_rows")
 
 RunSQL = Callable[[str], Awaitable[object]]
-
-
-def split_conditions(where: str) -> list[str] | None:
-    """Split a WHERE clause at its top-level ANDs.
-
-    Args:
-        where: The clause, without the ``WHERE`` keyword.
-
-    Returns:
-        The conditions, each stripped, or ``None`` when a top-level OR makes
-        the split meaningless.
-    """
-    cuts = []
-    depth = 0
-    for match in TOKENS.finditer(where):
-        token = match.group().upper()
-        if token == "(":
-            depth += 1
-        elif token == ")":
-            depth -= 1
-        elif depth == 0 and token == "OR":
-            return None
-        elif depth == 0 and token == "AND":
-            cuts.append((match.start(), match.end()))
-    pieces = []
-    start = 0
-    for begin, end in cuts:
-        pieces.append(where[start:begin])
-        start = end
-    pieces.append(where[start:])
-    return [piece.strip() for piece in pieces]
-
-
-def parse_count_query(query: str) -> tuple[str, str, list[str]] | None:
-    """Take a count query apart into its COUNT expression, FROM clause and conditions.
-
-    Args:
-        query: The check's SQL.
-
-    Returns:
-        ``(count, source, conditions)``, or ``None`` for a query the diagnosis
-        cannot take apart: not a count, no WHERE, a GROUP BY, HAVING, ORDER BY
-        or LIMIT after it, or a top-level OR.
-    """
-    match = COUNT_QUERY.match(query)
-    if not match or TAIL.search(match["where"]):
-        return None
-    conditions = split_conditions(match["where"])
-    if conditions is None:
-        return None
-    return match["count"], match["source"], conditions
 
 
 def _as_number(value: object) -> float | None:
@@ -185,7 +112,9 @@ def _touched(changes: dict, table: str, key: list[str]) -> list[dict]:
     return inserted + [update["key"] for update in change["updated"]]
 
 
-async def diagnose(result: dict, changes: dict, keys: dict, run_sql: RunSQL) -> dict:
+async def diagnose(
+    result: dict, changes: dict, keys: dict, columns: dict, run_sql: RunSQL
+) -> dict:
     """Explain one failed check.
 
     Args:
@@ -194,6 +123,7 @@ async def diagnose(result: dict, changes: dict, keys: dict, run_sql: RunSQL) -> 
         changes: The attempt's changes against the seed, as ``states.diff``
             gives them.
         keys: Each table's primary key columns.
+        columns: Each table's columns, from the schema.
         run_sql: Runs a query against the attempt's database and returns the
             value the executor's runner would.
 
@@ -205,62 +135,58 @@ async def diagnose(result: dict, changes: dict, keys: dict, run_sql: RunSQL) -> 
         row of the ``table``), ``too_many_rows`` (sample ``rows``), ``value``
         (one row of wanted against actual), or ``unsupported``.
     """
-    query = result.get("query", "")
-    value = VALUE_QUERY.match(query)
-    if value:
+    parsed = sql.parse(result.get("query", ""), columns)
+    if parsed is None:
+        return {"kind": "unsupported"}
+    table = parsed["table"]
+    if parsed["kind"] == "value":
         row = {
-            "condition": f"{value['column']} = {result.get('expected')!r}",
+            "condition": f"{parsed['column']} = {result.get('expected')!r}",
             "ok": False,
             "actual": [result.get("actual")],
         }
-        return {"kind": "value", "table": value["table"], "rows": [row]}
-    parsed = parse_count_query(query)
+        return {"kind": "value", "table": table, "rows": [row]}
     expected = _as_number(result.get("expected"))
     actual = _as_number(result.get("actual"))
     comparison = result.get("comparison_type", "equals")
-    if parsed is None or expected is None or actual is None:
+    if expected is None or actual is None:
         return {"kind": "unsupported"}
-    count, source, conditions = parsed
-    # A source that does not open with a table name (a subquery) is not taken
-    # apart reliably, so no query is built from it.
-    main = MAIN_TABLE.match(source)
-    if main is None:
-        return {"kind": "unsupported"}
+    conditions = parsed["conditions"]
     if comparison == "less_than" or (comparison == "equals" and actual > expected):
+        every = " AND ".join(condition["text"] for condition in conditions)
         rows = await run_sql(
-            f"SELECT * FROM {source} WHERE {' AND '.join(conditions)} LIMIT {SAMPLE_ROWS}"
+            f"SELECT * FROM {parsed['source']} WHERE {every} LIMIT {SAMPLE_ROWS}"
         )
         return {
             "kind": "too_many_rows",
-            "table": main["table"],
+            "table": table,
             "rows": rows if isinstance(rows, list) else [rows],
         }
-    if main["table"] not in keys:
+    if table not in keys:
         return {"kind": "unsupported"}
-    table, alias = main["table"], main["alias"] or main["table"]
     rows = _touched(changes, table, keys[table])
     if not rows:
         return {"kind": "no_rows", "table": table}
     cells = []
     for key in rows[:SAMPLE_ROWS]:
-        where = " AND ".join(f"{alias}.{k} = {_literal(v)}" for k, v in key.items())
+        where = " AND ".join(
+            f"{parsed['alias']}.{k} = {_literal(v)}" for k, v in key.items()
+        )
         for condition in conditions:
-            # A condition that names another table of the join (by alias or
-            # name, outside any quoted value) is tested through the join; one
-            # on the main table alone, on that table alone, so a join that
-            # finds nothing does not fail every condition at once.
-            column = COLUMN.match(condition)
-            prefixes = set(QUALIFIED.findall(QUOTED.sub("", condition)))
-            scope = source if prefixes - {alias, table} else f"{table} {alias}"
+            # A condition that reads another table of the join is tested
+            # through the join; one on the main table alone, on that table
+            # alone, so a join that finds nothing does not fail every
+            # condition at once.
+            scope = parsed["source"] if condition["joined"] else parsed["main"]
             held = _as_number(
                 await run_sql(
-                    f"SELECT COUNT(*) FROM {scope} WHERE {where} AND {condition}"
+                    f"SELECT COUNT(*) FROM {scope} WHERE {where} AND {condition['text']}"
                 )
             )
-            cell = {"row": key, "condition": condition, "ok": bool(held)}
-            if column and not cell["ok"]:
+            cell = {"row": key, "condition": condition["text"], "ok": bool(held)}
+            if condition["left"] and not cell["ok"]:
                 found = await run_sql(
-                    f"SELECT DISTINCT {column[1]} FROM {scope} WHERE {where}"
+                    f"SELECT DISTINCT {condition['left']} FROM {scope} WHERE {where}"
                 )
                 cell["actual"] = _values(found)
             cells.append(cell)
