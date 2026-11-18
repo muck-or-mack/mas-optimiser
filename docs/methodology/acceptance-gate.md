@@ -598,10 +598,18 @@ strictest last:
 | 3 sigma                                  | 0.135%                      | 3.06         | reject    | 5.3                                             |
 
 :::{figure} ../figures/gate/figures/decisions.png
-:alt: The observed statistic against the bar of each decision rule
+:alt: The gain measured between the two baseline runs, with its uncertainty, against the gains chance alone would give
 
-The $T$ observed between the two baseline runs, the vertical line, against
-the bar of each rule; it lies to the left of every bar.
+How the gain would be spread if nothing had changed (blue, centred on zero)
+and what the comparison of the two baseline runs measured, with its
+uncertainty (orange, centred on +0.7). Both curves are theory and are as
+wide as the standard error. The lower axis is the gain $\bar d$ in
+percentage points and the upper axis the same positions in units of $T$, so
+the grey line, the gain needed at 5%, stands at the bar $X_0$ and the orange
+line at the $T$ observed. The measured gain falls well short of the 2.3
+percentage points needed, and the shaded part of the blue curve beyond it is
+$p$. The two curves nearly coincide, as they should for two runs of one
+harness.
 :::
 
 Each figure of a comparison is drawn from the comparison's data files by
@@ -612,7 +620,7 @@ Each figure of a comparison is drawn from the comparison's data files by
 | `gains` | `tests.csv`: `set`, `tasks`, `gain_percentage_points`, `lower_bound_percentage_points` | `stats.figures.gains` |
 | `differences` | `differences.csv`: `checks_passed_difference_percentage_points` | `stats.figures.differences` |
 | `detectable` | `tests.csv`: `standard_error_percentage_points`, `tasks`, `gain_percentage_points`; `rules.csv`: `false_acceptances_allowed_percent`, `minimum_detectable_effect_percentage_points`; the curves from `stats.gate.power` | `stats.figures.detectable` |
-| `decisions` | `tests.csv`: `t`; `rules.csv`: `bar`, `verdict` | `stats.figures.decisions` |
+| `decisions` | `tests.csv`: `gain_percentage_points`, `standard_error_percentage_points`, `bar`, `p`, `tasks`; the curves from Student's $t$ | `stats.figures.decisions` |
 
 Earlier work on acceptance rules for harness edits showed what happens
 without a noise term: on the same two runs, a rule that keeps any candidate
