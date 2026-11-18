@@ -29,20 +29,30 @@ they are the two possible answers to one question about them.
 
 ### From the results to one number
 
-The task in the table is made up, to show the arithmetic. The totals are
-those of the baseline runs.
+The task in the table is a real one, one of the 125 validation tasks of the
+two runs. It was picked because its attempts differ within both runs and its
+difference is not zero, so that every step of the arithmetic shows, and it
+is not a typical task: 66 of the 125 have a difference of exactly zero. It
+is not named, and the comparison's per-task file, `differences.csv`, is not
+published: the optimiser must not learn from the tasks its changes are
+judged on. With the two runs at hand, the task is the first in that file to
+meet the two conditions. The first run stands as the current harness and the
+second as the candidate.
 
-1. Score each attempt: the share of its checks that passed.
+1. Score each attempt: the share of its checks that passed (`checks_passed`
+   out of `checks_total`, in the run's `tasks.csv`). This task has five
+   checks.
 2. Average the attempts of each task, for each harness.
 
-   |           | attempt 1   | attempt 2   | attempt 3   | task's score   |
-   |-----------|-------------|-------------|-------------|----------------|
-   | current   | 50%         | 75%         | 50%         | 58.3%          |
-   | candidate | 75%         | 75%         | 100%        | 83.3%          |
+   |                        | attempt 1   | attempt 2   | attempt 3   | task's score   |
+   |------------------------|-------------|-------------|-------------|----------------|
+   | current (27 October)   | 3 of 5, 60% | 2 of 5, 40% | 3 of 5, 60% | 53.3%          |
+   | candidate (3 November) | 1 of 5, 20% | 2 of 5, 40% | 2 of 5, 40% | 33.3%          |
 
-3. Take the difference for each task, candidate minus current: here +25.0
-   percentage points. Every task gives one difference, 125 in all (the rows
-   of `differences.csv`).
+3. Take the difference for each task, candidate minus current: here
+   $33.3 - 53.3 = -20.0$ percentage points, though the harness is the same
+   in both runs. Every task gives one difference, 125 in all (the rows of
+   `differences.csv`).
 4. Average the differences. That is the gain: +0.71 percentage points.
 5. Measure how far that average moves by chance. That is the standard error:
    the spread of the differences divided by the square root of their number,
@@ -553,7 +563,8 @@ own standard error.
 The true gain between the two runs is zero, so every acceptance below would
 be false. On the 125 validation tasks of the split `haiku-20-40-40`, three
 attempts each (`docs/figures/gate/` is that comparison as `compare` wrote
-it: the report and its data files):
+it: the report and its data files, without the per-task file
+`differences.csv`):
 
 | outcome               | gain   | standard error   | T     | p    | minimum detectable effect   | Bernstein bound   |
 |-----------------------|--------|------------------|-------|------|-----------------------------|-------------------|
@@ -613,7 +624,9 @@ harness.
 :::
 
 Each figure of a comparison is drawn from the comparison's data files by
-`stats.figures`, and `stats.figures.draw` redraws all four from a folder:
+`stats.figures`, and `stats.figures.draw` redraws all four from a
+comparison's folder (the copy in `docs/figures/gate/` has no
+`differences.csv`, so the `differences` figure cannot be redrawn from it):
 
 | Figure | Drawn from | By |
 |---|---|---|
