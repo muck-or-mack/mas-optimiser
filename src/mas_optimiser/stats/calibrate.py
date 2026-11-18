@@ -50,7 +50,7 @@ CAPTIONS = {
     "same both times, and the spread around it is the noise between two runs "
     "of one harness.",
     "distributions": "What the test assumes: the statistic T when nothing "
-    "changed (solid curve) and when the true gain equals the noise floor "
+    "changed (solid curve) and when the true gain equals the minimum detectable effect "
     "(dashed curve). The bar cuts off the shaded tail of the first, the share "
     "of false acceptances allowed, and leaves the shaded part of the second, "
     "the real gains missed.",

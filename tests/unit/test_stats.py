@@ -1,4 +1,4 @@
-"""Unit tests of ``stats``: per-task scores, pairing, the gate's tests and the noise floor."""
+"""Unit tests of ``stats``: per-task scores, pairing, the gate's tests and the minimum detectable effect."""
 
 import csv
 import json
@@ -199,13 +199,13 @@ def test_bernstein_bound_sits_below_the_mean_and_tightens_with_delta():
         gate.bernstein_bound(np.array([0.0, 1.5]), delta=0.05)
 
 
-def test_the_noise_floor_is_the_gain_found_with_the_chosen_power():
+def test_the_minimum_detectable_effect_is_the_gain_found_with_the_chosen_power():
     se, n = 0.0196, 125
-    floor = gate.detectable(se, n)
-    assert floor == pytest.approx(2.500 * se, rel=1e-3)
-    assert gate.power(se, n, floor) == pytest.approx(0.8, abs=1e-6)
+    effect = gate.detectable(se, n)
+    assert effect == pytest.approx(2.500 * se, rel=1e-3)
+    assert gate.power(se, n, effect) == pytest.approx(0.8, abs=1e-6)
     assert gate.power(se, n, 0.0) == pytest.approx(0.05, abs=1e-6)
-    assert gate.detectable(se, n, power=0.9) > floor
-    # With very many tasks Student's t becomes the normal curve, and the floor
-    # the sum of two normal quantiles.
+    assert gate.detectable(se, n, power=0.9) > effect
+    # With very many tasks Student's t becomes the normal curve, and the
+    # effect the sum of two normal quantiles.
     assert gate.detectable(se, 10**6) == pytest.approx(2.4865 * se, rel=1e-3)

@@ -209,7 +209,7 @@ def bernstein_bound(d: np.ndarray, delta: float) -> float:
 
 
 def detectable(se: float, n: int, alpha: float = 0.05, power: float = 0.8) -> float:
-    """The smallest true gain the test finds with the given power: the noise floor.
+    """The smallest true gain the test finds with the given power: the minimum detectable effect.
 
     The gain at which ``power`` (the function below) reaches the wanted
     value, found by a root search. At 125 tasks and the defaults it is 2.50
