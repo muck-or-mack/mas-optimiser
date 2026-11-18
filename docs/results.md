@@ -2,7 +2,8 @@
 
 Every run writes its results as files under `evaluations/`. This page says
 what each file is, what every column in it means, and how to read one
-attempt from its verdict down to the single value that was wrong.
+attempt from its verdict down to the single value that was wrong. Its last
+section does the same for a comparison of two runs.
 
 One small run is followed throughout. To have it on screen, start the
 benchmark servers (README, "Benchmark servers") and run:
@@ -399,3 +400,86 @@ set on its own:
 ```
 mas-optimiser run <experiment> --split haiku-20-40-40:training
 ```
+
+## 9. Reading a comparison
+
+`mas-optimiser compare` sets a candidate beside the current harness on the
+same tasks and decides whether its gain is more than chance. The command is
+in the README ("Comparing two evaluations"), and the method, from a worked
+example onwards, is on [The acceptance gate](methodology/acceptance-gate.md).
+It writes one folder:
+
+```
+<folder>/
+  comparison.md      the report, to read
+  tests.csv          one row per outcome and set of tasks: every number of the test
+  rules.csv          one row per decision rule
+  sides.csv          one row per side: its run, settings, cost and time
+  differences.csv    one row per task: its score on each side and their difference
+  figures/           the report's four figures
+```
+
+The example here is the comparison of the two baseline runs, one harness run
+twice, whose report and data files are in `docs/figures/gate/`.
+
+### Why the two sides are compared task by task
+
+The test does not weigh one side's average against the other's. It takes
+the difference on each task first:
+
+| how the gain is taken                            | its standard error     |
+|--------------------------------------------------|------------------------|
+| each side's average first, then their difference | 4.22 percentage points |
+| each task's difference first, then their average | 1.36 percentage points |
+
+Tasks differ far more from one another than the two sides differ on any one
+task. A task's score spreads 33 percentage points across the tasks, and the
+two sides' scores on a task go together (a correlation of 0.90). Taking the
+difference on each task removes the task's own difficulty and leaves what
+changed between the sides, which spreads 15 percentage points. Compared as
+two separate averages, a real gain of a few percentage points would be lost
+in the spread between tasks (the numbers are from the comparison's
+`differences.csv`).
+
+### The report, part by part
+
+| part of `comparison.md`   | what it answers                                                      | figure                    |
+|---------------------------|----------------------------------------------------------------------|---------------------------|
+| What is compared          | which runs, which tasks, how many attempts                           |                           |
+| Result                    | each side's score, the gain, the verdict at the comparison's rule    |                           |
+| Cost and time             | what each side cost, per attempt and in all                          |                           |
+| By domain                 | the gain in each domain, for information                             | `gains`                   |
+| The test in full          | every quantity of the test with what it is, and the checks beside it | `differences`             |
+| Decision rules            | the verdict under each of four rules                                 | `decisions`, `detectable` |
+| Data                      | which file holds which numbers                                       |                           |
+
+In "By domain" only the row for all tasks decides. Each domain has a third
+of the tasks, and looking at three domains gives three more chances for one
+of them to clear the bar by chance.
+
+### The four figures
+
+In the order that builds up the result, which is not the report's:
+
+| figure        | what it shows                                          | how to read it                                                                    |
+|---------------|--------------------------------------------------------|-----------------------------------------------------------------------------------|
+| `differences` | every task's difference, as a histogram                | how many tasks rose, fell and stayed the same; the line is their mean, the gain   |
+| `gains`       | the gain with its interval, on all tasks and by domain | a row is accepted when its whole bar lies right of the no-gain line               |
+| `decisions`   | what chance alone would give, and what was measured    | accepted when the measured gain lies right of the grey line; the shaded area is p |
+| `detectable`  | the chance that a real gain of each size is accepted   | each curve crosses 80% at that rule's minimum detectable effect                   |
+
+In `decisions` both curves are as wide as the standard error. The lower axis
+is the gain in percentage points and the upper axis the same positions in
+units of T, so the grey line stands at the bar and the measured gain at the T
+observed.
+
+On the example: 32 tasks rose, 27 fell and 66 stayed the same. The gain is
++0.71 percentage points with a standard error of 1.36, so T is 0.52 and p is
+0.30. The two curves of `decisions` nearly coincide and the measured gain is
+far short of the 2.3 percentage points needed, which is the right answer for
+one harness run twice.
+
+A gain accepted at the comparison's own rule can still be rejected by the
+stricter rules of the "Decision rules" table. Those are for a run that makes
+many decisions, where false acceptances would otherwise add up (the method
+page, "The level of each decision").

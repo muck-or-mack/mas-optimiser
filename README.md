@@ -365,7 +365,9 @@ files for reading, with the figures of `figures/` embedded: what is
 compared, the result for both outcomes (checks passed and attempts fully
 passed, in percent, their difference in percentage points), cost and time,
 the result by domain, the test in full with what each quantity is, and the
-decision rules. The method is in `docs/methodology/acceptance-gate.md`.
+decision rules. The method is in `docs/methodology/acceptance-gate.md`, and
+how to read the report, part by part, in `docs/results.md` ("Reading a
+comparison").
 Running it on the 27 October and 3 November baselines, two runs of one
 harness, gives the minimum detectable effect every later gain is measured
 against.
