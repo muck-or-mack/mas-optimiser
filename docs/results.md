@@ -420,7 +420,9 @@ It writes one folder:
 ```
 
 The example here is the comparison of the two baseline runs, one harness run
-twice, whose report and data files are in `docs/figures/gate/`.
+twice, whose report and data files are in `docs/figures/gate/`, all but the
+per-task file `differences.csv`. That file is not published: the optimiser
+must not learn from the tasks its changes are judged on.
 
 ### Why the two sides are compared task by task
 
