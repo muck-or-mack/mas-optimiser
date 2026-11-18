@@ -8,7 +8,8 @@ each as PDF and PNG, each with one thing to show:
 - ``differences``: how many tasks rose, fell and stayed the same;
 - ``detectable``: the chance that a real gain of each size is accepted under
   each decision rule, with the minimum detectable effects and the gain observed;
-- ``decisions``: the observed statistic against the bar of each rule.
+- ``decisions``: the gain measured, with its uncertainty, against the gains
+  chance alone would give.
 
 ``draw_calibration`` does the same for a calibration's folder
 (``scores.csv``, ``pulls.csv``, ``calibration.csv``) with three figures:
@@ -28,7 +29,6 @@ backend and needs no display.
 Sources: ``docs/how-it-works.md``, section 6, the rows for ``stats``.
 """
 
-import textwrap
 from pathlib import Path
 
 import matplotlib
@@ -240,65 +240,64 @@ def detectable(tests: pd.DataFrame, rules: pd.DataFrame, out: Path) -> None:
 
 
 def decisions(tests: pd.DataFrame, rules: pd.DataFrame, out: Path) -> None:
-    """The observed statistic against the bar of each decision rule.
+    """The gain measured, with its uncertainty, against the gains chance alone would give.
 
-    One row per rule with a mark at its bar on T; the vertical line is the T
-    observed on all tasks. A rule accepts when its bar lies to the left of
-    that line; each row's verdict is written beside it.
+    Two curves on the gain's own axis, in percentage points, both theory and
+    both as wide as the standard error: how the gain would be spread if
+    nothing had changed, centred on zero, and what this comparison measured,
+    centred on its gain. The upper axis gives the same positions in units of
+    T, the gain divided by the standard error, so the grey line, the gain the
+    comparison's rule needs, stands at the bar and the measured gain at the T
+    observed. The candidate is accepted when the measured gain lies beyond
+    the grey line. The part of the first curve beyond the measured gain,
+    shaded, is p.
 
     Args:
         tests: The tests, as ``tests.csv`` holds them.
-        rules: The decision rules, as ``rules.csv`` holds them.
+        rules: The decision rules, as ``rules.csv`` holds them; they name the
+            outcome that decides.
         out: The folder to write ``decisions.pdf`` and ``decisions.png`` into.
     """
     outcome = rules["outcome"].iloc[0]
-    t = tests[(tests["outcome"] == outcome) & (tests["set"] == "all")].iloc[0]["t"]
-    rows = rules.iloc[::-1]
+    row = tests[(tests["outcome"] == outcome) & (tests["set"] == "all")].iloc[0]
+    gain, se = row["gain_percentage_points"], row["standard_error_percentage_points"]
+    needed, n = row["bar"] * se, int(row["tasks"])
+    x = np.linspace(min(0.0, gain) - 3.5 * se, max(needed, gain) + 3.5 * se, 400)
+    # Student's t, stretched from standard errors to percentage points.
+    unchanged = stats.t.pdf(x / se, n - 1) / se
     with plt.style.context(STYLE):
-        fig, ax = plt.subplots(figsize=(3.4, 0.42 * len(rows) + 0.8))
-        ax.axvline(t, color=OBSERVED, linewidth=1.2)
-        ax.text(
-            t,
-            1.01,
-            f"T {t:+.2f}",
-            transform=ax.get_xaxis_transform(),
-            ha="center",
-            va="bottom",
-            color=INK,
-            fontsize=7,
+        fig, ax = plt.subplots(figsize=(3.4, 2.9))
+        ax.plot(x, unchanged, color=THEORY, label="if nothing had changed ($H_0$)")
+        ax.plot(
+            x,
+            stats.t.pdf((x - gain) / se, n - 1) / se,
+            color=OBSERVED,
+            label="what was measured, with its uncertainty",
         )
-        ax.scatter(
-            rows["bar"],
-            range(len(rows)),
-            marker="|",
-            s=140,
-            linewidths=2,
-            color=RAMP(np.linspace(1, 0, len(rows))),
+        ax.fill_between(
+            x, unchanged, where=x >= gain, color=THEORY, alpha=0.35, linewidth=0
         )
-        for y, (_, rule) in enumerate(rows.iterrows()):
-            ax.annotate(
-                f"{rule['bar']:.2f}",
-                (rule["bar"], y),
-                xytext=(4, 4),
-                textcoords="offset points",
-                color=INK,
-                fontsize=7,
-            )
-            ax.text(
-                1.02,
-                y,
-                rule["verdict"],
-                transform=ax.get_yaxis_transform(),
-                va="center",
-                color=INK,
-                fontsize=7,
-            )
-        ax.set_yticks(
-            range(len(rows)), [textwrap.fill(name, 24) for name in rows["rule"]]
+        ax.axvline(
+            needed,
+            color=REFERENCE,
+            linewidth=0.8,
+            label=f"needed: {needed:.1f} ($X_0$ = {row['bar']:.2f})",
         )
-        ax.set_ylim(-0.6, len(rows) - 0.4)
-        ax.set_xlim(min(0.0, t) - 0.4, max(rows["bar"].max(), t) + 0.5)
-        ax.set_xlabel("T = gain / standard error")
+        ax.axvline(
+            gain,
+            color=OBSERVED,
+            linewidth=0.8,
+            label=f"measured: {gain:+.1f} ($T$ = {row['t']:+.2f}), $p$ = {row['p']:.3f}",
+        )
+        ax.set_xlim(x[0], x[-1])
+        ax.set_ylim(0, None)
+        ax.set_xlabel(f"gain $\\bar{{d}}$ in {outcome} [percentage points]")
+        ax.set_ylabel("probability density of $\\bar{d}$\n[per percentage point]")
+        # The same positions in standard errors: the axis of the test.
+        above = ax.twiny()
+        above.set_xlim(x[0] / se, x[-1] / se)
+        above.set_xlabel("$T = \\bar{d}\\,/\\,\\mathrm{SE}$")
+        ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.24), ncol=1)
     _save(fig, out, "decisions")
 
 

@@ -6,6 +6,7 @@ import csv
 import numpy as np
 import pandas as pd
 import pytest
+from scipy import stats
 
 from mas_optimiser.stats import compare, figures, outcomes
 from tests.unit.test_stats import write_evaluation
@@ -160,6 +161,23 @@ def test_figures_are_redrawn_from_the_data_files_alone(tmp_path):
         for name in ("gains", "differences", "detectable", "decisions")
         for ext in ("pdf", "png")
     )
+
+
+def test_the_decisions_figure_shades_the_p_the_file_holds_and_takes_any_gain(tmp_path):
+    out = compared(*sides(tmp_path), tmp_path / "cmp")
+    tests, rules = pd.read_csv(out / "tests.csv"), pd.read_csv(out / "rules.csv")
+    whole = (tests["set"] == "all") & (tests["outcome"] == "checks passed")
+    row = tests[whole].iloc[0]
+    # The area the figure shades, the tail of Student's t beyond the gain
+    # measured, is the p the report prints (the file keeps six digits).
+    assert stats.t.sf(row["t"], row["tasks"] - 1) == pytest.approx(row["p"], rel=1e-4)
+    # A candidate that is worse, and one far beyond the bar, are drawn as well.
+    se = row["standard_error_percentage_points"]
+    for t in (-2.4, row["bar"] + 3.0):
+        tests.loc[whole, ["t", "gain_percentage_points"]] = t, t * se
+        tests.loc[whole, "p"] = stats.t.sf(t, row["tasks"] - 1)
+        figures.decisions(tests, rules, tmp_path / f"t{t:+.1f}")
+        assert (tmp_path / f"t{t:+.1f}" / "decisions.png").exists()
 
 
 def test_identical_sides_give_a_report_without_a_test(tmp_path):

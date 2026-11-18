@@ -84,9 +84,14 @@ CAPTIONS = {
     "differences": "How many tasks rose, fell and stayed the same, in bins ten "
     "percentage points wide. The grey bar is the tasks that did not change; "
     "the line is the mean, which is the gain.",
-    "decisions": "The T observed (the vertical line) against the bar of each "
-    "decision rule (the marks). A rule accepts when its bar lies to the left "
-    "of the line.",
+    "decisions": "How the gain would be spread if nothing had changed (blue, "
+    "centred on zero) and what this comparison measured, with its uncertainty "
+    "(orange, centred on the measured gain). Both curves are theory and are as "
+    "wide as the standard error. The lower axis is the gain in percentage "
+    "points and the upper axis the same positions in units of T. The grey "
+    "line is the gain needed at the comparison's rule, which stands at the "
+    "bar on T: the candidate is accepted when the measured gain lies to its "
+    "right. The shaded part of the blue curve beyond the measured gain is p.",
     "detectable": "The chance that a real gain of each size would be accepted "
     "under each decision rule: theory, from this comparison's standard error. "
     "Each curve crosses 80% at that rule's minimum detectable effect, marked; the vertical "
