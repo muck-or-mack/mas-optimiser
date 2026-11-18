@@ -7,7 +7,7 @@ each as PDF and PNG, each with one thing to show:
 - ``gains``: the gain on all tasks and in each domain, with its interval;
 - ``differences``: how many tasks rose, fell and stayed the same;
 - ``detectable``: the chance that a real gain of each size is accepted under
-  each decision rule, with the noise floors and the gain observed;
+  each decision rule, with the minimum detectable effects and the gain observed;
 - ``decisions``: the observed statistic against the bar of each rule.
 
 ``draw_calibration`` does the same for a calibration's folder
@@ -184,7 +184,7 @@ def detectable(tests: pd.DataFrame, rules: pd.DataFrame, out: Path) -> None:
 
     One curve per decision rule, from ``gate.power`` at the standard error of
     the comparison on all tasks: theory, not data. Each curve crosses 80% at
-    that rule's noise floor, which is marked and given in the legend. The
+    that rule's minimum detectable effect, which is marked and given in the legend. The
     vertical line is the gain this comparison observed.
 
     Args:
@@ -197,7 +197,9 @@ def detectable(tests: pd.DataFrame, rules: pd.DataFrame, out: Path) -> None:
     se, n = row["standard_error_percentage_points"], int(row["tasks"])
     observed = row["gain_percentage_points"]
     sizes = np.linspace(
-        min(0.0, observed), 1.6 * rules["noise_floor_percentage_points"].max(), 120
+        min(0.0, observed),
+        1.6 * rules["minimum_detectable_effect_percentage_points"].max(),
+        120,
     )
     with plt.style.context(STYLE):
         fig, ax = plt.subplots(figsize=(3.4, 3.1))
@@ -206,14 +208,14 @@ def detectable(tests: pd.DataFrame, rules: pd.DataFrame, out: Path) -> None:
             rules.iterrows(), RAMP(np.linspace(0, 1, len(rules))), strict=True
         ):
             level = rule["false_acceptances_allowed_percent"] / 100
-            floor = rule["noise_floor_percentage_points"]
+            effect = rule["minimum_detectable_effect_percentage_points"]
             ax.plot(
                 sizes,
                 [100 * gate.power(se, n, size, level) for size in sizes],
                 color=colour,
-                label=f"{rule['rule']}: floor {floor:.1f}",
+                label=f"{rule['rule']}: {effect:.1f}",
             )
-            ax.plot(floor, 80, "o", color=colour)
+            ax.plot(effect, 80, "o", color=colour)
         ax.axvline(observed, color=OBSERVED, linewidth=1.2)
         ax.text(
             observed,
@@ -228,7 +230,12 @@ def detectable(tests: pd.DataFrame, rules: pd.DataFrame, out: Path) -> None:
         ax.set_ylim(0, 100)
         ax.set_xlabel(f"true gain in {outcome} [percentage points]")
         ax.set_ylabel("chance of acceptance [%]")
-        ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.24), ncol=1)
+        ax.legend(
+            loc="upper center",
+            bbox_to_anchor=(0.5, -0.24),
+            ncol=1,
+            title="rule: minimum detectable effect [percentage points]",
+        )
     _save(fig, out, "detectable")
 
 
@@ -366,7 +373,7 @@ def distributions(n: int, alpha: float, out: Path) -> None:
     """What the test assumes of its statistic, with and without a real gain.
 
     Student's t with ``n - 1`` degrees of freedom when nothing changed, and
-    the noncentral t when the true gain equals the noise floor, with the bar
+    the noncentral t when the true gain equals the minimum detectable effect, with the bar
     between them. Theory only: the tail of the first curve beyond the bar is
     the share of false acceptances allowed, the part of the second below it
     the share of real gains missed.
@@ -391,7 +398,7 @@ def distributions(n: int, alpha: float, out: Path) -> None:
             gain,
             color=THEORY,
             linestyle="--",
-            label="true gain equal to the noise floor",
+            label="true gain equal to the minimum detectable effect",
         )
         ax.fill_between(x, null, where=x >= bar, color=THEORY, alpha=0.35, linewidth=0)
         ax.fill_between(x, gain, where=x <= bar, color=THEORY, alpha=0.15, linewidth=0)

@@ -11,10 +11,10 @@ The same 125 validation tasks of split haiku-20-40-40 on both sides (csm 42, hr 
 
 ## Result
 
-| outcome               | current   | candidate   | gain                   | verdict at 5%    | noise floor           |
-|-----------------------|-----------|-------------|------------------------|------------------|-----------------------|
-| checks passed         | 52.2%     | 52.9%       | +0.7 percentage points | reject (p 0.300) | 3.4 percentage points |
-| attempts fully passed | 20.5%     | 22.7%       | +2.1 percentage points | reject (p 0.139) | 4.9 percentage points |
+| outcome               | current   | candidate   | gain                   | verdict at 5%    | minimum detectable effect   |
+|-----------------------|-----------|-------------|------------------------|------------------|-----------------------------|
+| checks passed         | 52.2%     | 52.9%       | +0.7 percentage points | reject (p 0.300) | 3.4 percentage points       |
+| attempts fully passed | 20.5%     | 22.7%       | +2.1 percentage points | reject (p 0.139) | 4.9 percentage points       |
 
 The decision uses "checks passed". Checks passed is each task's percentage of checks passed, averaged over its attempts and then over tasks, so every task counts equally. Attempts fully passed is the percentage of attempts in which every check passed.
 
@@ -27,12 +27,12 @@ The decision uses "checks passed". Checks passed is each task's percentage of ch
 
 ## By domain (checks passed)
 
-| tasks    | current   | candidate   | gain (percentage points)   | noise floor (percentage points)   | verdict at 5%   |
-|----------|-----------|-------------|----------------------------|-----------------------------------|-----------------|
-| all, 125 | 52.2%     | 52.9%       | +0.7                       | 3.4                               | reject          |
-| csm, 42  | 52.7%     | 55.7%       | +3.0                       | 6.6                               | reject          |
-| hr, 41   | 55.6%     | 55.0%       | -0.6                       | 5.4                               | reject          |
-| itsm, 42 | 48.4%     | 48.2%       | -0.2                       | 5.8                               | reject          |
+| tasks    | current   | candidate   | gain (percentage points)   | minimum detectable effect (percentage points)   | verdict at 5%   |
+|----------|-----------|-------------|----------------------------|-------------------------------------------------|-----------------|
+| all, 125 | 52.2%     | 52.9%       | +0.7                       | 3.4                                             | reject          |
+| csm, 42  | 52.7%     | 55.7%       | +3.0                       | 6.6                                             | reject          |
+| hr, 41   | 55.6%     | 55.0%       | -0.6                       | 5.4                                             | reject          |
+| itsm, 42 | 48.4%     | 48.2%       | -0.2                       | 5.8                                             | reject          |
 
 The domain rows are for information. Only the first row decides.
 
@@ -42,21 +42,21 @@ The domain rows are for information. Only the first row decides.
 
 ## The test in full (all 125 tasks)
 
-| quantity                 | checks passed   | attempts fully passed   | what it is                                                  |
-|--------------------------|-----------------|-------------------------|-------------------------------------------------------------|
-| gain                     | +0.71           | +2.13                   | mean over tasks of candidate minus current                  |
-| standard error           | 1.36            | 1.96                    | how far the gain would move if both runs were repeated      |
-| T                        | +0.52           | +1.09                   | gain divided by standard error                              |
-| bar on T                 | 1.66            | 1.66                    | T must exceed this to be accepted                           |
-| p                        | 0.300           | 0.139                   | chance that a change that does nothing gives a T this large |
-| lower bound              | -1.54           | -1.11                   | the true gain is above this with 95% confidence             |
-| noise floor              | 3.4             | 4.9                     | smallest true gain the test catches 4 times in 5            |
-| tasks up / down / same   | 32 / 27 / 66    | 17 / 13 / 95            | tasks whose score rose, fell or stayed the same             |
-| sign test p              | 0.301           | 0.292                   | cross-check using only the direction of each change         |
-| permutation p            | 0.300           | 0.169                   | cross-check that does not assume the test's distribution    |
-| bootstrap standard error | 1.37            | 1.97                    | cross-check of the standard error by resampling tasks       |
+| quantity                  | checks passed   | attempts fully passed   | what it is                                                  |
+|---------------------------|-----------------|-------------------------|-------------------------------------------------------------|
+| gain                      | +0.71           | +2.13                   | mean over tasks of candidate minus current                  |
+| standard error            | 1.36            | 1.96                    | how far the gain would move if both runs were repeated      |
+| T                         | +0.52           | +1.09                   | gain divided by standard error                              |
+| bar on T                  | 1.66            | 1.66                    | T must exceed this to be accepted                           |
+| p                         | 0.300           | 0.139                   | chance that a change that does nothing gives a T this large |
+| lower bound               | -1.54           | -1.11                   | the true gain is above this with 95% confidence             |
+| minimum detectable effect | 3.4             | 4.9                     | smallest true gain the test catches 4 times in 5            |
+| tasks up / down / same    | 32 / 27 / 66    | 17 / 13 / 95            | tasks whose score rose, fell or stayed the same             |
+| sign test p               | 0.301           | 0.292                   | cross-check using only the direction of each change         |
+| permutation p             | 0.300           | 0.169                   | cross-check that does not assume the test's distribution    |
+| bootstrap standard error  | 1.37            | 1.97                    | cross-check of the standard error by resampling tasks       |
 
-Gain, standard error, lower bound, noise floor and bootstrap standard error are in percentage points.
+Gain, standard error, lower bound, minimum detectable effect and bootstrap standard error are in percentage points.
 
 ![differences](figures/differences.png)
 
@@ -64,12 +64,12 @@ Gain, standard error, lower bound, noise floor and bootstrap standard error are 
 
 ## Decision rules (checks passed; T is +0.52)
 
-| rule                                     | false acceptances allowed   | bar on T   | verdict   | noise floor (percentage points)   |
-|------------------------------------------|-----------------------------|------------|-----------|-----------------------------------|
-| one decision at 5%                       | 5%                          | 1.66       | reject    | 3.4                               |
-| 5% shared over a run (REUSE), decision 1 | 1.25%                       | 2.27       | reject    | 4.2                               |
-| 5% shared equally over 20 decisions      | 0.25%                       | 2.86       | reject    | 5.0                               |
-| 3 sigma                                  | 0.135%                      | 3.06       | reject    | 5.3                               |
+| rule                                     | false acceptances allowed   | bar on T   | verdict   | minimum detectable effect (percentage points)   |
+|------------------------------------------|-----------------------------|------------|-----------|-------------------------------------------------|
+| one decision at 5%                       | 5%                          | 1.66       | reject    | 3.4                                             |
+| 5% shared over a run (REUSE), decision 1 | 1.25%                       | 2.27       | reject    | 4.2                                             |
+| 5% shared equally over 20 decisions      | 0.25%                       | 2.86       | reject    | 5.0                                             |
+| 3 sigma                                  | 0.135%                      | 3.06       | reject    | 5.3                                             |
 
 ![decisions](figures/decisions.png)
 
@@ -77,7 +77,7 @@ Gain, standard error, lower bound, noise floor and bootstrap standard error are 
 
 ![detectable](figures/detectable.png)
 
-*The chance that a real gain of each size would be accepted under each decision rule: theory, from this comparison's standard error. Each curve crosses 80% at that rule's noise floor, marked; the vertical line is the gain observed.*
+*The chance that a real gain of each size would be accepted under each decision rule: theory, from this comparison's standard error. Each curve crosses 80% at that rule's minimum detectable effect, marked; the vertical line is the gain observed.*
 
 ## Data
 

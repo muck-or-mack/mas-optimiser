@@ -57,7 +57,7 @@ TEST_COLUMNS = [
     "p",
     "verdict",
     "lower_bound_percentage_points",
-    "noise_floor_percentage_points",
+    "minimum_detectable_effect_percentage_points",
     "tasks_up",
     "tasks_down",
     "tasks_unchanged",
@@ -73,7 +73,7 @@ RULE_COLUMNS = [
     "bar",
     "t",
     "verdict",
-    "noise_floor_percentage_points",
+    "minimum_detectable_effect_percentage_points",
 ]
 # The figures, each with the caption the report gives it.
 CAPTIONS = {
@@ -89,7 +89,7 @@ CAPTIONS = {
     "of the line.",
     "detectable": "The chance that a real gain of each size would be accepted "
     "under each decision rule: theory, from this comparison's standard error. "
-    "Each curve crosses 80% at that rule's noise floor, marked; the vertical "
+    "Each curve crosses 80% at that rule's minimum detectable effect, marked; the vertical "
     "line is the gain observed.",
 }
 
@@ -291,7 +291,8 @@ def _row(set_name: str, cmp: Comparison, alpha: float) -> dict:
         "p": test.p,
         "verdict": "accept" if test.accept else "reject",
         "lower_bound_percentage_points": 100 * test.lower,
-        "noise_floor_percentage_points": 100 * gate.detectable(test.se, test.n, alpha),
+        "minimum_detectable_effect_percentage_points": 100
+        * gate.detectable(test.se, test.n, alpha),
         "tasks_up": sign.n_plus,
         "tasks_down": sign.n_minus,
         "tasks_unchanged": len(d) - sign.n_plus - sign.n_minus,
@@ -343,7 +344,11 @@ def _report(
         ("bar on T", "bar", ".2f"),
         ("p", "p", ".3f"),
         ("lower bound", "lower_bound_percentage_points", "+.2f"),
-        ("noise floor", "noise_floor_percentage_points", ".1f"),
+        (
+            "minimum detectable effect",
+            "minimum_detectable_effect_percentage_points",
+            ".1f",
+        ),
         ("sign test p", "sign_test_p", ".3f"),
         ("permutation p", "permutation_p", ".3f"),
         (
@@ -360,7 +365,7 @@ def _report(
         "p": "chance that a change that does nothing gives a T this large",
         "lower bound": "the true gain is above this with "
         f"{100 - decides['false_acceptances_allowed_percent']:g}% confidence",
-        "noise floor": "smallest true gain the test catches 4 times in 5",
+        "minimum detectable effect": "smallest true gain the test catches 4 times in 5",
         "tasks up / down / same": "tasks whose score rose, fell or stayed the same",
         "sign test p": "cross-check using only the direction of each change",
         "permutation p": "cross-check that does not assume the test's distribution",
@@ -421,7 +426,7 @@ def _report(
                 "candidate",
                 "gain",
                 f"verdict at {level}",
-                "noise floor",
+                "minimum detectable effect",
             ],
             [
                 [
@@ -432,7 +437,7 @@ def _report(
                     "n/a"
                     if pd.isna(row["verdict"])
                     else f"{row['verdict']} (p {row['p']:.3f})",
-                    f"{shown(row['noise_floor_percentage_points'], '.1f')} percentage points",
+                    f"{shown(row['minimum_detectable_effect_percentage_points'], '.1f')} percentage points",
                 ]
                 for _, row in whole.iterrows()
             ],
@@ -475,7 +480,7 @@ def _report(
                 "current",
                 "candidate",
                 "gain (percentage points)",
-                "noise floor (percentage points)",
+                "minimum detectable effect (percentage points)",
                 f"verdict at {level}",
             ],
             [
@@ -484,7 +489,7 @@ def _report(
                     f"{row['current_percent']:.1f}%",
                     f"{row['candidate_percent']:.1f}%",
                     f"{row['gain_percentage_points']:+.1f}",
-                    shown(row["noise_floor_percentage_points"], ".1f"),
+                    shown(row["minimum_detectable_effect_percentage_points"], ".1f"),
                     "n/a" if pd.isna(row["verdict"]) else row["verdict"],
                 ]
                 for _, row in gate_rows.iterrows()
@@ -498,7 +503,7 @@ def _report(
         "",
         table(["quantity", *whole["outcome"], "what it is"], full),
         "",
-        "Gain, standard error, lower bound, noise floor and bootstrap standard "
+        "Gain, standard error, lower bound, minimum detectable effect and bootstrap standard "
         "error are in percentage points.",
         "",
         *figure("differences"),
@@ -510,7 +515,7 @@ def _report(
                 "false acceptances allowed",
                 "bar on T",
                 "verdict",
-                "noise floor (percentage points)",
+                "minimum detectable effect (percentage points)",
             ],
             [
                 [
@@ -518,7 +523,7 @@ def _report(
                     f"{row['false_acceptances_allowed_percent']:.3g}%",
                     shown(row["bar"], ".2f"),
                     "n/a" if pd.isna(row["verdict"]) else row["verdict"],
-                    shown(row["noise_floor_percentage_points"], ".1f"),
+                    shown(row["minimum_detectable_effect_percentage_points"], ".1f"),
                 ]
                 for _, row in rules.iterrows()
             ],
@@ -584,7 +589,7 @@ def run(args: argparse.Namespace) -> None:
                 "bar": test.x0,
                 "t": test.t,
                 "verdict": "accept" if test.accept else "reject",
-                "noise_floor_percentage_points": 100
+                "minimum_detectable_effect_percentage_points": 100
                 * gate.detectable(test.se, test.n, level),
             }
         except ValueError:

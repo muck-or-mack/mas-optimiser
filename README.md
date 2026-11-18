@@ -12,7 +12,8 @@ Status: early development. The benchmark's own agent can be run on its
 tasks; the planner and the optimiser are not written yet.
 
 Documentation: <https://mas-optimiser.readthedocs.io/>, rebuilt from `main`
-on every push.
+on every push. To read a change before it is pushed, `./scripts/docs.sh`
+builds the documentation and opens it in the browser.
 
 How it all works, file by file, with one attempt followed from the command
 to the wrong cell and the turn that set it: `docs/how-it-works.md`, with
@@ -349,7 +350,8 @@ validation set by default) or on every task both sides scored. A side is
 named by its run (`2026-11-03-0803`), by a day when the experiment ran
 once that day, or by a run folder or evaluation folders given one `--a` or
 `--b` at a time; names are resolved through the experiment's `index.csv`.
-The two baseline runs of the same harness, which set the noise floor:
+The two baseline runs of the same harness, which give the standard error
+and the minimum detectable effect:
 
 ```
 mas-optimiser compare --experiment baseline-haiku --a 2026-10-27-0528 --b 2026-11-03-0803 --split haiku-20-40-40
@@ -365,7 +367,8 @@ passed, in percent, their difference in percentage points), cost and time,
 the result by domain, the test in full with what each quantity is, and the
 decision rules. The method is in `docs/methodology/acceptance-gate.md`.
 Running it on the 27 October and 3 November baselines, two runs of one
-harness, gives the noise floor every later gain is measured against.
+harness, gives the minimum detectable effect every later gain is measured
+against.
 
 ## Checking the test on two runs of one harness
 

@@ -31,7 +31,7 @@ A calibrated test has a mean of 0, the width of Student's t, and accepts at each
 
 ![distributions](figures/distributions.png)
 
-*What the test assumes: the statistic T when nothing changed (solid curve) and when the true gain equals the noise floor (dashed curve). The bar cuts off the shaded tail of the first, the share of false acceptances allowed, and leaves the shaded part of the second, the real gains missed.*
+*What the test assumes: the statistic T when nothing changed (solid curve) and when the true gain equals the minimum detectable effect (dashed curve). The bar cuts off the shaded tail of the first, the share of false acceptances allowed, and leaves the shaded part of the second, the real gains missed.*
 
 ## Limits
 
