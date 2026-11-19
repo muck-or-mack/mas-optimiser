@@ -89,10 +89,8 @@ One attempt at one ITSM task, watched live, then read. It costs a few cents.
    `scripts/langfuse.sh up`, and open http://localhost:3000.
 2. Run one task of the `demo` experiment (the servers start if needed):
    ```
-   scripts/demo.sh --task task_20251212_191815_314_391f1eff_c23d76df
+   scripts/demo.sh --limit 1
    ```
-   The request: a user's email server is down; record an incident, link the
-   service, send her a report.
 3. While it runs, open the newest session in Langfuse: the trace grows one
    turn at a time, each with the model's reasoning summary, its tool call
    and the server's answer.
@@ -101,10 +99,11 @@ One attempt at one ITSM task, watched live, then read. It costs a few cents.
    a page: the turns, every row the agent wrote, and each check as a table
    of what it wanted against what it found.
 5. To query the database the attempt ended with:
-   `mas-optimiser rebuild <folder> task_20251212_191815_314_391f1eff_c23d76df 1`
+   `mas-optimiser rebuild <folder> <task_id> 1`
    writes `attempt-1.sqlite` beside the page.
-6. `docs/how-it-works.md` follows the same task through the code, file by
-   file, and `docs/data-model/itsm.md` names every table the checks query.
+6. `docs/how-it-works.md` follows a made-up attempt with the same parts
+   through the code, file by file, and `docs/data-model/itsm.md` names
+   every table the checks query.
 
 ## Reading the results
 
