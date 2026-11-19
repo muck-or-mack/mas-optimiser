@@ -16,12 +16,15 @@ vendored unchanged under `vendor/enterpriseops-gym/`; blue boxes are this
 package; yellow boxes are services outside the process; green shapes are
 files.
 
-The document follows one real attempt from the 3 November baseline so
-that every mechanism is shown on data: task
-`task_20251212_191815_314_391f1eff_c23d76df` (ITSM, in the training set),
-attempt 1, whose page is
-`evaluations/baseline-haiku/2026-11-03-0803/itsm/tasks/<task>/attempt-1.md`. Line
-numbers refer to the files at the commit that last changed this document
+The document follows one attempt so that every mechanism is shown on
+data. The attempt is made up. It describes no task of the benchmark, so no
+task has to count as already read when the tasks are split, and no task's
+result is published here. Its names resemble the ITSM domain's. It is the
+attempt the unit tests build their page from (`EXECUTION` in
+`tests/unit/test_report.py`), so every table of the example below is what
+the code gives for it. A real attempt's page has the same parts: the
+demonstration in the README makes one. Line numbers refer to the files at
+the commit that last changed this document
 (`git log -1 -- docs/how-it-works.md`).
 
 
@@ -79,28 +82,22 @@ returning to:
   that an incident's `channel` defaults to `chat` and its `impact` to `low`
   when the request gives neither, and that `priority` is derived from
   impact and urgency by a matrix.
-- `user_prompt`: the request. The example's reads, in short: Isabella Rossi
-  wrote in; her email server (serial SERVER-SF-SRV01) has been down for a
-  long time; it is highly impacting her work; she needs it fixed with high
-  urgency; check for services linked to the server and associate them;
-  record an incident; send her a report that it is registered.
+- `user_prompt`: the request. The example's reads: "Log a critical,
+  high-impact phone incident for Benjamin".
 - `gym_servers_config`: which domain server to use and which seed file to
   load into it.
 - `verifiers`: the checks, each an SQL query on the final database with an
-  expected value. The example has three:
+  expected value. The example has four. Three of them failed:
 
 ```sql
-Link SLA:          SELECT COUNT(*) FROM incident_sla WHERE incident_sla_id = "TSLA_011"
-                   AND incident_id = "INC_024" AND sla_def_id = "SLA_007" AND stage = "in_progress"
-Send notification: SELECT COUNT(*) FROM notification WHERE notification_id = "NOTIF_008"
-                   AND incident_id = "INC_024" AND email = "isabella.rossi@acme.com" AND type = "report"
-Record Incident:   SELECT COUNT(*) FROM incident WHERE incident_id = "INC_024" AND service = "SVC_003"
-                   AND configuration_item = "CI_004" AND caller_id = "USER_010" AND channel = "chat"
-                   AND status = "new" AND category = "software" AND impact = "high"
-                   AND urgency = "high" AND priority = "critical"
+Incident:     SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_024' AND channel = 'phone'
+              AND priority = 'critical' AND impact = 'high'
+Notification: SELECT COUNT(*) FROM notification WHERE incident_id = 'INC_024'
+Task:         SELECT COUNT(*) FROM incident_task WHERE incident_id = 'INC_024'
 ```
 
-Each expects the count 1. A task passes only when every check passes.
+The fourth, Caller, passed. Each expects the count 1. A task passes only
+when every check passes.
 
 ### 2.3 The executor
 
@@ -169,15 +166,14 @@ The loop returns the final text, the full `conversation_flow`, the tools
 used and the tool results (`react.py:119-125`); the executor keeps all of
 it in the attempt's record (`executor.py:380-398`).
 
-The example took five turns:
+The example took four turns:
 
-| Turn | Tool call | What came back |
-|---|---|---|
-| 1 | `get_user_using_email` and `find_configuration_item_by_serial_number` | the user (USER_010) and the server (CI_004, in use) |
-| 2 | `find_services` | the service list; the agent picks "Acme Email Service" (SVC_003) |
-| 3 | `create_incident` with caller USER_010, service SVC_003, CI_004, channel `email`, impact `low`, urgency `high`, category `software` | incident INC_024 with priority `planning`, set by the server |
-| 4 | `send_notification` to the user with type `update` | notification NOTIF_008 |
-| 5 | no tool call: a summary for the user | the loop ends |
+| Turn | Tool call                                                            | What came back                 |
+|------|----------------------------------------------------------------------|--------------------------------|
+| 1    | `list_users` with first name Benjamin                                | the user, id 7                 |
+| 2    | `create_incident` with caller 7, channel `chat`, priority `moderate` | incident INC_024               |
+| 3    | `send_notification` for INC_024                                      | an error: the email is unknown |
+| 4    | no tool call: "Logged INC_024."                                      | the loop ends                  |
 
 So the harness, the thing the project improves, is: the loop (`react.py`),
 the model client (`llm_client.py`), the tool client (`mcp_client.py`), the
@@ -221,8 +217,8 @@ Three details of the data make the benchmark's own count wrong, and
 
 `benchmark_verdict` (`checks.py:296`) recovers what the benchmark would have
 reported for the attempt, and `check_records` (`checks.py:324`) flattens
-the verdicts into the rows of `checks.csv`. The example's three checks all
-failed, under both conventions.
+the verdicts into the rows of `checks.csv`. In the example three of the
+four checks failed and one passed.
 
 ### 2.6 What changed, and why each check failed
 
@@ -242,7 +238,8 @@ seed file by `seeds.build_seed_database` (`seeds.py:194`) from the schema
 committed under `data/schemas/` (fetched from the servers once by
 `mas-optimiser schema`, which also writes the readable data-model pages
 under `docs/data-model/`) and the seed file's inserts. The example changed
-two tables: one row inserted in `incident`, one in `notification`.
+two tables: one row inserted in `incident`, and one in `incident_knowledge`,
+a table no check asks about.
 
 Then each failed check goes through `diagnosis.diagnose`
 (`diagnosis.py:116`). The query is read by `sql.parse` (`sql.py:184`), the
@@ -262,13 +259,15 @@ value is fetched (187-191). Every query runs on the attempt's own database;
 no model is involved, and a condition an untouched row happens to satisfy
 is never credited.
 
-The example's diagnosis:
+The example's diagnosis (written into the test data by hand, since the unit
+tests of the page run without a database; `tests/unit/test_diagnosis.py`
+tests the diagnosis itself on small databases):
 
-| Check | Kind | What the diagnosis found |
-|---|---|---|
-| Link SLA | `no_rows` | the attempt inserted or updated nothing in `incident_sla` |
-| Send notification | `cells` | row NOTIF_008: id, incident and email right; `type` is `update`, wanted `report` |
-| Record Incident | `cells` | row INC_024: seven conditions right; `channel` is `email`, wanted `chat`; `impact` is `low`, wanted `high`; `priority` is `planning`, wanted `critical` |
+| Check        | Kind      | What the diagnosis found                                                                                                                      |
+|--------------|-----------|-----------------------------------------------------------------------------------------------------------------------------------------------|
+| Incident     | `cells`   | row INC_024: the id right; `channel` is `chat`, wanted `phone`; `priority` is `moderate`, wanted `critical`; `impact` is `low`, wanted `high` |
+| Notification | `no_rows` | the attempt inserted or updated nothing in `notification`                                                                                     |
+| Task         | `no_rows` | the attempt inserted or updated nothing in `incident_task`                                                                                    |
 
 ### 2.7 From a wrong cell to the turn that set it
 
@@ -305,11 +304,11 @@ It also gives the failed check its failure:
 
 On the example:
 
-| Check | Failure | Trace |
-|---|---|---|
-| Link SLA | table not written | no call wrote `incident_sla` |
-| Send notification | wrong values | `type` passed at turn 4 by `send_notification(type='update')` |
-| Record Incident | wrong values | `channel` and `impact` passed at turn 3 by `create_incident`; `priority` left out of that call, so the tool's default `planning` stood |
+| Check        | Failure           | Trace                                                                                                                                           |
+|--------------|-------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
+| Incident     | wrong values      | `channel` and `priority` passed at turn 2 by `create_incident`; `impact` left out of that call, which takes it; `incident_id` set by the server |
+| Notification | call failed       | `send_notification` at turn 3 returned an error                                                                                                 |
+| Task         | table not written | no call wrote `incident_task`, though the task was given `create_incident_task`                                                                 |
 
 `table_rows` (`report.py:846`) then puts the checks together by table. A
 check belongs to the one table whose rows it counts; the other tables its
@@ -318,16 +317,14 @@ passed, `wrong` when one failed and the attempt changed the table, and
 `missed` when one failed and the attempt changed nothing in it. A table
 the attempt changed with no check of its own is `not asked for`, or `read
 by a check` when a check on another table reads it. On the example,
-`incident` and `notification` are wrong and `incident_sla` is missed.
+`incident` is wrong, `notification` and `incident_task` are missed, and
+`incident_knowledge` is not asked for.
 
-Read together with the request and the policy, the attempt failed on four
-readings of the text: the request names no SLA and the policy says SLAs
-"are automatically aligned", so the agent linked none; the request says the
-user "wrote to us", so the agent chose `email` over the policy's default
-`chat`; it says the problem is "highly impacting", which the agent did not
-turn into `impact = high`; and the policy says the system determines the
-priority from impact and urgency, so the agent passed none, while
-`create_incident` only falls back to `planning`.
+The trace stops at where each value came from. In the example the request
+asks for a critical, high-impact phone incident; the agent passed `chat`
+and `moderate` and left the impact out, and the page shows each at the turn
+it happened. Why an agent read a request that way is not something the
+package says: a person reads it from the request and the policy.
 
 `outputs` (`runner.py:816`) attaches the trace to each failed check and
 builds the attempt's rows: `task_outcome` (`runner.py:746`) for `tasks.csv`

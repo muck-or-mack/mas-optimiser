@@ -16,7 +16,7 @@ EXECUTION = {
         {"type": "system_message", "content": "policy"},
         {
             "type": "user_message",
-            "content": "Log a critical phone incident for Benjamin",
+            "content": "Log a critical, high-impact phone incident for Benjamin",
         },
         {
             "type": "ai_message",
@@ -67,7 +67,7 @@ EXECUTION = {
             "actual": 0,
             "comparison_type": "equals",
             "query": "SELECT COUNT(*) FROM incident WHERE incident_id = 'INC_024' "
-            "AND channel = 'phone' AND priority = 'critical'",
+            "AND channel = 'phone' AND priority = 'critical' AND impact = 'high'",
             "diagnosis": {
                 "kind": "cells",
                 "table": "incident",
@@ -95,6 +95,14 @@ EXECUTION = {
                         "wanted": "= 'critical'",
                         "ok": False,
                         "actual": ["moderate"],
+                    },
+                    {
+                        "row": {"incident_id": "INC_024"},
+                        "condition": "impact = 'high'",
+                        "column": "impact",
+                        "wanted": "= 'high'",
+                        "ok": False,
+                        "actual": ["low"],
                     },
                 ],
             },
@@ -211,17 +219,7 @@ def test_a_wrong_cell_is_traced_to_the_call_that_set_it():
 
 
 def test_a_cell_no_call_passed_is_left_out_when_the_tool_takes_it():
-    check = json.loads(json.dumps(EXECUTION["verification_results"]["Incident"]))
-    check["diagnosis"]["rows"].append(
-        {
-            "row": {"incident_id": "INC_024"},
-            "condition": "impact = 'high'",
-            "column": "impact",
-            "wanted": "= 'high'",
-            "ok": False,
-            "actual": ["low"],
-        }
-    )
+    check = EXECUTION["verification_results"]["Incident"]
     agent_calls = report.calls(EXECUTION)
     known = report.trace(check, agent_calls, KEYS, ARGUMENTS)["set_by"]["impact"]
     assert known == {"turn": 2, "tool": "create_incident", "how": "left out"}
@@ -245,7 +243,9 @@ def page_rows(text):
 def test_the_attempt_page_goes_from_the_tables_to_the_checks_to_the_turns():
     text = report.attempt_text("task_x", 1, traced(), CHANGES, GIVEN, ARGUMENTS)
     assert text.startswith("# task_x, attempt 1: FAIL (1 of 4 checks passed)")
-    assert "## Request\n\nLog a critical phone incident for Benjamin" in text
+    assert (
+        "## Request\n\nLog a critical, high-impact phone incident for Benjamin" in text
+    )
     sections = [
         "## Tables the checks look at",
         "## Tools the task was given",
@@ -282,6 +282,13 @@ def test_the_attempt_page_goes_from_the_tables_to_the_checks_to_the_turns():
         "INC_024",
         "ok",
         "set by the server: `create_incident` takes no `incident_id`",
+    ] in rows
+    assert [
+        "`impact`",
+        "= 'high'",
+        "low",
+        "WRONG",
+        "left out at turn 2: `create_incident` takes `impact`",
     ] in rows
     # A check with no row: the calls that tried, or the tool that could have.
     assert (
@@ -420,6 +427,8 @@ def test_cell_rows_give_wanted_against_found_and_where_the_value_came_from():
         + ("passed", 2, "create_incident"),
         ("priority", "priority = 'critical'", "= 'critical'", "moderate", False)
         + ("passed", 2, "create_incident"),
+        ("impact", "impact = 'high'", "= 'high'", "low", False)
+        + ("left out", 2, "create_incident"),
     ]
 
 
