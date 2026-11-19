@@ -29,6 +29,7 @@ def test_run_help_shows_the_options(capsys):
         cli.main(["run", "--help"])
     out = capsys.readouterr().out
     assert "--domain {itsm,csm,hr}" in out and "--thinking-summary" in out
+    assert "--prompt-caching, --no-prompt-caching" in out
 
 
 def test_unknown_command_fails():

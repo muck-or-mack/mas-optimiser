@@ -129,12 +129,25 @@ def test_cost_prices_cached_and_long_prompts_at_their_own_rates():
         },
         # Over the long-prompt threshold: every rate is multiplied.
         {"input_tokens": 200_000, "output_tokens": 0},
+        # A write as LangChain reports it when the provider gives its
+        # lifetime: under the lifetime key, with the general key at zero.
+        {
+            "input_tokens": 30_000,
+            "output_tokens": 0,
+            "input_token_details": {
+                "cache_read": 0,
+                "cache_creation": 0,
+                "ephemeral_5m_input_tokens": 30_000,
+                "ephemeral_1h_input_tokens": 0,
+            },
+        },
     ]
     plain = 50_000 * 0.10
     cached = 20_000 * 0.10 + 20_000 * 0.01 + 10_000 * 0.125 + 10_000 * 0.50
     long_prompt = 5 * 200_000 * 0.10
+    written = 30_000 * 0.125
     assert runner.cost(usage, PRICING) == pytest.approx(
-        (plain + cached + long_prompt) / 1e6
+        (plain + cached + long_prompt + written) / 1e6
     )
     assert runner.cost([], PRICING) == 0.0
 
@@ -168,6 +181,14 @@ def test_task_outcome_counts_every_check_and_sums_the_agents_token_use():
         + [{"name": "b", "validation_config": {"query": "q3"}}]
     )
     usage = {"input_tokens": 1000, "output_tokens": 50}
+    # The second call read 600 tokens from the cache and wrote 300 to it.
+    cached = usage | {
+        "input_token_details": {
+            "cache_read": 600,
+            "cache_creation": 0,
+            "ephemeral_5m_input_tokens": 300,
+        }
+    }
     execution = {
         "run_number": 1,
         "overall_success": False,
@@ -181,14 +202,18 @@ def test_task_outcome_counts_every_check_and_sums_the_agents_token_use():
             {"type": "system_message"},
             {"type": "ai_message", "usage_metadata": usage},
             {"type": "tool_result"},
-            {"type": "ai_message", "usage_metadata": usage},
+            {"type": "ai_message", "usage_metadata": cached},
         ],
     }
     outcome = runner.task_outcome("t", 1, execution, names, PRICING, [])
     # The benchmark keeps only the last "a", which passed, so it calls this a pass.
     assert not outcome["success"] and outcome["benchmark_success"]
-    assert outcome["cost_usd"] == pytest.approx(2000 * 0.10e-6 + 100 * 0.50e-6)
-    assert (outcome["cache_read_tokens"], outcome["cache_write_tokens"]) == (0, 0)
+    # 1,100 tokens at the input rate, 600 read, 300 written, 100 out; the
+    # outcome keeps six decimals.
+    assert outcome["cost_usd"] == pytest.approx(
+        (1100 * 0.10 + 600 * 0.01 + 300 * 0.125 + 100 * 0.50) / 1e6, abs=5e-7
+    )
+    assert (outcome["cache_read_tokens"], outcome["cache_write_tokens"]) == (600, 300)
     assert (outcome["checks_passed"], outcome["checks_total"]) == (2, 3)
     assert (
         outcome["benchmark_checks_passed"],
@@ -270,11 +295,13 @@ def test_evaluate_writes_the_tables_the_settings_and_the_index_row(
         run_dir=tmp_path / "exp" / "2026-11-06-0900",
         trace=False,
         thinking=None,
+        caching=True,
         version="v0",
     )
     folder = tmp_path / "exp" / "e1"
     settings = json.loads((folder / "evaluation.json").read_text())
     assert settings["tasks"] == ["task_b"]
+    assert settings["prompt_caching"] is True
     assert (
         settings["totals"]["total_attempts"] == 1 and settings["totals"]["errors"] == 1
     )
@@ -328,6 +355,7 @@ def test_run_tasks_returns_every_attempt_outcome_and_prints_its_progress(
             concurrency=2,
             trace=False,
             thinking=None,
+            caching=False,
             tags=[],
         )
     )
@@ -440,3 +468,82 @@ def test_write_tables_counts_each_failure_once_per_attempt(tmp_path):
     assert (tmp_path / "tables.csv").read_text().splitlines() == [
         ",".join(runner.report.TABLE_COLUMNS)
     ]
+
+
+def test_the_cache_mark_goes_on_the_last_tool_and_changes_no_definition():
+    from benchmark.llm_client import LLMClient
+
+    model = LLMClient("anthropic", "claude-haiku-5-5", "not-a-key").llm
+    # Two tools in the function-call shape the benchmark's client converts to.
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": name,
+                "description": f"Does {name}.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"id": {"type": "string"}},
+                    "required": ["id"],
+                },
+            },
+        }
+        for name in ("find_user", "create_incident")
+    ]
+    marked = runner.mark_tool_list(tools)
+    assert marked[0] is tools[0] and "cache_control" not in tools[1]
+    # What LangChain sends for each list: the mark survives its conversion,
+    # and apart from the mark the model is given the same two definitions.
+    plain = model.bind_tools(tools).kwargs["tools"]
+    sent = model.bind_tools(marked).kwargs["tools"]
+    assert sent[-1].pop("cache_control") == runner.CACHE_MARK
+    assert sent == plain
+    assert runner.mark_tool_list([]) == []
+
+
+@pytest.mark.parametrize("caching", [True, False])
+def test_the_executor_switches_prompt_caching_on_only_when_asked(monkeypatch, caching):
+    from benchmark.llm_client import LLMClient
+
+    async def build_client(self):
+        self.llm_client = LLMClient("anthropic", "claude-haiku-5-5", "not-a-key")
+
+    # The benchmark's own initialize connects to the servers; only its model
+    # client matters here.
+    monkeypatch.setattr(runner.BenchmarkExecutor, "initialize", build_client)
+    executor = runner.TaskExecutor.__new__(runner.TaskExecutor)
+    executor.trace, executor.thinking, executor.caching = False, None, caching
+    asyncio.run(executor.initialize())
+    tools = [{"name": "find_user", "description": "Finds a user."}]
+    last = executor.llm_client._convert_mcp_tools_to_langchain(tools)[-1]
+    if caching:
+        assert executor.llm_client.llm.model_kwargs == {
+            "cache_control": runner.CACHE_MARK
+        }
+        assert last["cache_control"] == runner.CACHE_MARK
+    else:
+        assert executor.llm_client.llm.model_kwargs == {}
+        assert "cache_control" not in last and last["type"] == "function"
+
+
+@pytest.mark.parametrize(
+    ("provider", "asked", "used"),
+    [("anthropic", None, True), ("anthropic", False, False), ("openai", None, False)],
+)
+def test_prompt_caching_is_used_for_anthropic_models_only(
+    tmp_path, monkeypatch, capsys, provider, asked, used
+):
+    seen = {}
+    monkeypatch.setattr(
+        runner, "load_model", lambda path: (SimpleNamespace(llm_provider=provider), {})
+    )
+    monkeypatch.setattr(runner.tracing, "configured", lambda: False)
+    monkeypatch.setattr(runner, "evaluate", lambda *args, **kwargs: seen.update(kwargs))
+    # ``mas-optimiser run smoke`` with every option unset but these.
+    unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
+    chosen = {"experiment": "smoke", "out": tmp_path / "e", "prompt_caching": asked}
+    runner.run(SimpleNamespace(**(unset | chosen)))
+    assert seen["caching"] is used
+    # Asked for and not available: the run says so.
+    said = "Anthropic models only" in capsys.readouterr().out
+    assert said is (provider != "anthropic")
