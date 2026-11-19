@@ -3,7 +3,7 @@
 # Keys are explained in smoke.yaml.
 model: haiku-5-5
 domain: itsm
-mode: oracle
+mode: all_tools
 limit: 2
 trace: true
 thinking_summary: true

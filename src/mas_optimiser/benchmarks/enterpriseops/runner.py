@@ -90,7 +90,7 @@ MODES = ["oracle", "all_tools", "plus_5_tools", "plus_10_tools", "plus_15_tools"
 EXPERIMENT_DEFAULTS = {
     "model": None,
     "domain": None,
-    "mode": "oracle",
+    "mode": "all_tools",
     "limit": None,
     "split": None,
     "task": None,
@@ -102,9 +102,6 @@ EXPERIMENT_DEFAULTS = {
     "thinking_summary": False,
     "prompt_caching": True,
 }
-# Command-line overrides of these keys change what an evaluation measures, so
-# they go into its folder name; the rest (tracing, output folder) do not.
-NAMED_OVERRIDES = ("model", "mode")
 # What a model file's price table must give; see ``cost``.
 PRICING_KEYS = {
     "input",

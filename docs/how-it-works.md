@@ -54,28 +54,31 @@ builds one sub-command per module in `COMMANDS` (`cli.py:31`): `run`,
 `rescore`, `rebuild`, `split`, `schema`, `compare`, `calibrate` and `list`.
 Each module gives its options in `add_arguments` and its work in `run`.
 
-`runner.run` (`runner.py:1314`) reads the experiment file
+`runner.run` (`runner.py:1311`) reads the experiment file
 `configs/experiments/baseline-haiku.yaml` through `load_experiment`
-(`runner.py:395`), which layers the defaults in `EXPERIMENT_DEFAULTS`
+(`runner.py:392`), which layers the defaults in `EXPERIMENT_DEFAULTS`
 (`runner.py:90`), then the file, then any command-line override, and stops
-on a bad setting before any money is spent. `load_model` (`runner.py:746`)
+on a bad setting before any money is spent. `load_model` (`runner.py:743`)
 reads `configs/models/haiku-5-5.yaml`: the benchmark's model fields, the
 name of the environment variable that holds the API key (read from `.env`,
 never written to a config), and a price table. Then one `evaluate` per
-domain (`runner.py:1365`).
+domain (`runner.py:1362`).
 
 ### 2.2 The tasks
 
-`load_tasks` (`runner.py:332`) reads the Hugging Face dataset at a pinned
+`load_tasks` (`runner.py:329`) reads the Hugging Face dataset at a pinned
 commit (`HF_REVISION`, `runner.py:73`), so a later edit of the dataset
-cannot change the tasks between evaluations. In oracle mode the benchmark's corrected
+cannot change the tasks between evaluations. The benchmark's corrected
 copies under `vendor/enterpriseops-gym/data/revised/` replace the dataset's
-versions, and the agent gets only the tools the task needs. The all-tools
-mode is the same tasks with the tool filter switched off (an empty
-`selected_tools`), so the agent sees every tool the domain's server offers;
-the `plus_N_tools` modes are the dataset's own configs with N distractors
-added. A task config has four parts the rest of this document keeps
-returning to:
+versions. Every arm of an experiment is given every tool the domain's
+server offers: that is the `all_tools` mode, the default, in which the tool
+filter is switched off by an empty `selected_tools`. In `oracle` mode, the
+benchmark's own setting, the agent gets only the tools listed with the task;
+it is kept as the second setting, for comparison with published numbers.
+The reasons are on the page "What is fixed and what is optimised". The
+`plus_N_tools` modes are the dataset's own configs with N distractors
+added, and take no corrected copies. A task config has four parts the rest
+of this document keeps returning to:
 
 - `system_prompt`: the domain's policy document, several pages of roles,
   mandatory fields, defaults and rules. For ITSM it says, among much else,
@@ -101,23 +104,23 @@ when every check passes.
 
 ### 2.3 The executor
 
-`evaluate` (`runner.py:1365`) keeps the tasks of one split set if asked, cuts
+`evaluate` (`runner.py:1362`) keeps the tasks of one split set if asked, cuts
 to `--limit`, checks that the domain servers answer (`check_servers`,
-`runner.py:673`), makes the evaluation folder, sends the benchmark's
-logging to `evaluation.log` there, and calls `run_tasks` (`runner.py:1163`), which
-runs every attempt through `run_task` (`runner.py:1038`) with at most
+`runner.py:670`), makes the evaluation folder, sends the benchmark's
+logging to `evaluation.log` there, and calls `run_tasks` (`runner.py:1160`), which
+runs every attempt through `run_task` (`runner.py:1035`) with at most
 `concurrency` in flight (four in the baseline). Each attempt seeds its own
 database on the server, so attempts share nothing.
 
-`run_task` builds a `TaskExecutor` (`runner.py:184`), our subclass of the
+`run_task` builds a `TaskExecutor` (`runner.py:181`), our subclass of the
 benchmark's `BenchmarkExecutor` (`executor.py:23`). The subclass adds four
 things: the checks are renamed and patched before the attempt
-(`checks.prepare`, called at `runner.py:223`, section 2.5); the Langfuse
+(`checks.prepare`, called at `runner.py:220`, section 2.5); the Langfuse
 callback is attached to
-the model once the executor has built it (`runner.py:244`); prompt caching
-is switched on for the model (`runner.py:247`, below); and after the
+the model once the executor has built it (`runner.py:241`); prompt caching
+is switched on for the model (`runner.py:244`, below); and after the
 checks run, while the database still exists, the final state is read and
-every failed check diagnosed (`runner.py:259`, section 2.6).
+every failed check diagnosed (`runner.py:256`, section 2.6).
 
 Prompt caching changes what an attempt costs and nothing the model
 receives. Each call of the loop sends the tool descriptions, the policy and
@@ -125,9 +128,9 @@ the whole conversation so far, so most of a call repeats the call before it.
 The provider can store a request up to a mark and bill that part at about a
 tenth of the input rate when it arrives again within five minutes; storing
 costs a quarter more than the input rate, once. Two marks are set
-(`CACHE_MARK`, `runner.py:142`). One on the request stores each call to its
+(`CACHE_MARK`, `runner.py:139`). One on the request stores each call to its
 end and moves forward as the conversation grows, so every call reads what
-the last one sent. One on the last tool (`mark_tool_list`, `runner.py:153`)
+the last one sent. One on the last tool (`mark_tool_list`, `runner.py:150`)
 stores the tool list by itself, so that attempts at other tasks given the
 same tools read it too; without it each attempt stores its first call
 afresh, since a store is kept only where a mark sits. In a check on training
@@ -136,7 +139,7 @@ with every tool the server offers. The marks are Anthropic's: the request
 field and the tool format are that provider's own, so the setting is used
 for Anthropic models only (`runner.run` decides, and says so when it does not
 apply), and another provider's caching would need its own few lines here.
-`cost` (`runner.py:779`) charges the tokens read and written at their own
+`cost` (`runner.py:776`) charges the tokens read and written at their own
 rates from the model file's price table.
 
 The benchmark's `execute_benchmark` (`executor.py:482`) then does the work:
@@ -245,11 +248,11 @@ four checks failed and one passed.
 
 A failed count check says only that a conjunction did not hold. To say
 which condition failed, and what the agent left instead, our
-`_run_verifiers` override (`runner.py:259`) does two more things while the
+`_run_verifiers` override (`runner.py:256`) does two more things while the
 database exists.
 
 First it reads back what the attempt changed. `read_changes`
-(`runner.py:294`) calls `states.read_state` (`states.py:96`), which reads
+(`runner.py:291`) calls `states.read_state` (`states.py:96`), which reads
 every table of the attempt's database through the SQL runner a page at a
 time, and `states.diff` (`states.py:143`), which compares it row by row
 with a local copy of the seed: the rows inserted, the rows deleted, and for
@@ -310,7 +313,7 @@ from:
 - `passed`: the last linked call whose arguments name the column;
 - `left out`: no call passed it, and the tool that wrote the row takes an
   argument of that name (the tools' arguments are read from the
-  evaluation's `tools.json` by `tool_arguments`, `runner.py:726`);
+  evaluation's `tools.json` by `tool_arguments`, `runner.py:723`);
 - `no argument`: the tool has no argument of that name, so the server set
   the value;
 - `not passed`: no call passed it and the evaluation saved no tool list.
@@ -347,15 +350,15 @@ and `moderate` and left the impact out, and the page shows each at the turn
 it happened. Why an agent read a request that way is not something the
 package says: a person reads it from the request and the policy.
 
-`outputs` (`runner.py:882`) attaches the trace to each failed check and
-builds the attempt's rows: `task_outcome` (`runner.py:810`) for `tasks.csv`
+`outputs` (`runner.py:879`) attaches the trace to each failed check and
+builds the attempt's rows: `task_outcome` (`runner.py:807`) for `tasks.csv`
 (verdicts under both conventions, the tables with a check on them by
 result, tool errors and lookups that found nothing, model calls, tokens,
 cost in US dollars from the price table, seconds), `check_records` for
 `checks.csv`, `cell_rows` (`report.py:806`) for `cells.csv` (each cell
 wanted against found, and where its value came from) and `table_rows` for
 `tables.csv`. `save_attempt`
-(`runner.py:926`) writes the record (`attempt-N.json`), the changes
+(`runner.py:923`) writes the record (`attempt-N.json`), the changes
 (`attempt-N.changes.json`) and the page (`attempt-N.md`, from
 `attempt_text`, `report.py:585`). The page goes from the whole to the
 detail. After the request comes one row per table the checks look at, with
@@ -372,14 +375,14 @@ model's text as a quote and each tool call followed by its arguments,
 never cut, and what came back. Last, every row the attempt inserted, with
 all its columns, updated or deleted. When
 every attempt is done, `write_tables`
-(`runner.py:965`) writes the four CSVs, `failures.csv` (each kind of
+(`runner.py:962`) writes the four CSVs, `failures.csv` (each kind of
 failure by table and column, with the attempts and tasks it occurs in,
 most frequent first) and `summary.md` (`summary`, `report.py:908`: the
 headline as a row per measure with what it counts, the tables that were
 wrong or missed, the most frequent failures with the words they use, the
 tasks that passed least and what each file holds), and `evaluate`
 writes `evaluation.json` (every setting and total) and a row in the experiment's
-`index.csv` (`index_row` and `write_index_row`, `runner.py:558`).
+`index.csv` (`index_row` and `write_index_row`, `runner.py:555`).
 
 With Langfuse configured, `tracing.task_trace` (`tracing.py:39`) wraps each
 attempt in one trace, `attach` (66) routes the model's calls into it, and
@@ -479,11 +482,11 @@ What goes wrong, and where to look:
 
 | Symptom | Meaning | Where |
 |---|---|---|
-| `error: domain server ... is not answering` | the Docker servers are down | `check_servers`, `runner.py:673`; start them and rerun |
-| `ANTHROPIC_API_KEY is not set` | no `.env`, or the key missing from it | `load_model`, `runner.py:746` |
+| `error: domain server ... is not answering` | the Docker servers are down | `check_servers`, `runner.py:670`; start them and rerun |
+| `ANTHROPIC_API_KEY is not set` | no `.env`, or the key missing from it | `load_model`, `runner.py:743` |
 | a `tasks.csv` row with `error` filled and zero checks | the attempt raised before the agent started (a server fault, a bad config) | the record's `error`; the traceback in `evaluation.log` |
-| `diagnosis_error` on the run in `attempt-N.json` | the checks ran but the diagnosis raised; verdicts are intact | `runner.py:244-281` |
-| `report_error` on the run | the trace or the rows raised; the page has no trace | `run_task`, `runner.py:1038` |
+| `diagnosis_error` on the run in `attempt-N.json` | the checks ran but the diagnosis raised; verdicts are intact | `runner.py:241-278` |
+| `report_error` on the run | the trace or the rows raised; the page has no trace | `run_task`, `runner.py:1035` |
 | a failed check with `kind` empty in `checks.csv` | a query shape the diagnosis cannot take apart (a top-level OR, a GROUP BY, a derived table) | `sql.parse`, `sql.py:184` |
 | an attempt with 50 model calls | the agent hit `max_iterations` | `react.py:34`, `base.py:23` |
 | `tool_errors` above zero | a tool answered with an error; the page marks the call `ERROR`. A lookup that found no record is marked `nothing found` and counted in `lookups_empty` | `succeeded`, `report.py:169` |
@@ -505,7 +508,7 @@ is credited in `NOTICE.md` as well.
 | `runner` | EnterpriseOps-Gym `benchmark/executor.py` | `BenchmarkExecutor` subclassed, with `initialize` and `_run_verifiers` overridden; `ReactOrchestrator`, `BenchmarkConfig` and `LLMConfig` as released | `runner.TaskExecutor` |
 | `runner` | Anthropic's documentation, "Prompt caching" (platform.claude.com/docs/en/build-with-claude/prompt-caching) | the cache mark on a request and on a tool, the read and write rates, the five-minute lifetime; used for Anthropic models only | `runner.CACHE_MARK`, `mark_tool_list`, `cost` |
 | `runner` | the Hugging Face dataset and the repository's `data/revised` | the task configs at a pinned revision, the corrected copies replacing the dataset's in oracle and all-tools mode | `runner.load_tasks` |
-| `runner` | the EnterpriseOps-Gym paper, the distractor study | the reason for the `all_tools` mode: distractor tools were found to cost nothing in completion | `runner.MODES` |
+| `runner` | the EnterpriseOps-Gym paper, its experimental set-up and distractor study | the setting it reports, each task's own tools (`oracle`), and its finding that added tools cost nothing in completion; why every arm is given all the tools here is argued on the page "What is fixed and what is optimised" | `runner.MODES` |
 | `runner` | StarHarness (arXiv:2608.24804), `docs/ADDING_A_BENCHMARK.md` | the precedent that a unit which raises is scored as a failure, never retried or dropped | `runner.task_outcome` |
 | `runner` | τ-bench (arXiv:2406.12045), pass^k | `tasks_passed_every_attempt` as the strict per-task measure | `runner.totals` |
 | `runner` | own design | experiments as YAML files with command-line overrides; `evaluations/<experiment>/<evaluation>/` with an `index.csv` per experiment; attempts in parallel under a semaphore; the price table in the model file; `tools.json` per evaluation | `runner.load_experiment`, `evaluate`, `run_tasks`, `cost`, `save_tools` |
