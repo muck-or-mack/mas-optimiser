@@ -124,6 +124,18 @@ the symbols of its paper, which are explained beside it.
 
 ## The method and its formulas
 
+The page uses six formulas. The first three take the differences to a
+decision; the others stand behind the third or follow from it.
+
+| formula                                        | what it gives                                                   | section                    |
+|------------------------------------------------|-----------------------------------------------------------------|----------------------------|
+| $\text{SE} = s_d / \sqrt{N}$                   | how far the gain would move by chance                           | The three formulas         |
+| $T = \bar d / \text{SE}$                       | the gain in units of its standard error                         | The three formulas         |
+| $T > X_0$, with $X_0$ a point of Student's $t$ | the bar, and with it the p-value and the lower confidence bound | The three formulas         |
+| the normal density $\varphi$ and Student's $t$ | the curve whose areas the third formula uses                    | Where the curve comes from |
+| $g_{\min} = (X_0 + 0.84)\,\text{SE}$           | the smallest gain found four times in five                      | Missing a real gain        |
+| $\delta_{t,p}$                                 | the level each decision of a run is given                       | The level of each decision |
+
 ### Scores and differences
 
 A *task* is one request to the agent, judged by several *checks*, each a row
@@ -224,6 +236,24 @@ that is Student's $t$ distribution, whose density approaches $\varphi$ as
 $N$ grows and at $N = 125$ has standard deviation 1.008. With a true gain it
 becomes the noncentral $t$.
 
+The extra spread matters when the differences are few and hardly at all at
+125. With few values the estimated $\text{SE}$ is at times too small by
+chance, which makes $T$ at times too large, so the curve has heavier tails
+than the normal and the bar sits further out:
+
+| tasks $N$        | bar at 5% | standard deviation of the curve |
+|------------------|-----------|---------------------------------|
+| 5                | 2.132     | 1.414                           |
+| 10               | 1.833     | 1.134                           |
+| 30               | 1.699     | 1.036                           |
+| 125              | 1.657     | 1.008                           |
+| 1,000            | 1.646     | 1.001                           |
+| the normal curve | 1.645     | 1                               |
+
+Neither curve is fitted to the scores. Each is a fixed function, and the
+data enter only through the one number $T$. The bar and the p-value are
+areas under the curve, taken from SciPy's `t` distribution.
+
 The figure under "Missing a real gain" draws those two densities, for no gain
 and for a gain equal to the minimum detectable effect. At $\alpha = 0.05$ and
 a given $N$ the second curve sits at the same place whatever the data (2.50
@@ -252,6 +282,28 @@ of them are run on the two baseline runs, the same harness twice, where the
 truth is known: nothing changed. The first two are also computed by `compare`
 for every comparison and printed in its report beside the formula's numbers
 (the columns named below, in `tests.csv`).
+
+| check       | formula it tests                                     | how it redoes it                                         | command, file                  |
+|-------------|------------------------------------------------------|----------------------------------------------------------|--------------------------------|
+| bootstrap   | the first, the standard error                        | redraws the tasks and measures how far the gain moves    | `compare`, `tests.csv`         |
+| permutation | the third, in one comparison: its p-value            | gives each task's difference a random sign               | `compare`, `tests.csv`         |
+| calibration | the third, as a rule: the share accepted at each bar | deals one harness's attempts into two halves, many times | `calibrate`, `calibration.csv` |
+
+The three are different operations. A bootstrap redraws the sample, to see
+how far an estimate would move if the tasks had been other tasks of the same
+kind. A permutation reshuffles which side a value is counted on, to see what
+the statistic does when the sides do not differ. The calibration is a
+permutation of the attempts of one harness, repeated many times, so that
+every comparison it makes is one in which nothing changed. None of them runs
+the agent again: they reuse the attempts already stored.
+
+No model is fitted to the scores anywhere. The bootstrap is the
+non-parametric one, which redraws the values observed. A parametric
+bootstrap would draw made-up values from a fitted model of how an attempt
+scores, and there is no such model to trust. The calibration's comparisons
+are likewise made of real attempts. The Kolmogorov-Smirnov test, which
+compares the shapes of two unpaired samples, is not used: the question here
+is the mean gain on paired tasks.
 
 ### The standard error, by bootstrap
 
@@ -304,10 +356,16 @@ al., 2026, Lemma A2; `stats.gate.sign_test`, `sign_test_p`).
 
 ### The test as a whole, by calibration
 
-The first two checks look at one comparison. The third asks the question the
-bars rest on: when nothing has changed, does $T$ really follow Student's
-$t$? The two baseline runs allow a direct answer (`mas-optimiser calibrate`,
-`stats.calibrate`).
+The first two checks look at one comparison. The third checks the promise
+the gate makes. The third formula promises that a candidate which is in
+truth no better is accepted in a share $\alpha$ of comparisons, 5% at the
+level used here. That promise comes from a curve, Student's $t$, which is
+only approximately right for a finite number of tasks. The calibration
+counts the share directly: it makes many comparisons in which nothing
+changed, puts each through the gate, and counts how often the gate accepts.
+It adjusts nothing. The name is that of checking an instrument against a
+quantity that is known. The two baseline runs make the count possible
+(`mas-optimiser calibrate`, `stats.calibrate`).
 
 1. Each of the 125 validation tasks has six attempts of the same harness,
    three from each run.
@@ -347,6 +405,14 @@ fewer no-change splits than the rule allows, 1.20% against 1.25%: the tails
 of $T$ are a little thinner than those of Student's $t$, most likely because
 the scores are bounded, and the error is on the safe side. A rule that keeps
 any gain accepts half of the no-change splits.
+
+Each ± is the counting uncertainty of a share seen in 200,000 splits, so
+"4.97 ± 0.05%" agrees with the 5% promised. Had the count come out at 9%,
+the gate would accept a candidate that is no better nearly twice as often
+as its level states, and an acceptance would be worth less than it claims.
+The bar would then have to come from the splits themselves, or another
+outcome be tested. A count far below the level errs the other way: no false
+acceptance is added, and the test misses real gains it should find.
 
 :::{figure} ../figures/calibration/figures/calibration.png
 :alt: The statistic of 200,000 no-change splits against Student's t, with the pull of each bin
