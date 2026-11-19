@@ -2,35 +2,42 @@
 
 The optimiser's proposer reads the traces of the training tasks, the
 acceptance gate decides on the validation tasks and returns only its verdict,
-and the test tasks are opened once for the reported number. One seeded,
-stratified draw fixes the three sets for every arm, so every comparison is
-paired on the same tasks.
+and the test tasks are opened once for the reported number. One seeded draw
+fixes the three sets for every arm, so every comparison is paired on the
+same tasks.
 
-The strata are domain crossed with the task's baseline outcome: whether all,
-some or none of its attempts passed in the experiment the split is drawn
-from (``evaluations/<experiment>/``). For each domain the draw reads the latest full
-evaluation in the experiment's ``index.csv`` that has no label and no
-command-line override that changes what is measured, and refuses if a domain
-with a full evaluation has none that qualifies, or if the evaluations chosen
-differ in model, mode, harness or attempts. Within each stratum the tasks named in the forced
-list go into training first: tasks already inspected by hand, with dataset
-defects, or otherwise unfit for a sealed set. The rest are shuffled by the
-seed and filled into training, then validation, then test, in the proportions
-given, rounded by largest remainder so that every task lands in exactly one
-set. If the forced tasks exceed a stratum's training quota, training grows
-and validation and test share what is left in their own ratio.
+The draw shuffles the tasks with the seed and fills training, then
+validation, then test in the proportions given, rounded by largest remainder
+so that every task lands in exactly one set. Two options shape it.
+``--balance`` names what every set should hold the same mix of: ``domain``,
+``difficulty`` (whether all, some or none of a task's attempts passed in a
+baseline run), both, or neither. The tasks are grouped by the values named,
+shuffled within each group, and each group is shared out in the proportions;
+with nothing named there is one group, a plain shuffle. ``--seen`` names a
+file of tasks that have already been read by hand. They go into training
+before the shuffle, since a task someone has studied cannot serve as an
+unseen one. If they exceed a group's training share, training grows and
+validation and test share what is left in their own ratio.
 
-The draw is written to ``configs/splits/<name>.json`` with everything that
-produced it: seed, proportions, the strata rule, the evaluations read, the
-code version, the forced list and every task's stratum. A split is drawn
-once and never redrawn: the command refuses a name that already has a file,
-since redrawing could move tasks someone has read into a sealed set. The
-file is the record, and the draw can be checked from it alone, since each
-task's stratum and forced flag, the seed and the proportions determine the
-assignment. Usage::
+Without a balance on difficulty the task list comes from the dataset and no
+run is needed. A balance on difficulty reads a baseline run
+(``evaluations/<experiment>/``): for each domain the latest full evaluation
+in the experiment's ``index.csv`` that has no label and no command-line
+override that changes what is measured. It refuses if a domain with a full
+evaluation has none that qualifies, or if the evaluations chosen differ in
+model, mode, harness or attempts, and the split covers the tasks that run
+scored.
 
-    mas-optimiser split --experiment baseline-haiku --name haiku-20-40-40 --seed 0
-    mas-optimiser split --experiment baseline-haiku --name trial --proportions 0.6 0.2 0.2
+The draw is written to ``configs/splits/<name>.json``: the seed, the
+proportions, the balance, what was read, the tasks placed in training by
+hand and the three lists of task ids. A task's difficulty is not written, so
+the file holds no result of any single task. A split is drawn once and never
+redrawn: the command refuses a name that already has a file, since redrawing
+could move tasks someone has read into a sealed set. Usage::
+
+    mas-optimiser split --name domain-20-40-40
+    mas-optimiser split --name trial --proportions 0.6 0.2 0.2 --seed 7 --balance
+    mas-optimiser split --name by-difficulty --balance domain difficulty --experiment baseline-haiku
 
 Sources: ``docs/how-it-works.md``, section 6, the rows for ``splits``.
 """
@@ -54,8 +61,9 @@ from mas_optimiser.benchmarks.enterpriseops import REPO_ROOT
 
 SETS = ("training", "validation", "test")
 DEFAULT_PROPORTIONS = (0.2, 0.4, 0.4)
+# What a draw can balance, in the order a task's values are held.
+BALANCE_KEYS = ("domain", "difficulty")
 SPLITS_DIR = REPO_ROOT / "configs" / "splits"
-FORCED_FILE = SPLITS_DIR / "forced-training.yaml"
 EVALUATIONS = REPO_ROOT / "evaluations"
 NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
 # Command-line overrides that leave what an evaluation measures unchanged;
@@ -74,17 +82,17 @@ INDEX_COLUMNS = (
     "limit",
     "attempts",
 )
-STRATA_RULE = "domain x outcome (all, some or none of the baseline attempts passed)"
 DESCRIPTION = __doc__.split("\n\n")[0]
 
 
 class Baseline(NamedTuple):
-    """What the split is drawn from.
+    """The run a balance on difficulty reads.
 
     Attributes:
-        tasks: Each task id to its ``(domain, outcome)``, where outcome is
-            ``all``, ``some`` or ``none``.
-        evaluations: Each domain to the evaluation folder its outcomes came from.
+        tasks: Each task id to its ``(domain, difficulty)``, where difficulty
+            is ``all``, ``some`` or ``none``: how many of the task's attempts
+            passed.
+        evaluations: Each domain to the evaluation folder its attempts came from.
     """
 
     tasks: dict[str, tuple[str, str]]
@@ -92,12 +100,12 @@ class Baseline(NamedTuple):
 
 
 def read_baseline(experiment_dir: Path) -> Baseline:
-    """Read each domain's baseline evaluation and classify every task's outcome.
+    """Read each domain's baseline evaluation and classify every task's difficulty.
 
     The baseline of a domain is its latest full evaluation (one without a
     task limit) with no label and no command-line override that changes what
     is measured (``HARMLESS_OVERRIDES``), so an evaluation with another model
-    or a labelled trial never defines the strata by accident, while one
+    or a labelled trial never defines the difficulty by accident, while one
     repeated for a domain alone with ``--domain`` still counts.
 
     Args:
@@ -154,8 +162,10 @@ def read_baseline(experiment_dir: Path) -> Baseline:
             for row in csv.DictReader(f):
                 passed[row["task_id"]].append(row["success"] == "True")
         for task_id, results in passed.items():
-            outcome = "all" if all(results) else "none" if not any(results) else "some"
-            tasks[task_id] = (domain, outcome)
+            difficulty = (
+                "all" if all(results) else "none" if not any(results) else "some"
+            )
+            tasks[task_id] = (domain, difficulty)
     return Baseline(tasks, evaluations)
 
 
@@ -184,32 +194,34 @@ def quotas(n: int, proportions: tuple[float, ...]) -> list[int]:
 
 
 def draw(
-    tasks: dict[str, tuple[str, str]],
+    groups: dict[str, tuple[str, ...]],
     proportions: tuple[float, float, float],
     seed: int,
-    forced: set[str],
+    seen: set[str],
 ) -> dict[str, str]:
-    """Assign every task to a set, stratum by stratum.
+    """Assign every task to a set, group by group.
 
     Args:
-        tasks: Each task id to its ``(domain, outcome)`` stratum.
+        groups: Each task id to its group, the values the draw balances: for
+            example ``("itsm",)`` when only the domain is balanced, and
+            ``()`` for every task when nothing is, which makes one group.
         proportions: The training, validation and test shares, summing to one.
-        seed: Seeds one generator for the whole draw; strata are visited in
+        seed: Seeds one generator for the whole draw; groups are visited in
             sorted order, so the same seed always gives the same assignment.
-        forced: Task ids that go into training before anything is drawn.
+        seen: Task ids that go into training before anything is drawn.
 
     Returns:
         Each task id to ``training``, ``validation`` or ``test``.
     """
     rng = random.Random(seed)
-    strata: dict[tuple[str, str], list[str]] = defaultdict(list)
-    for task_id in sorted(tasks):
-        strata[tasks[task_id]].append(task_id)
+    members: dict[tuple[str, ...], list[str]] = defaultdict(list)
+    for task_id in sorted(groups):
+        members[groups[task_id]].append(task_id)
     assignment = {}
-    for stratum in sorted(strata):
-        ids = strata[stratum]
-        fixed = [task_id for task_id in ids if task_id in forced]
-        free = [task_id for task_id in ids if task_id not in forced]
+    for group in sorted(members):
+        ids = members[group]
+        fixed = [task_id for task_id in ids if task_id in seen]
+        free = [task_id for task_id in ids if task_id not in seen]
         rng.shuffle(free)
         training_quota, validation_quota, _ = quotas(len(ids), proportions)
         drawn = max(0, training_quota - len(fixed))
@@ -232,28 +244,33 @@ def draw(
 
 def build_split(
     name: str,
-    experiment_dir: Path,
+    groups: dict[str, tuple[str, ...]],
     proportions: tuple[float, float, float],
     seed: int,
-    forced: dict[str, str],
+    balance: tuple[str, ...],
+    seen: set[str],
+    source: dict,
 ) -> dict:
-    """Draw a split and describe it fully.
+    """Draw a split and describe it.
 
     Args:
         name: The split's name, also its file name under ``configs/splits/``.
-        experiment_dir: The ``evaluations/<experiment>`` folder the outcomes come from.
+        groups: Each task id to its group, the task's values of the keys in
+            ``balance``.
         proportions: The training, validation and test shares.
         seed: The draw's seed.
-        forced: Task ids forced into training, each with the reason.
+        balance: What every set holds the same mix of, from ``BALANCE_KEYS``.
+        seen: Task ids already read by hand, placed in training.
+        source: What the tasks were read from: the dataset, or the baseline run.
 
     Returns:
-        The split document: provenance, the forced list, counts per set and
-        stratum, and every task's domain, outcome, set and whether it was forced.
+        The split document: the seed, the proportions, the balance, the
+        source with the code version, the seen tasks and each set's task ids.
+        It holds no task's difficulty.
 
     Raises:
         ValueError: If the proportions are not three shares between 0 and 1
-            summing to one, a forced task is not in the experiment, or
-            ``read_baseline`` refuses the experiment.
+            summing to one, or a seen task is not among the tasks.
     """
     if (
         len(proportions) != 3
@@ -264,39 +281,22 @@ def build_split(
             "proportions must be three shares between 0 and 1 summing to one: "
             f"{proportions}"
         )
-    baseline = read_baseline(experiment_dir)
-    unknown = sorted(set(forced) - set(baseline.tasks))
+    unknown = sorted(seen - set(groups))
     if unknown:
-        raise ValueError(f"forced tasks not in {experiment_dir}: {unknown}")
-    assignment = draw(baseline.tasks, proportions, seed, set(forced))
-    counts: dict[str, dict[str, int]] = {
-        set_name: defaultdict(int) for set_name in SETS
-    }
-    tasks = {}
-    for task_id in sorted(baseline.tasks):
-        domain, outcome = baseline.tasks[task_id]
-        counts[assignment[task_id]][f"{domain}/{outcome}"] += 1
-        tasks[task_id] = {
-            "domain": domain,
-            "outcome": outcome,
-            "set": assignment[task_id],
-            "forced": task_id in forced,
-        }
+        raise ValueError(f"seen tasks that are not among the tasks: {unknown}")
+    assignment = draw(groups, proportions, seed, seen)
     return {
         "name": name,
         "seed": seed,
         "proportions": dict(zip(SETS, proportions, strict=True)),
-        "strata": STRATA_RULE,
-        "source": {
-            "experiment": experiment_dir.name,
-            "evaluations": baseline.evaluations,
-            "code_version": mas_optimiser.code_version(),
-        },
-        "forced_training": dict(sorted(forced.items())),
-        "counts": {
-            set_name: dict(sorted(counts[set_name].items())) for set_name in SETS
-        },
-        "tasks": tasks,
+        "balance": list(balance),
+        "source": source | {"code_version": mas_optimiser.code_version()},
+        "seen": sorted(seen),
+    } | {
+        set_name: sorted(
+            task_id for task_id, drawn in assignment.items() if drawn == set_name
+        )
+        for set_name in SETS
     }
 
 
@@ -315,35 +315,12 @@ def load_split(spec: str | Path) -> dict:
     return json.loads(path.read_text())
 
 
-def _summary(split: dict) -> str:
-    """One line per set with its size, then the counts per stratum.
-
-    Args:
-        split: The split document.
-
-    Returns:
-        The lines joined.
-    """
-    lines = []
-    for set_name in SETS:
-        counts = split["counts"][set_name]
-        strata = ", ".join(f"{stratum} {n}" for stratum, n in counts.items())
-        n = sum(counts.values())
-        lines.append(f"{set_name}: {n} task{'s' if n != 1 else ''} ({strata})")
-    return "\n".join(lines)
-
-
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     """Add the split options to ``parser``; shared with the ``mas-optimiser`` command.
 
     Args:
         parser: The ``split`` subparser.
     """
-    parser.add_argument(
-        "--experiment",
-        required=True,
-        help="the evaluations/<experiment> folder to draw from",
-    )
     parser.add_argument("--name", required=True, help="the split's name and file name")
     parser.add_argument("--seed", type=int, default=0, help="seed of the draw")
     parser.add_argument(
@@ -355,10 +332,23 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         help="shares of each set, summing to one",
     )
     parser.add_argument(
-        "--forced",
+        "--balance",
+        nargs="*",
+        choices=BALANCE_KEYS,
+        default=["domain"],
+        help="what every set holds the same mix of: domain, difficulty, both, or "
+        "nothing after the option for a plain shuffle (default: domain)",
+    )
+    parser.add_argument(
+        "--experiment",
+        help="the evaluations/<experiment> folder whose baseline run gives each "
+        "task's difficulty; given with --balance difficulty and only then",
+    )
+    parser.add_argument(
+        "--seen",
         type=Path,
-        help="YAML of task id to reason, forced into training "
-        "(default: configs/splits/forced-training.yaml)",
+        help="YAML of task id to reason: tasks already read by hand, placed in "
+        "training before the shuffle",
     )
 
 
@@ -369,8 +359,10 @@ def run(args: argparse.Namespace) -> None:
         args: The parsed arguments.
 
     Raises:
-        SystemExit: For a malformed name, a name that already has a split, a
-            missing or malformed forced list, or an experiment the draw refuses.
+        SystemExit: For a malformed name, a name that already has a split, an
+            experiment given without a balance on difficulty or left out with
+            one, a missing or malformed file of seen tasks, or a draw that is
+            refused.
     """
     if not NAME.fullmatch(args.name) or args.name.endswith(".json"):
         raise SystemExit(
@@ -383,32 +375,71 @@ def run(args: argparse.Namespace) -> None:
             f"error: {path} exists; a split is never redrawn, so give a new one "
             "another name"
         )
-    forced_file = args.forced or FORCED_FILE
-    if not forced_file.is_file():
-        raise SystemExit(f"error: no forced-training file at {forced_file}")
-    try:
-        forced = yaml.safe_load(forced_file.read_text()) or {}
-    except yaml.YAMLError as error:
-        raise SystemExit(f"error: {forced_file} is not valid YAML ({error})") from error
-    if not isinstance(forced, dict) or not all(
-        isinstance(task_id, str) and isinstance(reason, str)
-        for task_id, reason in forced.items()
-    ):
+    balance = tuple(key for key in BALANCE_KEYS if key in args.balance)
+    if ("difficulty" in balance) != bool(args.experiment):
         raise SystemExit(
-            f"error: {forced_file} must map each task id to the reason it is "
-            "forced into training"
+            "error: --experiment names the baseline run that gives each task's "
+            "difficulty; give it with --balance difficulty and only then"
         )
+    seen = {}
+    if args.seen:
+        if not args.seen.is_file():
+            raise SystemExit(f"error: no file of seen tasks at {args.seen}")
+        try:
+            seen = yaml.safe_load(args.seen.read_text()) or {}
+        except yaml.YAMLError as error:
+            raise SystemExit(
+                f"error: {args.seen} is not valid YAML ({error})"
+            ) from error
+        if not isinstance(seen, dict) or not all(
+            isinstance(task_id, str) and isinstance(reason, str)
+            for task_id, reason in seen.items()
+        ):
+            raise SystemExit(
+                f"error: {args.seen} must map each task id to the reason it counts "
+                "as seen"
+            )
     try:
+        described: dict[str, tuple[str, str | None]]
+        if "difficulty" in balance:
+            baseline = read_baseline(EVALUATIONS / args.experiment)
+            described = baseline.tasks
+            source = {
+                "experiment": args.experiment,
+                "evaluations": baseline.evaluations,
+            }
+        else:
+            # Imported here because the runner imports this module.
+            from mas_optimiser.benchmarks.enterpriseops import runner
+
+            described = {
+                task_id: (domain, None)
+                for domain in runner.DOMAINS
+                for task_id in runner.load_tasks(domain, "oracle")
+            }
+            source = {"dataset": runner.HF_DATASET, "revision": runner.HF_REVISION}
+        groups = {
+            task_id: tuple(
+                value
+                for key, value in zip(BALANCE_KEYS, values, strict=True)
+                if key in balance
+            )
+            for task_id, values in described.items()
+        }
         split = build_split(
             args.name,
-            EVALUATIONS / args.experiment,
+            groups,
             tuple(args.proportions),
             args.seed,
-            forced,
+            balance,
+            set(seen),
+            source,
         )
     except (ValueError, FileNotFoundError) as error:
         raise SystemExit(f"error: {error}") from error
     SPLITS_DIR.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(split, indent=2) + "\n")
     print(f"wrote {path}")
-    print(_summary(split))
+    for set_name in SETS:
+        n = len(split[set_name])
+        print(f"{set_name}: {n} task{'s' if n != 1 else ''}")

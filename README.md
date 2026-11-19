@@ -247,32 +247,57 @@ Every evaluation folder is written to be read without a tracing server:
 ## Splitting the tasks
 
 ```
-mas-optimiser split --experiment baseline-haiku --name haiku-20-40-40 --seed 0
+mas-optimiser split --name domain-20-40-40
 ```
 
-Draws the training, validation and test sets and writes
-`configs/splits/<name>.json`. For each domain it reads the experiment's
-latest full evaluation that has no label and no command-line option that
-changes what is measured (`--domain`, `--concurrency`, `--out` and the
-tracing switch change nothing), and stops if a domain with a full
-evaluation has none that qualifies, or if the evaluations chosen differ in
-model, mode, harness or attempts. The
-strata are domain crossed with baseline outcome (all, some or none of the
-task's attempts passed), so each set has the same mix of domains and
-difficulty. Tasks listed in `configs/splits/forced-training.yaml` (read or
-inspected by hand, dataset defects, crashes) go into training before the
-draw; the file must exist, and `--forced` names another one.
-`--proportions` sets the shares (default `0.2 0.4 0.4`).
+Draws the training, validation and test sets with a seeded shuffle and
+writes `configs/splits/<name>.json`. The proposer reads training traces
+only, the acceptance gate decides on validation and returns its verdict
+alone, and the test set is opened once for the reported number.
+
+| option          | what it sets                                            | default       |
+|-----------------|---------------------------------------------------------|---------------|
+| `--proportions` | shares of training, validation and test, summing to one | `0.2 0.4 0.4` |
+| `--seed`        | seed of the shuffle; the same seed gives the same sets  | `0`           |
+| `--balance`     | what every set holds the same mix of                    | `domain`      |
+| `--experiment`  | the baseline run read for each task's difficulty        |               |
+| `--seen`        | a file of tasks already read by hand, kept in training  | none          |
+
+```
+mas-optimiser split --name trial --proportions 0.6 0.2 0.2 --seed 7
+mas-optimiser split --name plain --balance
+mas-optimiser split --name by-difficulty --balance domain difficulty --experiment baseline-haiku
+mas-optimiser split --name with-seen --seen seen-tasks.yaml
+```
+
+`--balance` takes `domain`, `difficulty`, both, or nothing after it. The
+tasks are grouped by what is named and each group is shared out in the
+proportions, so every set holds the same mix; with nothing named the tasks
+are shuffled as one group. The more that is balanced, the smaller the groups,
+and the set sizes can differ from the exact shares by a few tasks.
+
+A task's difficulty is whether all, some or none of its attempts passed in a
+baseline run, named by `--experiment` and given only with a balance on
+difficulty. For each domain the command reads the experiment's latest full
+evaluation that has no label and no command-line option that changes what is
+measured (`--domain`, `--concurrency`, `--out` and the tracing switch change
+nothing). It stops if a domain with a full evaluation has none that
+qualifies, or if the evaluations chosen differ in model, mode, harness or
+attempts, and the split covers the tasks that run scored. Without a balance
+on difficulty the task list comes from the dataset and no run is needed.
+
+`--seen` names a YAML file that gives each task id a reason. A task someone
+has read cannot serve as an unseen one, so these go into training before the
+shuffle. Validation and test tasks are never read; only their scores are
+looked at.
 
 A split is drawn once. The command refuses a name that already has a file,
 since a redraw could move tasks someone has read into a sealed set. The file
-records the seed, proportions, evaluations read, code version, forced list
-and every task's stratum; those fix the draw, and a unit test checks that
-the committed split follows from its own record, so a clean clone can verify
-it without the local evaluations. The proposer reads training traces only, the
-acceptance gate decides on validation and returns its verdict alone, and the
-test set is opened once for the reported number. Paths here are inside the
-repository, whatever the working directory.
+holds the seed, the proportions, the balance, what was read, the seen tasks
+and the three lists of task ids, and no result of any single task. The split
+`haiku-20-40-40`, used in the examples of this page, was drawn on 27 October
+with both balances and 20 seen tasks. Paths here are inside the repository,
+whatever the working directory.
 
 ## Local copies of the seed databases
 

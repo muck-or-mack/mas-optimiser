@@ -174,11 +174,7 @@ def run(args: argparse.Namespace) -> None:
     out.mkdir(parents=True, exist_ok=True)
     wanted = None
     if args.split:
-        wanted = {
-            task
-            for task, entry in load_split(args.split)["tasks"].items()
-            if entry["set"] == args.subset
-        }
+        wanted = set(load_split(args.split)[args.subset])
 
     sides, described = [], []
     for spec in (args.a, args.b):
