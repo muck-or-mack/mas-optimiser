@@ -7,7 +7,7 @@ import pytest
 
 import mas_optimiser
 from mas_optimiser import cli
-from mas_optimiser.benchmarks.enterpriseops import splits
+from mas_optimiser.benchmarks.enterpriseops import runner, splits
 
 INDEX_COLUMNS = [
     "evaluation",
@@ -269,174 +269,200 @@ def test_read_baseline_names_the_columns_an_older_index_lacks(tmp_path):
 
 
 def test_draw_is_deterministic_whatever_the_order_tasks_arrive_in():
-    tasks = {f"t{i:02d}": ("itsm", "none") for i in range(20)}
-    tasks |= {f"u{i:02d}": ("csm", "all") for i in range(10)}
-    first = splits.draw(tasks, (0.2, 0.4, 0.4), 0, set())
-    reversed_tasks = dict(reversed(list(tasks.items())))
-    assert splits.draw(reversed_tasks, (0.2, 0.4, 0.4), 0, set()) == first
-    assert splits.draw(tasks, (0.2, 0.4, 0.4), 1, set()) != first
-    assert sorted(first) == sorted(tasks)
+    groups = {f"t{i:02d}": ("itsm", "none") for i in range(20)}
+    groups |= {f"u{i:02d}": ("csm", "all") for i in range(10)}
+    first = splits.draw(groups, (0.2, 0.4, 0.4), 0, set())
+    reversed_groups = dict(reversed(list(groups.items())))
+    assert splits.draw(reversed_groups, (0.2, 0.4, 0.4), 0, set()) == first
+    assert splits.draw(groups, (0.2, 0.4, 0.4), 1, set()) != first
+    assert sorted(first) == sorted(groups)
     counts = {s: list(first.values()).count(s) for s in splits.SETS}
     assert counts == {"training": 6, "validation": 12, "test": 12}
 
 
+def test_draw_shares_out_every_group_in_the_proportions():
+    # Ten tasks of one domain and twenty of another: every set holds the two
+    # domains one to two, as the whole does.
+    groups = {f"a{i:02d}": ("itsm",) for i in range(10)}
+    groups |= {f"b{i:02d}": ("csm",) for i in range(20)}
+    assignment = splits.draw(groups, (0.2, 0.4, 0.4), 0, set())
+    for set_name, itsm, csm in (
+        ("training", 2, 4),
+        ("validation", 4, 8),
+        ("test", 4, 8),
+    ):
+        drawn = [t for t, s in assignment.items() if s == set_name]
+        assert sum(t.startswith("a") for t in drawn) == itsm
+        assert sum(t.startswith("b") for t in drawn) == csm
+
+
+def test_draw_with_nothing_to_balance_is_one_plain_shuffle():
+    # One group: only the totals follow the proportions.
+    groups = {f"a{i:02d}": () for i in range(10)}
+    groups |= {f"b{i:02d}": () for i in range(20)}
+    assignment = splits.draw(groups, (0.2, 0.4, 0.4), 0, set())
+    counts = {s: list(assignment.values()).count(s) for s in splits.SETS}
+    assert counts == {"training": 6, "validation": 12, "test": 12}
+
+
 def test_overflow_shares_what_is_left_in_the_validation_to_test_ratio():
-    # Seven of ten tasks forced leaves three for validation and test, shared
+    # Seven of ten tasks seen leaves three for validation and test, shared
     # 0.7 to 0.1: exactly 2.625 and 0.375, so all three go to validation.
-    tasks = {f"t{i}": ("hr", "all") for i in range(10)}
-    forced = {f"t{i}" for i in range(7)}
-    assignment = splits.draw(tasks, (0.2, 0.7, 0.1), 0, forced)
-    rest = sorted(assignment[t] for t in tasks if t not in forced)
+    groups = {f"t{i}": ("hr", "all") for i in range(10)}
+    seen = {f"t{i}" for i in range(7)}
+    assignment = splits.draw(groups, (0.2, 0.7, 0.1), 0, seen)
+    rest = sorted(assignment[t] for t in groups if t not in seen)
     assert rest == ["validation", "validation", "validation"]
 
 
-def test_forced_tasks_go_to_training_and_overflow_shrinks_the_other_sets():
-    tasks = {f"t{i}": ("hr", "all") for i in range(5)}
-    forced = {"t0", "t1", "t2"}
-    assignment = splits.draw(tasks, (0.2, 0.4, 0.4), 0, forced)
-    assert all(assignment[t] == "training" for t in forced)
-    rest = sorted(assignment[t] for t in tasks if t not in forced)
+def test_seen_tasks_go_to_training_and_overflow_shrinks_the_other_sets():
+    groups = {f"t{i}": ("hr", "all") for i in range(5)}
+    seen = {"t0", "t1", "t2"}
+    assignment = splits.draw(groups, (0.2, 0.4, 0.4), 0, seen)
+    assert all(assignment[t] == "training" for t in seen)
+    rest = sorted(assignment[t] for t in groups if t not in seen)
     assert rest == ["test", "validation"]
 
 
-def test_build_split_records_provenance_counts_and_every_task(tmp_path, monkeypatch):
+KEYS = {"name", "seed", "proportions", "balance", "source", "seen", *splits.SETS}
+
+
+def test_build_split_records_what_was_drawn_and_each_sets_tasks(monkeypatch):
     monkeypatch.setattr(mas_optimiser, "code_version", lambda: "v9.9.9-0-gabc")
-    write_experiment(
-        tmp_path / "exp",
-        {"itsm": many("itsm", 2, 3, 10), "csm": many("csm", 1, 1, 8)},
-    )
+    groups = {f"i{i:02d}": ("itsm",) for i in range(15)}
+    groups |= {f"c{i:02d}": ("csm",) for i in range(10)}
     split = splits.build_split(
-        "trial", tmp_path / "exp", (0.2, 0.4, 0.4), 7, {"itsm_none_03": "inspected"}
+        "trial", groups, (0.2, 0.4, 0.4), 7, ("domain",), {"i03"}, {"dataset": "d"}
     )
+    assert set(split) == KEYS
     assert split["name"] == "trial" and split["seed"] == 7
-    assert split["strata"] == splits.STRATA_RULE
-    assert split["source"] == {
-        "experiment": "exp",
-        "evaluations": {"itsm": "e1-itsm", "csm": "e2-csm"},
-        "code_version": "v9.9.9-0-gabc",
-    }
-    assert split["forced_training"] == {"itsm_none_03": "inspected"}
-    assert [t for t, row in split["tasks"].items() if row["forced"]] == ["itsm_none_03"]
-    assert split["tasks"]["itsm_none_03"]["set"] == "training"
-    assert sum(split["counts"]["training"].values()) == 5
-    assert split["counts"]["validation"]["itsm/none"] == 4
-    assert len(split["tasks"]) == 25
+    assert split["balance"] == ["domain"]
+    assert split["source"] == {"dataset": "d", "code_version": "v9.9.9-0-gabc"}
+    assert split["seen"] == ["i03"] and "i03" in split["training"]
+    assert [len(split[s]) for s in splits.SETS] == [5, 10, 10]
+    drawn = split["training"] + split["validation"] + split["test"]
+    assert sorted(drawn) == sorted(groups)
 
 
 @pytest.mark.parametrize(
     "proportions",
     [(0.5, 0.4, 0.4), (1.2, -0.1, -0.1), (float("nan"),) * 3, (0.5, 0.5)],
 )
-def test_build_split_rejects_proportions_that_are_not_three_shares_of_one(
-    tmp_path, proportions
-):
-    write_experiment(tmp_path / "exp", {"itsm": {"a": 3}})
+def test_build_split_rejects_proportions_that_are_not_three_shares_of_one(proportions):
     with pytest.raises(ValueError, match="summing to one"):
-        splits.build_split("x", tmp_path / "exp", proportions, 0, {})
+        splits.build_split("x", {"a": ()}, proportions, 0, (), set(), {})
 
 
-def test_build_split_rejects_unknown_forced_tasks(tmp_path):
-    write_experiment(tmp_path / "exp", {"itsm": {"a": 3}})
-    with pytest.raises(ValueError, match="not in"):
-        splits.build_split("x", tmp_path / "exp", (0.2, 0.4, 0.4), 0, {"zzz": "why"})
+def test_build_split_rejects_seen_tasks_that_are_not_among_the_tasks():
+    with pytest.raises(ValueError, match="not among the tasks"):
+        splits.build_split("x", {"a": ()}, (0.2, 0.4, 0.4), 0, (), {"zzz"}, {})
 
 
-def test_the_committed_split_follows_from_its_own_record():
-    # A clean clone has no evaluations/, but each task's stratum and forced flag,
-    # the seed and the proportions are in the file, and they fix the draw.
+def test_the_committed_split_puts_every_task_in_one_set_and_holds_no_result():
     split = splits.load_split("haiku-20-40-40")
-    tasks = {t: (row["domain"], row["outcome"]) for t, row in split["tasks"].items()}
-    forced = {t for t, row in split["tasks"].items() if row["forced"]}
-    proportions = tuple(split["proportions"][s] for s in splits.SETS)
-    assignment = splits.draw(tasks, proportions, split["seed"], forced)
-    assert assignment == {t: row["set"] for t, row in split["tasks"].items()}
-    assert forced == set(split["forced_training"])
+    assert set(split) == KEYS
+    sets = [split[s] for s in splits.SETS]
+    assert [len(s) for s in sets] == [62, 125, 121]
+    assert len(set().union(*sets)) == 308
+    assert set(split["seen"]) <= set(split["training"])
 
 
 @pytest.fixture
 def command(tmp_path, monkeypatch):
-    """The split command over a fake experiment, with its folders in tmp_path."""
+    """The split command over a fake dataset and experiment, with its folders in tmp_path."""
     monkeypatch.setattr(splits, "EVALUATIONS", tmp_path / "evaluations")
     monkeypatch.setattr(splits, "SPLITS_DIR", tmp_path / "configs" / "splits")
-    monkeypatch.setattr(splits, "FORCED_FILE", tmp_path / "configs" / "forced.yaml")
-    write_experiment(tmp_path / "evaluations" / "exp", {"itsm": many("itsm", 2, 2, 6)})
-    (tmp_path / "configs").mkdir()
-    splits.FORCED_FILE.write_text("itsm_none_05: read by hand\n")
+    tasks = {"itsm": many("itsm", 2, 2, 6), "csm": many("csm", 1, 1, 3)}
+    monkeypatch.setattr(
+        runner, "load_tasks", lambda domain, mode: tasks.get(domain, {})
+    )
+    write_experiment(tmp_path / "evaluations" / "exp", tasks)
 
     def run(*extra):
-        cli.main(
-            ["split", "--experiment", "exp", "--name", "trial", "--seed", "3", *extra]
-        )
+        cli.main(["split", "--name", "trial", "--seed", "3", *extra])
         return json.loads((splits.SPLITS_DIR / "trial.json").read_text())
 
     return run
 
 
-def test_split_command_writes_the_file_and_prints_the_sizes(command, capsys):
+def test_split_command_reads_the_dataset_and_balances_the_domains_by_default(
+    command, capsys
+):
     written = command()
     out = capsys.readouterr().out
     assert f"wrote {splits.SPLITS_DIR / 'trial.json'}" in out
-    assert "training: 1 task (itsm/none 1)" in out
+    assert "training: 3 tasks" in out and "validation: 6 tasks" in out
+    assert written["balance"] == ["domain"] and written["seen"] == []
+    assert written["source"]["dataset"] == runner.HF_DATASET
     assert written["proportions"] == {"training": 0.2, "validation": 0.4, "test": 0.4}
+    assert sum(t.startswith("csm") for t in written["training"]) == 1
     assert splits.load_split("trial") == written
 
 
-def test_split_command_reads_the_forced_list_by_default(command):
-    written = command()
-    assert written["forced_training"] == {"itsm_none_05": "read by hand"}
-    assert written["tasks"]["itsm_none_05"] == {
-        "domain": "itsm",
-        "outcome": "none",
-        "set": "training",
-        "forced": True,
-    }
+def test_split_command_shuffles_plainly_when_nothing_is_balanced(command):
+    written = command("--balance")
+    assert written["balance"] == []
+    assert [len(written[s]) for s in splits.SETS] == [3, 6, 6]
 
 
-def test_split_command_reads_a_forced_list_named_on_the_command_line(command, tmp_path):
-    other = tmp_path / "other.yaml"
-    other.write_text("itsm_all_01: crashed\n")
-    written = command("--forced", str(other))
-    assert written["forced_training"] == {"itsm_all_01": "crashed"}
-    assert written["tasks"]["itsm_all_01"]["set"] == "training"
-
-
-def test_split_command_takes_an_empty_forced_file_as_no_forced_tasks(command):
-    splits.FORCED_FILE.write_text("# nothing forced\n")
-    assert command()["forced_training"] == {}
+def test_split_command_balances_difficulty_from_a_baseline_run_without_writing_it(
+    command,
+):
+    written = command("--balance", "difficulty", "domain", "--experiment", "exp")
+    assert written["balance"] == ["domain", "difficulty"]
+    assert written["source"]["experiment"] == "exp"
+    assert written["source"]["evaluations"] == {"itsm": "e1-itsm", "csm": "e2-csm"}
+    assert set(written) == KEYS
+    assert sum(len(written[s]) for s in splits.SETS) == 15
 
 
 @pytest.mark.parametrize(
-    "setup, extra, message",
+    "extra", [["--balance", "difficulty"], ["--experiment", "exp"]]
+)
+def test_split_command_wants_an_experiment_with_difficulty_and_only_then(
+    command, extra
+):
+    with pytest.raises(SystemExit, match="only then"):
+        command(*extra)
+    assert not (splits.SPLITS_DIR / "trial.json").exists()
+
+
+def test_split_command_places_seen_tasks_in_training(command, tmp_path):
+    seen = tmp_path / "seen.yaml"
+    seen.write_text("itsm_none_05: read by hand\ncsm_all_00: crashed\n")
+    written = command("--seen", str(seen))
+    assert written["seen"] == ["csm_all_00", "itsm_none_05"]
+    assert {"csm_all_00", "itsm_none_05"} <= set(written["training"])
+
+
+def test_split_command_takes_an_empty_file_of_seen_tasks_as_none(command, tmp_path):
+    seen = tmp_path / "seen.yaml"
+    seen.write_text("# nothing read yet\n")
+    assert command("--seen", str(seen))["seen"] == []
+
+
+@pytest.mark.parametrize(
+    "seen, extra, message",
     [
-        (lambda tmp: None, ["--forced", "missing.yaml"], "no forced-training file"),
-        (lambda tmp: splits.FORCED_FILE.unlink(), [], "no forced-training file"),
+        (None, ["--seen", "missing.yaml"], "no file of seen tasks"),
+        ("- itsm_none_05\n", [], "must map each task id"),
+        ("itsm_none_05:\n", [], "must map each task id"),
+        ('itsm_none_05: "unclosed\n', [], "is not valid YAML"),
+        ("nowhere_01: read\n", [], "not among the tasks"),
+        (None, ["--proportions", "0.5", "0.5", "0.5"], "error: proportions"),
         (
-            lambda tmp: splits.FORCED_FILE.write_text("- itsm_none_05\n"),
-            [],
-            "must map each task id",
+            None,
+            ["--balance", "difficulty", "--experiment", "nowhere"],
+            "error: .*index.csv",
         ),
-        (
-            lambda tmp: None,
-            ["--proportions", "0.5", "0.5", "0.5"],
-            "error: proportions",
-        ),
-        (
-            lambda tmp: splits.FORCED_FILE.write_text("itsm_none_05:\n"),
-            [],
-            "must map each task id",
-        ),
-        (
-            lambda tmp: splits.FORCED_FILE.write_text('itsm_none_05: "unclosed\n'),
-            [],
-            "is not valid YAML",
-        ),
-        (lambda tmp: None, ["--experiment", "nowhere"], "error: .*index.csv"),
     ],
 )
 def test_split_command_stops_on_bad_input_without_writing(
-    command, tmp_path, setup, extra, message
+    command, tmp_path, seen, extra, message
 ):
-    setup(tmp_path)
+    if seen is not None:
+        (tmp_path / "seen.yaml").write_text(seen)
+        extra = ["--seen", str(tmp_path / "seen.yaml")]
     with pytest.raises(SystemExit, match=message):
         command(*extra)
     assert not (splits.SPLITS_DIR / "trial.json").exists()
@@ -445,7 +471,7 @@ def test_split_command_stops_on_bad_input_without_writing(
 @pytest.mark.parametrize("name", ["trial.json", "../escape", "_x", "a b"])
 def test_split_command_refuses_a_malformed_name(command, name):
     with pytest.raises(SystemExit, match="split name"):
-        cli.main(["split", "--experiment", "exp", "--name", name])
+        cli.main(["split", "--name", name])
 
 
 def test_split_command_never_redraws_an_existing_split(command):

@@ -1305,11 +1305,9 @@ def evaluate(
     tasks = load_tasks(domain, experiment["mode"])
     if experiment["split"]:
         name, _, subset = experiment["split"].partition(":")
-        members = splits.load_split(name)["tasks"]
+        members = set(splits.load_split(name)[subset])
         tasks = {
-            task_id: config
-            for task_id, config in tasks.items()
-            if members.get(task_id, {}).get("set") == subset
+            task_id: config for task_id, config in tasks.items() if task_id in members
         }
     # A task whose every check the patch list excludes cannot be judged and
     # is not run.

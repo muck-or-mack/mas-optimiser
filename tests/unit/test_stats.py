@@ -120,15 +120,7 @@ def test_paired_filters_by_the_split_subset(tmp_path):
     a, b = two_sides(tmp_path)
     split = tmp_path / "split.json"
     split.write_text(
-        json.dumps(
-            {
-                "tasks": {
-                    "i1": {"set": "validation"},
-                    "i2": {"set": "test"},
-                    "c1": {"set": "validation"},
-                }
-            }
-        )
+        json.dumps({"training": [], "validation": ["c1", "i1"], "test": ["i2"]})
     )
     cmp = outcomes.paired(a, b, "success", split=split, subset="validation")
     assert cmp.tasks == ("c1", "i1")

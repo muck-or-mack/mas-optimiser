@@ -504,8 +504,8 @@ is credited in `NOTICE.md` as well.
 | `rebuild` | own design | one attempt's final database written as a SQLite file | `rebuild.rebuild_attempt` |
 | `seeds` | EnterpriseOps-Gym `benchmark/mcp_client.py` | `delete_database` imported; `create_database_from_file` reproduced as `server_database` with the same endpoint and payload (see `NOTICE.md`) | `seeds.server_database` |
 | `seeds` | own design | the table schema read from `sqlite_master` on a seeded server database; local seed copies; the data-model pages | `seeds.build_seed_database`, `schema_markdown` |
-| `splits` | StarHarness (arXiv:2608.24804) | the protocol of a stratified draw into a proposer-visible set, a gate set and a held-out set; its `stratify_tasks.py` was not copied | `splits.draw` |
-| `splits` | stratified sampling (Cochran, *Sampling Techniques*, Wiley, 1977) | strata as domain crossed with baseline outcome, quotas by largest remainder | `splits.quotas`, `draw` |
+| `splits` | StarHarness (arXiv:2608.24804) | the protocol of a seeded draw into a proposer-visible set, a gate set and a held-out set, stratified there by baseline outcome; its `stratify_tasks.py` was not copied | `splits.draw` |
+| `splits` | stratified sampling (Cochran, *Sampling Techniques*, Wiley, 1977) | what a draw balances (domain, difficulty or both) as its strata, quotas by largest remainder | `splits.quotas`, `draw` |
 | `splits` | REUSE (arXiv:2609.33180); Kapoor et al. (arXiv:2407.01502); SEAL (arXiv:2607.24300) | the gate set returns only accept or reject to the proposer; a sealed test set opened once; a split drawn once and never redrawn | `splits.build_split` |
 | `stats` | own design | per-task scores for two outcomes, the paired comparison over the same tasks, the `compare` command with its results as data files and a report of them, and the figures | `stats.outcomes`, `stats.compare`, `stats.figures` |
 | `stats` | own design, on the exchangeability argument of permutation tests (Efron and Tibshirani, below) | the calibration of the test on two runs of one harness: its statistic over random splits of their attempts, against Student's t | `stats.calibrate` |
@@ -537,7 +537,7 @@ is credited in `NOTICE.md` as well.
 | `.../enterpriseops/rescore.py` | recompute an evaluation from its saved changes |
 | `.../enterpriseops/rebuild.py` | write one attempt's rebuilt database as a file |
 | `.../enterpriseops/seeds.py` | local copies of the seed databases; the `schema` command |
-| `.../enterpriseops/splits.py` | the stratified, sealed split of the tasks; drawn once |
+| `.../enterpriseops/splits.py` | the seeded split of the tasks into training, validation and test; drawn once |
 | `vendor/.../orchestrators/react.py` | the agent loop |
 | `vendor/.../orchestrators/base.py` | the orchestrator interface and the tool call |
 | `vendor/.../benchmark/executor.py` | seed, run, check, clean up |

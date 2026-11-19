@@ -138,11 +138,7 @@ def paired(
         sides.append((scores, domains))
     (scores_a, domains_a), (scores_b, _) = sides
     if split is not None:
-        wanted = {
-            task
-            for task, entry in load_split(split)["tasks"].items()
-            if entry["set"] == subset
-        }
+        wanted = set(load_split(split)[subset])
         scores_a = {t: s for t, s in scores_a.items() if t in wanted}
         scores_b = {t: s for t, s in scores_b.items() if t in wanted}
     only = set(scores_a) ^ set(scores_b)
