@@ -76,6 +76,19 @@ named the same way: `model: haiku-5-5` means `configs/models/haiku-5-5.yaml`,
 and a path works in place of any name. The command checks that the domain's
 server answers before it starts, and names the servers' start command if not.
 
+Prompt caching is on by default (`prompt_caching: true`; `--no-prompt-caching`
+turns it off for one command). Every call of an attempt repeats most of the
+call before it: the tool descriptions, the policy and the conversation so
+far. With caching the provider stores that input and bills it at about a
+tenth of the input rate when it is sent again within five minutes, and at a
+quarter more than the input rate when it is first stored. The model receives
+the same input either way. In a check on training tasks the same calls cost
+about half as much with each task's own tools and about a fifth as much with
+every tool. It is built for Anthropic models only, since it uses that
+provider's request field and tool format: with any other provider the
+setting does nothing and the run says so. `evaluation.json` records whether
+it was used, and costs with and without it are not comparable.
+
 `./scripts/demo.sh` starts the servers if needed and runs the `demo`
 experiment. `mas-optimiser --help` lists the commands, `mas-optimiser run
 --help` the options, and every script in `scripts/` and `setup.sh` answers

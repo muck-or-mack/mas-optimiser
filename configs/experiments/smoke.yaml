@@ -33,3 +33,10 @@ trace: true
 # trace. Changes the agent's behaviour and cost: demonstrations only, never a
 # evaluation whose numbers are reported.
 thinking_summary: false
+# Have the model provider store the input that repeats from call to call (the
+# tool descriptions, the policy, the conversation so far) and bill it at its
+# cheaper cache rate when it is sent again. The model receives the same input
+# either way; only the cost changes. This is Anthropic's prompt caching and is
+# built for Anthropic models only: with any other provider the setting does
+# nothing, and the run says so.
+prompt_caching: true

@@ -100,6 +100,7 @@ EXPERIMENT_DEFAULTS = {
     "out": None,
     "trace": True,
     "thinking_summary": False,
+    "prompt_caching": True,
 }
 # Command-line overrides of these keys change what an evaluation measures, so
 # they go into its folder name; the rest (tracing, output folder) do not.
@@ -133,6 +134,51 @@ SUMMED = (
 # the trace then shows. Thinking happens either way; only its visibility
 # changes, at some cost in output tokens.
 THINKING_SUMMARY = {"type": "adaptive", "display": "summarized"}
+# Anthropic's mark for prompt caching, on the request as a whole or on a
+# tool. The provider stores a request up to a mark and bills that part at the
+# ``cache_read`` rate when it is sent again within five minutes; the model
+# receives the same input either way. The mark is Anthropic's own: other
+# providers cache by other means, which nothing here switches on.
+CACHE_MARK = {"type": "ephemeral"}
+# Where LangChain's usage reports the tokens a call wrote to the cache: under
+# the two lifetime keys when the provider gives that breakdown (the general
+# key is then zero), under the general key otherwise.
+CACHE_WRITE_KEYS = (
+    "cache_creation",
+    "ephemeral_5m_input_tokens",
+    "ephemeral_1h_input_tokens",
+)
+
+
+def mark_tool_list(tools: list[dict]) -> list[dict]:
+    """The model's tools with Anthropic's cache mark on the last one.
+
+    A mark on the last tool stores the whole tool list, which is the same for
+    every attempt given the same tools, so attempts at other tasks read it
+    from the cache. LangChain keeps the mark only on a tool in Anthropic's
+    own shape, so the last tool is rewritten from the function-call shape the
+    benchmark's client converts to; the model receives the same definition.
+
+    Args:
+        tools: The tools as the benchmark's client converts them, each
+            ``{"type": "function", "function": {...}}``.
+
+    Returns:
+        The same tools, the last one as ``name``, ``description``,
+        ``input_schema`` and ``cache_control``.
+    """
+    if not tools:
+        return tools
+    last = tools[-1]["function"]
+    return [
+        *tools[:-1],
+        {
+            "name": last["name"],
+            "description": last["description"],
+            "input_schema": last["parameters"],
+            "cache_control": CACHE_MARK,
+        },
+    ]
 
 
 class TaskExecutor(BenchmarkExecutor):
@@ -153,6 +199,9 @@ class TaskExecutor(BenchmarkExecutor):
         thinking: A ``thinking`` setting for the model, or ``None`` for the
             benchmark's default. It changes the agent's behaviour and cost,
             so it stays ``None`` for any run that produces a reported number.
+        caching: Switch on Anthropic's prompt caching for the model's calls.
+            It changes the cost of repeated input and nothing the model
+            receives; it must be ``False`` for any other provider.
         seed: The task's seed copy and its layout, from ``states.seed_copy``.
         domain: The task's domain, for the columns its server stamps.
         task_id: The task's dataset ID, for its entry in the patch list.
@@ -165,6 +214,7 @@ class TaskExecutor(BenchmarkExecutor):
         *args,
         trace: bool,
         thinking: dict | None,
+        caching: bool,
         seed: tuple,
         domain: str,
         task_id: str,
@@ -176,13 +226,14 @@ class TaskExecutor(BenchmarkExecutor):
         super().__init__(config, *args, **kwargs)
         self.trace = trace
         self.thinking = thinking
+        self.caching = caching
         self.seed, self.layout = seed
         self.skip = states.STAMPED.get(domain, frozenset())
         self.changes = None
         self.diagnosis_error = None
 
     async def initialize(self):
-        """Build the clients as the benchmark does, then attach tracing and the thinking setting to the model.
+        """Build the clients as the benchmark does, then attach tracing, the thinking setting and prompt caching to the model.
 
         The executor builds its model client here, so this is the first point
         at which the model object exists.
@@ -193,6 +244,17 @@ class TaskExecutor(BenchmarkExecutor):
             tracing.attach(model)
         if self.thinking:
             model.thinking = self.thinking
+        if self.caching:
+            # The mark on the request stores each call up to its end and
+            # moves forward as the conversation grows, so every call of an
+            # attempt reads what the call before it sent. The mark on the
+            # tool list stores the tools by themselves, so that attempts at
+            # other tasks given the same tools read them too.
+            model.model_kwargs = {**model.model_kwargs, "cache_control": CACHE_MARK}
+            convert = self.llm_client._convert_mcp_tools_to_langchain
+            self.llm_client._convert_mcp_tools_to_langchain = lambda tools: (
+                mark_tool_list(convert(tools))
+            )
 
     async def _run_verifiers(self, task_result: dict) -> dict[str, dict]:
         """Run the checks as the benchmark does, then correct, record and diagnose the verdicts.
@@ -720,6 +782,8 @@ def cost(usage: list[dict], pricing: dict) -> float:
     ``input_tokens`` include the cached tokens that ``input_token_details``
     breaks out. A call whose prompt is over ``long_prompt_tokens`` is charged
     ``long_prompt_multiplier`` times the rates, as the Claude API does.
+    Tokens written to the cache are charged ``cache_write``, the rate of the
+    five-minute lifetime; the dearer one-hour lifetime is never asked for.
 
     Args:
         usage: One LangChain ``usage_metadata`` dict per model call.
@@ -732,7 +796,7 @@ def cost(usage: list[dict], pricing: dict) -> float:
     for call in usage:
         details = call.get("input_token_details") or {}
         cache_read = details.get("cache_read") or 0
-        cache_write = details.get("cache_creation") or 0
+        cache_write = sum(details.get(key) or 0 for key in CACHE_WRITE_KEYS)
         long_prompt = call["input_tokens"] > pricing["long_prompt_tokens"]
         total += (pricing["long_prompt_multiplier"] if long_prompt else 1) * (
             (call["input_tokens"] - cache_read - cache_write) * pricing["input"]
@@ -807,7 +871,9 @@ def task_outcome(
         "input_tokens": sum(u["input_tokens"] for u in usage),
         "output_tokens": sum(u["output_tokens"] for u in usage),
         "cache_read_tokens": sum(d.get("cache_read") or 0 for d in details),
-        "cache_write_tokens": sum(d.get("cache_creation") or 0 for d in details),
+        "cache_write_tokens": sum(
+            d.get(key) or 0 for d in details for key in CACHE_WRITE_KEYS
+        ),
         "cost_usd": round(cost(usage, pricing), 6),
         "seconds": execution.get("execution_time_ms", 0) / 1000,
     }
@@ -980,6 +1046,7 @@ async def run_task(
     domain: str,
     trace: bool,
     thinking: dict | None,
+    caching: bool,
     tags: list[str],
     arguments: dict[str, list[str]],
 ) -> tuple[dict, list[dict], list[dict], list[dict]]:
@@ -995,6 +1062,7 @@ async def run_task(
         domain: The evaluation's domain.
         trace: Send the attempt to Langfuse as one trace, scored with its verdict.
         thinking: A ``thinking`` setting for the model, or ``None``.
+        caching: Use Anthropic's prompt caching.
         tags: The trace's tags; the attempt number is added.
         arguments: Each tool's argument names, from ``tool_arguments``.
 
@@ -1009,6 +1077,7 @@ async def run_task(
         orchestrator_class=ReactOrchestrator,
         trace=trace,
         thinking=thinking,
+        caching=caching,
         seed=states.seed_copy(
             Path(config["gym_servers_config"][0]["seed_database_file"]), domain
         ),
@@ -1102,6 +1171,7 @@ async def run_tasks(
     concurrency: int,
     trace: bool,
     thinking: dict | None,
+    caching: bool,
     tags: list[str],
 ) -> tuple[list[dict], list[dict], list[dict], list[dict]]:
     """Run every task ``attempts`` times, at most ``concurrency`` runs at once, and gather the rows.
@@ -1120,6 +1190,7 @@ async def run_tasks(
         concurrency: Runs in flight at once.
         trace: Send each run to Langfuse.
         thinking: A ``thinking`` setting for the model, or ``None``.
+        caching: Use Anthropic's prompt caching.
         tags: The traces' tags.
 
     Returns:
@@ -1145,6 +1216,7 @@ async def run_tasks(
                 domain=domain,
                 trace=trace,
                 thinking=thinking,
+                caching=caching,
                 tags=tags,
                 arguments=arguments,
             )
@@ -1230,6 +1302,13 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         action=argparse.BooleanOptionalAction,
         help="ask the model for reasoning summaries (demonstrations only)",
     )
+    parser.add_argument(
+        "--prompt-caching",
+        action=argparse.BooleanOptionalAction,
+        help="have the provider store repeated input and bill it at the cheaper "
+        "cache rate; Anthropic models only, nothing the model receives changes "
+        "(on by default)",
+    )
 
 
 def run(args: argparse.Namespace) -> None:
@@ -1245,6 +1324,14 @@ def run(args: argparse.Namespace) -> None:
     model, pricing = load_model(config_path("models", experiment["model"]))
     trace = tracing.configured() and experiment["trace"]
     thinking = THINKING_SUMMARY if experiment["thinking_summary"] else None
+    # The caching here is Anthropic's: for any other provider nothing is
+    # switched on, and the run says so.
+    caching = experiment["prompt_caching"] and model.llm_provider == "anthropic"
+    if experiment["prompt_caching"] and not caching:
+        print(
+            "Prompt caching is built for Anthropic models only: "
+            f"not used with provider {model.llm_provider!r}."
+        )
     if trace:
         # The Anthropic SDK also writes a metadata-only span per call into any
         # registered tracer; the LangChain callback already records each call
@@ -1265,6 +1352,7 @@ def run(args: argparse.Namespace) -> None:
             run_dir=run_dir,
             trace=trace,
             thinking=thinking,
+            caching=caching,
             version=version,
         )
     if not experiment["out"]:
@@ -1283,6 +1371,7 @@ def evaluate(
     run_dir: Path,
     trace: bool,
     thinking: dict | None,
+    caching: bool,
     version: str,
 ) -> None:
     """Run one domain's tasks as one evaluation: the folder, its tables, ``evaluation.json`` and the index row.
@@ -1296,6 +1385,7 @@ def evaluate(
             unless the experiment names an ``out`` folder of its own.
         trace: Send each run to Langfuse.
         thinking: A ``thinking`` setting for the model, or ``None``.
+        caching: Use Anthropic's prompt caching.
         version: The code's version when the run began, from
             ``mas_optimiser.code_version``, recorded in ``evaluation.json`` and the index.
 
@@ -1358,6 +1448,7 @@ def evaluate(
                 concurrency=experiment["concurrency"],
                 trace=trace,
                 thinking=thinking,
+                caching=caching,
                 tags=tags,
             )
         )
@@ -1394,6 +1485,7 @@ def evaluate(
         "dataset": HF_DATASET,
         "dataset_revision": HF_REVISION,
         "thinking": thinking,
+        "prompt_caching": caching,
         "traced": trace,
         "mas_optimiser_version": version,
         "started": started.isoformat(timespec="seconds"),
