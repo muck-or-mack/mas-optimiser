@@ -311,7 +311,7 @@ def test_evaluate_writes_the_tables_the_settings_and_the_index_row(
     assert (folder / "summary.md").read_text().startswith("# e1\n")
     index = (tmp_path / "exp" / "index.csv").read_text().splitlines()
     assert index[0].startswith("evaluation,run,started,domain,mode,model,harness,")
-    assert index[1].startswith("e1,") and ",itsm,oracle,m,default," in index[1]
+    assert index[1].startswith("e1,") and ",itsm,all_tools,m,default," in index[1]
     # tasks 1, attempts 1, total 1, passed 0, every-attempt 0, errors 1, then
     # the summed columns: checks 0 of 1, the benchmark's own 0 and 0 of 1,
     # four token counts, cost and seconds.

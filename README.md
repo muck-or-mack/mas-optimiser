@@ -71,6 +71,10 @@ smoke --limit 1 --domain csm` is a quick variant without editing anything,
 `--task <task_id>` runs one chosen task (repeat it for several), and
 `--split haiku-20-40-40:training` runs only that set of a split (see
 below).
+Experiments give the agent every tool its domain's server offers
+(`mode: all_tools`); `--mode oracle` gives it only the tools the benchmark
+lists with each task, the setting that published results use (see "What is
+fixed and what is optimised" in the documentation).
 To define a new experiment, copy `smoke.yaml` under a new name. Models are
 named the same way: `model: haiku-5-5` means `configs/models/haiku-5-5.yaml`,
 and a path works in place of any name. The command checks that the domain's
@@ -233,6 +237,7 @@ Every evaluation folder is written to be read without a tracing server:
 
 | To find | Open | Written by |
 |---|---|---|
+| what every arm of an experiment shares, and what may differ | `docs/methodology/fixed-and-optimised.md` | by hand |
 | whether it passed, and how many | `summary.md` (headline); `index.csv`, one row per evaluation of the experiment | `report.summary`, `runner.write_index_row` |
 | the run as a whole: the headline pooled over its domains, then a row per domain | the run's `summary.md` and `run.json` | `runner.write_run_summary` |
 | what went wrong overall: by table, then by failure and column; the tasks that passed least | `summary.md`, "What went wrong" | `report.summary` |

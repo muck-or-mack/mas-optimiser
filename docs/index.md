@@ -27,6 +27,7 @@ how-it-works
 :maxdepth: 2
 :caption: Methodology
 
+methodology/fixed-and-optimised
 methodology/acceptance-gate
 ```
 

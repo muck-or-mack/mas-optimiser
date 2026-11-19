@@ -32,7 +32,7 @@ def test_experiment_file_defaults_and_overrides():
     assert settings["model"] == "haiku-5-5"
     assert (settings["domain"], settings["mode"], settings["limit"]) == (
         ["itsm"],
-        "oracle",
+        "all_tools",
         5,
     )
     assert settings["trace"] is True and settings["thinking_summary"] is False
