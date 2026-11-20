@@ -31,6 +31,7 @@ def test_run_help_shows_the_options(capsys):
     assert "--domain {itsm,csm,hr}" in out and "--thinking-summary" in out
     assert "--prompt-caching, --no-prompt-caching" in out
     assert "--model-timeout MODEL_TIMEOUT" in out
+    assert "--harness HARNESS" in out
 
 
 def test_unknown_command_fails():

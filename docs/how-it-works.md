@@ -5,12 +5,13 @@ service management, customer service and HR tasks against a simulated
 ServiceNow-style system), measures the result properly, and explains every
 failure down to the database cell that is wrong and the turn of the
 conversation that set it. That measurement layer is finished. On top of it
-the project builds a ladder of better agents ("harnesses") and an optimiser
-that improves the best of them by editing its planning layer.
+the project builds an optimiser that improves the agent's harness, the code
+around the model, starting from the benchmark's own.
 
 Two figures go with this document. `figures/one-attempt.svg` is the life of
-one attempt as it runs today; `figures/ladder-and-optimiser.svg` is where
-the project goes next. Both are pages of `figures/architecture.drawio`,
+one attempt as it runs today; `figures/ladder-and-optimiser.svg` was drawn
+for an earlier plan of where the project goes next and is to be redrawn
+(section 4). Both are pages of `figures/architecture.drawio`,
 which draw.io opens for editing. Grey boxes are the benchmark's own code,
 vendored unchanged under `vendor/enterpriseops-gym/`; blue boxes are this
 package; yellow boxes are services outside the process; green shapes are
@@ -32,7 +33,8 @@ the commit that last changed this document
 
 | Layer | Files | Lines | What it does |
 |---|---|---|---|
-| The harness (the agent, to be improved) | `vendor/enterpriseops-gym/orchestrators/react.py`, `base.py`; `benchmark/executor.py`, `llm_client.py`, `mcp_client.py`, `verifier.py`, `models.py` | about 2,100 | the loop of model calls and tool calls, the database set-up on the domain server, the SQL checks |
+| The harness (the agent, to be improved) | `harnesses/default/agent.py`, `prompt.md` | 150 | the loop of model calls and tool calls, and the text it adds to a task's system message |
+| The benchmark (unchanged) | `vendor/enterpriseops-gym/orchestrators/base.py`; `benchmark/executor.py`, `llm_client.py`, `mcp_client.py`, `verifier.py`, `models.py` | about 2,000 | the tool call, the model and tool clients, the database set-up on the domain server, the SQL checks |
 | The runner (ours) | `src/mas_optimiser/cli.py`, `tracing.py`, `benchmarks/enterpriseops/runner.py` | about 1,300 | loads the tasks, runs attempts in parallel, applies the patch list, saves every record and the tables |
 | The measure (ours) | `checks.py`, `states.py`, `sql.py`, `diagnosis.py`, `report.py`, `rescore.py`, `rebuild.py` | about 2,300 | verdicts, changes against the seed, the cell-by-cell diagnosis, the trace to the turn, the results files, recomputation |
 | Set-up tools (ours) | `seeds.py`, `splits.py` | about 770 | local copies of the seed databases; the one-off draw of the training, validation and test sets |
@@ -41,8 +43,9 @@ Line counts are from `wc -l` on 6 November 2026; a third of this package's
 lines are docstrings, since every function states its arguments, its return
 value and what it raises. The benchmark's own
 runner (`vendor/enterpriseops-gym/evaluate.py`) is not used, because the
-runner has to own the loop so that later agents plug in as orchestrator
-classes (section 2.4), and because its scoring loses checks (section 2.5).
+runner has to own the loop so that a harness's agent plugs in as an
+orchestrator class (section 2.4), and because its scoring loses checks
+(section 2.5).
 
 
 ## 2. One attempt, start to finish
@@ -54,20 +57,21 @@ builds one sub-command per module in `COMMANDS` (`cli.py:31`): `run`,
 `rescore`, `rebuild`, `split`, `schema`, `compare`, `calibrate` and `list`.
 Each module gives its options in `add_arguments` and its work in `run`.
 
-`runner.run` (`runner.py:1346`) reads the experiment file
+`runner.run` (`runner.py:1399`) reads the experiment file
 `configs/experiments/baseline-haiku.yaml` through `load_experiment`
-(`runner.py:409`), which layers the defaults in `EXPERIMENT_DEFAULTS`
-(`runner.py:90`), then the file, then any command-line override, and stops
-on a bad setting before any money is spent. `load_model` (`runner.py:763`)
+(`runner.py:435`), which layers the defaults in `EXPERIMENT_DEFAULTS`
+(`runner.py:96`), then the file, then any command-line override, and stops
+on a bad setting before any money is spent. `load_model` (`runner.py:804`)
 reads `configs/models/haiku-5-5.yaml`: the benchmark's model fields, the
 name of the environment variable that holds the API key (read from `.env`,
-never written to a config), and a price table. Then one `evaluate` per
-domain (`runner.py:1406`).
+never written to a config; left out for a self-hosted server that asks for
+none), and a price table. Then one `evaluate` per
+domain (`runner.py:1479`).
 
 ### 2.2 The tasks
 
-`load_tasks` (`runner.py:346`) reads the Hugging Face dataset at a pinned
-commit (`HF_REVISION`, `runner.py:73`), so a later edit of the dataset
+`load_tasks` (`runner.py:372`) reads the Hugging Face dataset at a pinned
+commit (`HF_REVISION`, `runner.py:76`), so a later edit of the dataset
 cannot change the tasks between evaluations. The benchmark's corrected
 copies under `vendor/enterpriseops-gym/data/revised/` replace the dataset's
 versions. Every arm of an experiment is given every tool the domain's
@@ -104,24 +108,24 @@ when every check passes.
 
 ### 2.3 The executor
 
-`evaluate` (`runner.py:1406`) keeps the tasks of one split set if asked, cuts
+`evaluate` (`runner.py:1479`) keeps the tasks of one split set if asked, cuts
 to `--limit`, checks that the domain servers answer (`check_servers`,
-`runner.py:690`), makes the evaluation folder, sends the benchmark's
-logging to `evaluation.log` there, and calls `run_tasks` (`runner.py:1186`), which
-runs every attempt through `run_task` (`runner.py:1058`) with at most
+`runner.py:731`), makes the evaluation folder, sends the benchmark's
+logging to `evaluation.log` there, and calls `run_tasks` (`runner.py:1231`), which
+runs every attempt through `run_task` (`runner.py:1101`) with at most
 `concurrency` in flight (four in the baseline). Each attempt seeds its own
 database on the server, so attempts share nothing.
 
-`run_task` builds a `TaskExecutor` (`runner.py:182`), our subclass of the
+`run_task` builds a `TaskExecutor` (`runner.py:202`), our subclass of the
 benchmark's `BenchmarkExecutor` (`executor.py:23`). The subclass adds five
 things: the checks are renamed and patched before the attempt
-(`checks.prepare`, called at `runner.py:227`, section 2.5); the Langfuse
+(`checks.prepare`, called at `runner.py:247`, section 2.5); the Langfuse
 callback is attached to
-the model once the executor has built it (`runner.py:249`); prompt caching
-is switched on for the model (`runner.py:252`, below); each call to the
-model is given a time limit (`runner.py:263`, below); and after the
+the model once the executor has built it (`runner.py:269`); prompt caching
+is switched on for the model (`runner.py:272`, below); each call to the
+model is given a time limit (`runner.py:283`, below); and after the
 checks run, while the database still exists, the final state is read and
-every failed check diagnosed (`runner.py:273`, section 2.6).
+every failed check diagnosed (`runner.py:299`, section 2.6).
 
 Prompt caching changes what an attempt costs and nothing the model
 receives. Each call of the loop sends the tool descriptions, the policy and
@@ -129,9 +133,9 @@ the whole conversation so far, so most of a call repeats the call before it.
 The provider can store a request up to a mark and bill that part at about a
 tenth of the input rate when it arrives again within five minutes; storing
 costs a quarter more than the input rate, once. Two marks are set
-(`CACHE_MARK`, `runner.py:140`). One on the request stores each call to its
+(`CACHE_MARK`, `runner.py:160`). One on the request stores each call to its
 end and moves forward as the conversation grows, so every call reads what
-the last one sent. One on the last tool (`mark_tool_list`, `runner.py:151`)
+the last one sent. One on the last tool (`mark_tool_list`, `runner.py:171`)
 stores the tool list by itself, so that attempts at other tasks given the
 same tools read it too; without it each attempt stores its first call
 afresh, since a store is kept only where a mark sits. In a check on training
@@ -140,7 +144,7 @@ with every tool the server offers. The marks are Anthropic's: the request
 field and the tool format are that provider's own, so the setting is used
 for Anthropic models only (`runner.run` decides, and says so when it does not
 apply), and another provider's caching would need its own few lines here.
-`cost` (`runner.py:796`) charges the tokens read and written at their own
+`cost` (`runner.py:839`) charges the tokens read and written at their own
 rates from the model file's price table.
 
 The time limit is how long a call to the model may wait for its answer
@@ -154,9 +158,13 @@ tries, and the benchmark's client makes three such rounds
 (`llm_client.py:363`), nine tries in all. If every one fails, the attempt
 ends with an error, which `run_task` records and the totals count as a
 failure. The limit is far above any real call: over the stored baseline
-runs a whole attempt, several calls long, took under a minute at most. Like
-the caching, the limit is set through Anthropic's client, so it is used for
-Anthropic models only, and `runner.run` says so when it is not set.
+runs a whole attempt, several calls long, took under a minute at most. The
+limit is set on the provider's own client, so it is built provider by
+provider (`TIMEOUT_PROVIDERS`): on the model for Anthropic, whose client is
+made at the first call, and on the client itself for the OpenAI-style one
+that the benchmark builds for `openai`, `vllm` and `openrouter`, which is
+made with the model. With any other provider `runner.run` says that no
+limit is set.
 
 The benchmark's `execute_benchmark` (`executor.py:482`) then does the work:
 
@@ -177,33 +185,41 @@ The benchmark's `execute_benchmark` (`executor.py:482`) then does the work:
 
 ### 2.4 The agent loop: what the harness is
 
-The whole agent is `ReactOrchestrator.execute` (`react.py:19-125`), a plain
+A harness is a folder, and the runner loads the agent from the one the
+experiment names (`harness`, `runner.py:1412`): the class `Agent` in its
+`agent.py`. The starting harness is `harnesses/default/`. Its `agent.py` is
+a copy of the benchmark's own agent, `orchestrators/react.py`, changed in
+one respect: the text of `prompt.md`, the file beside it, is added to the
+end of the system message when that file is not empty. It starts empty, so
+the default harness sends and records what the benchmark's agent does.
+
+The whole agent is `Agent.execute` (`agent.py:41-150`), a plain
 loop:
 
 1. The conversation starts as two messages: the policy as the system
-   message and the request as the user message (`react.py:22-25`).
-2. For up to `max_iterations` turns (`react.py:34`; 50 by default,
+   message and the request as the user message (`agent.py:47-50`).
+2. For up to `max_iterations` turns (`agent.py:59`; 50 by default,
    `base.py:23`): call the model with the messages and the tool list
-   (`react.py:38`). `invoke_with_tools` (`llm_client.py:353`) converts the
+   (`agent.py:63`). `invoke_with_tools` (`llm_client.py:353`) converts the
    MCP tool schemas into function definitions (`llm_client.py:220`,
    cleaning schema shapes the model APIs reject, 250), binds them to the
    model (362) and retries a failed call up to three times (363).
-3. The reply is appended to the messages (`react.py:47`) and recorded in
+3. The reply is appended to the messages (`agent.py:72`) and recorded in
    `conversation_flow` with its text, token usage and tool calls
-   (`react.py:58-69`).
-4. If the reply has no tool calls, the loop ends (`react.py:74-76`): the
+   (`agent.py:83-94`).
+4. If the reply has no tool calls, the loop ends (`agent.py:99-101`): the
    agent has decided it is done, or has answered in prose.
-5. Otherwise each tool call is executed (`react.py:85`, through
+5. Otherwise each tool call is executed (`agent.py:110`, through
    `base.py:46`, which looks up the tool's gym at 49 and calls
    `client.call_tool` at 59). `call_tool` (`mcp_client.py:306`) sends one
    JSON-RPC `tools/call` request to the server's `/mcp` endpoint with the
    attempt's database id in a header (`mcp_client.py:185`), so every tool
    acts on this attempt's database. The result comes back as a
-   `ToolMessage` the model sees on its next turn (`react.py:103-108`), and
+   `ToolMessage` the model sees on its next turn (`agent.py:128-133`), and
    is recorded in `conversation_flow` (110-117).
 
 The loop returns the final text, the full `conversation_flow`, the tools
-used and the tool results (`react.py:119-125`); the executor keeps all of
+used and the tool results (`agent.py:144-150`); the executor keeps all of
 it in the attempt's record (`executor.py:380-398`).
 
 The example took four turns:
@@ -215,16 +231,16 @@ The example took four turns:
 | 3    | `send_notification` for INC_024                                      | an error: the email is unknown |
 | 4    | no tool call: "Logged INC_024."                                      | the loop ends                  |
 
-So the harness, the thing the project improves, is: the loop (`react.py`),
-the model client (`llm_client.py`), the tool client (`mcp_client.py`), the
-policy prompt (from the task), and the tool list (from the server). Three
-seams let a different agent in without touching the benchmark's code:
-`BenchmarkExecutor` accepts any `AgentOrchestrator` subclass
-(`executor.py:39-46`, `base.py:14`), and our `run_task` passes
-`ReactOrchestrator` by name; the task config can be edited before the attempt;
-and `max_iterations` and other orchestrator arguments pass through
-`orchestrator_kwargs` (`executor.py:358`). Section 4 says how the ladder
-uses these seams.
+So the harness, the thing the project improves, is that folder: the loop
+(`agent.py`) and the text it adds (`prompt.md`). What the loop works with
+stays as the benchmark gives it: the model client (`llm_client.py`), the
+tool client (`mcp_client.py`), the policy (from the task) and the tool list
+(from the server). A different agent gets in without touching the
+benchmark's code because `BenchmarkExecutor` accepts any `AgentOrchestrator`
+subclass (`executor.py:39-46`, `base.py:14`), and `run_task` passes it the
+class loaded from the harness folder. A changed copy of the folder,
+anywhere on disk, is run by giving its path (`--harness <folder>`), and
+`evaluation.json` records which harness an evaluation used.
 
 ### 2.5 The checks: the measure
 
@@ -264,11 +280,11 @@ four checks failed and one passed.
 
 A failed count check says only that a conjunction did not hold. To say
 which condition failed, and what the agent left instead, our
-`_run_verifiers` override (`runner.py:273`) does two more things while the
+`_run_verifiers` override (`runner.py:299`) does two more things while the
 database exists.
 
 First it reads back what the attempt changed. `read_changes`
-(`runner.py:308`) calls `states.read_state` (`states.py:96`), which reads
+(`runner.py:334`) calls `states.read_state` (`states.py:96`), which reads
 every table of the attempt's database through the SQL runner a page at a
 time, and `states.diff` (`states.py:143`), which compares it row by row
 with a local copy of the seed: the rows inserted, the rows deleted, and for
@@ -329,7 +345,7 @@ from:
 - `passed`: the last linked call whose arguments name the column;
 - `left out`: no call passed it, and the tool that wrote the row takes an
   argument of that name (the tools' arguments are read from the
-  evaluation's `tools.json` by `tool_arguments`, `runner.py:743`);
+  evaluation's `tools.json` by `tool_arguments`, `runner.py:784`);
 - `no argument`: the tool has no argument of that name, so the server set
   the value;
 - `not passed`: no call passed it and the evaluation saved no tool list.
@@ -366,15 +382,15 @@ and `moderate` and left the impact out, and the page shows each at the turn
 it happened. Why an agent read a request that way is not something the
 package says: a person reads it from the request and the policy.
 
-`outputs` (`runner.py:899`) attaches the trace to each failed check and
-builds the attempt's rows: `task_outcome` (`runner.py:827`) for `tasks.csv`
+`outputs` (`runner.py:942`) attaches the trace to each failed check and
+builds the attempt's rows: `task_outcome` (`runner.py:870`) for `tasks.csv`
 (verdicts under both conventions, the tables with a check on them by
 result, tool errors and lookups that found nothing, model calls, tokens,
 cost in US dollars from the price table, seconds), `check_records` for
 `checks.csv`, `cell_rows` (`report.py:814`) for `cells.csv` (each cell
 wanted against found, and where its value came from) and `table_rows` for
 `tables.csv`. `save_attempt`
-(`runner.py:943`) writes the record (`attempt-N.json`), the changes
+(`runner.py:986`) writes the record (`attempt-N.json`), the changes
 (`attempt-N.changes.json`) and the page (`attempt-N.md`, from
 `attempt_text`, `report.py:593`). The page goes from the whole to the
 detail. After the request comes one row per table the checks look at, with
@@ -391,7 +407,7 @@ model's text as a quote and each tool call followed by its arguments,
 never cut, and what came back. Last, every row the attempt inserted, with
 all its columns, updated or deleted. When
 every attempt is done, `write_tables`
-(`runner.py:982`) writes the four CSVs, `failures.csv` (each kind of
+(`runner.py:1025`) writes the four CSVs, `failures.csv` (each kind of
 failure by table and column, with the attempts and tasks it occurs in,
 most frequent first) and `summary.md` (`summary`, `report.py:916`: the
 headline as a row per measure with what it counts, the tables that were
@@ -399,7 +415,7 @@ wrong or missed, the most frequent failures with the words they use, the
 tasks that passed least and what each file holds; for a held-out set of a
 split, `splits.HELD_OUT`, the headline and the files only), and `evaluate`
 writes `evaluation.json` (every setting and total) and a row in the experiment's
-`index.csv` (`index_row` and `write_index_row`, `runner.py:575`).
+`index.csv` (`index_row` and `write_index_row`, `runner.py:616`).
 
 With Langfuse configured, `tracing.task_trace` (`tracing.py:39`) wraps each
 attempt in one trace, `attach` (66) routes the model's calls into it, and
@@ -449,31 +465,24 @@ could have called beyond the task's `selected_tools`.
 
 ## 4. Where this is going
 
-The second figure shows the plan. The harness ladder changes one thing
-per rung and compares each rung with the one below on the validation tasks:
+The part of the package built on all of this is the loop that improves the
+harness, `mas-optimiser evolve` ([The improvement loop](methodology/improvement-loop.md)).
+It starts from `harnesses/default/`, the loop of section 2.4 as it is. A
+proposer (a model, run offline) reads the pages of the training attempts
+and proposes one change to a copy of the harness folder. The candidate runs
+on the validation tasks through the runner of section 2, and the acceptance
+gate compares it with the current harness task by task
+([The acceptance gate](methodology/acceptance-gate.md)). An accepted
+candidate becomes the current harness; a rejected one is recorded and
+dropped. Everything outside the folder, the runner, the checks, the scoring
+and the task sets, is out of the loop's reach
+([What is fixed and what is optimised](methodology/fixed-and-optimised.md)).
+It has run from end to end in a trial of three tasks a set; no full
+experiment has been run with it yet.
 
-- `default`: the loop of section 2.4 as it is; the benchmark's reference.
-- `interface_repair`: the same loop plus interface repairs of the kind the
-  published harness papers apply, such as argument cleaning, schema fixes
-  and a finish tool, each repair traced to a failure in the training set.
-  In code this is a second orchestrator class, or a wrapper around the tool
-  call, passed to the executor in place of `ReactOrchestrator`.
-- `planner`: a planner-executor graph built with LangGraph as another
-  orchestrator class: a planner writes a plan, a checker enforces plan
-  constraints in code before each tool call, an executor runs the steps,
-  and a failed step triggers a bounded replan rather than ending the attempt.
-  Its planner prompt, constraints and replanning rules live in
-  `harnesses/<name>/harness.yaml`, as data.
-
-The optimiser starts from `planner`. A proposer (an LLM, offline)
-reads the failures of the training tasks as the measure reports them
-(failed checks by failure, wrong cells by column, excerpts of the failing
-turns) and proposes one edit to `harness.yaml`. The candidate runs on the
-validation tasks through the runner of section 2, and an acceptance gate
-compares it with the current harness task by task. Accepted edits
-accumulate into `evolved`; rejected ones feed the next proposal. The graph
-code in `src/` is the frozen engine, so every edit is data that can be
-read and audited, and nothing in the loop touches the benchmark's code.
+The second figure was drawn for an earlier plan, in which harnesses built
+by hand stood between the starting one and the optimiser. It is to be
+redrawn.
 
 
 ## 5. Running, testing and debugging
@@ -499,13 +508,13 @@ What goes wrong, and where to look:
 
 | Symptom | Meaning | Where |
 |---|---|---|
-| `error: domain server ... is not answering` | the Docker servers are down | `check_servers`, `runner.py:690`; start them and rerun |
-| `ANTHROPIC_API_KEY is not set` | no `.env`, or the key missing from it | `load_model`, `runner.py:763` |
+| `error: domain server ... is not answering` | the Docker servers are down | `check_servers`, `runner.py:731`; start them and rerun |
+| `ANTHROPIC_API_KEY is not set` | no `.env`, or the key missing from it | `load_model`, `runner.py:804` |
 | a `tasks.csv` row with `error` filled and zero checks | the attempt raised before the agent started (a server fault, a bad config) | the record's `error`; the traceback in `evaluation.log` |
-| `diagnosis_error` on the run in `attempt-N.json` | the checks ran but the diagnosis raised; verdicts are intact | `runner.py:249-278` |
-| `report_error` on the run | the trace or the rows raised; the page has no trace | `run_task`, `runner.py:1058` |
+| `diagnosis_error` on the run in `attempt-N.json` | the checks ran but the diagnosis raised; verdicts are intact | `runner.py:269-278` |
+| `report_error` on the run | the trace or the rows raised; the page has no trace | `run_task`, `runner.py:1101` |
 | a failed check with `kind` empty in `checks.csv` | a query shape the diagnosis cannot take apart (a top-level OR, a GROUP BY, a derived table) | `sql.parse`, `sql.py:184` |
-| an attempt with 50 model calls | the agent hit `max_iterations` | `react.py:34`, `base.py:23` |
+| an attempt with 50 model calls | the agent hit `max_iterations` | `agent.py:59`, `base.py:23` |
 | `tool_errors` above zero | a tool answered with an error; the page marks the call `ERROR`. A lookup that found no record is marked `nothing found` and counted in `lookups_empty` | `succeeded`, `report.py:177` |
 
 
@@ -522,9 +531,11 @@ is credited in `NOTICE.md` as well.
 | all modules | the convention shared by StarHarness, GEPA, OpenEvolve and ShinkaEvolve | the benchmark adapter kept apart from the optimiser, and the benchmark with its checks never editable | the package layout |
 | all modules | Google docstrings checked by ruff and pydoclint; setuptools-scm | every function documented and checked in CI; the code version stamped into every evaluation and split | `pyproject.toml`, `ci.yml`, `mas_optimiser.code_version` |
 | `cli` | the author's research-computing practice | one console command declared in `pyproject.toml`; each module exposes `add_arguments` and `run` so an option is defined once | `cli.COMMANDS` |
-| `runner` | EnterpriseOps-Gym `benchmark/executor.py` | `BenchmarkExecutor` subclassed, with `initialize` and `_run_verifiers` overridden; `ReactOrchestrator`, `BenchmarkConfig` and `LLMConfig` as released | `runner.TaskExecutor` |
+| `runner` | EnterpriseOps-Gym `benchmark/executor.py` | `BenchmarkExecutor` subclassed, with `initialize` and `_run_verifiers` overridden; `AgentOrchestrator`, `BenchmarkConfig` and `LLMConfig` as released | `runner.TaskExecutor` |
+| `harnesses/default` | EnterpriseOps-Gym `orchestrators/react.py` (Apache-2.0) | the agent loop, copied, with the changes the copy's opening lines state | `harnesses/default/agent.py` |
 | `runner` | Anthropic's documentation, "Prompt caching" (platform.claude.com/docs/en/build-with-claude/prompt-caching) | the cache mark on a request and on a tool, the read and write rates, the five-minute lifetime; used for Anthropic models only | `runner.CACHE_MARK`, `mark_tool_list`, `cost` |
-| `runner` | the Anthropic Python library (github.com/anthropics/anthropic-sdk-python), its client's `timeout` and `max_retries` and their defaults in `_constants.py`; langchain-anthropic, `ChatAnthropic.default_request_timeout` | the limit on one try at a model call and the two retries that follow a try that runs out; the ten-minute default that a limit passed as "none" switches off; used for Anthropic models only | `runner.TaskExecutor.initialize` |
+| `runner` | the Anthropic Python library (github.com/anthropics/anthropic-sdk-python), its client's `timeout` and `max_retries` and their defaults in `_constants.py`; langchain-anthropic, `ChatAnthropic.default_request_timeout` | the limit on one try at a model call and the two retries that follow a try that runs out; the ten-minute default that a limit passed as "none" switches off | `runner.TaskExecutor.initialize` |
+| `runner` | the OpenAI Python library (github.com/openai/openai-python), its client's `timeout` and `max_retries`; langchain-openai, `ChatOpenAI` | the same limit for a model reached through an OpenAI-style client, a self-hosted vLLM server among them | `runner.TaskExecutor.initialize`, `TIMEOUT_PROVIDERS` |
 | `runner` | the Hugging Face dataset and the repository's `data/revised` | the task configs at a pinned revision, the corrected copies replacing the dataset's in oracle and all-tools mode | `runner.load_tasks` |
 | `runner` | the EnterpriseOps-Gym paper, its experimental set-up and distractor study | the setting it reports, each task's own tools (`oracle`), and its finding that added tools cost nothing in completion; why every arm is given all the tools here is argued on the page "What is fixed and what is optimised" | `runner.MODES` |
 | `runner` | StarHarness (arXiv:2608.24804), `docs/ADDING_A_BENCHMARK.md` | the precedent that a unit which raises is scored as a failure, never retried or dropped | `runner.task_outcome` |
@@ -547,6 +558,10 @@ is credited in `NOTICE.md` as well.
 | `splits` | StarHarness (arXiv:2608.24804) | the protocol of a seeded draw into a proposer-visible set, a gate set and a held-out set, stratified there by baseline outcome; its `stratify_tasks.py` was not copied | `splits.draw` |
 | `splits` | stratified sampling (Cochran, *Sampling Techniques*, Wiley, 1977) | what a draw balances (domain, difficulty or both) as its strata, quotas by largest remainder | `splits.quotas`, `draw` |
 | `splits` | REUSE (arXiv:2609.33180); Kapoor et al. (arXiv:2407.01502); SEAL (arXiv:2607.24300) | the gate set returns only accept or reject to the proposer; a sealed test set opened once; a split drawn once and never redrawn | `splits.build_split` |
+| `evolve` | RRSI (Xia et al., arXiv:2609.24972; github.com/google-research/rrsi at be50316, Apache-2.0), unchanged in `vendor/rrsi` | the analysis of traces, the proposer and its file workspace, the review of a proposal, the record of proposals, a git checkout per candidate, the `Domain` interface, and the order of a round | `evolve.loop.Experiment` (a subclass of its `Run`), `domain.EnterpriseOps` |
+| `evolve` | StarHarness (arXiv:2608.24804), section 3 and Algorithm 1 | search tasks the proposer reads and selection tasks hidden from it; a candidate judged on the hidden set and kept or reverted; one evaluation on the held-out set at the end | `evolve.loop.Experiment.round`, `test` |
+| `evolve` | Sun et al. (arXiv:2609.33180), Eq. 4 | the level of each decision of one experiment | `evolve.loop.Experiment.round`, through `stats.budget.reuse_level` |
+| `evolve` | own design | the proposer told only whether a proposal was accepted; a harness's test score taken for every harness kept, after the last decision; the model call from a model file | `evolve.loop`, `evolve.models` |
 | `stats` | own design | per-task scores for two outcomes, the paired comparison over the same tasks, the `compare` command with its results as data files and a report of them, and the figures | `stats.outcomes`, `stats.compare`, `stats.figures` |
 | `stats` | own design, on the exchangeability argument of permutation tests (Efron and Tibshirani, below) | the calibration of the test on two runs of one harness: its statistic over random splits of their attempts, against Student's t | `stats.calibrate` |
 | `stats` | Barlow, *Statistics* (Wiley, 1989), estimation and hypothesis testing | the standard error of a mean, the one-sided paired t-test, the Type-I and Type-II errors, power and the minimum detectable effect | `stats.gate.mean_test`, `detectable`, `power` |
@@ -563,6 +578,11 @@ is credited in `NOTICE.md` as well.
 | `src/mas_optimiser/tracing.py` | Langfuse: one trace per attempt, scored |
 | `src/mas_optimiser/benchmarks/enterpriseops/listing.py` | the `list` command: an experiment's runs and their domains from its index |
 | `src/mas_optimiser/stats/outcomes.py` | per-task scores and the paired differences of two evaluations |
+| `src/mas_optimiser/evolve/loop.py` | one experiment of the improvement loop: baseline, rounds, test; the `evolve` command |
+| `src/mas_optimiser/evolve/models.py` | the model call of the loop's search roles, from a model file |
+| `.../enterpriseops/domain.py` | this benchmark as the loop sees it: its sets, how a harness is run and scored, the trace, the trial run |
+| `.../enterpriseops/prompts.py` | what the search roles are told about the benchmark and the harness folder |
+| `vendor/rrsi/rrsi/` | RRSI's released loop, unchanged |
 | `src/mas_optimiser/stats/gate.py` | the gate's test, the detectable gain, and the sign, permutation, bootstrap and Bernstein checks |
 | `src/mas_optimiser/stats/budget.py` | the level of each decision: the REUSE allocation, the equal split, a fixed significance |
 | `src/mas_optimiser/stats/figures.py` | the comparison's four figures and the calibration's three, drawn from their data files |
@@ -578,7 +598,7 @@ is credited in `NOTICE.md` as well.
 | `.../enterpriseops/rebuild.py` | write one attempt's rebuilt database as a file |
 | `.../enterpriseops/seeds.py` | local copies of the seed databases; the `schema` command |
 | `.../enterpriseops/splits.py` | the seeded split of the tasks into training, validation and test; drawn once |
-| `vendor/.../orchestrators/react.py` | the agent loop |
+| `harnesses/default/agent.py`, `prompt.md` | the starting harness: the agent loop, copied from the benchmark's `orchestrators/react.py`, and the text it adds |
 | `vendor/.../orchestrators/base.py` | the orchestrator interface and the tool call |
 | `vendor/.../benchmark/executor.py` | seed, run, check, clean up |
 | `vendor/.../benchmark/llm_client.py` | the model behind LangChain, tool schema conversion, retries |

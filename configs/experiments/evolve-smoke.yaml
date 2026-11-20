@@ -1,0 +1,26 @@
+# A trial of the improvement loop, small enough to watch: three tasks of each
+# set, one attempt, one round. It shows that the loop's parts connect; three
+# tasks decide nothing, so the gate is not expected to accept anything.
+# `mas-optimiser evolve evolve-smoke` runs it; the keys are those of
+# smoke.yaml and the loop's own, each explained there or below.
+model: haiku-5-5
+domain: itsm
+mode: all_tools
+attempts: 1
+concurrency: 3
+trace: false
+# The split whose three sets the loop uses, by its name alone.
+split: haiku-20-40-40
+# At most this many tasks of each set.
+limit: 3
+# The model that reads the training results and proposes changes; the
+# agent's model when not given.
+proposer_model: haiku-5-5
+# Rounds of the loop, and candidates proposed in each.
+rounds: 1
+candidates: 1
+# The chance, over the whole experiment, of keeping a change that does nothing.
+alpha: 0.05
+# The types of file in the harness folder a proposal may edit: text only
+# here, so that no model-written code is run.
+editable: [".md"]

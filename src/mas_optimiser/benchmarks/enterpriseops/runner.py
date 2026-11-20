@@ -1,7 +1,9 @@
 """Run EnterpriseOps-Gym tasks through the benchmark's executor and score them.
 
-The runner loads one domain's tasks, runs each with the benchmark's ReAct
-agent against the Docker domain servers, and writes one run folder under
+The runner loads one domain's tasks, runs each with the agent of the
+experiment's harness (``harnesses/<name>/agent.py``; the starting harness,
+``default``, is the benchmark's ReAct agent) against the Docker domain
+servers, and writes one run folder under
 ``evaluations/<experiment>/`` with one evaluation folder per domain inside it
 (``2026-11-03-0803/itsm``): ``summary.md``, ``tasks.csv`` (a row per
 attempt), ``checks.csv``, ``cells.csv``, ``tables.csv`` and ``failures.csv``
@@ -23,7 +25,7 @@ revision; in oracle and all-tools mode the benchmark's corrected copies in
 check against the final state and deletes the database.
 
 The benchmark's own ``evaluate.py`` is not used because the runner has to own
-the loop: later agents plug in here as orchestrator classes. The model's API
+the loop: a harness's agent plugs in here as an orchestrator class. The model's API
 key is read from the environment (``.env``), never written to a config file,
 and a run that raises is recorded and scored as a failure rather than retried
 or dropped. Scoring counts every distinct check of a task and compares count
@@ -40,6 +42,7 @@ import json
 import logging
 import os
 import re
+import runpy
 from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
@@ -65,7 +68,7 @@ from mas_optimiser.benchmarks.enterpriseops import (
 from benchmark.executor import BenchmarkExecutor
 from benchmark.mcp_client import MCPClient
 from benchmark.models import BenchmarkConfig, LLMConfig
-from orchestrators.react import ReactOrchestrator
+from orchestrators.base import AgentOrchestrator
 
 HF_DATASET = "ServiceNow-AI/EnterpriseOps-Gym"
 # Dataset commit of 30/04/2026, pinned so that a later edit of the dataset
@@ -78,6 +81,9 @@ ID_COLUMNS = {"task_id", "domain"}
 
 CONFIGS = REPO_ROOT / "configs"
 EVALUATIONS = REPO_ROOT / "evaluations"
+# The harnesses that can be named without a path: one folder each, holding
+# the agent's code (``agent.py``, the class ``Agent``) and what it reads.
+HARNESSES = REPO_ROOT / "harnesses"
 DESCRIPTION = __doc__.split("\n\n")[0]
 DOMAINS = ["itsm", "csm", "hr"]
 # ``oracle`` and the ``plus_N_tools`` modes are the dataset's own configs;
@@ -102,7 +108,21 @@ EXPERIMENT_DEFAULTS = {
     "thinking_summary": False,
     "prompt_caching": True,
     "model_timeout": 300,
+    "harness": "default",
+    # The rest is read by ``mas-optimiser evolve`` only: the model of the
+    # search roles (the agent's when not given), the rounds of the loop, the
+    # candidates proposed in each, the error budget of the whole experiment,
+    # and the types of file in the harness folder a proposal may edit.
+    "proposer_model": None,
+    "rounds": 10,
+    "candidates": 1,
+    "alpha": 0.05,
+    "editable": [".md", ".py"],
 }
+# The providers whose client takes the time limit on a model call:
+# Anthropic's, and the OpenAI-style client the benchmark builds for the other
+# three (``vllm`` for a self-hosted server, ``openrouter`` for a hosted one).
+TIMEOUT_PROVIDERS = ("anthropic", "openai", "vllm", "openrouter")
 # What a model file's price table must give; see ``cost``.
 PRICING_KEYS = {
     "input",
@@ -202,9 +222,9 @@ class TaskExecutor(BenchmarkExecutor):
             receives; it must be ``False`` for any other provider.
         timeout: Seconds a call to the model may wait for its answer before
             the try is given up and repeated, or ``None`` to leave the model
-            client as the benchmark builds it, with no limit. It is set
-            through Anthropic's client and must be ``None`` for any other
-            provider.
+            client as the benchmark builds it, with no limit. It is set on
+            the provider's own client and must be ``None`` for a provider
+            outside ``TIMEOUT_PROVIDERS``.
         seed: The task's seed copy and its layout, from ``states.seed_copy``.
         domain: The task's domain, for the columns its server stamps.
         task_id: The task's dataset ID, for its entry in the patch list.
@@ -262,13 +282,19 @@ class TaskExecutor(BenchmarkExecutor):
             )
         if self.timeout:
             # The benchmark builds the model with no time limit, and the
-            # LangChain class hands that to Anthropic's library as "none", not
-            # as "unset", which switches off the library's own default of ten
-            # minutes: a call on a connection that has gone silent then waits
-            # for ever. The library's client is built on the first call, so a
-            # limit set here applies. A try that runs out is repeated by the
-            # library and then by the benchmark's client.
-            model.default_request_timeout = self.timeout
+            # LangChain class hands that to the provider's library as "none",
+            # not as "unset", which switches off the library's own default of
+            # ten minutes: a call on a connection that has gone silent then
+            # waits for ever. A try that runs out is repeated by the library
+            # and then by the benchmark's client.
+            if hasattr(model, "root_async_client"):
+                # The OpenAI-style client is built with the model, so the
+                # limit goes on the client itself.
+                model.root_async_client.timeout = self.timeout
+            else:
+                # Anthropic's client is built on the first call, so a limit
+                # set on the model here applies.
+                model.default_request_timeout = self.timeout
 
     async def _run_verifiers(self, task_result: dict) -> dict[str, dict]:
         """Run the checks as the benchmark does, then correct, record and diagnose the verdicts.
@@ -455,10 +481,15 @@ def load_experiment(spec: str, overrides: dict) -> dict:
             raise SystemExit("error: task must be a task ID or a list of them")
     if settings["split"] is not None:
         name, _, subset = str(settings["split"]).partition(":")
-        if not name or subset not in splits.SETS:
+        if not name or subset not in ("", *splits.SETS):
             raise SystemExit(
-                f"error: split must be <name>:<set> with set one of {splits.SETS}, "
-                f"not {settings['split']!r}"
+                f"error: split must be <name> or <name>:<set> with set one of "
+                f"{splits.SETS}, not {settings['split']!r}"
+            )
+        if not (splits.SPLITS_DIR / f"{name}.json").is_file():
+            raise SystemExit(
+                f"error: no split named {name!r} in {splits.SPLITS_DIR}; "
+                f"draw it with `mas-optimiser split --name {name}`"
             )
     for key in ("attempts", "concurrency"):
         if not isinstance(settings[key], int) or settings[key] < 1:
@@ -466,6 +497,16 @@ def load_experiment(spec: str, overrides: dict) -> dict:
     limit = settings["model_timeout"]
     if isinstance(limit, bool) or not isinstance(limit, (int, float)) or limit <= 0:
         raise SystemExit("error: model_timeout must be a number of seconds above 0")
+    for key in ("rounds", "candidates"):
+        if not isinstance(settings[key], int) or settings[key] < 1:
+            raise SystemExit(f"error: {key} must be a whole number of at least 1")
+    if not isinstance(settings["alpha"], float) or not 0 < settings["alpha"] < 1:
+        raise SystemExit("error: alpha must be a number between 0 and 1")
+    editable = settings["editable"]
+    if not isinstance(editable, list) or not all(
+        isinstance(e, str) and e.startswith(".") for e in editable
+    ):
+        raise SystemExit("error: editable must be a list of file types such as .md")
     label = settings["label"]
     if label is not None and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", str(label)):
         raise SystemExit(
@@ -765,7 +806,8 @@ def load_model(path: Path) -> tuple[LLMConfig, dict]:
 
     The file holds ``LLMConfig`` fields plus ``api_key_env``, the environment
     variable that holds the API key, and ``pricing``, the ``PRICING_KEYS`` in
-    US dollars per million tokens.
+    US dollars per million tokens. A self-hosted server that asks for no key
+    leaves ``api_key_env`` out.
 
     Args:
         path: The model file.
@@ -776,7 +818,8 @@ def load_model(path: Path) -> tuple[LLMConfig, dict]:
     Raises:
         SystemExit: If a price is missing, before any money is spent on runs
             whose cost could not be reported.
-        RuntimeError: If the API key's variable is not set.
+        RuntimeError: If the file names a variable for the API key and it
+            is not set.
     """
     fields = yaml.safe_load(path.read_text())
     pricing = fields.pop("pricing", None) or {}
@@ -786,9 +829,9 @@ def load_model(path: Path) -> tuple[LLMConfig, dict]:
             f"error: {path} needs pricing keys {missing} "
             "(US dollars per million tokens, from the provider's price list)"
         )
-    key_name = fields.pop("api_key_env")
-    key = os.environ.get(key_name)
-    if not key:
+    key_name = fields.pop("api_key_env", None)
+    key = os.environ.get(key_name, "") if key_name else ""
+    if key_name and not key:
         raise RuntimeError(f"{key_name} is not set; add it to .env (see .env.example)")
     return LLMConfig(llm_api_key=key, **fields), pricing
 
@@ -1068,10 +1111,11 @@ async def run_task(
     thinking: dict | None,
     caching: bool,
     timeout: float | None,
+    agent: type[AgentOrchestrator],
     tags: list[str],
     arguments: dict[str, list[str]],
 ) -> tuple[dict, list[dict], list[dict], list[dict]]:
-    """Run one task once with the benchmark's ReAct agent, save the attempt and return its rows.
+    """Run one task once with the harness's agent, save the attempt and return its rows.
 
     Args:
         task_id: The task's dataset ID.
@@ -1085,6 +1129,7 @@ async def run_task(
         thinking: A ``thinking`` setting for the model, or ``None``.
         caching: Use Anthropic's prompt caching.
         timeout: Seconds a try at a model call may wait, or ``None`` for no limit.
+        agent: The harness's agent class, which the executor runs the task with.
         tags: The trace's tags; the attempt number is added.
         arguments: Each tool's argument names, from ``tool_arguments``.
 
@@ -1096,7 +1141,7 @@ async def run_task(
     executor = TaskExecutor(
         BenchmarkConfig(**(config | {"number_of_runs": 1})),
         model,
-        orchestrator_class=ReactOrchestrator,
+        orchestrator_class=agent,
         trace=trace,
         thinking=thinking,
         caching=caching,
@@ -1196,6 +1241,7 @@ async def run_tasks(
     thinking: dict | None,
     caching: bool,
     timeout: float | None,
+    agent: type[AgentOrchestrator],
     tags: list[str],
 ) -> tuple[list[dict], list[dict], list[dict], list[dict]]:
     """Run every task ``attempts`` times, at most ``concurrency`` runs at once, and gather the rows.
@@ -1216,6 +1262,7 @@ async def run_tasks(
         thinking: A ``thinking`` setting for the model, or ``None``.
         caching: Use Anthropic's prompt caching.
         timeout: Seconds a try at a model call may wait, or ``None`` for no limit.
+        agent: The harness's agent class.
         tags: The traces' tags.
 
     Returns:
@@ -1243,6 +1290,7 @@ async def run_tasks(
                 thinking=thinking,
                 caching=caching,
                 timeout=timeout,
+                agent=agent,
                 tags=tags,
                 arguments=arguments,
             )
@@ -1306,7 +1354,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--split",
         help="run only one set of a split in configs/splits/, as <name>:<set>, "
-        "e.g. haiku-20-40-40:training",
+        "e.g. seed-0:training",
     )
     parser.add_argument("--attempts", type=int, help="attempts per task")
     parser.add_argument("--concurrency", type=int, help="runs in flight at once")
@@ -1336,10 +1384,15 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         "(on by default)",
     )
     parser.add_argument(
+        "--harness",
+        help="the harness whose agent runs the tasks: a folder's name under "
+        "harnesses/, or a path to such a folder (default: default)",
+    )
+    parser.add_argument(
         "--model-timeout",
         type=float,
         help="seconds a call to the model may wait for its answer before the try "
-        "is given up and repeated; Anthropic models only (300 by default)",
+        "is given up and repeated (300 by default)",
     )
 
 
@@ -1348,9 +1401,25 @@ def run(args: argparse.Namespace) -> None:
 
     Args:
         args: The parsed arguments.
+
+    Raises:
+        SystemExit: If the experiment's harness has no folder with an
+            ``agent.py``, before any money is spent.
     """
-    overrides = {key: getattr(args, key) for key in EXPERIMENT_DEFAULTS}
+    # The keys only ``evolve`` reads are no options of this command.
+    overrides = {key: getattr(args, key, None) for key in EXPERIMENT_DEFAULTS}
     experiment = load_experiment(args.experiment, overrides)
+    harness = str(experiment["harness"])
+    folder = Path(harness) if "/" in harness else HARNESSES / harness
+    if not (folder / "agent.py").is_file():
+        names = ", ".join(sorted(p.name for p in HARNESSES.iterdir() if p.is_dir()))
+        raise SystemExit(
+            f"error: no harness at {folder} (a folder holding agent.py); "
+            f"harnesses that can be named: {names}"
+        )
+    # Run from its file and not imported, so that a copy of the folder
+    # anywhere, such as a candidate's, loads the same way as a named one.
+    agent = runpy.run_path(str(folder / "agent.py"))["Agent"]
 
     load_dotenv(REPO_ROOT / ".env")
     model, pricing = load_model(config_path("models", experiment["model"]))
@@ -1364,13 +1433,16 @@ def run(args: argparse.Namespace) -> None:
             "Prompt caching is built for Anthropic models only: "
             f"not used with provider {model.llm_provider!r}."
         )
-    # The time limit is set through Anthropic's client, so it too is left
-    # alone for any other provider, and the run says so.
-    timeout = experiment["model_timeout"] if model.llm_provider == "anthropic" else None
+    # The time limit is set on the provider's own client, so a provider
+    # whose client is not known here runs without one, and the run says so.
+    timeout = (
+        experiment["model_timeout"] if model.llm_provider in TIMEOUT_PROVIDERS else None
+    )
     if timeout is None:
         print(
-            "The time limit on model calls is built for Anthropic models only: "
-            f"not set with provider {model.llm_provider!r}."
+            f"The time limit on model calls is built for the providers "
+            f"{', '.join(TIMEOUT_PROVIDERS)}: not set with provider "
+            f"{model.llm_provider!r}."
         )
     if trace:
         # The Anthropic SDK also writes a metadata-only span per call into any
@@ -1394,6 +1466,7 @@ def run(args: argparse.Namespace) -> None:
             thinking=thinking,
             caching=caching,
             timeout=timeout,
+            agent=agent,
             version=version,
         )
     if not experiment["out"]:
@@ -1414,6 +1487,7 @@ def evaluate(
     thinking: dict | None,
     caching: bool,
     timeout: float | None,
+    agent: type[AgentOrchestrator],
     version: str,
 ) -> None:
     """Run one domain's tasks as one evaluation: the folder, its tables, ``evaluation.json`` and the index row.
@@ -1429,6 +1503,7 @@ def evaluate(
         thinking: A ``thinking`` setting for the model, or ``None``.
         caching: Use Anthropic's prompt caching.
         timeout: Seconds a try at a model call may wait, or ``None`` for no limit.
+        agent: The agent class of the experiment's harness.
         version: The code's version when the run began, from
             ``mas_optimiser.code_version``, recorded in ``evaluation.json`` and the index.
 
@@ -1436,8 +1511,9 @@ def evaluate(
         SystemExit: If a chosen task is not one of the domain's.
     """
     tasks = load_tasks(domain, experiment["mode"])
-    if experiment["split"]:
-        name, _, subset = experiment["split"].partition(":")
+    # A split's name without a set names all three sets, which is every task.
+    name, _, subset = (experiment["split"] or "").partition(":")
+    if subset:
         members = set(splits.load_split(name)[subset])
         tasks = {
             task_id: config for task_id, config in tasks.items() if task_id in members
@@ -1478,7 +1554,7 @@ def evaluate(
     root = logging.getLogger()
     root.setLevel(logging.INFO)
     root.addHandler(handler)
-    tags = [domain, experiment["mode"], "arm:default", model.llm_model]
+    tags = [domain, experiment["mode"], f"arm:{experiment['harness']}", model.llm_model]
     try:
         outcomes, check_rows, cell_rows, table_rows = asyncio.run(
             run_tasks(
@@ -1493,6 +1569,7 @@ def evaluate(
                 thinking=thinking,
                 caching=caching,
                 timeout=timeout,
+                agent=agent,
                 tags=tags,
             )
         )
@@ -1520,7 +1597,7 @@ def evaluate(
         "evaluation": name,
         "run": "" if experiment["out"] else run_dir.name,
         "split": experiment["split"],
-        "harness": "default",
+        "harness": experiment["harness"],
         "model": {k: v for k, v in vars(model).items() if k != "llm_api_key"},
         "pricing": pricing,
         "domain": domain,

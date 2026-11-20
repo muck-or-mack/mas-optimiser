@@ -29,6 +29,7 @@ how-it-works
 
 methodology/fixed-and-optimised
 methodology/acceptance-gate
+methodology/improvement-loop
 ```
 
 ```{toctree}

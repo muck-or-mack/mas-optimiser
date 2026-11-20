@@ -1,3 +1,6 @@
 [submodule "vendor/enterpriseops-gym"]
 	path = vendor/enterpriseops-gym
 	url = https://github.com/ServiceNow/EnterpriseOps-Gym.git
+[submodule "vendor/rrsi"]
+	path = vendor/rrsi
+	url = https://github.com/google-research/rrsi.git

@@ -3,6 +3,25 @@
 The package's modules, from their docstrings. The command line is
 `mas-optimiser`; each sub-command is a module with `add_arguments` and `run`.
 
+## The improvement loop
+
+```{eval-rst}
+.. automodule:: mas_optimiser.evolve
+   :members:
+
+.. automodule:: mas_optimiser.evolve.loop
+   :members:
+
+.. automodule:: mas_optimiser.evolve.models
+   :members:
+
+.. automodule:: mas_optimiser.benchmarks.enterpriseops.domain
+   :members:
+
+.. automodule:: mas_optimiser.benchmarks.enterpriseops.prompts
+   :members:
+```
+
 ## Statistics
 
 ```{eval-rst}

@@ -22,3 +22,25 @@ than import it, under the same licence:
 - `seeds.server_database` follows `benchmark/mcp_client.py`,
   `create_database_from_file`: the same endpoint, payload and id format,
   rewritten as a context manager that deletes the database afterwards.
+
+## RRSI
+
+`vendor/rrsi` is the code released with
+
+> Xia et al., *Regularized Recursive Self-Improvement of Agent Harnesses*,
+> arXiv:2609.24972, 2026.
+
+([google-research/rrsi](https://github.com/google-research/rrsi)), at commit
+`be50316` and used unmodified. It is distributed under the Apache License
+2.0; see `vendor/rrsi/LICENSE`. The improvement loop (`mas_optimiser.evolve`)
+calls its analysis, proposer, review, record and git modules, and puts its
+own round, acceptance rule and model call in place of RRSI's.
+
+## EnterpriseOps-Gym, copied
+
+One file outside the package is a modified copy from that repository, under
+the same licence:
+
+- `harnesses/default/agent.py` is `orchestrators/react.py` with the changes
+  its opening lines state: the class renamed, its base class imported by
+  its full name, and the text of `prompt.md` added to the system message.

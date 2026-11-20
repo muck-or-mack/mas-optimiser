@@ -21,6 +21,7 @@ dependencies = [
     "httpx",
     "langchain-anthropic",
     "langchain-core",
+    "langchain-openai>=1.8.5",
     "langfuse>=5.0.4",
     "matplotlib>=3.11.2",
     "pandas>=3.0.6",
@@ -60,17 +61,19 @@ select = ["E", "W", "F", "I", "B", "C4", "UP", "SIM", "D"]
 ignore = ["E501", "D107"]
 
 [tool.ruff.lint.per-file-ignores]
-# A test is documented by its name.
-"tests/**" = ["D103"]
+# A test is documented by its name, and a stand-in's methods by its class.
+"tests/**" = ["D102", "D103"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
 [tool.ruff.lint.isort]
-# The benchmark's modules only resolve once mas_optimiser.benchmarks.enterpriseops
-# has put the submodule on sys.path, so they sort after first-party imports.
+# The vendored modules only resolve once this package has put their
+# submodule on sys.path (mas_optimiser.benchmarks.enterpriseops for the
+# benchmark's, mas_optimiser.evolve for RRSI's), so they sort after
+# first-party imports.
 section-order = ["future", "standard-library", "third-party", "first-party", "enterpriseops-gym", "local-folder"]
-sections = { enterpriseops-gym = ["benchmark", "orchestrators"] }
+sections = { enterpriseops-gym = ["benchmark", "orchestrators", "rrsi"] }
 
 # Every function's docstring names each argument, the return value and what
 # it raises (Google style); types stay in the signature. Run it with

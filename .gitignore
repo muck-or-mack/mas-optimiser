@@ -19,6 +19,7 @@ docs/_build/
 
 # run outputs (W&B and Langfuse keep the record)
 evaluations/
+evolutions/
 comparisons/
 calibrations/
 wandb/

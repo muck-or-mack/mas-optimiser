@@ -1,0 +1,28 @@
+# Qwen3.6-27B (Apache-2.0), an open-weight model served on one's own GPUs by
+# vLLM, which answers in the OpenAI API's format. Keys are the benchmark's
+# LLMConfig fields (benchmark/models.py). Start the server with the model
+# card's tool-calling options (huggingface.co/Qwen/Qwen3.6-27B):
+#   vllm serve Qwen/Qwen3.6-27B --port 8000 --reasoning-parser qwen3 \
+#     --enable-auto-tool-choice --tool-call-parser qwen3_coder
+llm_provider: vllm
+llm_model: Qwen/Qwen3.6-27B
+# Where the server listens, as seen from the machine that runs the tasks. With
+# the server on another machine, forward its port and keep localhost here.
+llm_api_endpoint: http://localhost:8000/v1
+# No api_key_env: a server started without --api-key asks for none. If it is
+# started with one, name here the variable in .env that holds it.
+# The model card's sampling settings for its thinking mode on general tasks.
+temperature: 1.0
+top_p: 0.95
+# Thinking is on by default and its tokens count towards max_tokens.
+max_tokens: 16384
+# A self-hosted model has no price per token, so the cost in dollars is zero
+# and the measures of cost are the tokens and the seconds, which every
+# attempt records.
+pricing:
+  input: 0
+  output: 0
+  cache_read: 0
+  cache_write: 0
+  long_prompt_tokens: 0
+  long_prompt_multiplier: 1
