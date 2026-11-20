@@ -44,7 +44,7 @@ import textwrap
 from collections import Counter
 
 from mas_optimiser import markdown
-from mas_optimiser.benchmarks.enterpriseops import diagnosis, sql
+from mas_optimiser.benchmarks.enterpriseops import diagnosis, splits, sql
 
 CELL_COLUMNS = (
     "task_id",
@@ -115,6 +115,14 @@ WORDS = [
     ["no argument", "the tool takes no such argument, so the server set the value"],
     ["not passed", "no call passed the column; the tool list was not saved"],
 ]
+# What the summary of a held-out set says in place of what went wrong.
+HELD_OUT_NOTE = (
+    "What went wrong and the tasks that passed least are not listed, because the "
+    "{subset} set is held out: harnesses are judged on its tasks, so no change to "
+    "a harness should be made in the light of what fails on them. The files below "
+    "hold every row all the same: `mas-optimiser compare` reads the scores from "
+    "`tasks.csv`. To see what goes wrong, run the training set."
+)
 # What each file of an evaluation holds, as the summary lists them.
 FILES = [
     [
@@ -922,9 +930,14 @@ def summary(
     ``failures.csv``, with the words they use. Then the tasks that passed
     least, and what each file holds.
 
+    An evaluation of a held-out set of a split (``splits.HELD_OUT``) gets the
+    headline and the files only, with a line saying why: what goes wrong on
+    the tasks harnesses are judged on is not laid out for reading.
+
     Args:
         name: The evaluation folder's name.
-        settings: ``domain``, ``mode`` and ``model``, for the heading.
+        settings: ``domain``, ``mode`` and ``model``, for the heading, and
+            ``split``, the set that was run as ``<name>:<set>``, if one was.
         outcomes: The ``tasks.csv`` rows, one per attempt.
         check_rows: The ``checks.csv`` rows.
         cells: The ``cells.csv`` rows.
@@ -1001,6 +1014,25 @@ def summary(
             "a table that no check reads",
         ],
     ]
+    split, _, subset = (settings.get("split") or "").partition(":")
+    of_set = f", the {subset} set of the split `{split}`" if subset else ""
+    lines = [
+        f"# {name}",
+        "",
+        f"{settings.get('domain', '?')}, {settings.get('mode', '?')}, model {settings.get('model', '?')}"
+        f"{of_set}: {len(by_task)} tasks, {attempts} attempts.",
+        "",
+        markdown.table(["measure", "value", "what it counts"], headline),
+        "",
+    ]
+    where = [
+        "## Where things are",
+        "",
+        markdown.table(["file", "one row per", "what it holds"], FILES),
+        "",
+    ]
+    if subset in splits.HELD_OUT:
+        return "\n".join([*lines, HELD_OUT_NOTE.format(subset=subset), "", *where])
     by_table: dict[str, Counter] = {}
     for t in judged:
         by_table.setdefault(t["table"], Counter())[t["result"]] += 1
@@ -1008,14 +1040,7 @@ def summary(
         (t for t in by_table if by_table[t]["wrong"] + by_table[t]["missed"]),
         key=lambda t: (-by_table[t]["wrong"] - by_table[t]["missed"], t),
     )
-    lines = [
-        f"# {name}",
-        "",
-        f"{settings.get('domain', '?')}, {settings.get('mode', '?')}, model {settings.get('model', '?')}: "
-        f"{len(by_task)} tasks, {attempts} attempts.",
-        "",
-        markdown.table(["measure", "value", "what it counts"], headline),
-        "",
+    lines += [
         "## What went wrong",
         "",
         f"### Tables wrong or missed ({min(LISTED, len(failing))} of {len(failing)} "
@@ -1096,9 +1121,6 @@ def summary(
             ["task", "attempts fully passed", "most frequent failure"], worst
         ),
         "",
-        "## Where things are",
-        "",
-        markdown.table(["file", "one row per", "what it holds"], FILES),
-        "",
+        *where,
     ]
     return "\n".join(lines)

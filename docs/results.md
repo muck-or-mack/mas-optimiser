@@ -135,7 +135,8 @@ benchmark's own count beside this package's.
 
 `<domain>/summary.md` opens with a headline table that has a row per
 measure and says what each one counts. Then "What went wrong", in two
-tables. The first is the tables the attempts got wrong or missed:
+tables (left out when the evaluation ran a held-out set of a split: see
+section 8). The first is the tables the attempts got wrong or missed:
 
 ```
 | table                | attempts with a check on it   | correct   | wrong   | missed   |
@@ -390,15 +391,38 @@ itself has been changed since the run (README, "Recomputing an evaluation").
 
 ## 8. Which tasks a summary counts
 
-A summary counts every task its evaluation ran. The tasks are divided into
-a training, a validation and a test set (README, "Splitting the tasks"),
-and a change to the harness is chosen by looking at training tasks only. To
-see what goes wrong without looking at the other two sets, run the training
-set on its own:
+A summary counts every task its evaluation ran. Its first line gives the
+number of tasks and, when one set of a split was run, the set.
+
+The tasks are divided into a training, a validation and a test set (README,
+"Splitting the tasks"). A change to a harness is chosen by looking at
+training tasks only. The validation and test sets are *held out*: harnesses
+are judged on their tasks, so what goes wrong on those tasks must not shape
+a harness. `--split` runs one set on its own:
 
 ```
 mas-optimiser run <experiment> --split haiku-20-40-40:training
 ```
+
+What a summary shows depends on what was run:
+
+| what was run                   | what the summary shows                                                                    |
+|--------------------------------|-------------------------------------------------------------------------------------------|
+| the training set               | everything: the headline, what went wrong, the tasks that passed least                    |
+| the validation or the test set | the headline and the list of files, with a line saying why what went wrong is not listed  |
+| every task (no `--split`)      | everything, counted over all the tasks it ran, with no regard to any split                |
+
+The files of a held-out evaluation are written in full all the same:
+`mas-optimiser compare` reads the scores from `tasks.csv`, and the rest can
+be read once no harness will be changed again. The summary only makes sure
+that the page opened first does not lay them out.
+
+Running every task at once stays possible, and suits an experiment where
+nothing is held out: no split has been drawn, or the harness is finished
+and is only being measured. While harnesses are still being changed, run
+one set at a time. The summary of a run of every task counts failures on
+held-out tasks with the rest and names the tasks that passed least,
+whichever set they are in.
 
 ## 9. Reading a comparison
 

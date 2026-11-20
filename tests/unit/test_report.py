@@ -545,6 +545,47 @@ def test_summary_counts_failures_and_names_the_worst_tasks():
     assert not any(row[0] == "t2" for row in rows)
 
 
+def test_summary_of_a_held_out_set_has_the_headline_and_not_what_went_wrong():
+    outcomes = [
+        {"task_id": "t1", "success": False, "checks_passed": 0, "checks_total": 1},
+        {"task_id": "t2", "success": True, "checks_passed": 1, "checks_total": 1},
+    ]
+    check_rows = [
+        {"task_id": "t1", "passed": False, "failure": "call failed"}
+        | {"table": "notification"}
+    ]
+    failures = [
+        {"table": "notification", "column": "", "failure": "call failed"}
+        | {"how": "", "attempts": 1, "tasks": 1}
+    ]
+
+    def page(split):
+        settings = {"domain": "itsm", "mode": "all_tools", "model": "haiku-5-5"}
+        return report.summary(
+            "eval", settings | {"split": split}, outcomes, check_rows, [], [], failures
+        )
+
+    for subset in ("validation", "test"):
+        text = page(f"drawn:{subset}")
+        assert f"the {subset} set of the split `drawn`: 2 tasks, 2 attempts." in text
+        values = {row[0]: row[1] for row in page_rows(text) if len(row) == 3}
+        assert values["attempts fully passed"] == "1 of 2 (50.0%)"
+        assert values["`tables.csv`"] == "attempt and table"
+        assert f"because the {subset} set is held out" in text
+        assert "## What went wrong" not in text
+        assert "## Tasks that passed least" not in text
+        # No task and no failure is named.
+        assert "t1" not in text
+        assert "notification" not in text
+    # The training set is reported in full, like an evaluation with no split.
+    text = page("drawn:training")
+    assert "the training set of the split `drawn`: 2 tasks, 2 attempts." in text
+    assert "held out" not in text
+    assert "## What went wrong" in text
+    assert ["t1", "0 of 1", "call failed: `notification`"] in page_rows(text)
+    assert page(None).split("\n")[3:] == text.split("\n")[3:]
+
+
 def test_a_call_that_names_a_row_without_writing_its_table_is_not_its_writer():
     execution = {
         "conversation_flow": [
