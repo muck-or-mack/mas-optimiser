@@ -42,3 +42,10 @@ thinking_summary: false
 # built for Anthropic models only: with any other provider the setting does
 # nothing, and the run says so.
 prompt_caching: true
+# Seconds a call to the model may wait for its answer. A try that runs out is
+# given up and repeated, so a connection that goes silent costs this long and
+# not the whole run. Real calls answer in seconds; keep the limit well above
+# the slowest of them, since a call cut off here is lost to the attempt. Set
+# through Anthropic's client: with any other provider no limit is set, and
+# the run says so.
+model_timeout: 300

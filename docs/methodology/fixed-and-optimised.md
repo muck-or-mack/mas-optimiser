@@ -16,14 +16,15 @@ test; the baseline is an arm.
 | The checks                   | the benchmark's SQL checks with three corrections, described in "How it works", section 2.5                                        | `checks.py`, `data/check_patches.json`    |
 | The model                    | one model and its settings for every arm                                                                                           | the model file in `configs/models/`       |
 | Prompt caching               | on, for a provider it is built for; it changes the cost of repeated input and nothing the model receives                           | `prompt_caching` in the experiment file   |
+| Time limit on a model call   | 300 seconds for each try, after which the try is repeated; it changes nothing the model receives                                   | `model_timeout` in the experiment file    |
 | Attempts per task            | the same number for every arm                                                                                                      | `attempts` in the experiment file         |
 | The task sets                | one split into training, validation and test, drawn once                                                                           | the split file in `configs/splits/`       |
 | The decision rule            | the test and its level                                                                                                             | [the acceptance gate](acceptance-gate.md) |
 
 `evaluation.json` records the mode, the model and its settings, prompt
-caching, the attempts, the split and the dataset's revision for the
-evaluation it belongs to, so two evaluations can be checked against each
-other before they are compared.
+caching, the time limit, the attempts, the split and the dataset's revision
+for the evaluation it belongs to, so two evaluations can be checked against
+each other before they are compared.
 
 ## The one thing that differs
 
@@ -44,7 +45,7 @@ change, and the kind decides who may make it.
 | what it corrects | the measure or the environment                                                                                      | how the agent works                                                          |
 | who makes it     | a person, by hand                                                                                                   | the optimiser                                                                |
 | what it rests on | evidence that is no harness's result: the benchmark's own files, a server's behaviour, the provider's documentation | the candidate's score on the validation tasks, through the acceptance gate   |
-| examples         | the patch list; prompt caching; giving every arm all the tools                                                      | choosing which tools to show the model; limiting the size of a tool's answer |
+| examples         | the patch list; prompt caching; a time limit on calls to the model; giving every arm all the tools                  | choosing which tools to show the model; limiting the size of a tool's answer |
 
 A harness change is not made by hand, however plain it looks. An attempt
 that calls a lookup with no filter can be answered with a whole table, about

@@ -101,6 +101,7 @@ EXPERIMENT_DEFAULTS = {
     "trace": True,
     "thinking_summary": False,
     "prompt_caching": True,
+    "model_timeout": 300,
 }
 # What a model file's price table must give; see ``cost``.
 PRICING_KEYS = {
@@ -199,6 +200,11 @@ class TaskExecutor(BenchmarkExecutor):
         caching: Switch on Anthropic's prompt caching for the model's calls.
             It changes the cost of repeated input and nothing the model
             receives; it must be ``False`` for any other provider.
+        timeout: Seconds a call to the model may wait for its answer before
+            the try is given up and repeated, or ``None`` to leave the model
+            client as the benchmark builds it, with no limit. It is set
+            through Anthropic's client and must be ``None`` for any other
+            provider.
         seed: The task's seed copy and its layout, from ``states.seed_copy``.
         domain: The task's domain, for the columns its server stamps.
         task_id: The task's dataset ID, for its entry in the patch list.
@@ -212,6 +218,7 @@ class TaskExecutor(BenchmarkExecutor):
         trace: bool,
         thinking: dict | None,
         caching: bool,
+        timeout: float | None,
         seed: tuple,
         domain: str,
         task_id: str,
@@ -224,13 +231,14 @@ class TaskExecutor(BenchmarkExecutor):
         self.trace = trace
         self.thinking = thinking
         self.caching = caching
+        self.timeout = timeout
         self.seed, self.layout = seed
         self.skip = states.STAMPED.get(domain, frozenset())
         self.changes = None
         self.diagnosis_error = None
 
     async def initialize(self):
-        """Build the clients as the benchmark does, then attach tracing, the thinking setting and prompt caching to the model.
+        """Build the clients as the benchmark does, then attach tracing, the thinking setting, prompt caching and the time limit to the model.
 
         The executor builds its model client here, so this is the first point
         at which the model object exists.
@@ -252,6 +260,15 @@ class TaskExecutor(BenchmarkExecutor):
             self.llm_client._convert_mcp_tools_to_langchain = lambda tools: (
                 mark_tool_list(convert(tools))
             )
+        if self.timeout:
+            # The benchmark builds the model with no time limit, and the
+            # LangChain class hands that to Anthropic's library as "none", not
+            # as "unset", which switches off the library's own default of ten
+            # minutes: a call on a connection that has gone silent then waits
+            # for ever. The library's client is built on the first call, so a
+            # limit set here applies. A try that runs out is repeated by the
+            # library and then by the benchmark's client.
+            model.default_request_timeout = self.timeout
 
     async def _run_verifiers(self, task_result: dict) -> dict[str, dict]:
         """Run the checks as the benchmark does, then correct, record and diagnose the verdicts.
@@ -446,6 +463,9 @@ def load_experiment(spec: str, overrides: dict) -> dict:
     for key in ("attempts", "concurrency"):
         if not isinstance(settings[key], int) or settings[key] < 1:
             raise SystemExit(f"error: {key} must be a whole number of at least 1")
+    limit = settings["model_timeout"]
+    if isinstance(limit, bool) or not isinstance(limit, (int, float)) or limit <= 0:
+        raise SystemExit("error: model_timeout must be a number of seconds above 0")
     label = settings["label"]
     if label is not None and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", str(label)):
         raise SystemExit(
@@ -1047,6 +1067,7 @@ async def run_task(
     trace: bool,
     thinking: dict | None,
     caching: bool,
+    timeout: float | None,
     tags: list[str],
     arguments: dict[str, list[str]],
 ) -> tuple[dict, list[dict], list[dict], list[dict]]:
@@ -1063,6 +1084,7 @@ async def run_task(
         trace: Send the attempt to Langfuse as one trace, scored with its verdict.
         thinking: A ``thinking`` setting for the model, or ``None``.
         caching: Use Anthropic's prompt caching.
+        timeout: Seconds a try at a model call may wait, or ``None`` for no limit.
         tags: The trace's tags; the attempt number is added.
         arguments: Each tool's argument names, from ``tool_arguments``.
 
@@ -1078,6 +1100,7 @@ async def run_task(
         trace=trace,
         thinking=thinking,
         caching=caching,
+        timeout=timeout,
         seed=states.seed_copy(
             Path(config["gym_servers_config"][0]["seed_database_file"]), domain
         ),
@@ -1172,6 +1195,7 @@ async def run_tasks(
     trace: bool,
     thinking: dict | None,
     caching: bool,
+    timeout: float | None,
     tags: list[str],
 ) -> tuple[list[dict], list[dict], list[dict], list[dict]]:
     """Run every task ``attempts`` times, at most ``concurrency`` runs at once, and gather the rows.
@@ -1191,6 +1215,7 @@ async def run_tasks(
         trace: Send each run to Langfuse.
         thinking: A ``thinking`` setting for the model, or ``None``.
         caching: Use Anthropic's prompt caching.
+        timeout: Seconds a try at a model call may wait, or ``None`` for no limit.
         tags: The traces' tags.
 
     Returns:
@@ -1217,6 +1242,7 @@ async def run_tasks(
                 trace=trace,
                 thinking=thinking,
                 caching=caching,
+                timeout=timeout,
                 tags=tags,
                 arguments=arguments,
             )
@@ -1309,6 +1335,12 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         "cache rate; Anthropic models only, nothing the model receives changes "
         "(on by default)",
     )
+    parser.add_argument(
+        "--model-timeout",
+        type=float,
+        help="seconds a call to the model may wait for its answer before the try "
+        "is given up and repeated; Anthropic models only (300 by default)",
+    )
 
 
 def run(args: argparse.Namespace) -> None:
@@ -1332,6 +1364,14 @@ def run(args: argparse.Namespace) -> None:
             "Prompt caching is built for Anthropic models only: "
             f"not used with provider {model.llm_provider!r}."
         )
+    # The time limit is set through Anthropic's client, so it too is left
+    # alone for any other provider, and the run says so.
+    timeout = experiment["model_timeout"] if model.llm_provider == "anthropic" else None
+    if timeout is None:
+        print(
+            "The time limit on model calls is built for Anthropic models only: "
+            f"not set with provider {model.llm_provider!r}."
+        )
     if trace:
         # The Anthropic SDK also writes a metadata-only span per call into any
         # registered tracer; the LangChain callback already records each call
@@ -1353,6 +1393,7 @@ def run(args: argparse.Namespace) -> None:
             trace=trace,
             thinking=thinking,
             caching=caching,
+            timeout=timeout,
             version=version,
         )
     if not experiment["out"]:
@@ -1372,6 +1413,7 @@ def evaluate(
     trace: bool,
     thinking: dict | None,
     caching: bool,
+    timeout: float | None,
     version: str,
 ) -> None:
     """Run one domain's tasks as one evaluation: the folder, its tables, ``evaluation.json`` and the index row.
@@ -1386,6 +1428,7 @@ def evaluate(
         trace: Send each run to Langfuse.
         thinking: A ``thinking`` setting for the model, or ``None``.
         caching: Use Anthropic's prompt caching.
+        timeout: Seconds a try at a model call may wait, or ``None`` for no limit.
         version: The code's version when the run began, from
             ``mas_optimiser.code_version``, recorded in ``evaluation.json`` and the index.
 
@@ -1449,6 +1492,7 @@ def evaluate(
                 trace=trace,
                 thinking=thinking,
                 caching=caching,
+                timeout=timeout,
                 tags=tags,
             )
         )
@@ -1487,6 +1531,7 @@ def evaluate(
         "dataset_revision": HF_REVISION,
         "thinking": thinking,
         "prompt_caching": caching,
+        "model_timeout": timeout,
         "traced": trace,
         "mas_optimiser_version": version,
         "started": started.isoformat(timespec="seconds"),

@@ -37,6 +37,7 @@ def test_experiment_file_defaults_and_overrides():
     )
     assert settings["trace"] is True and settings["thinking_summary"] is False
     assert settings["prompt_caching"] is True
+    assert settings["model_timeout"] == 300
     assert settings["experiment"] == "smoke" and settings["overrides"] == {}
 
     overridden = runner.load_experiment(
