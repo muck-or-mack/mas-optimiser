@@ -54,7 +54,7 @@ builds one sub-command per module in `COMMANDS` (`cli.py:31`): `run`,
 `rescore`, `rebuild`, `split`, `schema`, `compare`, `calibrate` and `list`.
 Each module gives its options in `add_arguments` and its work in `run`.
 
-`runner.run` (`runner.py:1311`) reads the experiment file
+`runner.run` (`runner.py:1314`) reads the experiment file
 `configs/experiments/baseline-haiku.yaml` through `load_experiment`
 (`runner.py:392`), which layers the defaults in `EXPERIMENT_DEFAULTS`
 (`runner.py:90`), then the file, then any command-line override, and stops
@@ -62,7 +62,7 @@ on a bad setting before any money is spent. `load_model` (`runner.py:743`)
 reads `configs/models/haiku-5-5.yaml`: the benchmark's model fields, the
 name of the environment variable that holds the API key (read from `.env`,
 never written to a config), and a price table. Then one `evaluate` per
-domain (`runner.py:1362`).
+domain (`runner.py:1365`).
 
 ### 2.2 The tasks
 
@@ -104,11 +104,11 @@ when every check passes.
 
 ### 2.3 The executor
 
-`evaluate` (`runner.py:1362`) keeps the tasks of one split set if asked, cuts
+`evaluate` (`runner.py:1365`) keeps the tasks of one split set if asked, cuts
 to `--limit`, checks that the domain servers answer (`check_servers`,
 `runner.py:670`), makes the evaluation folder, sends the benchmark's
-logging to `evaluation.log` there, and calls `run_tasks` (`runner.py:1160`), which
-runs every attempt through `run_task` (`runner.py:1035`) with at most
+logging to `evaluation.log` there, and calls `run_tasks` (`runner.py:1163`), which
+runs every attempt through `run_task` (`runner.py:1038`) with at most
 `concurrency` in flight (four in the baseline). Each attempt seeds its own
 database on the server, so attempts share nothing.
 
@@ -296,17 +296,17 @@ tests the diagnosis itself on small databases):
 ### 2.7 From a wrong cell to the turn that set it
 
 `report.py` makes the link back to the conversation, mechanically.
-`calls` (`report.py:187`) pairs each tool call with its result, numbered by
-turn, and marks whether it succeeded (`succeeded`, `report.py:169`: the
+`calls` (`report.py:195`) pairs each tool call with its result, numbered by
+turn, and marks whether it succeeded (`succeeded`, `report.py:177`: the
 request got through and the tool did not answer with an error). A lookup
 that answers that no such record exists is reported by the servers as an
 error; `calls` marks it `nothing_found`, since the lookup did its work, and
 it is counted apart from the tool errors.
-`writers_of` (`report.py:273`) finds the calls that write a table: a
+`writers_of` (`report.py:281`) finds the calls that write a table: a
 writing verb in the tool's name and the table's words in the rest of it
 (`create_incident` writes `incident`; `send_notification` does not), with a
 successful call whose result echoes the table's key column as the fallback.
-`trace` (`report.py:297`) then links those calls to the touched row through
+`trace` (`report.py:305`) then links those calls to the touched row through
 its key and says, for each cell a condition tests, where its value came
 from:
 
@@ -334,7 +334,7 @@ On the example:
 | Notification | call failed       | `send_notification` at turn 3 returned an error                                                                                                 |
 | Task         | table not written | no call wrote `incident_task`, though the task was given `create_incident_task`                                                                 |
 
-`table_rows` (`report.py:846`) then puts the checks together by table. A
+`table_rows` (`report.py:854`) then puts the checks together by table. A
 check belongs to the one table whose rows it counts; the other tables its
 query reads are lookups. A table is `correct` when every check on it
 passed, `wrong` when one failed and the attempt changed the table, and
@@ -355,12 +355,12 @@ builds the attempt's rows: `task_outcome` (`runner.py:807`) for `tasks.csv`
 (verdicts under both conventions, the tables with a check on them by
 result, tool errors and lookups that found nothing, model calls, tokens,
 cost in US dollars from the price table, seconds), `check_records` for
-`checks.csv`, `cell_rows` (`report.py:806`) for `cells.csv` (each cell
+`checks.csv`, `cell_rows` (`report.py:814`) for `cells.csv` (each cell
 wanted against found, and where its value came from) and `table_rows` for
 `tables.csv`. `save_attempt`
 (`runner.py:923`) writes the record (`attempt-N.json`), the changes
 (`attempt-N.changes.json`) and the page (`attempt-N.md`, from
-`attempt_text`, `report.py:585`). The page goes from the whole to the
+`attempt_text`, `report.py:593`). The page goes from the whole to the
 detail. After the request comes one row per table the checks look at, with
 the checks on it, the rows the attempt changed and the result. Then the
 tools the task was given (the task's `selected_tools`), the turns each was
@@ -377,10 +377,11 @@ all its columns, updated or deleted. When
 every attempt is done, `write_tables`
 (`runner.py:962`) writes the four CSVs, `failures.csv` (each kind of
 failure by table and column, with the attempts and tasks it occurs in,
-most frequent first) and `summary.md` (`summary`, `report.py:908`: the
+most frequent first) and `summary.md` (`summary`, `report.py:916`: the
 headline as a row per measure with what it counts, the tables that were
 wrong or missed, the most frequent failures with the words they use, the
-tasks that passed least and what each file holds), and `evaluate`
+tasks that passed least and what each file holds; for a held-out set of a
+split, `splits.HELD_OUT`, the headline and the files only), and `evaluate`
 writes `evaluation.json` (every setting and total) and a row in the experiment's
 `index.csv` (`index_row` and `write_index_row`, `runner.py:555`).
 
@@ -486,10 +487,10 @@ What goes wrong, and where to look:
 | `ANTHROPIC_API_KEY is not set` | no `.env`, or the key missing from it | `load_model`, `runner.py:743` |
 | a `tasks.csv` row with `error` filled and zero checks | the attempt raised before the agent started (a server fault, a bad config) | the record's `error`; the traceback in `evaluation.log` |
 | `diagnosis_error` on the run in `attempt-N.json` | the checks ran but the diagnosis raised; verdicts are intact | `runner.py:241-278` |
-| `report_error` on the run | the trace or the rows raised; the page has no trace | `run_task`, `runner.py:1035` |
+| `report_error` on the run | the trace or the rows raised; the page has no trace | `run_task`, `runner.py:1038` |
 | a failed check with `kind` empty in `checks.csv` | a query shape the diagnosis cannot take apart (a top-level OR, a GROUP BY, a derived table) | `sql.parse`, `sql.py:184` |
 | an attempt with 50 model calls | the agent hit `max_iterations` | `react.py:34`, `base.py:23` |
-| `tool_errors` above zero | a tool answered with an error; the page marks the call `ERROR`. A lookup that found no record is marked `nothing found` and counted in `lookups_empty` | `succeeded`, `report.py:169` |
+| `tool_errors` above zero | a tool answered with an error; the page marks the call `ERROR`. A lookup that found no record is marked `nothing found` and counted in `lookups_empty` | `succeeded`, `report.py:177` |
 
 
 ## 6. Sources

@@ -70,7 +70,9 @@ Any option on the command line overrides the file, so `mas-optimiser run
 smoke --limit 1 --domain csm` is a quick variant without editing anything,
 `--task <task_id>` runs one chosen task (repeat it for several), and
 `--split haiku-20-40-40:training` runs only that set of a split (see
-below).
+below). Without `--split` a run takes every task. The summary of a run of
+a split's validation or test set gives the headline and leaves out what
+went wrong ("Reading the results" in the documentation, section 8).
 Experiments give the agent every tool its domain's server offers
 (`mode: all_tools`); `--mode oracle` gives it only the tools the benchmark
 lists with each task, the setting that published results use (see "What is

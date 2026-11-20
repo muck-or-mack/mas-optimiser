@@ -470,6 +470,26 @@ def test_write_tables_counts_each_failure_once_per_attempt(tmp_path):
     ]
 
 
+def test_write_tables_keeps_the_files_whole_for_a_held_out_set(tmp_path):
+    outcome = {"task_id": "t1", "success": False, "checks_passed": 0, "checks_total": 1}
+    check_rows = [
+        {"task_id": "t1", "attempt": 1, "passed": False, "table": "notification"}
+        | {"failure": "call failed"}
+    ]
+    for split, listed in (
+        (None, True),
+        ("drawn:training", True),
+        ("drawn:test", False),
+    ):
+        runner.write_tables(tmp_path, {"split": split}, [outcome], check_rows, [], [])
+        assert (tmp_path / "failures.csv").read_text().splitlines() == [
+            "table,column,failure,how,attempts,tasks",
+            "notification,,call failed,,1,1",
+        ]
+        summary = (tmp_path / "summary.md").read_text()
+        assert ("## What went wrong" in summary) is listed
+
+
 def test_the_cache_mark_goes_on_the_last_tool_and_changes_no_definition():
     from benchmark.llm_client import LLMClient
 

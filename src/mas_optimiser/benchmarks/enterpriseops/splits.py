@@ -60,6 +60,9 @@ import mas_optimiser
 from mas_optimiser.benchmarks.enterpriseops import REPO_ROOT
 
 SETS = ("training", "validation", "test")
+# The sets harnesses are judged on. What goes wrong on their tasks is not
+# listed for reading, so that no change to a harness is made in its light.
+HELD_OUT = ("validation", "test")
 DEFAULT_PROPORTIONS = (0.2, 0.4, 0.4)
 # What a draw can balance, in the order a task's values are held.
 BALANCE_KEYS = ("domain", "difficulty")

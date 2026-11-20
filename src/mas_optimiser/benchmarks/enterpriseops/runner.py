@@ -976,9 +976,11 @@ def write_tables(
 
     Args:
         out: The evaluation folder.
-        settings: The ``evaluation`` name, ``domain``, ``mode`` and ``model``
-            (a name, or the model config as ``evaluation.json`` keeps it) that
-            head the summary; without a name the folder's is used.
+        settings: The ``evaluation`` name, ``domain``, ``mode``, ``model``
+            (a name, or the model config as ``evaluation.json`` keeps it) and
+            ``split`` that head the summary; without a name the folder's is
+            used. The summary of a held-out set of a split leaves out what
+            went wrong (``report.summary``); the files are written in full.
         outcomes: The ``tasks.csv`` rows, one per attempt.
         check_rows: The ``checks.csv`` rows.
         cell_rows: The ``cells.csv`` rows.
@@ -1022,6 +1024,7 @@ def write_tables(
                 "domain": settings.get("domain"),
                 "mode": settings.get("mode"),
                 "model": model,
+                "split": settings.get("split"),
             },
             outcomes,
             check_rows,
@@ -1460,6 +1463,7 @@ def evaluate(
             "domain": domain,
             "mode": experiment["mode"],
             "model": model.llm_model,
+            "split": experiment["split"],
         },
         outcomes,
         check_rows,
