@@ -21,7 +21,8 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 echo "Using $(uv --version)."
 
-# The benchmark is a submodule; a plain `git clone` leaves its folder empty.
+# The benchmark and the loop code are submodules; a plain `git clone` leaves
+# their folders empty.
 git submodule update --init
 
 # --locked stops with an error when uv.lock no longer matches pyproject.toml,

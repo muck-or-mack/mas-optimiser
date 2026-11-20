@@ -12,6 +12,7 @@ module, which defines its options (``add_arguments``) and its work (``run``):
     mas-optimiser compare --experiment baseline-haiku --a 20261027 --b 20261103
     mas-optimiser calibrate --experiment baseline-haiku --a 20261027 --b 20261103
     mas-optimiser list baseline-haiku
+    mas-optimiser evolve evolve-smoke
 
 Sources: ``docs/how-it-works.md``, section 6, the rows for ``cli``.
 """
@@ -26,6 +27,7 @@ from mas_optimiser.benchmarks.enterpriseops import (
     seeds,
     splits,
 )
+from mas_optimiser.evolve import loop
 from mas_optimiser.stats import calibrate, compare
 
 COMMANDS = {
@@ -37,6 +39,7 @@ COMMANDS = {
     "compare": compare,
     "calibrate": calibrate,
     "list": listing,
+    "evolve": loop,
 }
 
 

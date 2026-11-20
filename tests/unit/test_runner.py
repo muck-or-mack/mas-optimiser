@@ -119,6 +119,16 @@ def test_load_model_takes_the_key_from_the_environment(tmp_path, monkeypatch):
         runner.load_model(path)
 
 
+def test_a_self_hosted_model_file_needs_no_key():
+    path = runner.config_path("models", "qwen3.6-27b")
+    config, pricing = runner.load_model(path)
+    assert (config.llm_provider, config.llm_api_key) == ("vllm", "")
+    assert config.llm_api_endpoint == "http://localhost:8000/v1"
+    # No price per token: the cost in dollars is zero whatever is used.
+    usage = [{"input_tokens": 50_000, "output_tokens": 2_000}]
+    assert runner.cost(usage, pricing) == 0
+
+
 def test_cost_prices_cached_and_long_prompts_at_their_own_rates():
     usage = [
         {"input_tokens": 50_000, "output_tokens": 0},
@@ -297,6 +307,7 @@ def test_evaluate_writes_the_tables_the_settings_and_the_index_row(
         thinking=None,
         caching=True,
         timeout=300,
+        agent=None,
         version="v0",
     )
     folder = tmp_path / "exp" / "e1"
@@ -304,6 +315,7 @@ def test_evaluate_writes_the_tables_the_settings_and_the_index_row(
     assert settings["tasks"] == ["task_b"]
     assert settings["prompt_caching"] is True
     assert settings["model_timeout"] == 300
+    assert settings["harness"] == "default"
     assert (
         settings["totals"]["total_attempts"] == 1 and settings["totals"]["errors"] == 1
     )
@@ -359,6 +371,7 @@ def test_run_tasks_returns_every_attempt_outcome_and_prints_its_progress(
             thinking=None,
             caching=False,
             timeout=None,
+            agent=None,
             tags=[],
         )
     )
@@ -575,12 +588,17 @@ def test_prompt_caching_is_used_for_anthropic_models_only(
     assert said is (provider != "anthropic")
 
 
+@pytest.mark.parametrize("provider", runner.TIMEOUT_PROVIDERS)
 @pytest.mark.parametrize("timeout", [45, None])
-def test_the_executor_puts_the_time_limit_on_the_model_client(monkeypatch, timeout):
+def test_the_executor_puts_the_time_limit_on_the_model_client(
+    monkeypatch, provider, timeout
+):
     from benchmark.llm_client import LLMClient
 
     async def build_client(self):
-        self.llm_client = LLMClient("anthropic", "claude-haiku-5-5", "not-a-key")
+        self.llm_client = LLMClient(
+            provider, "a-model", "not-a-key", api_endpoint="http://localhost:9/v1"
+        )
 
     monkeypatch.setattr(runner.BenchmarkExecutor, "initialize", build_client)
     executor = runner.TaskExecutor.__new__(runner.TaskExecutor)
@@ -588,15 +606,25 @@ def test_the_executor_puts_the_time_limit_on_the_model_client(monkeypatch, timeo
     executor.timeout = timeout
     asyncio.run(executor.initialize())
     # The client that sends the calls; with nothing set the benchmark's own
-    # model waits without limit.
-    assert executor.llm_client.llm._async_client.timeout == timeout
+    # model waits without limit, whichever provider it is built for.
+    model = executor.llm_client.llm
+    client = model._async_client if provider == "anthropic" else model.root_async_client
+    assert client.timeout == timeout
+    if provider != "anthropic":
+        # The calls go through the client that carries the limit.
+        assert model.async_client._client is client
 
 
 @pytest.mark.parametrize(
     ("provider", "asked", "used"),
-    [("anthropic", None, 300), ("anthropic", 45.0, 45.0), ("openai", None, None)],
+    [
+        ("anthropic", None, 300),
+        ("anthropic", 45.0, 45.0),
+        ("vllm", None, 300),
+        ("google", None, None),
+    ],
 )
-def test_the_time_limit_is_set_for_anthropic_models_only(
+def test_the_time_limit_is_set_for_the_providers_whose_client_takes_it(
     tmp_path, monkeypatch, capsys, provider, asked, used
 ):
     seen = {}
@@ -609,8 +637,8 @@ def test_the_time_limit_is_set_for_anthropic_models_only(
     chosen = {"experiment": "smoke", "out": tmp_path / "e", "model_timeout": asked}
     runner.run(SimpleNamespace(**(unset | chosen)))
     assert seen["timeout"] == used
-    said = "time limit on model calls is built for Anthropic" in capsys.readouterr().out
-    assert said is (provider != "anthropic")
+    said = "time limit on model calls is built for" in capsys.readouterr().out
+    assert said is (provider == "google")
 
 
 @pytest.mark.parametrize("limit", [0, -5, "soon", True])

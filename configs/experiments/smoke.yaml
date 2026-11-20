@@ -46,6 +46,11 @@ prompt_caching: true
 # given up and repeated, so a connection that goes silent costs this long and
 # not the whole run. Real calls answer in seconds; keep the limit well above
 # the slowest of them, since a call cut off here is lost to the attempt. Set
-# through Anthropic's client: with any other provider no limit is set, and
-# the run says so.
+# on the provider's own client, for the providers anthropic, openai, vllm and
+# openrouter: with any other provider no limit is set, and the run says so.
 model_timeout: 300
+# The harness whose agent runs the tasks: a folder's name under harnesses/, or
+# a path to such a folder. The folder holds the agent's code (agent.py) and
+# the text it adds to every task's system message (prompt.md). "default" is
+# the benchmark's own agent with nothing added.
+harness: default

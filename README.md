@@ -29,7 +29,8 @@ root:
 ./setup.sh
 ```
 
-This fetches the benchmark submodule, installs exactly the versions in
+This fetches the two submodules (the benchmark, and the loop code that
+`mas-optimiser evolve` is built on), installs exactly the versions in
 `uv.lock` into `.venv/`, unpacks the benchmark's seed databases and runs the
 unit tests. Then activate the environment in each new terminal:
 
@@ -100,9 +101,37 @@ A call to the model has a time limit of 300 seconds (`model_timeout: 300`;
 answer in that time is given up and repeated, up to nine tries in all, and
 if none succeeds the attempt is recorded as an error and counted as a
 failure. Without a limit, a connection that goes silent would hold the run
-for ever; real calls answer in seconds. Like prompt caching, the limit is
-set through Anthropic's client: with any other provider none is set and the
-run says so.
+for ever; real calls answer in seconds. The limit is set on the provider's
+own client, for Anthropic models and for models reached through an
+OpenAI-style client (the providers `openai`, `vllm` and `openrouter`); with
+any other provider none is set and the run says so.
+
+A self-hosted open-weight model is run the same way, through its own model
+file. `configs/models/qwen3.6-27b.yaml` is one for Qwen3.6-27B served by
+vLLM, which answers in the OpenAI API's format: the file gives the provider
+`vllm`, the server's address and no API key, and its first lines give the
+command that starts the server with tool calling switched on. Then
+
+```
+mas-optimiser run smoke --model qwen3.6-27b
+```
+
+runs the smoke experiment on that model. Nothing is billed per token, so
+the cost in dollars is zero and the tokens and seconds, recorded as for any
+model, are the measures of cost. Prompt caching does not apply. This path
+has been run against a stand-in server that speaks the same format, and not
+yet against a live vLLM server.
+
+The agent that runs the tasks comes from a harness folder. `harnesses/default/`
+is the starting one: its `agent.py` is the benchmark's own agent loop, 150
+lines, and its `prompt.md`, empty to start with, is text the agent adds to
+the end of every task's system message. `harness: default` in the
+experiment file names it, and `--harness <folder>` takes any copy of the
+folder by its path, so a changed copy is run and compared like any other
+harness. Everything outside the folder (the tasks, the servers, the checks,
+the scoring) is the same for every harness; see "What is fixed and what is
+optimised" in the documentation. `evaluation.json` records the harness an
+evaluation used.
 
 `./scripts/demo.sh` starts the servers if needed and runs the `demo`
 experiment. `mas-optimiser --help` lists the commands, `mas-optimiser run
@@ -448,6 +477,44 @@ with three figures. It refuses two runs that differ in mode, model or
 harness. Run it on a new model or benchmark before relying on a
 comparison's verdicts there; the method is in
 `docs/methodology/acceptance-gate.md`.
+
+## Improving a harness
+
+```
+mas-optimiser evolve <experiment>
+```
+
+Runs the improvement loop on one split of the tasks: the baseline of the
+starting harness, then rounds in which a model reads how the current harness
+did on the training tasks and proposes a change to a copy of the harness
+folder, the copy is scored on the validation tasks, and the acceptance gate
+decides whether it replaces the current harness. At the end every harness
+that was kept is run once on the test tasks. The method, who may read what,
+and the files it writes are on "The improvement loop" in the documentation.
+
+The experiment file holds the settings of `run` and the loop's own:
+
+| setting          | what it sets                                                 | default           |
+|------------------|--------------------------------------------------------------|-------------------|
+| `split`          | the split whose three sets are used, by its name alone       | none, must be set |
+| `harness`        | the folder the experiment starts from                        | `default`         |
+| `proposer_model` | the model file of the roles that read and propose            | the agent's model |
+| `rounds`         | rounds of the loop                                           | 10                |
+| `candidates`     | candidates proposed in each round                            | 1                 |
+| `alpha`          | the chance, over the experiment, of keeping a useless change | 0.05              |
+| `editable`       | the types of file a proposal may edit                        | `.md` and `.py`   |
+
+```
+mas-optimiser evolve evolve-smoke
+```
+
+is a trial of the loop itself: three tasks of each set, one attempt, one
+round, text edits only, a few minutes and a few cents. Results go to
+`evolutions/<experiment>/<split>/`, and giving the command again carries an
+interrupted experiment on. With `.py` among the editable types the proposer
+changes the agent's code, which then runs on the machine that runs the
+tasks: use a machine that holds no paid key, such as one serving its own
+model.
 
 ## Watching an attempt in Langfuse
 

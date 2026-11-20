@@ -31,8 +31,11 @@ each other before they are compared.
 The harness: the code around the model that turns a task into tool calls.
 Here that is the agent loop, the text it adds to the task's policy and
 request, the way it chooses and presents tools, and what it does with their
-answers. The baseline's harness is the benchmark's own loop. A candidate
-may change any of that, and nothing in the table above.
+answers. In the repository a harness is a folder, `harnesses/<name>/`:
+`agent.py` holds the loop and `prompt.md` the text it adds to a task's
+system message. The baseline's harness is `harnesses/default/`, a copy of
+the benchmark's own loop with nothing added. A candidate is a changed copy
+of that folder, and may change nothing in the table above.
 
 ## Two kinds of change
 

@@ -38,6 +38,7 @@ def test_experiment_file_defaults_and_overrides():
     assert settings["trace"] is True and settings["thinking_summary"] is False
     assert settings["prompt_caching"] is True
     assert settings["model_timeout"] == 300
+    assert settings["harness"] == "default"
     assert settings["experiment"] == "smoke" and settings["overrides"] == {}
 
     overridden = runner.load_experiment(
@@ -91,9 +92,14 @@ def test_experiment_file_is_validated(tmp_path):
     with pytest.raises(SystemExit, match="split"):
         runner.load_experiment("smoke", no_overrides | {"split": "training"})
     assert (
-        runner.load_experiment("smoke", no_overrides | {"split": "s:training"})["split"]
-        == "s:training"
+        runner.load_experiment(
+            "smoke", no_overrides | {"split": "haiku-20-40-40:training"}
+        )["split"]
+        == "haiku-20-40-40:training"
     )
+    # A split's name alone names all three of its sets.
+    named = runner.load_experiment("smoke", no_overrides | {"split": "haiku-20-40-40"})
+    assert named["split"] == "haiku-20-40-40"
 
 
 def test_run_name_is_the_start_minute_and_the_label():
