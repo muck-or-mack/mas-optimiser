@@ -95,6 +95,15 @@ provider's request field and tool format: with any other provider the
 setting does nothing and the run says so. `evaluation.json` records whether
 it was used, and costs with and without it are not comparable.
 
+A call to the model has a time limit of 300 seconds (`model_timeout: 300`;
+`--model-timeout <seconds>` changes it for one command). A try that gets no
+answer in that time is given up and repeated, up to nine tries in all, and
+if none succeeds the attempt is recorded as an error and counted as a
+failure. Without a limit, a connection that goes silent would hold the run
+for ever; real calls answer in seconds. Like prompt caching, the limit is
+set through Anthropic's client: with any other provider none is set and the
+run says so.
+
 `./scripts/demo.sh` starts the servers if needed and runs the `demo`
 experiment. `mas-optimiser --help` lists the commands, `mas-optimiser run
 --help` the options, and every script in `scripts/` and `setup.sh` answers

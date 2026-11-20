@@ -296,12 +296,14 @@ def test_evaluate_writes_the_tables_the_settings_and_the_index_row(
         trace=False,
         thinking=None,
         caching=True,
+        timeout=300,
         version="v0",
     )
     folder = tmp_path / "exp" / "e1"
     settings = json.loads((folder / "evaluation.json").read_text())
     assert settings["tasks"] == ["task_b"]
     assert settings["prompt_caching"] is True
+    assert settings["model_timeout"] == 300
     assert (
         settings["totals"]["total_attempts"] == 1 and settings["totals"]["errors"] == 1
     )
@@ -356,6 +358,7 @@ def test_run_tasks_returns_every_attempt_outcome_and_prints_its_progress(
             trace=False,
             thinking=None,
             caching=False,
+            timeout=None,
             tags=[],
         )
     )
@@ -533,6 +536,7 @@ def test_the_executor_switches_prompt_caching_on_only_when_asked(monkeypatch, ca
     monkeypatch.setattr(runner.BenchmarkExecutor, "initialize", build_client)
     executor = runner.TaskExecutor.__new__(runner.TaskExecutor)
     executor.trace, executor.thinking, executor.caching = False, None, caching
+    executor.timeout = None
     asyncio.run(executor.initialize())
     tools = [{"name": "find_user", "description": "Finds a user."}]
     last = executor.llm_client._convert_mcp_tools_to_langchain(tools)[-1]
@@ -565,5 +569,52 @@ def test_prompt_caching_is_used_for_anthropic_models_only(
     runner.run(SimpleNamespace(**(unset | chosen)))
     assert seen["caching"] is used
     # Asked for and not available: the run says so.
-    said = "Anthropic models only" in capsys.readouterr().out
+    said = (
+        "Prompt caching is built for Anthropic models only" in capsys.readouterr().out
+    )
     assert said is (provider != "anthropic")
+
+
+@pytest.mark.parametrize("timeout", [45, None])
+def test_the_executor_puts_the_time_limit_on_the_model_client(monkeypatch, timeout):
+    from benchmark.llm_client import LLMClient
+
+    async def build_client(self):
+        self.llm_client = LLMClient("anthropic", "claude-haiku-5-5", "not-a-key")
+
+    monkeypatch.setattr(runner.BenchmarkExecutor, "initialize", build_client)
+    executor = runner.TaskExecutor.__new__(runner.TaskExecutor)
+    executor.trace, executor.thinking, executor.caching = False, None, False
+    executor.timeout = timeout
+    asyncio.run(executor.initialize())
+    # The client that sends the calls; with nothing set the benchmark's own
+    # model waits without limit.
+    assert executor.llm_client.llm._async_client.timeout == timeout
+
+
+@pytest.mark.parametrize(
+    ("provider", "asked", "used"),
+    [("anthropic", None, 300), ("anthropic", 45.0, 45.0), ("openai", None, None)],
+)
+def test_the_time_limit_is_set_for_anthropic_models_only(
+    tmp_path, monkeypatch, capsys, provider, asked, used
+):
+    seen = {}
+    monkeypatch.setattr(
+        runner, "load_model", lambda path: (SimpleNamespace(llm_provider=provider), {})
+    )
+    monkeypatch.setattr(runner.tracing, "configured", lambda: False)
+    monkeypatch.setattr(runner, "evaluate", lambda *args, **kwargs: seen.update(kwargs))
+    unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
+    chosen = {"experiment": "smoke", "out": tmp_path / "e", "model_timeout": asked}
+    runner.run(SimpleNamespace(**(unset | chosen)))
+    assert seen["timeout"] == used
+    said = "time limit on model calls is built for Anthropic" in capsys.readouterr().out
+    assert said is (provider != "anthropic")
+
+
+@pytest.mark.parametrize("limit", [0, -5, "soon", True])
+def test_a_time_limit_that_is_not_a_positive_number_is_refused(limit):
+    unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
+    with pytest.raises(SystemExit, match="model_timeout"):
+        runner.load_experiment("smoke", unset | {"model_timeout": limit})
