@@ -193,9 +193,8 @@ Where a cell's value came from:
 | not passed  | no call passed the column, and the evaluation has no `tools.json` to say more         |
 
 A wrong value that was `passed` is a wrong choice by the agent. One that was
-`left out` could have been set and was not: here the task's instructions say
-the system works out an incident's priority, the agent passed none, and the
-server filled in its default.
+`left out` could have been set and was not, so the value found is whatever
+the server fills in when the column is not passed.
 
 
 ## 5. The page of one attempt
