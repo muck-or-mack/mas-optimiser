@@ -18,6 +18,7 @@ import os
 import shlex
 import shutil
 import signal
+import socket
 import subprocess
 import time
 from pathlib import Path
@@ -102,8 +103,9 @@ def run(args: argparse.Namespace) -> None:
     Raises:
         SystemExit: If the model file has no ``server`` block, uv or Docker
             is not installed, a server of the model stopped by itself and has
-            not been cleared, or a command that installs or starts the server
-            fails (with that command's exit code).
+            not been cleared, another program already uses the server's port,
+            or a command that installs or starts the server fails (with that
+            command's exit code).
     """
     path = runner.config_path("models", args.model)
     fields = yaml.safe_load(path.read_text())
@@ -117,6 +119,17 @@ def run(args: argparse.Namespace) -> None:
     port = urlsplit(endpoint).port
     options = [fields["llm_model"], *fields["server"]["args"]]
     clear = f"mas-optimiser server {args.model} --stop"
+    # Whether a program already listens where the server is to listen, found
+    # as a client of the server would find it. Asked before a start only.
+    try:
+        socket.create_connection((urlsplit(endpoint).hostname, port), 2).close()
+        taken = True
+    except OSError:
+        taken = False
+    busy = (
+        f"error: port {port} is already in use on this machine by another "
+        f"program. Give the server another port: change llm_api_endpoint in {path}"
+    )
 
     if args.docker:
         if shutil.which("docker") is None:
@@ -139,6 +152,8 @@ def run(args: argparse.Namespace) -> None:
                 f"Then remove it with: {clear} --docker"
             )
         if inspected.returncode != 0:
+            if taken:
+                raise SystemExit(busy)
             command = [
                 "docker",
                 "run",
@@ -181,6 +196,8 @@ def run(args: argparse.Namespace) -> None:
                 f"{log}\nThen clear it with: {clear}"
             )
         if pid is None:
+            if taken:
+                raise SystemExit(busy)
             # A uv installed a moment ago by setup.sh is not yet on PATH.
             uv = shutil.which("uv") or shutil.which(
                 str(Path.home() / ".local" / "bin" / "uv")
@@ -248,12 +265,17 @@ def run(args: argparse.Namespace) -> None:
             pid_file.write_text(str(started.pid))
         watch = f"tail -f {log}"
 
-    # Ready is taken to mean that the server answers: it opens its port once
-    # the model is loaded.
+    # Ready means that the server answers and lists the model: it opens its
+    # port once the model is loaded, and another program that answers at the
+    # address does not count.
     try:
-        httpx.get(f"{endpoint}/models", timeout=5)
-        print(f"{name}: ready at {endpoint}")
+        answer = httpx.get(f"{endpoint}/models", timeout=5)
+        ready = answer.status_code == 200 and fields["llm_model"] in answer.text
     except httpx.HTTPError:
+        ready = False
+    if ready:
+        print(f"{name}: ready at {endpoint}")
+    else:
         print(
             f"{name}: loading (the first start downloads the model's weights). "
             f"Watch it with: {watch}\n"
