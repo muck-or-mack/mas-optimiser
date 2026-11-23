@@ -20,6 +20,7 @@ def test_help_lists_every_command(capsys):
             "compare",
             "calibrate",
             "list",
+            "server",
         )
     )
 

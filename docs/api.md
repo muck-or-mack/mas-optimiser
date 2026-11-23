@@ -53,6 +53,9 @@ The package's modules, from their docstrings. The command line is
 .. automodule:: mas_optimiser.cli
    :members:
 
+.. automodule:: mas_optimiser.server
+   :members:
+
 .. automodule:: mas_optimiser.tracing
    :members:
 

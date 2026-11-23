@@ -54,6 +54,51 @@ pytest -m integration
 
 Stop them with `docker compose -f docker/compose.yaml down`.
 
+## Serving an open-weight model
+
+An open-weight model runs on the machine's own GPUs, served in Docker by
+[vLLM](https://docs.vllm.ai/). The package starts the server from the
+model's file:
+
+```bash
+mas-optimiser server qwen3.6-27b
+```
+
+`configs/models/qwen3.6-27b.yaml` ends in a `server` block: the release of
+vLLM's image, and the options the server starts with (how many GPUs the
+model is spread over, the longest prompt it takes, and the model card's
+options for tool calling). The command starts that image as a container
+named after the file, listening where the file's `llm_api_endpoint` says and
+reachable from this machine only, and prints the `docker run` line it used.
+
+The first start downloads the image (about 10 GB) and the model's weights
+(56 GB for Qwen3.6-27B), then loads the model. Run the same command again at
+any time: it starts nothing new and says whether the server is still
+`loading` or `ready`. `docker logs -f qwen3.6-27b` shows the download and
+the loading as they happen.
+
+```bash
+mas-optimiser server qwen3.6-27b --stop
+```
+
+removes the container. The weights stay in a Docker volume,
+`mas-optimiser-models`, so the next start downloads nothing. On a machine
+whose Docker disk is too small for them, `--cache <folder>` (an absolute
+path) keeps them in that folder instead; the server writes there as
+root.
+
+| The command says | What it means | What to do |
+|---|---|---|
+| `loading` | the container is running and the server does not answer yet | wait; `docker logs -f <name>` shows progress |
+| `ready at <address>` | the server answers | run an experiment with `--model <name>` |
+| the container `exists and is exited` | the server stopped by itself, for instance for lack of GPU memory | read `docker logs <name>`, then `--stop` and start again |
+| an error from Docker about GPUs or a device driver | Docker cannot hand the GPUs to a container | install NVIDIA's Container Toolkit on the host ([its install guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)); this takes administrator rights |
+
+Another model is another file in `configs/models/` with its own `server`
+block; a file without one, such as a hosted model's, is refused. The command
+has been run in Docker with a small stand-in for vLLM's image, and not yet
+with vLLM itself.
+
 ## Running an experiment
 
 Copy `.env.example` to `.env` and add the API key. An experiment is a short
@@ -109,8 +154,9 @@ any other provider none is set and the run says so.
 A self-hosted open-weight model is run the same way, through its own model
 file. `configs/models/qwen3.6-27b.yaml` is one for Qwen3.6-27B served by
 vLLM, which answers in the OpenAI API's format: the file gives the provider
-`vllm`, the server's address and no API key, and its first lines give the
-command that starts the server with tool calling switched on. Then
+`vllm`, the server's address and no API key, and its `server` block says how
+the server is started ([Serving an open-weight model](#serving-an-open-weight-model)).
+With the server ready,
 
 ```
 mas-optimiser run smoke --model qwen3.6-27b
@@ -344,7 +390,7 @@ attempts, and the split covers the tasks that run scored. Without a balance
 on difficulty the task list comes from the dataset and no run is needed.
 
 `--seen` names a YAML file that gives each task id a reason. A task someone
-has read cannot serve as an unseen one, so these go into training before the
+has read cannot server as an unseen one, so these go into training before the
 shuffle. Validation and test tasks are never read; only their scores are
 looked at.
 
