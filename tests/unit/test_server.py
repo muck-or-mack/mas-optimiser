@@ -46,8 +46,8 @@ def machine(tmp_path, monkeypatch):
 
     ``answers`` maps a command's second word to the exit code and output it
     gets; a command not named succeeds with no output. ``pid`` is the process
-    id of the model's running server, ``None`` for none. The server does not
-    answer unless a test says so.
+    id of the model's running server, ``None`` for none. Nothing listens on
+    the server's port and the server does not answer unless a test says so.
     """
     path = tmp_path / "model.yaml"
     path.write_text(MODEL)
@@ -72,12 +72,16 @@ def machine(tmp_path, monkeypatch):
     def no_answer(url, **_):
         raise httpx.ConnectError("refused")
 
+    def refused(address, timeout):
+        raise ConnectionRefusedError
+
     monkeypatch.setattr(server, "STATE", stand_in.state)
     monkeypatch.setattr(server, "_process", lambda name: stand_in.pid)
     monkeypatch.setattr(server.shutil, "which", lambda name: f"/bin/{Path(name).name}")
     monkeypatch.setattr(server.subprocess, "run", run)
     monkeypatch.setattr(server.subprocess, "Popen", popen)
     monkeypatch.setattr(server.httpx, "get", no_answer)
+    monkeypatch.setattr(server.socket, "create_connection", refused)
     return stand_in
 
 
@@ -145,11 +149,47 @@ def test_a_running_server_is_left_alone_and_reported_when_it_answers(
 ):
     machine.pid = 99
     asked = []
-    monkeypatch.setattr(server.httpx, "get", lambda url, **_: asked.append(url))
+
+    def lists_the_model(url, **_):
+        asked.append(url)
+        return SimpleNamespace(status_code=200, text='{"data": [{"id": "org/model"}]}')
+
+    monkeypatch.setattr(server.httpx, "get", lists_the_model)
     cli.main(["server", machine.path])
     assert machine.calls == [] and machine.started == []
     assert asked == ["http://localhost:8123/v1/models"]
     assert "model: ready at http://localhost:8123/v1" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        SimpleNamespace(status_code=404, text="Nothing matches the given URI"),
+        SimpleNamespace(status_code=200, text='{"data": [{"id": "another/model"}]}'),
+    ],
+)
+def test_another_program_answering_at_the_address_is_not_the_server(
+    machine, monkeypatch, capsys, answer
+):
+    machine.pid = 99
+    monkeypatch.setattr(server.httpx, "get", lambda url, **_: answer)
+    cli.main(["server", machine.path])
+    assert "model: loading" in capsys.readouterr().out
+
+
+def test_a_port_another_program_uses_stops_the_start(machine, monkeypatch):
+    listening = SimpleNamespace(close=lambda: None)
+    monkeypatch.setattr(
+        server.socket, "create_connection", lambda address, timeout: listening
+    )
+    for route in ([], ["--docker"]):
+        machine.answers["container"] = (1, "")
+        with pytest.raises(SystemExit, match="port 8123 is already in use"):
+            cli.main(["server", machine.path, *route])
+    assert machine.started == [] and machine.calls == [INSPECT]
+    # The port of a server that is already running is its own.
+    machine.pid = 99
+    cli.main(["server", machine.path])
 
 
 def test_a_server_that_stopped_by_itself_is_not_started_again(machine):

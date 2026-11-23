@@ -123,7 +123,7 @@ def test_a_self_hosted_model_file_needs_no_key():
     path = runner.config_path("models", "qwen3.6-27b")
     config, pricing = runner.load_model(path)
     assert (config.llm_provider, config.llm_api_key) == ("vllm", "")
-    assert config.llm_api_endpoint == "http://localhost:8000/v1"
+    assert config.llm_api_endpoint == "http://localhost:8027/v1"
     # No price per token: the cost in dollars is zero whatever is used.
     usage = [{"input_tokens": 50_000, "output_tokens": 2_000}]
     assert runner.cost(usage, pricing) == 0

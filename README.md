@@ -97,7 +97,8 @@ installs and downloads nothing.
 | The command says | What it means | What to do |
 |---|---|---|
 | `loading` | the server is running and does not answer yet | wait; `tail -f` on the log shows progress |
-| `ready at <address>` | the server answers | run an experiment with `--model <name>` |
+| `ready at <address>` | the server answers and lists the model | run an experiment with `--model <name>` |
+| `port ... is already in use` | another program on the machine listens on the server's port, which is common on a shared machine | give the server another port in `llm_api_endpoint` of the model file, then start again |
 | the server `stopped by itself` | it ended without being asked, for instance for lack of GPU memory | read the log, then `--stop` and start again |
 | `precompiled kernels were not installed`, during the first start | vLLM's last install step could not fetch its kernels, for instance from a machine that cannot reach the site they come from | nothing: the server starts without them and falls back to slower sampling code; the message gives the command that tries again |
 

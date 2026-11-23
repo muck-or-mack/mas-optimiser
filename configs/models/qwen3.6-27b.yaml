@@ -6,7 +6,9 @@ llm_provider: vllm
 llm_model: Qwen/Qwen3.6-27B
 # Where the server listens, as seen from the machine that runs the tasks. With
 # the server on another machine, forward its port and keep localhost here.
-llm_api_endpoint: http://localhost:8000/v1
+# The port is one few programs use (8000, the usual one, is often taken on a
+# shared machine); `mas-optimiser server` says so if another program has it.
+llm_api_endpoint: http://localhost:8027/v1
 # No api_key_env: a server started without --api-key asks for none. If it is
 # started with one, name here the variable in .env that holds it.
 # The model card's sampling settings for its thinking mode on general tasks.
