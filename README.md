@@ -58,7 +58,7 @@ Stop them with `docker compose -f docker/compose.yaml down`.
 
 ## Serving an open-weight model
 
-An open-weight model runs on the machine's own GPUs, served in Docker by
+An open-weight model runs on the machine's own GPUs, served by
 [vLLM](https://docs.vllm.ai/). The package starts the server from the
 model's file:
 
@@ -67,39 +67,56 @@ mas-optimiser server qwen3.6-27b
 ```
 
 `configs/models/qwen3.6-27b.yaml` ends in a `server` block: the release of
-vLLM's image, and the options the server starts with (how many GPUs the
-model is spread over, the longest prompt it takes, and the model card's
-options for tool calling). The command starts that image as a container
-named after the file, listening where the file's `llm_api_endpoint` says and
-reachable from this machine only, and prints the `docker run` line it used.
+vLLM, and the options the server starts with (how many GPUs the model is
+spread over, the longest prompt it takes, and the model card's options for
+tool calling). The first time, the command installs that release of vLLM
+with uv into an environment of its own, apart from the package's
+(`~/.cache/mas-optimiser/vllm-<release>/`, about 19 GB with the kernels
+vLLM fetches for itself; a few minutes on a fast connection). It then
+starts the server as a background process that outlives the terminal,
+listening where the file's `llm_api_endpoint` says and reachable from this
+machine only, and prints each command it runs. Docker is not needed, and
+neither are administrator rights: the machine needs its NVIDIA driver and
+nothing else.
 
-The first start downloads the image (about 10 GB) and the model's weights
-(56 GB for Qwen3.6-27B), then loads the model. Run the same command again at
-any time: it starts nothing new and says whether the server is still
-`loading` or `ready`. `docker logs -f qwen3.6-27b` shows the download and
-the loading as they happen.
+The first start also downloads the model's weights (56 GB for
+Qwen3.6-27B) into the user's Hugging Face cache, `~/.cache/huggingface`, or
+into the folder `--cache <folder>` names, and then loads the model. Run the
+same command again at any time: it starts nothing new and says whether the
+server is still `loading` or `ready`. The server's output is in
+`~/.cache/mas-optimiser/<name>.log`.
 
 ```bash
 mas-optimiser server qwen3.6-27b --stop
 ```
 
-removes the container. The weights stay in a Docker volume,
-`mas-optimiser-models`, so the next start downloads nothing. On a machine
-whose Docker disk is too small for them, `--cache <folder>` (an absolute
-path) keeps them in that folder instead; the server writes there as
-root.
+ends the server. The environment and the weights stay, so the next start
+installs and downloads nothing.
 
 | The command says | What it means | What to do |
 |---|---|---|
-| `loading` | the container is running and the server does not answer yet | wait; `docker logs -f <name>` shows progress |
+| `loading` | the server is running and does not answer yet | wait; `tail -f` on the log shows progress |
 | `ready at <address>` | the server answers | run an experiment with `--model <name>` |
-| the container `exists and is exited` | the server stopped by itself, for instance for lack of GPU memory | read `docker logs <name>`, then `--stop` and start again |
-| an error from Docker about GPUs or a device driver | Docker cannot hand the GPUs to a container | install NVIDIA's Container Toolkit on the host ([its install guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)); this takes administrator rights |
+| the server `stopped by itself` | it ended without being asked, for instance for lack of GPU memory | read the log, then `--stop` and start again |
+
+With `--docker` the same release runs as a container of vLLM's image
+instead, named after the model file, with the weights in the Docker volume
+`mas-optimiser-models` (or the folder `--cache` names); `--docker --stop`
+removes the container and `docker logs -f <name>` shows its output. This
+needs Docker, room for the image (about 10 GB to download) on Docker's
+disk, and NVIDIA's Container Toolkit
+([its install guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)),
+which takes administrator rights to install.
 
 Another model is another file in `configs/models/` with its own `server`
-block; a file without one, such as a hosted model's, is refused. The command
-has been run in Docker with a small stand-in for vLLM's image, and not yet
-with vLLM itself.
+block; a file without one, such as a hosted model's, is refused. Releases
+of vLLM after 0.32.0 need an NVIDIA driver that supports CUDA 13
+(`nvidia-smi` shows the driver's CUDA version on its first line).
+
+The command has been run end to end on one GPU with a small model: vLLM
+installed, the server started, a task run against it, the server stopped.
+The options in the Qwen3.6-27B file, and `--docker` with vLLM's own image,
+have not been run yet.
 
 ## Running an experiment
 
@@ -167,8 +184,9 @@ mas-optimiser run smoke --model qwen3.6-27b
 runs the smoke experiment on that model. Nothing is billed per token, so
 the cost in dollars is zero and the tokens and seconds, recorded as for any
 model, are the measures of cost. Prompt caching does not apply. This path
-has been run against a stand-in server that speaks the same format, and not
-yet against a live vLLM server.
+has been run against a live vLLM server with a small model of the same
+family (Qwen3-0.6B, with the task's own tools), and not yet with
+Qwen3.6-27B.
 
 The agent that runs the tasks comes from a harness folder. `harnesses/default/`
 is the starting one: its `agent.py` is the benchmark's own agent loop, 150
