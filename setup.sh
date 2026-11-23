@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Reproducible install for mas-optimiser. Run from the repository root.
-# Builds the environment from uv.lock and runs the unit tests as a smoke test.
+# Installs uv if the machine has none, builds the environment from uv.lock
+# and runs the unit tests as a smoke test.
 
 set -euo pipefail
 
 if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
-  sed -n '2,3p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'
   exit 0
 fi
 
@@ -14,10 +15,24 @@ if [ ! -f pyproject.toml ] || ! grep -q '^name = "mas-optimiser"' pyproject.toml
   exit 1
 fi
 
+# A machine without uv gets the version the tests run on
+# (.github/workflows/ci.yml), from uv's own installer, in the user's own
+# folder. A uv that is already installed is used as it is.
+UV_VERSION=0.13.1
+UV_BIN="$HOME/.local/bin"
 if ! command -v uv >/dev/null 2>&1; then
-  echo "ERROR: uv not found. Install it with:" >&2
-  echo "  curl -LsSf https://astral.sh/uv/install.sh | sh" >&2
-  exit 1
+  echo "uv not found: installing uv $UV_VERSION into $UV_BIN (https://docs.astral.sh/uv/)."
+  installer="https://astral.sh/uv/$UV_VERSION/install.sh"
+  if command -v curl >/dev/null 2>&1; then
+    curl -LsSf "$installer" | env UV_INSTALL_DIR="$UV_BIN" sh
+  elif command -v wget >/dev/null 2>&1; then
+    wget -qO- "$installer" | env UV_INSTALL_DIR="$UV_BIN" sh
+  else
+    echo "ERROR: installing uv needs curl or wget, and neither was found." >&2
+    exit 1
+  fi
+  # The installer puts the folder on PATH for new terminals only.
+  export PATH="$UV_BIN:$PATH"
 fi
 echo "Using $(uv --version)."
 

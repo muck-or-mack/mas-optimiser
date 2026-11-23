@@ -21,17 +21,19 @@ its figures in `docs/figures/`.
 
 ## Install
 
-Requires [uv](https://docs.astral.sh/uv/) and Python 3.11 or newer (uv
-fetches a suitable Python if the system one is older). From the repository
-root:
+One command, from the repository root:
 
 ```bash
 ./setup.sh
 ```
 
-This fetches the two submodules (the benchmark, and the loop code that
+This installs [uv](https://docs.astral.sh/uv/), which builds the Python
+environment, into `~/.local/bin` if the machine has none (the version the
+tests run on; it needs `curl` or `wget` and no administrator rights). It
+then fetches the two submodules (the benchmark, and the loop code that
 `mas-optimiser evolve` is built on), installs exactly the versions in
-`uv.lock` into `.venv/`, unpacks the benchmark's seed databases and runs the
+`uv.lock` into `.venv/`, with a Python of 3.11 or newer that uv fetches if
+the system has none, unpacks the benchmark's seed databases and runs the
 unit tests. Then activate the environment in each new terminal:
 
 ```bash
