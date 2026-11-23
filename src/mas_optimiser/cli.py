@@ -13,12 +13,14 @@ module, which defines its options (``add_arguments``) and its work (``run``):
     mas-optimiser calibrate --experiment baseline-haiku --a 20261027 --b 20261103
     mas-optimiser list baseline-haiku
     mas-optimiser evolve evolve-smoke
+    mas-optimiser server qwen3.6-27b
 
 Sources: ``docs/how-it-works.md``, section 6, the rows for ``cli``.
 """
 
 import argparse
 
+from mas_optimiser import server
 from mas_optimiser.benchmarks.enterpriseops import (
     listing,
     rebuild,
@@ -40,6 +42,7 @@ COMMANDS = {
     "calibrate": calibrate,
     "list": listing,
     "evolve": loop,
+    "server": server,
 }
 
 

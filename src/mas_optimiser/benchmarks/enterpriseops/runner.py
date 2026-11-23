@@ -807,7 +807,9 @@ def load_model(path: Path) -> tuple[LLMConfig, dict]:
     The file holds ``LLMConfig`` fields plus ``api_key_env``, the environment
     variable that holds the API key, and ``pricing``, the ``PRICING_KEYS`` in
     US dollars per million tokens. A self-hosted server that asks for no key
-    leaves ``api_key_env`` out.
+    leaves ``api_key_env`` out, and its file may hold a ``server`` block, which
+    says how the server is started (``mas_optimiser.server``) and is not read
+    here.
 
     Args:
         path: The model file.
@@ -822,6 +824,7 @@ def load_model(path: Path) -> tuple[LLMConfig, dict]:
             is not set.
     """
     fields = yaml.safe_load(path.read_text())
+    fields.pop("server", None)
     pricing = fields.pop("pricing", None) or {}
     missing = sorted(PRICING_KEYS - set(pricing))
     if missing:

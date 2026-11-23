@@ -52,9 +52,10 @@ orchestrator class (section 2.4), and because its scoring loses checks
 
 ### 2.1 The command
 
-`mas-optimiser run baseline-haiku` enters at `main` (`cli.py:64`), which
-builds one sub-command per module in `COMMANDS` (`cli.py:31`): `run`,
-`rescore`, `rebuild`, `split`, `schema`, `compare`, `calibrate` and `list`.
+`mas-optimiser run baseline-haiku` enters at `main` (`cli.py:70`), which
+builds one sub-command per module in `COMMANDS` (`cli.py:35`): `run`,
+`rescore`, `rebuild`, `split`, `schema`, `compare`, `calibrate`, `list`,
+`evolve` and `server`.
 Each module gives its options in `add_arguments` and its work in `run`.
 
 `runner.run` (`runner.py:1399`) reads the experiment file
@@ -531,6 +532,7 @@ is credited in `NOTICE.md` as well.
 | all modules | the convention shared by StarHarness, GEPA, OpenEvolve and ShinkaEvolve | the benchmark adapter kept apart from the optimiser, and the benchmark with its checks never editable | the package layout |
 | all modules | Google docstrings checked by ruff and pydoclint; setuptools-scm | every function documented and checked in CI; the code version stamped into every evaluation and split | `pyproject.toml`, `ci.yml`, `mas_optimiser.code_version` |
 | `cli` | the author's research-computing practice | one console command declared in `pyproject.toml`; each module exposes `add_arguments` and `run` so an option is defined once | `cli.COMMANDS` |
+| `server` | vLLM's Docker deployment page (docs.vllm.ai/en/latest/deployment/docker.html); the Qwen3.6-27B model card (huggingface.co/Qwen/Qwen3.6-27B) | the options of `docker run` (the GPUs, the host's shared memory, the cache kept outside the container, the server's options after the image's name); the server options for tool calling and for text only | `server.run`; the `server` block of `configs/models/qwen3.6-27b.yaml` |
 | `runner` | EnterpriseOps-Gym `benchmark/executor.py` | `BenchmarkExecutor` subclassed, with `initialize` and `_run_verifiers` overridden; `AgentOrchestrator`, `BenchmarkConfig` and `LLMConfig` as released | `runner.TaskExecutor` |
 | `harnesses/default` | EnterpriseOps-Gym `orchestrators/react.py` (Apache-2.0) | the agent loop, copied, with the changes the copy's opening lines state | `harnesses/default/agent.py` |
 | `runner` | Anthropic's documentation, "Prompt caching" (platform.claude.com/docs/en/build-with-claude/prompt-caching) | the cache mark on a request and on a tool, the read and write rates, the five-minute lifetime; used for Anthropic models only | `runner.CACHE_MARK`, `mark_tool_list`, `cost` |
@@ -576,6 +578,7 @@ is credited in `NOTICE.md` as well.
 |---|---|
 | `src/mas_optimiser/cli.py` | the `mas-optimiser` command and its sub-commands |
 | `src/mas_optimiser/tracing.py` | Langfuse: one trace per attempt, scored |
+| `src/mas_optimiser/server.py` | the `server` command: a self-hosted model's server started and stopped in Docker |
 | `src/mas_optimiser/benchmarks/enterpriseops/listing.py` | the `list` command: an experiment's runs and their domains from its index |
 | `src/mas_optimiser/stats/outcomes.py` | per-task scores and the paired differences of two evaluations |
 | `src/mas_optimiser/evolve/loop.py` | one experiment of the improvement loop: baseline, rounds, test; the `evolve` command |
