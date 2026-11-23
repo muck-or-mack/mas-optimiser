@@ -124,6 +124,14 @@ def test_an_install_cut_short_starts_nothing_and_is_taken_up_again(machine):
     assert len(machine.calls) == 2 + 3 and len(machine.started) == 1
 
 
+def test_kernels_that_cannot_be_fetched_do_not_stop_the_start(machine, capsys):
+    machine.answers["download-kernels"] = (1, "")
+    cli.main(["server", machine.path])
+    assert len(machine.calls) == 3 and len(machine.started) == 1
+    assert "kernels were not installed" in capsys.readouterr().out
+    assert (machine.state / "vllm-1" / "installed").exists()
+
+
 def test_the_cache_option_sets_where_the_weights_are_kept(machine):
     cli.main(["server", machine.path, "--cache", "/data/weights"])
     assert machine.started[0][1]["env"]["HF_HOME"] == "/data/weights"
