@@ -24,14 +24,15 @@ pricing:
   cache_write: 0
   long_prompt_tokens: 0
   long_prompt_multiplier: 1
-# How `mas-optimiser server` starts the server: the image, then the options of
-# `vllm serve` that follow the model's name. The options join the model
-# card's commands for tool calling and for text only
+# How `mas-optimiser server` starts the server: the release of vLLM, then the
+# options of `vllm serve` that follow the model's name. The options join the
+# model card's commands for tool calling and for text only
 # (huggingface.co/Qwen/Qwen3.6-27B).
 server:
-  # A release of vLLM's image, so that a later release cannot change a run.
-  # The model card asks for vLLM 0.19.0 or newer.
-  image: vllm/vllm-openai:v0.34.0
+  # One release, so that a later one cannot change a run. The model card asks
+  # for 0.19.0 or newer; releases after 0.32.0 need an NVIDIA driver that
+  # supports CUDA 13.
+  vllm: "0.34.0"
   args:
     # The number of GPUs the model's layers are spread over.
     - --tensor-parallel-size=2
