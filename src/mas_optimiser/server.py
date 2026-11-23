@@ -194,9 +194,10 @@ def run(args: argparse.Namespace) -> None:
             installed = environment / "installed"
             if not installed.exists():
                 # vLLM's own three steps for an install with uv. The second
-                # picks the build of PyTorch that suits the NVIDIA driver;
-                # the third fetches kernels the server would otherwise have
-                # to compile, and looks for uv on PATH.
+                # picks the build of PyTorch that suits the NVIDIA driver.
+                # The third fetches precompiled kernels from a site of its
+                # own and looks for uv on PATH; the server runs without
+                # them, so its failure does not stop the start.
                 path = f"{Path(uv).parent}{os.pathsep}{os.environ['PATH']}"
                 environment.mkdir(parents=True, exist_ok=True)
                 for command in (
@@ -221,7 +222,14 @@ def run(args: argparse.Namespace) -> None:
                 ):
                     print(shlex.join(command), flush=True)
                     built = subprocess.run(command, env=os.environ | {"PATH": path})
-                    if built.returncode:
+                    if built.returncode and command[-1] == "download-kernels":
+                        print(
+                            "vLLM's precompiled kernels were not installed: the "
+                            "server starts without them. To try again later: "
+                            f"{shlex.join(command)}",
+                            flush=True,
+                        )
+                    elif built.returncode:
                         raise SystemExit(built.returncode)
                 installed.touch()
             command = [vllm, "serve", *options]

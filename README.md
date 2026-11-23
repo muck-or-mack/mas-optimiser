@@ -71,8 +71,9 @@ vLLM, and the options the server starts with (how many GPUs the model is
 spread over, the longest prompt it takes, and the model card's options for
 tool calling). The first time, the command installs that release of vLLM
 with uv into an environment of its own, apart from the package's
-(`~/.cache/mas-optimiser/vllm-<release>/`, about 19 GB with the kernels
-vLLM fetches for itself; a few minutes on a fast connection). It then
+(`~/.cache/mas-optimiser/vllm-<release>/`, about 19 GB, half of it
+kernels that vLLM fetches for itself in an optional last step; a few
+minutes on a fast connection). It then
 starts the server as a background process that outlives the terminal,
 listening where the file's `llm_api_endpoint` says and reachable from this
 machine only, and prints each command it runs. Docker is not needed, and
@@ -98,6 +99,7 @@ installs and downloads nothing.
 | `loading` | the server is running and does not answer yet | wait; `tail -f` on the log shows progress |
 | `ready at <address>` | the server answers | run an experiment with `--model <name>` |
 | the server `stopped by itself` | it ended without being asked, for instance for lack of GPU memory | read the log, then `--stop` and start again |
+| `precompiled kernels were not installed`, during the first start | vLLM's last install step could not fetch its kernels, for instance from a machine that cannot reach the site they come from | nothing: the server starts without them and falls back to slower sampling code; the message gives the command that tries again |
 
 With `--docker` the same release runs as a container of vLLM's image
 instead, named after the model file, with the weights in the Docker volume
