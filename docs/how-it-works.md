@@ -37,7 +37,7 @@ to one commit, and for the starting harness.
 | The runner (ours) | `src/mas_optimiser/cli.py`, `tracing.py`, `benchmarks/enterpriseops/runner.py` | about 2,000 | loads the tasks, runs attempts in parallel, applies the patch list, saves every record and the tables |
 | The measure (ours) | `checks.py`, `states.py`, `sql.py`, `diagnosis.py`, `report.py`, `rescore.py`, `rebuild.py` | about 2,700 | verdicts, changes against the seed, the cell-by-cell diagnosis, the trace to the turn, the results files, recomputation |
 | Set-up tools (ours) | `seeds.py`, `splits.py` | about 800 | local copies of the seed databases; the seeded draw of the training, validation and test sets |
-| The improvement loop (ours, round RRSI's released loop) | `evolve/loop.py`, `evolve/models.py`, `domain.py`, `prompts.py` | about 1,450 | one experiment of the loop: baseline, rounds, test; the model call of its search roles; this benchmark as the loop sees it |
+| The improvement loop (ours, round RRSI's released loop) | `evolve/loop.py`, `evolve/models.py`, `evolve/report.py`, `domain.py`, `prompts.py` | about 2,000 | one experiment of the loop: baseline, rounds, test; the model call of its search roles; this benchmark as the loop sees it |
 | Statistics (ours) | `stats/` | about 2,150 | the gate's test and the level of each decision; the `compare` and `calibrate` commands and their figures |
 | A self-hosted model's server (ours) | `server.py` | about 330 | the `server` command: vLLM installed, started and stopped |
 
@@ -633,6 +633,7 @@ is credited in `NOTICE.md` as well.
 | `evolve` | own design | the proposer told only whether a proposal was accepted; a harness's test score taken for every harness kept, after the last decision; the model call from a model file | `evolve.loop`, `evolve.models` |
 | `evolve` | stopping early for futility in sequential testing (Jennison and Turnbull, *Group Sequential Methods with Applications to Clinical Trials*, Chapman and Hall, 2000) | the filter: a candidate is run on a share of the validation tasks first and dropped if it does no better there; it can only drop, so the gate's error level holds | `evolve.loop.Experiment.filter_ids`, `evolve.loop.Experiment.round` |
 | `evolve` | own design, in place of the fixed counts of RRSI's released code (the 22 lowest-scoring tasks and the 6 highest) | the pool: the share of the training tasks whose traces the search roles may read in a round, taken evenly over the tasks ranked by score and one place further each round, with every task's score given to both roles | `evolve.loop.Experiment.pool`, `evolve.loop.Experiment.round` |
+| `evolve` | own design, on the paired comparison and the test of `stats` | the report of an experiment: the gain of each harness kept on the test tasks, the rounds, and the cost of each part from the files the experiment wrote | `evolve.report.harnesses`, `evolve.report.rounds`, `evolve.report.parts` |
 | `evolve` | own design, on `threading` of Python's standard library | the limit of seconds on one call of a search role: the call runs in a thread that can be left behind when the limit passes | `evolve.models.generate` |
 | `domain` | RRSI's `Domain` interface (`rrsi/domain.py`), its `critic_patterns` and `smoke` | the screen of a proposed change for task ids, references to the checks and code that reaches past the harness's own work; a person's yes or no asked before a change first runs | `domain.EnterpriseOps.critic_patterns`, `domain.EnterpriseOps.smoke` |
 | `stats` | own design | per-task scores for two outcomes, the paired comparison over the same tasks, the `compare` command with its results as data files and a report of them, and the figures | `stats.outcomes`, `stats.compare`, `stats.figures` |
@@ -655,6 +656,7 @@ is credited in `NOTICE.md` as well.
 | `src/mas_optimiser/stats/outcomes.py` | per-task scores and the paired differences of two evaluations |
 | `src/mas_optimiser/evolve/loop.py` | one experiment of the improvement loop: baseline, rounds, test; the `evolve` command |
 | `src/mas_optimiser/evolve/models.py` | the model call of the loop's search roles, from a model file |
+| `src/mas_optimiser/evolve/report.py` | the report of an experiment: the harnesses kept, the rounds, the cost of each part; the `report` command |
 | `.../enterpriseops/domain.py` | this benchmark as the loop sees it: its sets, how a harness is run and scored, the trace, the trial run |
 | `.../enterpriseops/prompts.py` | what the search roles are told about the benchmark and the harness folder |
 | `vendor/rrsi/rrsi/` | RRSI's released loop, unchanged |

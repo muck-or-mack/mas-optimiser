@@ -13,6 +13,7 @@ module, which defines its options (``add_arguments``) and its work (``run``):
     mas-optimiser calibrate --experiment baseline-haiku --a 20261027 --b 20261103
     mas-optimiser list baseline-haiku
     mas-optimiser evolve evolve-smoke
+    mas-optimiser report evolutions/evolve-smoke/haiku-20-40-40
     mas-optimiser server qwen3.6-27b-fp8
 
 Sources: ``docs/how-it-works.md``, section 6, the rows for ``cli``.
@@ -29,7 +30,7 @@ from mas_optimiser.benchmarks.enterpriseops import (
     seeds,
     splits,
 )
-from mas_optimiser.evolve import loop
+from mas_optimiser.evolve import loop, report
 from mas_optimiser.stats import calibrate, compare
 
 COMMANDS = {
@@ -42,6 +43,7 @@ COMMANDS = {
     "calibrate": calibrate,
     "list": listing,
     "evolve": loop,
+    "report": report,
     "server": server,
 }
 
