@@ -2,8 +2,9 @@
 
 An LLM agent run on the EnterpriseOps-Gym benchmark, measured properly, with
 every failure explained down to the database cell and the turn that set it;
-on top of that, a ladder of harnesses and an optimiser that improves the
-best of them by editing its planning layer. The pages run in the order a
+on top of that, a loop that improves the agent's harness, in which a model
+proposes changes from the training tasks and each is kept only when a
+statistical test supports it on tasks the model never saw. The pages run in the order a
 new user needs them: installing and using the package (the repository's
 README), how the code works, the methods behind the measurements and
 decisions, the data model of each domain and the API.

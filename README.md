@@ -1,15 +1,19 @@
 # mas-optimiser
 
-Planning-layer evolution for multi-agent systems. An optimiser proposes
-changes to how a planner-executor system plans (its planner prompt, plan
-constraints and replanning rules) and keeps a change only when a paired test
-on tasks it has not seen supports it. The system is evaluated on
+An improvement loop for the harness of an LLM agent, with a statistical gate
+on every change. A model reads how the agent did on training tasks and
+proposes a change to the agent's harness, its instructions or its code. The
+change is kept only when a paired test supports it on validation tasks,
+which the proposing model never sees, at an error rate fixed for the whole
+experiment, and a test set is opened once, at the end. The agent is
+evaluated on
 [EnterpriseOps-Gym](https://github.com/ServiceNow/EnterpriseOps-Gym), a
 benchmark of enterprise IT-operations workflows graded by SQL checks on the
 final database state.
 
-Status: early development. The benchmark's own agent can be run on its
-tasks; the planner and the optimiser are not written yet.
+Status: the runner, the measure (every failed check explained down to the
+database cell and the turn that set it), the statistics and the loop are
+built and tested. The first full experiments of the loop are being run.
 
 Documentation: <https://mas-optimiser.readthedocs.io/>, rebuilt from `main`
 on every push. To read a change before it is pushed, `./scripts/docs.sh`
@@ -123,6 +127,12 @@ pytest -m integration
 
 Stop them with `docker compose -f docker/compose.yaml down`.
 
+They need Docker, about 1.2 GB on Docker's own disk for the three images
+(which is not always the disk of the home folder: `docker system df` shows
+what Docker holds), and the ports 8001, 8006 and 8008 of the machine, where
+they are reachable from that machine only. A run checks that its domain's
+server answers before it starts, and names the start command if not.
+
 ## Serving an open-weight model
 
 An open-weight model runs on the machine's own GPUs, served by
@@ -136,9 +146,7 @@ fits one card of 48 GB. `configs/models/qwen3.6-27b.yaml` is the model as
 released, which needs two such cards. The two are different models, and
 results say which was used. `configs/models/gpt-oss-20b.yaml` is a smaller
 model of another family, which takes about 16 GB of a card and so leaves
-room for more attempts at once; its file sets a temperature of 0. It has
-been checked to load and to give the server its options, and not yet run on
-a GPU.
+room for more attempts at once; its file sets a temperature of 0.
 
 ### What the machine needs
 
@@ -213,8 +221,8 @@ installs and downloads nothing.
 
 ### Fitting it to another machine
 
-The settings that depend on the machine are the choice between the two
-model files, three lines within a file and two options of the command. To change the file's, copy it under a new
+The settings that depend on the machine are the choice of model file,
+three lines within a file and two options of the command. To change the file's, copy it under a new
 name in `configs/models/` and use that name in the commands.
 
 | the machine has                | what to set                                                                             |
@@ -251,7 +259,9 @@ same family, Qwen3-0.6B: vLLM installed, the server started, a task run
 against it, the reason for a stop printed, the server stopped. On a machine
 with two cards of 48 GB, the model as released was installed and downloaded
 and began to load, and stopped for lack of memory because another program
-held the cards. Neither version of Qwen3.6-27B has yet been served.
+held the cards. On one card of that machine the 8-bit version has since been
+served, holding 42 of the card's 45 GiB, with no task yet run against it,
+and gpt-oss-20b has been served and has run a task in about 25 seconds.
 `--docker` has been run with a stand-in for vLLM's image.
 
 ## Running an experiment
@@ -300,8 +310,8 @@ it was used, and costs with and without it are not comparable.
 A call to the model has a time limit of 300 seconds (`model_timeout: 300`;
 `--model-timeout <seconds>` changes it for one command). A try that gets no
 answer in that time is given up and repeated, up to nine tries in all unless
-the model file sets `max_retries`, and if none succeeds the attempt is
-recorded as an error and counted as a failure. Without a limit, a connection
+the model file sets `max_retries`; what follows if none succeeds is
+described below, under the attempt's limits. Without a limit, a connection
 that goes silent would hold the run for ever; real calls answer in seconds.
 The limit is set on the provider's own client, for Anthropic models and for
 models reached through an OpenAI-style client (the providers `openai`,
@@ -315,7 +325,8 @@ to wait, a few seconds as a rule, and the provider's library waits that
 long and sends the call again, twice at most unless the model file gives
 another number as `max_retries` (`configs/models/gpt-5.1-azure.yaml` gives
 1,000). The benchmark's client makes three such rounds, and a call still
-refused ends the attempt as an error. The waiting counts towards the
+refused has failed for good, which is likewise described below. The waiting
+counts towards the
 attempt's limit of seconds, described next, which is the cap on it. A
 call of one of the improvement loop's own roles has the same limit of
 seconds as an attempt. A run's `evaluation.log`, in its folder, has a line
@@ -357,8 +368,8 @@ runs the smoke experiment on that model. Nothing is billed per token, so
 the cost in dollars is zero and the tokens and seconds, recorded as for any
 model, are the measures of cost. Prompt caching does not apply. This path
 has been run against a live vLLM server with a small model of the same
-family (Qwen3-0.6B, with the task's own tools), and not yet with
-Qwen3.6-27B.
+family (Qwen3-0.6B, with the task's own tools) and with gpt-oss-20b on one
+L40, and not yet with Qwen3.6-27B.
 
 The agent that runs the tasks comes from a harness folder. `harnesses/default/`
 is the starting one: its `agent.py` is the benchmark's own agent loop, 150
@@ -496,7 +507,8 @@ the model, domain or date, is the folder level, because it is the question
 being asked; the others are columns of `index.csv`, where any cut of the
 results is one table away. An attempt that raises an error counts as failed
 and the error count is reported separately; the benchmark keeps no token
-counts for such an attempt.
+counts for such an attempt. An attempt the model service never answered is
+the exception: it is marked `service_error` and counted nowhere.
 
 Every evaluation folder is written to be read without a tracing server:
 
@@ -556,13 +568,13 @@ writes `configs/splits/<name>.json`. The proposer reads training traces
 only, the acceptance gate decides on validation and returns its verdict
 alone, and the test set is opened once for the reported number.
 
-| option          | what it sets                                            | default       |
-|-----------------|---------------------------------------------------------|---------------|
+| option          | what it sets                                            | default          |
+|-----------------|---------------------------------------------------------|------------------|
 | `--proportions` | shares of training, validation and test, summing to one | `0.17 0.52 0.31` |
-| `--seed`        | seed of the shuffle; the same seed gives the same sets  | `0`           |
-| `--balance`     | what every set holds the same mix of                    | `domain`      |
-| `--experiment`  | the baseline run read for each task's difficulty        | none          |
-| `--seen`        | a file of tasks already read by hand, kept in training  | none          |
+| `--seed`        | seed of the shuffle; the same seed gives the same sets  | `0`              |
+| `--balance`     | what every set holds the same mix of                    | `domain`         |
+| `--experiment`  | the baseline run read for each task's difficulty        | none             |
+| `--seen`        | a file of tasks already read by hand, kept in training  | none             |
 
 ```
 mas-optimiser split --name trial --proportions 0.6 0.2 0.2 --seed 7
@@ -590,7 +602,7 @@ attempts, and the split covers the tasks that run scored. Without a balance
 on difficulty the task list comes from the dataset and no run is needed.
 
 `--seen` names a YAML file that gives each task id a reason. A task someone
-has read cannot server as an unseen one, so these go into training before the
+has read cannot serve as an unseen one, so these go into training before the
 shuffle. Validation and test tasks are never read; only their scores are
 looked at.
 
@@ -599,8 +611,10 @@ since a redraw could move tasks someone has read into a sealed set. The file
 holds the seed, the proportions, the balance, what was read, the seen tasks
 and the three lists of task ids, and no result of any single task. The split
 `haiku-20-40-40`, used in the examples of this page, was drawn on 27 October
-with both balances and 20 seen tasks. Paths here are inside the repository,
-whatever the working directory.
+with both balances and 20 seen tasks. The split `seed-1`, which the
+experiment files `evolve-haiku` and `evolve-gpt-5.1` use, has the default
+shares, a balance on domain and no seen task. Paths here are inside the
+repository, whatever the working directory.
 
 ## Local copies of the seed databases
 
@@ -763,6 +777,19 @@ is a trial of the loop itself: three tasks of each set, one attempt, one
 round, text edits only, a few minutes and a few cents. Results go to
 `evolutions/<experiment>/<split>/`, and giving the command again carries an
 interrupted experiment on.
+
+A full experiment takes hours, and a command started over SSH ends when the
+connection closes. On a remote machine, start it inside `tmux`, which keeps
+a terminal open on the machine whether or not anyone is connected to it:
+
+```bash
+tmux new -s evolve                  # a terminal that stays on the machine
+source .venv/bin/activate
+mas-optimiser evolve <experiment>
+```
+
+Ctrl+b and then d leaves that terminal with the experiment still going,
+and `tmux attach -t evolve`, from any later connection, comes back to it.
 
 ```
 mas-optimiser report evolutions/<experiment>/<split>
