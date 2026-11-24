@@ -27,7 +27,9 @@ def task_scores(evaluation: Path, outcome: str) -> dict[str, float]:
 
     Reads the evaluation's ``tasks.csv`` (one row per attempt, written by
     ``runner.task_outcome``). An attempt that ended in an error counts as the
-    runner recorded it, a failure. A task whose attempts have no checks
+    runner recorded it, a failure, unless it ended because the model service
+    did not answer (``service_error``): that says nothing of the harness, and
+    the attempt is left out. A task whose attempts have no checks
     (``checks_total`` 0, every check excluded by the patch list) is left out.
 
     Args:
@@ -45,6 +47,8 @@ def task_scores(evaluation: Path, outcome: str) -> dict[str, float]:
         raise ValueError(f"outcome must be one of {OUTCOMES}, not {outcome!r}")
     attempts = pd.read_csv(Path(evaluation) / "tasks.csv")
     attempts = attempts[attempts["checks_total"] > 0]
+    if "service_error" in attempts:
+        attempts = attempts[attempts["service_error"].astype(str) != "True"]
     if outcome == "success":
         score = attempts["success"].astype(str).eq("True").astype(float)
     else:

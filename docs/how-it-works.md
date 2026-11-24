@@ -203,6 +203,17 @@ attempt is recorded as an error and counted as a failure. The waiting that
 a rate limit causes counts towards the seconds, so that limit is also the
 cap on the waiting.
 
+A call to the model that fails once the client's own tries are spent is
+noted where the harness reaches the model
+([`TaskExecutor.initialize`][runner.TaskExecutor.initialize]). Such an
+attempt is no verdict on the harness yet. The executor asks the service a
+one-word question
+([`service_answers`][runner.TaskExecutor.service_answers]): if it answers,
+[`run_tasks`][runner.run_tasks] runs the attempt again, `attempt_retries`
+times at most, and a failure that is still there is the harness's own; if
+it does not answer within `service_wait` seconds, the attempt is marked
+`service_error`, and the command ends with an error.
+
 The benchmark's `execute_benchmark` (`executor.py:482`) then does the work:
 
 1. `initialize` (`executor.py:59`) connects an `MCPClient` to each gym
@@ -568,6 +579,7 @@ What goes wrong, and where to look:
 | a failed check with `kind` `unsupported` in `checks.csv` | a query shape the diagnosis cannot take apart (a top-level OR, a GROUP BY, a derived table), or a table with no key to find its rows by | [`sql.parse`][sql.parse], [`diagnosis.diagnose`][diagnosis.diagnose] |
 | an attempt with 50 model calls | the agent hit `max_iterations` | `agent.py:59`, `base.py:23` |
 | an `error` of `the attempt ran past its limit of ... seconds` or `the attempt made more than ... calls to the model` | the attempt reached one of its two limits | `attempt_timeout` and `attempt_calls`, section 2.3 |
+| `service_error` is `True`, and the command ended with `the model service did not answer` | a call to the model failed and the service did not answer a one-word question within `service_wait` seconds: the key's spending limit, an outage | the attempt is left out of every score; give the command again when the service answers; section 2.3 |
 | an `error` that holds `429` or `rate limit` | the service refused the call more times than the model file's `max_retries` allows | `evaluation.log` has a line for each refusal and each wait; section 2.3 |
 | `tool_errors` above zero | a tool answered with an error; the page marks the call `ERROR`. A lookup that found no record is marked `nothing found` and counted in `lookups_empty` | [`succeeded`][report.succeeded] |
 
@@ -696,6 +708,7 @@ is credited in `NOTICE.md` as well.
 [runner.TaskExecutor]: #mas_optimiser.benchmarks.enterpriseops.runner.TaskExecutor
 [runner.TaskExecutor.initialize]: #mas_optimiser.benchmarks.enterpriseops.runner.TaskExecutor.initialize
 [runner.TaskExecutor.read_changes]: #mas_optimiser.benchmarks.enterpriseops.runner.TaskExecutor.read_changes
+[runner.TaskExecutor.service_answers]: #mas_optimiser.benchmarks.enterpriseops.runner.TaskExecutor.service_answers
 [runner.check_servers]: #mas_optimiser.benchmarks.enterpriseops.runner.check_servers
 [runner.cost]: #mas_optimiser.benchmarks.enterpriseops.runner.cost
 [runner.evaluate]: #mas_optimiser.benchmarks.enterpriseops.runner.evaluate

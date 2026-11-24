@@ -75,6 +75,19 @@ def test_task_scores_averages_each_outcome_over_attempts(tmp_path):
     assert checks == {"t1": pytest.approx(2 / 3), "t2": pytest.approx(0.5)}
 
 
+def test_task_scores_leaves_out_an_attempt_the_model_service_did_not_answer(tmp_path):
+    folder = tmp_path / "e"
+    folder.mkdir()
+    (folder / "tasks.csv").write_text(
+        "task_id,attempt,success,checks_passed,checks_total,service_error\n"
+        "t1,1,True,2,2,False\n"
+        "t1,2,False,0,2,True\n"
+        "t2,1,False,1,2,False\n"
+    )
+    # The unanswered attempt is no failure of t1: its one real attempt passed.
+    assert outcomes.task_scores(folder, "checks") == {"t1": 1.0, "t2": 0.5}
+
+
 def test_task_scores_skips_tasks_with_no_checks(tmp_path):
     folder = write_evaluation(tmp_path / "e", "itsm", ROWS)
     assert "t3" not in outcomes.task_scores(folder, "success")

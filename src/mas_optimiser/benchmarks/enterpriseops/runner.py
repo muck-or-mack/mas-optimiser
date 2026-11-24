@@ -43,6 +43,7 @@ import logging
 import os
 import re
 import runpy
+import time
 from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime
@@ -113,6 +114,12 @@ EXPERIMENT_DEFAULTS = {
     # and its calls to the model.
     "attempt_timeout": 3600,
     "attempt_calls": 100,
+    # When a call to the model has failed for good, the attempt is no verdict
+    # on the harness yet: it is run again up to this many times, each time
+    # once the model service answers a one-word request, which is waited for
+    # at most this many seconds.
+    "attempt_retries": 2,
+    "service_wait": 1800,
     "harness": "default",
     # The rest is read by ``mas-optimiser evolve`` only: the model of the
     # search roles (the agent's when not given), the rounds of the loop, the
@@ -220,6 +227,10 @@ def mark_tool_list(tools: list[dict]) -> list[dict]:
     ]
 
 
+class Repeat(Exception):
+    """An attempt ended by a failed call to the model, to be run again."""
+
+
 class TaskExecutor(BenchmarkExecutor):
     """The benchmark's executor with tracing attached, every check counted and the changes kept.
 
@@ -281,6 +292,9 @@ class TaskExecutor(BenchmarkExecutor):
         self.skip = states.STAMPED.get(domain, frozenset())
         self.changes = None
         self.diagnosis_error = None
+        # What the last call to the model raised once the client's own tries
+        # were spent; ``None`` if that call was answered.
+        self.call_error = None
 
     async def initialize(self):
         """Build the clients as the benchmark does, then attach tracing, the thinking setting, prompt caching, the time limit and the tries of a failed call to the model.
@@ -330,22 +344,53 @@ class TaskExecutor(BenchmarkExecutor):
                 model.root_async_client.max_retries = retries
             else:
                 model.max_retries = retries
-        if self.calls:
-            # Counted where the harness reaches the model, in a client the
-            # harness is handed and does not build, so that no change to the
-            # harness lifts the cap.
-            invoke, made = self.llm_client.invoke_with_tools, 0
+        # Where the harness reaches the model, in a client the harness is
+        # handed and does not build: the calls are counted here, so that no
+        # change to the harness lifts the cap, and a call that fails once the
+        # client's own tries are spent is noted here, whatever the provider.
+        invoke, made = self.llm_client.invoke_with_tools, 0
 
-            async def counted(*args, **kwargs):
-                nonlocal made
-                made += 1
-                if made > self.calls:
-                    raise RuntimeError(
-                        f"the attempt made more than {self.calls} calls to the model"
-                    )
-                return await invoke(*args, **kwargs)
+        async def reached(*args, **kwargs):
+            nonlocal made
+            made += 1
+            if self.calls and made > self.calls:
+                raise RuntimeError(
+                    f"the attempt made more than {self.calls} calls to the model"
+                )
+            try:
+                answer = await invoke(*args, **kwargs)
+            except Exception as exc:
+                self.call_error = repr(exc)
+                raise
+            self.call_error = None
+            return answer
 
-            self.llm_client.invoke_with_tools = counted
+        self.llm_client.invoke_with_tools = reached
+
+    async def service_answers(self, wait: float) -> bool:
+        """Ask the model service a one-word question, again each minute until it answers.
+
+        A call of an attempt can fail because of what the harness sent or
+        because the service is not answering, and the two read differently
+        from one provider to the next. A request that owes nothing to the
+        harness tells them apart on any provider.
+
+        Args:
+            wait: The longest to go on asking, in seconds.
+
+        Returns:
+            Whether the service answered within that time.
+        """
+        deadline = time.monotonic() + wait
+        while True:
+            try:
+                await self.llm_client.llm.ainvoke("ping")
+            except Exception:  # noqa: BLE001 - any failure is no answer
+                if time.monotonic() >= deadline:
+                    return False
+                await asyncio.sleep(min(60, max(1, deadline - time.monotonic())))
+            else:
+                return True
 
     async def _run_verifiers(self, task_result: dict) -> dict[str, dict]:
         """Run the checks as the benchmark does, then correct, record and diagnose the verdicts.
@@ -549,6 +594,13 @@ def load_experiment(spec: str, overrides: dict) -> dict:
         limit = settings[key]
         if isinstance(limit, bool) or not isinstance(limit, (int, float)) or limit <= 0:
             raise SystemExit(f"error: {key} must be a number of seconds above 0")
+    retries, wait = settings["attempt_retries"], settings["service_wait"]
+    if isinstance(retries, bool) or not isinstance(retries, int) or retries < 0:
+        raise SystemExit("error: attempt_retries must be a whole number, zero or more")
+    if isinstance(wait, bool) or not isinstance(wait, (int, float)) or wait < 0:
+        raise SystemExit(
+            "error: service_wait must be a number of seconds, zero or more"
+        )
     if settings["approval"] not in ("none", "each"):
         raise SystemExit("error: approval must be none or each")
     for key in ("rounds", "candidates"):
@@ -646,8 +698,11 @@ def totals(outcomes: list[dict], tasks: int, attempts: int) -> dict:
 
     Returns:
         The counts (attempts and successes, tasks passed on every attempt,
-        errors) and the sums of ``SUMMED`` over the rows.
+        errors) and the sums of ``SUMMED`` over the rows. An attempt that
+        ended because the model service did not answer is in none of them:
+        it is no attempt at the task.
     """
+    outcomes = [r for r in outcomes if not r.get("service_error")]
     by_task: dict[str, list[bool]] = {}
     for r in outcomes:
         by_task.setdefault(r["task_id"], []).append(r["success"])
@@ -1040,6 +1095,7 @@ def task_outcome(
         "benchmark_checks_passed": benchmark_passed,
         "benchmark_checks_total": benchmark_total,
         "error": execution.get("error", ""),
+        "service_error": bool(execution.get("service_error")),
         "tool_errors": sum(
             call.get("success") is False and not call["nothing_found"]
             for call in agent_calls
@@ -1234,8 +1290,16 @@ async def run_task(
     arguments: dict[str, list[str]],
     seconds: float | None = None,
     calls: int | None = None,
+    retry: bool = False,
+    wait: float = 0,
 ) -> tuple[dict, list[dict], list[dict], list[dict]]:
     """Run one task once with the harness's agent, save the attempt and return its rows.
+
+    An attempt ended by a call to the model that failed for good is no
+    verdict on the harness until the model service has been asked a one-word
+    question. If the service answers, the attempt can be run again; if it
+    does not within ``wait`` seconds, the attempt is recorded with
+    ``service_error`` set.
 
     Args:
         task_id: The task's dataset ID.
@@ -1255,9 +1319,15 @@ async def run_task(
         seconds: The longest the attempt may take, or ``None`` for no limit;
             past it the attempt is ended and recorded as an error.
         calls: The most calls to the model the attempt may make, or ``None``.
+        retry: Whether the attempt may be asked for again.
+        wait: The longest to wait for the model service to answer, in seconds.
 
     Returns:
         What ``outputs`` returns.
+
+    Raises:
+        Repeat: If a call to the model failed, the service answers again and
+            ``retry`` is set; nothing of the attempt is saved.
     """
     # One executor call per attempt, so that each attempt is its own trace and
     # its own unit of concurrency; the executor's own loop over runs stays at one.
@@ -1302,6 +1372,13 @@ async def run_task(
             # Raised before the attempt started, e.g. a server that is not up.
             result = {"runs": [{"run_number": 1, "error": repr(exc)}]}
         execution = result["runs"][0]
+        if executor.call_error:
+            # The attempt's last call to the model failed, whether or not the
+            # harness went on to end the attempt in its own way.
+            if not await executor.service_answers(wait):
+                execution["service_error"] = True
+            elif retry:
+                raise Repeat
         if executor.diagnosis_error:
             execution["diagnosis_error"] = executor.diagnosis_error
         # The executor's own verdict reads an excluded check as a failure.
@@ -1373,6 +1450,8 @@ async def run_tasks(
     tags: list[str],
     seconds: float | None = None,
     calls: int | None = None,
+    retries: int = 0,
+    wait: float = 0,
 ) -> tuple[list[dict], list[dict], list[dict], list[dict]]:
     """Run every task ``attempts`` times, at most ``concurrency`` runs at once, and gather the rows.
 
@@ -1396,6 +1475,10 @@ async def run_tasks(
         tags: The traces' tags.
         seconds: The longest one attempt may take, or ``None`` for no limit.
         calls: The most calls to the model one attempt may make, or ``None``.
+        retries: How many times an attempt ended by a failed call to the
+            model is run again.
+        wait: The longest to wait for the model service before each of
+            those, in seconds.
 
     Returns:
         The ``tasks.csv`` rows, then the ``checks.csv``, ``cells.csv`` and
@@ -1410,27 +1493,42 @@ async def run_tasks(
     async def run_one(task_id: str, config: dict, attempt: int) -> tuple:
         nonlocal done
         async with semaphore:
-            outcome, rows, cells, changed = await run_task(
-                task_id,
-                config,
-                attempt,
-                model,
-                pricing,
-                out,
-                domain=domain,
-                trace=trace,
-                thinking=thinking,
-                caching=caching,
-                timeout=timeout,
-                agent=agent,
-                tags=tags,
-                arguments=arguments,
-                seconds=seconds,
-                calls=calls,
-            )
+            # The last time round nothing asks for a repeat, so the loop
+            # always ends with an outcome.
+            for left in range(retries, -1, -1):
+                try:
+                    outcome, rows, cells, changed = await run_task(
+                        task_id,
+                        config,
+                        attempt,
+                        model,
+                        pricing,
+                        out,
+                        domain=domain,
+                        trace=trace,
+                        thinking=thinking,
+                        caching=caching,
+                        timeout=timeout,
+                        agent=agent,
+                        tags=tags,
+                        arguments=arguments,
+                        seconds=seconds,
+                        calls=calls,
+                        retry=left > 0,
+                        wait=wait,
+                    )
+                except Repeat:
+                    continue
+                break
         done += 1
         status = (
-            "error" if outcome["error"] else "pass" if outcome["success"] else "fail"
+            "no service"
+            if outcome.get("service_error")
+            else "error"
+            if outcome["error"]
+            else "pass"
+            if outcome["success"]
+            else "fail"
         )
         print(
             f"[{done}/{total}] {task_id} attempt {attempt} {status}: checks "
@@ -1540,6 +1638,19 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         help="calls to the model one attempt may make before it is ended and "
         "counted as an error (100 by default)",
     )
+    parser.add_argument(
+        "--attempt-retries",
+        type=int,
+        help="times an attempt is run again when a call to the model failed "
+        "for good (2 by default)",
+    )
+    parser.add_argument(
+        "--service-wait",
+        type=float,
+        help="seconds to wait for the model service to answer again before "
+        "such an attempt is recorded as a failure of the service and not of "
+        "the harness (1800 by default)",
+    )
 
 
 def run(args: argparse.Namespace) -> None:
@@ -1550,7 +1661,8 @@ def run(args: argparse.Namespace) -> None:
 
     Raises:
         SystemExit: If the experiment's harness has no folder with an
-            ``agent.py``, before any money is spent.
+            ``agent.py``, before any money is spent; or, at the end, if
+            attempts ended because the model service did not answer.
     """
     # The keys only ``evolve`` reads are no options of this command.
     overrides = {key: getattr(args, key, None) for key in EXPERIMENT_DEFAULTS}
@@ -1612,8 +1724,9 @@ def run(args: argparse.Namespace) -> None:
     # With the UTC offset, so that start times order correctly across a
     # change of the clocks.
     run_dir = run_folder(experiment, datetime.now().astimezone())
+    unanswered = 0
     for domain in experiment["domain"]:
-        evaluate(
+        unanswered += evaluate(
             experiment,
             domain,
             model,
@@ -1633,6 +1746,13 @@ def run(args: argparse.Namespace) -> None:
         print(f"Run summary in {run_dir / 'summary.md'}")
     if trace:
         tracing.shutdown()
+    if unanswered:
+        raise SystemExit(
+            f"error: {unanswered} attempts ended because the model service did "
+            f"not answer, after {experiment['service_wait']:g} seconds of waiting "
+            "for it. They are marked service_error in tasks.csv and say nothing "
+            "of the harness; run again when the service answers."
+        )
 
 
 def evaluate(
@@ -1650,7 +1770,7 @@ def evaluate(
     version: str,
     server: dict | None = None,
     kept_out: dict | None = None,
-) -> None:
+) -> int:
     """Run one domain's tasks as one evaluation: the folder, its tables, ``evaluation.json`` and the index row.
 
     Args:
@@ -1673,6 +1793,10 @@ def evaluate(
         kept_out: What ``evaluation.json`` records in place of a model
             field's value, by field: for an address taken from the
             environment, the variable it came from.
+
+    Returns:
+        The number of attempts that ended because the model service did not
+        answer.
 
     Raises:
         SystemExit: If a chosen task is not one of the domain's.
@@ -1740,6 +1864,8 @@ def evaluate(
                 tags=tags,
                 seconds=experiment["attempt_timeout"],
                 calls=experiment["attempt_calls"],
+                retries=experiment["attempt_retries"],
+                wait=experiment["service_wait"],
             )
         )
     finally:
@@ -1770,6 +1896,8 @@ def evaluate(
         "limit",
         "attempt_timeout",
         "attempt_calls",
+        "attempt_retries",
+        "service_wait",
     )
     settings = {key: experiment[key] for key in kept} | {
         "evaluation": name,
@@ -1813,3 +1941,10 @@ def evaluate(
             else ""
         )
     )
+    unanswered = sum(r["service_error"] for r in outcomes)
+    if unanswered:
+        print(
+            f"{unanswered} more attempts ended because the model service did "
+            "not answer, and are counted nowhere above."
+        )
+    return unanswered
