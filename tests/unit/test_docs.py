@@ -1,5 +1,6 @@
 """The documentation's references to code, and the line counts it gives."""
 
+import importlib
 import re
 from collections.abc import Iterator
 from pathlib import Path
@@ -19,6 +20,22 @@ PINNED = [
     ROOT / "harnesses" / "default",
 ]
 LINE = re.compile(r"`(?P<file>[\w/]+\.py):(?P<first>\d+)(?:-(?P<last>\d+))?`")
+# A name written as code in a page: ``runner.load_model``, ``stats.gate.mean_test``.
+DOTTED = re.compile(r"`([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+)`")
+# What a dotted name ends with when it is a file and not a name of the code.
+FILES = {
+    "py",
+    "md",
+    "csv",
+    "json",
+    "jsonl",
+    "yaml",
+    "yml",
+    "svg",
+    "drawio",
+    "log",
+    "sh",
+}
 
 
 def references() -> Iterator[tuple[str, re.Match, str | None]]:
@@ -75,7 +92,41 @@ def test_a_reference_by_line_points_at_lines_that_hold_what_it_names():
             re.search(rf"\b{re.escape(name)}\b", line) for line in span
         ):
             wrong.append(f"{page}: {match[0]} does not hold {name}")
+    # A range of lines with no file beside it cannot be checked at all.
+    wrong += [
+        f"{page.name}: ({bare}) names no file"
+        for page in PAGES
+        for bare in re.findall(r"\((\d{2,4}-\d{2,4})\)", page.read_text())
+    ]
     assert not wrong
+
+
+def test_every_name_of_the_package_written_in_a_page_exists():
+    # Each module by the ways a page may write it: ``runner``, ``stats.gate``
+    # and its path in full.
+    modules = {"mas_optimiser": "mas_optimiser"}
+    for path in PACKAGE.rglob("*.py"):
+        parts = path.relative_to(PACKAGE).with_suffix("").parts
+        if parts[-1].startswith("_"):
+            parts = parts[:-1]
+        for start in range(len(parts)):
+            modules[".".join(parts[start:])] = ".".join(("mas_optimiser", *parts))
+    gone = []
+    for page in PAGES:
+        for name in sorted(set(DOTTED.findall(page.read_text()))):
+            parts = name.split(".")
+            if parts[-1] in FILES:
+                continue
+            for cut in range(len(parts), 0, -1):
+                if ".".join(parts[:cut]) in modules:
+                    found = importlib.import_module(modules[".".join(parts[:cut])])
+                    try:
+                        for part in parts[cut:]:
+                            found = getattr(found, part)
+                    except AttributeError:
+                        gone.append(f"{page.name}: {name}")
+                    break
+    assert not gone
 
 
 def test_every_link_by_name_has_a_definition_and_every_definition_is_used():

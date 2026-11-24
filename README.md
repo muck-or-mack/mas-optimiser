@@ -386,25 +386,30 @@ One attempt at one ITSM task, watched live, then read. It costs a few cents.
 
 ## Reading the results
 
-Results live under `evaluations/` (gitignored), grouped by experiment and then by
-evaluation, where an evaluation is one model on one domain's tasks:
+Results live under `evaluations/` (gitignored), grouped by experiment, then
+by run, then by domain. One domain's folder is an evaluation: one model on
+one domain's tasks.
 
 ```
 evaluations/<experiment>/
-  index.csv                      one row per evaluation: settings and totals
-  <evaluation>/
-    summary.md                   how the evaluation went and what went wrong, one page
-    evaluation.json                     every setting, the task list and the totals
-    tasks.csv                    one row per attempt: verdict, checks, tables by result, tool errors, tokens, cost
-    checks.csv                   one row per attempt and check: verdict, diagnosis, kind, failure, patch
-    cells.csv                    one row per failed check, touched row and condition: wanted against found
-    tables.csv                   one row per attempt and table: the checks on it, the rows changed, the result
-    failures.csv                 one row per table, column and kind of failure, most frequent first
-    evaluation.log                      the benchmark's log of every request
-    tasks/<task_id>/
-      attempt-<n>.md             the attempt as a page: request, tables, tools, checks, turns, rows
-      attempt-<n>.json           the executor's complete record of the attempt
-      attempt-<n>.changes.json   every row the attempt inserted, updated or deleted
+  index.csv                        one row per evaluation: settings and totals
+  <run>/                           one run, named by its start: 2026-11-17-0817
+    summary.md                     the run as a whole, then a row per domain
+    run.json                       the run's settings and totals
+    <domain>/                      one evaluation: itsm, csm or hr
+      summary.md                   how the evaluation went and what went wrong, one page
+      evaluation.json              every setting, the task list and the totals
+      tasks.csv                    one row per attempt: verdict, checks, tables by result, tool errors, tokens, cost
+      checks.csv                   one row per attempt and check: verdict, diagnosis, kind, failure, patch
+      cells.csv                    one row per failed check, touched row and condition: wanted against found
+      tables.csv                   one row per attempt and table: the checks on it, the rows changed, the result
+      failures.csv                 one row per table, column and kind of failure, most frequent first
+      tools.json                   every tool the domain's server offers
+      evaluation.log               the benchmark's log of every request, with each refusal and wait
+      tasks/<task_id>/
+        attempt-<n>.md             the attempt as a page: request, tables, tools, checks, turns, rows
+        attempt-<n>.json           the executor's complete record of the attempt
+        attempt-<n>.changes.json   every row the attempt inserted, updated or deleted
 ```
 
 `docs/results.md` ("Reading the results" in the documentation) follows one
@@ -602,7 +607,7 @@ whatever the working directory.
 ## Recomputing an evaluation
 
 ```
-mas-optimiser rescore evaluations/<experiment>/<evaluation> [...]
+mas-optimiser rescore evaluations/<experiment>/<run>/<domain> [...]
 ```
 
 Recomputes every attempt of an evaluation from its saved record and its
@@ -623,7 +628,7 @@ checks ran, so the result does not depend on the day of the rescore.
 To look at the database one attempt ended with:
 
 ```
-mas-optimiser rebuild evaluations/<experiment>/<evaluation> <task_id> <attempt>
+mas-optimiser rebuild evaluations/<experiment>/<run>/<domain> <task_id> <attempt>
 ```
 
 writes it, rebuilt from the saved changes, as `attempt-<n>.sqlite` beside

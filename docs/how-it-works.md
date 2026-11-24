@@ -5,17 +5,13 @@ service management, customer service and HR tasks against a simulated
 ServiceNow-style system), measures the result properly, and explains every
 failure down to the database cell that is wrong and the turn of the
 conversation that set it. That measurement layer is finished. On top of it
-the project builds an optimiser that improves the agent's harness, the code
-around the model, starting from the benchmark's own.
+sits the improvement loop, an optimiser that changes the agent's harness,
+the code around the model, starting from the benchmark's own (section 4).
 
-Two figures go with this document. `figures/one-attempt.svg` is the life of
-one attempt as it runs today; `figures/ladder-and-optimiser.svg` was drawn
-for an earlier plan of where the project goes next and is to be redrawn
-(section 4). Both are pages of `figures/architecture.drawio`,
-which draw.io opens for editing. Grey boxes are the benchmark's own code,
-vendored unchanged under `vendor/enterpriseops-gym/`; blue boxes are this
-package; yellow boxes are services outside the process; green shapes are
-files.
+Figure 1, at the head of section 2, is the life of one attempt as it runs
+today. It is the first page of `figures/architecture.drawio`, which draw.io
+opens for editing. The file's second page was drawn for an earlier plan of
+the optimiser and is to be redrawn as the improvement loop (section 4).
 
 The document follows one attempt so that every mechanism is shown on
 data. The attempt is made up. It describes no task of the benchmark, so no
@@ -57,6 +53,15 @@ orchestrator class (section 2.4), and because its scoring loses checks
 
 ## 2. One attempt, start to finish
 
+:::{figure} figures/one-attempt.svg
+:alt: One attempt, from the command that starts it to the files it leaves
+
+Figure 1. One attempt, from the command that starts it to the files it
+leaves. An arrow's label says what passes along it. The key at the foot
+gives the colours: this package, the harness that the improvement loop
+changes, the benchmark's own code, services outside the process, and files.
+:::
+
 ### 2.1 The command
 
 `mas-optimiser run baseline-haiku` enters at [`main`][cli.main], which
@@ -68,14 +73,15 @@ Each module gives its options in `add_arguments` and its work in `run`.
 [`runner.run`][runner.run] reads the experiment file
 `configs/experiments/baseline-haiku.yaml` through
 [`load_experiment`][runner.load_experiment], which layers the defaults in
-[`EXPERIMENT_DEFAULTS`][runner.EXPERIMENT_DEFAULTS], then the file, then
-any command-line override, and stops
-on a bad setting before any money is spent. [`load_model`][runner.load_model]
-reads `configs/models/haiku-5-5.yaml`: the benchmark's model fields, the
-name of the environment variable that holds the API key (read from `.env`,
-never written to a config; left out for a self-hosted server that asks for
-none), and a price table. Then one [`evaluate`][runner.evaluate] per
-domain.
+[`EXPERIMENT_DEFAULTS`][runner.EXPERIMENT_DEFAULTS], then the file, then any
+command-line override, and stops on a bad setting before any money is spent.
+[`load_model`][runner.load_model] reads `configs/models/haiku-5-5.yaml`: the
+benchmark's model fields, the names of the variables of `.env` that hold
+what belongs to one's own account (the API key, and for a service such as
+Azure OpenAI its address and deployment too; never written to a config, and
+left out for a self-hosted server that asks for no key), a number of tries
+for a failed call if the service needs one (`max_retries`, section 2.3), and
+a price table. Then one [`evaluate`][runner.evaluate] per domain.
 
 ### 2.2 The tasks
 
@@ -118,7 +124,9 @@ when every check passes.
 ### 2.3 The executor
 
 [`evaluate`][runner.evaluate] keeps the tasks of one split set if asked,
-cuts to `--limit`, checks that the domain servers answer
+leaves out a task whose every check the patch list excludes (it cannot be
+judged), keeps only the tasks named with `--task` if any are, cuts to
+`--limit`, checks that the domain servers answer
 ([`check_servers`][runner.check_servers]), makes the evaluation folder,
 sends the benchmark's logging to `evaluation.log` there, and calls
 [`run_tasks`][runner.run_tasks], which runs every attempt through
@@ -127,17 +135,19 @@ the baseline). Each attempt seeds its own database on the server, so
 attempts share nothing.
 
 `run_task` builds a [`TaskExecutor`][runner.TaskExecutor], our subclass of the
-benchmark's `BenchmarkExecutor` (`executor.py:23`). The subclass adds seven
-things. Before the attempt, the checks are renamed and patched
+benchmark's `BenchmarkExecutor` (`executor.py:23`). The subclass adds to it
+at three points. Before the attempt, the checks are renamed and patched
 ([`checks.prepare`][checks.prepare], section 2.5). Once the executor has
 built the model,
 [`TaskExecutor.initialize`][runner.TaskExecutor.initialize] attaches the
-Langfuse callback to it, switches prompt caching on, gives each call to the
-model a time limit, sets how many more times a failed call is sent where
-the model file says, and caps the attempt's calls to the model (all four
-below). And after the checks run, while the database still exists, the
-final state is read and every failed check diagnosed (the `_run_verifiers`
-override, section 2.6).
+Langfuse callback to it, asks it for a summary of its reasoning on each
+call when the experiment sets `thinking_summary` (for demonstrations only,
+since that changes what the agent does and costs), switches prompt caching
+on, gives each call to the model a time limit, sets how many more times a
+failed call is sent where the model file says, and caps the attempt's calls
+to the model (the last four below). And after the checks run, while the
+database still exists, the final state is read and every failed check
+diagnosed (the `_run_verifiers` override, section 2.6).
 
 Prompt caching changes what an attempt costs and nothing the model receives.
 Each call of the loop sends the tool descriptions, the policy and the whole
@@ -179,9 +189,9 @@ runs a whole attempt, several calls long, took under a minute at most. The
 limit is set on the provider's own client, so it is built provider by
 provider (`TIMEOUT_PROVIDERS`): on the model for Anthropic, whose client is
 made at the first call, and on the client itself for the OpenAI-style one
-that the benchmark builds for `openai`, `vllm` and `openrouter`, which is
-made with the model. With any other provider `runner.run` says that no limit
-is set.
+that the benchmark builds for `openai`, `azureopenai`, `vllm` and
+`openrouter`, which is made with the model. With any other provider
+`runner.run` says that no limit is set.
 
 An attempt as a whole has two limits of its own, which the runner keeps and
 the harness does not, so that no change to a harness lifts them:
@@ -246,7 +256,7 @@ loop:
    with the attempt's database id in a header (`mcp_client.py:185`), so
    every tool acts on this attempt's database. The result comes back as a
    `ToolMessage` the model sees on its next turn (`agent.py:128-133`), and
-   is recorded in `conversation_flow` (110-117).
+   is recorded in `conversation_flow` (`agent.py:135-142`).
 
 The loop returns the final text, the full `conversation_flow`, the tools
 used and the tool results (`agent.py:144-150`); the executor keeps all of
@@ -339,15 +349,17 @@ reads) comes from sqlglot's syntax tree of the query, and the text of each
 condition is cut out of the query as it was written
 ([`sql.clauses`][sql.clauses]), so the outputs keep the benchmark's wording
 and no rewritten SQL is run. A query that reads one value (`SELECT col FROM
-t WHERE key`) is already wanted against actual (142-148). A count query is
-taken apart into its main table and its top-level AND conditions. If the
-count was too high, the surplus rows are fetched (155-164). If the attempt
-touched no row of the table, the kind is `no_rows` (167-169). Otherwise
-every condition is tested on its own against each touched row (171-192), on
-the main table alone unless the condition reads a joined table, and for a
-condition that fails, the column's actual value is fetched (187-191). Every
-query runs on the attempt's own database; no model is involved, and a
-condition an untouched row happens to satisfy is never credited.
+t WHERE key`) is already wanted against actual, the kind `value`. A count
+query is taken apart into its main table and its top-level AND conditions.
+If the count was too high, a sample of the surplus rows is fetched
+(`too_many_rows`). If the attempt touched no row of the table, the kind is
+`no_rows`. Otherwise every condition is tested on its own against each
+touched row, on the main table alone unless the condition reads a joined
+table, and the column's actual value is fetched beside each (`cells`). A
+query of any other shape, or a table with no key to find its rows by, gets
+the kind `unsupported` and no explanation. Every query runs on the
+attempt's own database; no model is involved, and a condition an untouched
+row happens to satisfy is never credited.
 
 The example's diagnosis (written into the test data by hand, since the unit
 tests of the page run without a database; `tests/unit/test_diagnosis.py`
@@ -451,9 +463,9 @@ total) and a row in the experiment's `index.csv` (`index_row` and
 [`write_index_row`][runner.write_index_row]).
 
 With Langfuse configured, [`tracing.task_trace`][tracing.task_trace] wraps each
-attempt in one trace, `attach` (66) routes the model's calls into it, and
-`record_outcome` (75) scores the trace with the verdict and puts the checks
-and changes in its output.
+attempt in one trace, [`attach`][tracing.attach] routes the model's calls
+into it, and [`record_outcome`][tracing.record_outcome] scores the trace
+with the verdict and puts the checks and changes in its output.
 
 ### 2.8 Recomputing without the agent
 
@@ -511,19 +523,23 @@ gate](methodology/acceptance-gate.md)). An accepted candidate becomes the
 current harness; a rejected one is recorded and dropped. Everything outside
 the folder, the runner, the checks, the scoring and the task sets, is out of
 the loop's reach ([What is fixed and what is
-optimised](methodology/fixed-and-optimised.md)). It has run from end to end
+optimised](methodology/fixed-and-optimised.md)). Two settings say how much
+is left to the proposer: `editable`, whether it may change the text the
+agent is given or its code as well, and `approval`, whether a person reads
+each change before it first runs. It has run from end to end
 in a trial of three tasks a set; no full experiment has been run with it
 yet.
 
-The second figure was drawn for an earlier plan, in which harnesses built
-by hand stood between the starting one and the optimiser. It is to be
-redrawn.
+The drawing's second page (`figures/ladder-and-optimiser.svg`) shows an
+earlier plan, in which harnesses built by hand stood between the starting
+one and the optimiser. It is not shown here, and is to be redrawn as the
+loop.
 
 
 ## 5. Running, testing and debugging
 
 Running is in the README: the servers (`docker compose -f
-docker/compose.yaml up -d --wait`), then `mas-optimiser run <experiment>`.
+docker/compose.yaml up -d`), then `mas-optimiser run <experiment>`.
 To see one attempt without spending more than a few cents:
 
 ```
@@ -548,7 +564,7 @@ What goes wrong, and where to look:
 | a `tasks.csv` row with `error` filled and zero checks | the attempt raised before the agent started (a server fault, a bad config) | the record's `error`; the traceback in `evaluation.log` |
 | `diagnosis_error` on the run in `attempt-N.json` | the checks ran but the diagnosis raised; verdicts are intact | `_run_verifiers` in [`TaskExecutor`][runner.TaskExecutor] |
 | `report_error` on the run | the trace or the rows raised; the page has no trace | [`run_task`][runner.run_task] |
-| a failed check with `kind` empty in `checks.csv` | a query shape the diagnosis cannot take apart (a top-level OR, a GROUP BY, a derived table) | [`sql.parse`][sql.parse] |
+| a failed check with `kind` `unsupported` in `checks.csv` | a query shape the diagnosis cannot take apart (a top-level OR, a GROUP BY, a derived table), or a table with no key to find its rows by | [`sql.parse`][sql.parse], [`diagnosis.diagnose`][diagnosis.diagnose] |
 | an attempt with 50 model calls | the agent hit `max_iterations` | `agent.py:59`, `base.py:23` |
 | an `error` of `the attempt ran past its limit of ... seconds` or `the attempt made more than ... calls to the model` | the attempt reached one of its two limits | `attempt_timeout` and `attempt_calls`, section 2.3 |
 | an `error` that holds `429` or `rate limit` | the service refused the call more times than the model file's `max_retries` allows | `evaluation.log` has a line for each refusal and each wait; section 2.3 |
@@ -564,7 +580,7 @@ is credited in `NOTICE.md` as well.
 
 | Component | Source | What it contributed | Where |
 |---|---|---|---|
-| all modules | EnterpriseOps-Gym (ServiceNow; repository at 271f2c3, Apache-2.0; paper arXiv:2603.13594; dataset `ServiceNow-AI/enterprise_ops-gym` at c8e538e) | the servers, executor, orchestrator, config classes, MCP client, checks and seed files, used unmodified from the submodule; the tasks and their corrected copies | `benchmarks/enterpriseops/__init__.py` puts the submodule on `sys.path` |
+| all modules | EnterpriseOps-Gym (ServiceNow; repository at 271f2c3, Apache-2.0; paper arXiv:2603.13594; dataset `ServiceNow-AI/EnterpriseOps-Gym` at c8e538e) | the servers, executor, orchestrator, config classes, MCP client, checks and seed files, used unmodified from the submodule; the tasks and their corrected copies | `benchmarks/enterpriseops/__init__.py` puts the submodule on `sys.path` |
 | all modules | the convention shared by StarHarness, GEPA, OpenEvolve and ShinkaEvolve | the benchmark adapter kept apart from the optimiser, and the benchmark with its checks never editable | the package layout |
 | all modules | Google docstrings checked by ruff and pydoclint; setuptools-scm | every function documented and checked in CI; the code version stamped into every evaluation and split | `pyproject.toml`, `ci.yml`, `mas_optimiser.code_version` |
 | `cli` | the author's research-computing practice | one console command declared in `pyproject.toml`; each module exposes `add_arguments` and `run` so an option is defined once | `cli.COMMANDS` |
@@ -573,12 +589,14 @@ is credited in `NOTICE.md` as well.
 | `harnesses/default` | EnterpriseOps-Gym `orchestrators/react.py` (Apache-2.0) | the agent loop, copied, with the changes the copy's opening lines state | `harnesses/default/agent.py` |
 | `runner` | Anthropic's documentation, "Prompt caching" (platform.claude.com/docs/en/build-with-claude/prompt-caching) | the cache mark on a request and on a tool, the read and write rates, the five-minute lifetime; used for Anthropic models only | `runner.CACHE_MARK`, `mark_tool_list`, `cost` |
 | `runner` | the Anthropic Python library (github.com/anthropics/anthropic-sdk-python), its client's `timeout` and `max_retries` and their defaults in `_constants.py`; langchain-anthropic, `ChatAnthropic.default_request_timeout` | the limit on one try at a model call and the two retries that follow a try that runs out; the ten-minute default that a limit passed as "none" switches off | `runner.TaskExecutor.initialize` |
-| `runner` | the OpenAI Python library (github.com/openai/openai-python), its client's `timeout` and `max_retries`; langchain-openai, `ChatOpenAI` | the same limit for a model reached through an OpenAI-style client, a self-hosted vLLM server among them | `runner.TaskExecutor.initialize`, `TIMEOUT_PROVIDERS` |
+| `runner` | the OpenAI Python library (github.com/openai/openai-python), its client's `timeout` and `max_retries`; langchain-openai, `ChatOpenAI` and `AzureChatOpenAI` | the same limit for a model reached through an OpenAI-style client, a self-hosted vLLM server and Azure OpenAI among them | `runner.TaskExecutor.initialize`, `TIMEOUT_PROVIDERS` |
+| `runner` | the OpenAI Python library, the rule by which its client sends a call again (`_base_client.py`: after a refusal for the rate limit, a time-out or a server error, waiting as long as the service asks); Microsoft's page on Azure OpenAI quota (learn.microsoft.com/en-us/azure/foundry-classic/openai/how-to/quota, read 24 November 2026) | `max_retries` in a model file, for a service that limits its rate: a refused call is sent again after the wait the service gives, and never at once | `runner.ModelConfig`, `runner.TaskExecutor.initialize`, `evolve.models.generate` |
+| `runner` | own design, on `asyncio.wait_for` of Python's standard library | the two limits on an attempt, kept by the runner so that no harness lifts them: its seconds and its calls to the model | `runner.run_task`, `runner.TaskExecutor.initialize` |
 | `runner` | the Hugging Face dataset and the repository's `data/revised` | the task configs at a pinned revision, the corrected copies replacing the dataset's in oracle and all-tools mode | `runner.load_tasks` |
 | `runner` | the EnterpriseOps-Gym paper, its experimental set-up and distractor study | the setting it reports, each task's own tools (`oracle`), and its finding that added tools cost nothing in completion; why every arm is given all the tools here is argued on the page "What is fixed and what is optimised" | `runner.MODES` |
 | `runner` | StarHarness (arXiv:2608.24804), `docs/ADDING_A_BENCHMARK.md` | the precedent that a unit which raises is scored as a failure, never retried or dropped | `runner.task_outcome` |
 | `runner` | τ-bench (arXiv:2406.12045), pass^k | `tasks_passed_every_attempt` as the strict per-task measure | `runner.totals` |
-| `runner` | own design | experiments as YAML files with command-line overrides; `evaluations/<experiment>/<evaluation>/` with an `index.csv` per experiment; attempts in parallel under a semaphore; the price table in the model file; `tools.json` per evaluation | `runner.load_experiment`, `evaluate`, `run_tasks`, `cost`, `save_tools` |
+| `runner` | own design | experiments as YAML files with command-line overrides; `evaluations/<experiment>/<run>/<domain>/` with an `index.csv` per experiment; attempts in parallel under a semaphore; the price table in the model file; `tools.json` per evaluation | `runner.load_experiment`, `evaluate`, `run_tasks`, `cost`, `save_tools` |
 | `tracing` | Langfuse (self-hosted, MIT core) and its Python SDK | `CallbackHandler`, `score_trace` and `propagate_attributes`: one trace per attempt, scored with the verdict | `tracing.attach`, `task_trace`, `record_outcome` |
 | `tracing` | LangChain callbacks, as the benchmark builds its model on LangChain | the handler attached to the model object after `initialize()`, the point where the executor itself reassigns it | `runner.TaskExecutor.initialize` |
 | `checks` | EnterpriseOps-Gym `benchmark/verifier.py` and `executor.py` | `_compare_values` reproduced branch for branch so that a local verdict matches the executor's (see `NOTICE.md`); the verdict-by-name behaviour that `prepare` corrects | `checks.compare`, `checks.prepare` |
@@ -600,6 +618,8 @@ is credited in `NOTICE.md` as well.
 | `evolve` | StarHarness (arXiv:2608.24804), section 3 and Algorithm 1 | search tasks the proposer reads and selection tasks hidden from it; a candidate judged on the hidden set and kept or reverted; one evaluation on the held-out set at the end | `evolve.loop.Experiment.round`, `test` |
 | `evolve` | Sun et al. (arXiv:2609.33180), Eq. 4 | the level of each decision of one experiment | `evolve.loop.Experiment.round`, through `stats.budget.reuse_level` |
 | `evolve` | own design | the proposer told only whether a proposal was accepted; a harness's test score taken for every harness kept, after the last decision; the model call from a model file | `evolve.loop`, `evolve.models` |
+| `evolve` | own design, on `threading` of Python's standard library | the limit of seconds on one call of a search role: the call runs in a thread that can be left behind when the limit passes | `evolve.models.generate` |
+| `domain` | RRSI's `Domain` interface (`rrsi/domain.py`), its `critic_patterns` and `smoke` | the screen of a proposed change for task ids, references to the checks and code that reaches past the harness's own work; a person's yes or no asked before a change first runs | `domain.EnterpriseOps.critic_patterns`, `domain.EnterpriseOps.smoke` |
 | `stats` | own design | per-task scores for two outcomes, the paired comparison over the same tasks, the `compare` command with its results as data files and a report of them, and the figures | `stats.outcomes`, `stats.compare`, `stats.figures` |
 | `stats` | own design, on the exchangeability argument of permutation tests (Efron and Tibshirani, below) | the calibration of the test on two runs of one harness: its statistic over random splits of their attempts, against Student's t | `stats.calibrate` |
 | `stats` | Barlow, *Statistics* (Wiley, 1989), estimation and hypothesis testing | the standard error of a mean, the one-sided paired t-test, the Type-I and Type-II errors, power and the minimum detectable effect | `stats.gate.mean_test`, `detectable`, `power` |
@@ -614,6 +634,7 @@ is credited in `NOTICE.md` as well.
 |---|---|
 | `src/mas_optimiser/cli.py` | the `mas-optimiser` command and its sub-commands |
 | `src/mas_optimiser/tracing.py` | Langfuse: one trace per attempt, scored |
+| `src/mas_optimiser/markdown.py` | the markdown table every report is written with, its columns aligned in the source |
 | `src/mas_optimiser/server.py` | the `server` command: a self-hosted model's server installed, started and stopped, as a process of the machine or in Docker |
 | `src/mas_optimiser/benchmarks/enterpriseops/listing.py` | the `list` command: an experiment's runs and their domains from its index |
 | `src/mas_optimiser/stats/outcomes.py` | per-task scores and the paired differences of two evaluations |
@@ -695,4 +716,6 @@ is credited in `NOTICE.md` as well.
 [states.read_state]: #mas_optimiser.benchmarks.enterpriseops.states.read_state
 [states.rebuild]: #mas_optimiser.benchmarks.enterpriseops.states.rebuild
 [states.seed_copy]: #mas_optimiser.benchmarks.enterpriseops.states.seed_copy
+[tracing.attach]: #mas_optimiser.tracing.attach
+[tracing.record_outcome]: #mas_optimiser.tracing.record_outcome
 [tracing.task_trace]: #mas_optimiser.tracing.task_trace
