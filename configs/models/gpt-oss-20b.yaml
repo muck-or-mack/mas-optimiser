@@ -1,0 +1,50 @@
+# gpt-oss-20b (Apache-2.0): OpenAI's open-weight model of 21 billion
+# parameters, of which about 3.6 billion are used for each token
+# (huggingface.co/openai/gpt-oss-20b). Its weights come in 4 bits and take
+# about 16 GB of a GPU, so it leaves most of a 48 GB card for attempts run
+# at once. Start its server with `mas-optimiser server gpt-oss-20b`.
+#
+# Keys are the benchmark's LLMConfig fields (benchmark/models.py), plus the
+# server block at the end, as in qwen3.6-27b-fp8.yaml.
+#
+# Three lines describe the machine and not the model, and are the ones to
+# change for other hardware: the port in llm_api_endpoint, and the options
+# --tensor-parallel-size and --max-model-len of the server.
+llm_provider: vllm
+llm_model: openai/gpt-oss-20b
+# Where the server listens, as seen from the machine that runs the tasks. A
+# port of its own, so that it can run beside the server of another model
+# file.
+llm_api_endpoint: http://localhost:8029/v1
+# No api_key_env: a server started without --api-key asks for none.
+# The benchmark's own default: at 0 the model takes its likeliest token each
+# time, so that two attempts at a task differ as little as the server allows.
+# Set 1.0 for attempts that are sampled.
+temperature: 0.0
+# The model reasons before it answers, at its middle level unless the text it
+# is given says otherwise, and that reasoning counts towards max_tokens.
+max_tokens: 16384
+# A self-hosted model has no price per token, so the cost in dollars is zero
+# and the measures of cost are the tokens and the seconds, which every
+# attempt records.
+pricing:
+  input: 0
+  output: 0
+  cache_read: 0
+  cache_write: 0
+  long_prompt_tokens: 0
+  long_prompt_multiplier: 1
+# How `mas-optimiser server` starts the server: the release of vLLM, then the
+# options of `vllm serve` that follow the model's name, from vLLM's recipe
+# for this model (recipes.vllm.ai/openai/gpt-oss-20b), which asks for 0.10.1
+# or newer.
+server:
+  vllm: "0.34.0"
+  args:
+    # The machine. The number of GPUs the model's layers are spread over:
+    - --tensor-parallel-size=1
+    # The longest prompt and answer together, in tokens: all the model takes.
+    - --max-model-len=131072
+    # The model's tool calls are returned as tool calls, not as text.
+    - --enable-auto-tool-choice
+    - --tool-call-parser=openai

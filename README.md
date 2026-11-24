@@ -46,7 +46,7 @@ runs any of them; the scripts in `scripts/` work either way.
 ## Models and keys
 
 A model is chosen by the name of its file in `configs/models/`: `--model
-<name>` on a command, or `model: <name>` in an experiment file. Four come
+<name>` on a command, or `model: <name>` in an experiment file. Five come
 with the package:
 
 | model file        | the model                                              | what it needs                                                                              |
@@ -55,6 +55,7 @@ with the package:
 | `gpt-5.1-azure`   | GPT-5.1, through an Azure OpenAI resource of one's own | four lines of `.env`, all beginning `AZURE_OPENAI_`                                        |
 | `qwen3.6-27b-fp8` | Qwen3.6-27B in 8 bits, on one GPU of the machine       | no key; its server started ([Serving an open-weight model](#serving-an-open-weight-model)) |
 | `qwen3.6-27b`     | Qwen3.6-27B as released, on two GPUs of the machine    | no key; its server started                                                                 |
+| `gpt-oss-20b`     | gpt-oss-20b, on one GPU of 16 GB or more               | no key; its server started                                                                 |
 
 ### Where the keys go
 
@@ -133,7 +134,11 @@ The example throughout is Qwen3.6-27B in its 8-bit version,
 8 bits and not 16, published by its authors, at half the size, so that it
 fits one card of 48 GB. `configs/models/qwen3.6-27b.yaml` is the model as
 released, which needs two such cards. The two are different models, and
-results say which was used.
+results say which was used. `configs/models/gpt-oss-20b.yaml` is a smaller
+model of another family, which takes about 16 GB of a card and so leaves
+room for more attempts at once; its file sets a temperature of 0. It has
+been checked to load and to give the server its options, and not yet run on
+a GPU.
 
 ### What the machine needs
 

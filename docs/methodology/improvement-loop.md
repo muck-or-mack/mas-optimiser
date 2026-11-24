@@ -394,8 +394,10 @@ the gate asks for a gain that a test at a stated error level supports.
 
 - A rule on cost. The record holds every candidate's change in tokens, and
   no decision uses it.
-- A repeat of single attempts. A job with an attempt that ended in an error
-  is run again as a whole.
+- A repeat of single attempts. An attempt that ended in an error is scored
+  as a failure of its task, whatever ended it. A job with more than 15% of
+  its attempts in error is run again once, as a whole; if it is then still
+  so, a baseline stops the experiment and a candidate is set aside.
 - A figure of the test score against the round.
 - A second benchmark. The loop holds nothing of this benchmark's; another
   one needs a class like `domain.EnterpriseOps`.

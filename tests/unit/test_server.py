@@ -348,8 +348,8 @@ def test_a_model_file_without_a_server_block_is_refused(machine):
     assert machine.calls == [] and machine.started == []
 
 
-@pytest.mark.parametrize("name", ["qwen3.6-27b", "qwen3.6-27b-fp8"])
-def test_a_qwen_file_names_one_release_and_one_option_an_item(name):
+@pytest.mark.parametrize("name", ["qwen3.6-27b", "qwen3.6-27b-fp8", "gpt-oss-20b"])
+def test_a_served_models_file_names_one_release_and_one_option_an_item(name):
     path = runner.config_path("models", name)
     block = yaml.safe_load(path.read_text())
     assert isinstance(block["server"]["vllm"], str)
