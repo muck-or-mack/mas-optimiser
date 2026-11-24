@@ -1,0 +1,10 @@
+# Baseline: the starting harness with GPT-5.1 on every task of the three
+# domains, one attempt each, one evaluation per domain. Keys are explained in
+# smoke.yaml.
+model: gpt-5.1-azure
+domain: [itsm, csm, hr]
+mode: all_tools
+attempts: 1
+concurrency: 6
+trace: false
+thinking_summary: false
