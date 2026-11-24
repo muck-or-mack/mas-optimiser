@@ -43,6 +43,71 @@ source .venv/bin/activate
 The commands below assume it is active. Without activating, `uv run <command>`
 runs any of them; the scripts in `scripts/` work either way.
 
+## Models and keys
+
+A model is chosen by the name of its file in `configs/models/`: `--model
+<name>` on a command, or `model: <name>` in an experiment file. Four come
+with the package:
+
+| model file        | the model                                              | what it needs                                                                              |
+|-------------------|--------------------------------------------------------|--------------------------------------------------------------------------------------------|
+| `haiku-5-5`       | Claude Haiku 5.5, through the Claude API               | one line of `.env`: `ANTHROPIC_API_KEY`                                                    |
+| `gpt-5.1-azure`   | GPT-5.1, through an Azure OpenAI resource of one's own | four lines of `.env`, all beginning `AZURE_OPENAI_`                                        |
+| `qwen3.6-27b-fp8` | Qwen3.6-27B in 8 bits, on one GPU of the machine       | no key; its server started ([Serving an open-weight model](#serving-an-open-weight-model)) |
+| `qwen3.6-27b`     | Qwen3.6-27B as released, on two GPUs of the machine    | no key; its server started                                                                 |
+
+### Where the keys go
+
+Keys and anything else that belongs to an account of one's own go in one
+file, `.env`, at the top of the repository. It is never committed. Make it
+from the example and fill in the lines of the models to be used:
+
+```bash
+cp .env.example .env
+```
+
+One line holds one value, as `NAME=value`, with no spaces around the equals
+sign. Quotation marks are not needed. For Azure OpenAI the four lines look
+like this, with made-up values:
+
+```
+AZURE_OPENAI_API_KEY=0123456789abcdef0123456789abcdef
+AZURE_OPENAI_ENDPOINT=https://my-resource.openai.azure.com/
+AZURE_OPENAI_DEPLOYMENT=my-gpt-5-1-deployment
+AZURE_OPENAI_API_VERSION=2025-04-01-preview
+```
+
+Several keys sit in `.env` side by side. Each model file names the
+variables it reads, so choosing a model chooses its keys and nothing has to
+be swapped. A run on a model whose lines are blank stops at once and names
+the variable that is missing.
+
+To check a model and its key, run one task on it:
+
+```bash
+mas-optimiser run smoke --model gpt-5.1-azure --limit 1
+```
+
+### Adding a model
+
+Copy the nearest file in `configs/models/` under a new name and change its
+keys; every shipped file has a comment on each.
+
+| key of a model file                            | what it gives                                                                                                                                                      |
+|------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `llm_provider`                                 | the service: `anthropic`, `openai`, `azureopenai`, `google`, `googlevertexai`, `aws_bedrock`, `openrouter`, `deepseek`, `qwq`, or `vllm` for a server of one's own |
+| `llm_model`                                    | the model's name at that service; for Azure OpenAI, the name of the deployment                                                                                     |
+| `llm_api_endpoint`, `llm_api_version`          | the address and the version of the API, for a service that needs them                                                                                              |
+| `api_key_env`                                  | the name of the variable of `.env` that holds the key; left out for a server that asks for none                                                                    |
+| a key ending in `_env`                         | the name of the variable of `.env` that holds the value of the field it is named after: `llm_api_endpoint_env` for `llm_api_endpoint`                              |
+| `temperature`, `top_p`, `max_tokens`, `effort` | how the model samples, the most tokens of an answer, and how much it reasons                                                                                       |
+| `pricing`                                      | US dollars per million tokens, six figures, from the provider's price list; all zero for a server of one's own                                                     |
+| `server`                                       | for a model served on the machine: how its server is started                                                                                                       |
+
+A second account at the same service is a second file that names other
+variables, `AZURE_OPENAI_API_KEY_2` for instance, with those lines added to
+`.env`.
+
 ## Benchmark servers
 
 Each [EnterpriseOps-Gym](https://github.com/ServiceNow/EnterpriseOps-Gym)
@@ -185,7 +250,8 @@ held the cards. Neither version of Qwen3.6-27B has yet been served.
 
 ## Running an experiment
 
-Copy `.env.example` to `.env` and add the API key. An experiment is a short
+A run needs its model's key in `.env` ([Models and keys](#models-and-keys)).
+An experiment is a short
 YAML file in `configs/experiments/` that sets the model, the domain or
 domains, mode, task limit and tracing options, with a comment on each;
 `smoke.yaml` is the annotated example, `demo.yaml` the two-task
@@ -232,7 +298,8 @@ if none succeeds the attempt is recorded as an error and counted as a
 failure. Without a limit, a connection that goes silent would hold the run
 for ever; real calls answer in seconds. The limit is set on the provider's
 own client, for Anthropic models and for models reached through an
-OpenAI-style client (the providers `openai`, `vllm` and `openrouter`); with
+OpenAI-style client (the providers `openai`, `azureopenai`, `vllm` and
+`openrouter`); with
 any other provider none is set and the run says so.
 
 A self-hosted open-weight model is run the same way, through its own model

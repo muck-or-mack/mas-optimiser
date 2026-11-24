@@ -1,0 +1,32 @@
+# GPT-5.1 served by Azure OpenAI. Keys are the benchmark's LLMConfig fields
+# (benchmark/models.py), plus the two below them.
+#
+# Four values belong to one's own Azure resource and are kept out of this
+# file: each key ending in _env names the variable of .env that holds the
+# value (.env.example lists them, with their formats).
+llm_provider: azureopenai
+api_key_env: AZURE_OPENAI_API_KEY
+llm_api_endpoint_env: AZURE_OPENAI_ENDPOINT
+# A deployment is named by whoever made it, and its name need not say which
+# model it serves: this variable must name a deployment of GPT-5.1.
+llm_model_env: AZURE_OPENAI_DEPLOYMENT
+llm_api_version_env: AZURE_OPENAI_API_VERSION
+# The model takes its default temperature of 1 and no other.
+temperature: 1.0
+# The most tokens of one answer; the tokens of its reasoning count towards it.
+max_tokens: 16384
+# How much the model reasons before it answers: none, low, medium or high.
+# Left out, it is none, the model's own default.
+# effort: low
+# US dollars per million tokens, from OpenAI's price list for gpt-5.1
+# (developers.openai.com/api/docs/pricing, read 24/11/2026; Azure's own page
+# gave no figures). Input that repeats from call to call is stored by the
+# service without being asked and billed at cache_read; storing it costs
+# nothing more, so cache_write is the price of input.
+pricing:
+  input: 1.25
+  output: 10.00
+  cache_read: 0.125
+  cache_write: 1.25
+  long_prompt_tokens: 0
+  long_prompt_multiplier: 1
