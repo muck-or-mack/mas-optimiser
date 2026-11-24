@@ -149,20 +149,20 @@ different questions. In twelve trial rounds of this package the analysis
 cost about 59,000 input tokens and 10 calls to the model for each trace
 read. That is the median: the rounds ranged from 24,000 to 113,000, the
 search model was a small one, and another will differ. At that rate, for
-the 61 training tasks of a 20% share of the three domains:
+the 51 training tasks of the default split of the three domains:
 
 | `pool_share`   | tasks in the pool   | rounds until every task has been in it   | input tokens a round, each task read once   |
 |----------------|---------------------|------------------------------------------|---------------------------------------------|
-| 0.1            | 6                   | 11                                       | 354,000                                     |
-| 0.25           | 15                  | 5                                        | 885,000                                     |
-| 0.5            | 30                  | 3                                        | 1,770,000                                   |
-| 1              | 61                  | 1                                        | 3,599,000                                   |
+| 0.1            | 5                   | 11                                       | 295,000                                     |
+| 0.25           | 13                  | 4                                        | 767,000                                     |
+| 0.5            | 26                  | 2                                        | 1,534,000                                   |
+| 1              | 51                  | 1                                        | 3,009,000                                   |
 
 The figures are in `docs/data/pool.csv`. The pool is a ceiling and not a
 quota: the analyst's instructions, which are RRSI's, tell it to cover each
 kind of failure and not every failure, and to read a few successes. With
 the default share of 0.5 and the pick described next, every one of these
-61 tasks has been in the pool after three rounds.
+51 tasks has been in the pool after two rounds.
 
 ### How the pool is picked
 

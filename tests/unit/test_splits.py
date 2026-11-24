@@ -391,10 +391,12 @@ def test_split_command_reads_the_dataset_and_balances_the_domains_by_default(
     written = command()
     out = capsys.readouterr().out
     assert f"wrote {splits.SPLITS_DIR / 'trial.json'}" in out
-    assert "training: 3 tasks" in out and "validation: 6 tasks" in out
+    assert "training: 3 tasks" in out and "validation: 8 tasks" in out
     assert written["balance"] == ["domain"] and written["seen"] == []
     assert written["source"]["dataset"] == runner.HF_DATASET
-    assert written["proportions"] == {"training": 0.2, "validation": 0.4, "test": 0.4}
+    assert written["proportions"] == dict(
+        zip(splits.SETS, splits.DEFAULT_PROPORTIONS, strict=True)
+    )
     assert sum(t.startswith("csm") for t in written["training"]) == 1
     assert splits.load_split("trial") == written
 
@@ -402,7 +404,7 @@ def test_split_command_reads_the_dataset_and_balances_the_domains_by_default(
 def test_split_command_shuffles_plainly_when_nothing_is_balanced(command):
     written = command("--balance")
     assert written["balance"] == []
-    assert [len(written[s]) for s in splits.SETS] == [3, 6, 6]
+    assert [len(written[s]) for s in splits.SETS] == [2, 8, 5]
 
 
 def test_split_command_balances_difficulty_from_a_baseline_run_without_writing_it(
@@ -416,13 +418,20 @@ def test_split_command_balances_difficulty_from_a_baseline_run_without_writing_i
     assert sum(len(written[s]) for s in splits.SETS) == 15
 
 
+def test_naming_a_baseline_run_is_enough_to_balance_on_difficulty_as_well(command):
+    written = command("--experiment", "exp")
+    assert written["balance"] == ["domain", "difficulty"]
+    assert written["source"]["experiment"] == "exp"
+
+
 @pytest.mark.parametrize(
-    "extra", [["--balance", "difficulty"], ["--experiment", "exp"]]
+    "extra",
+    [["--balance", "difficulty"], ["--balance", "domain", "--experiment", "exp"]],
 )
 def test_split_command_wants_an_experiment_with_difficulty_and_only_then(
     command, extra
 ):
-    with pytest.raises(SystemExit, match="only then"):
+    with pytest.raises(SystemExit, match="a balance on difficulty needs it"):
         command(*extra)
     assert not (splits.SPLITS_DIR / "trial.json").exists()
 
