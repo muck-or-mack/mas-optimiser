@@ -46,7 +46,8 @@ def machine(tmp_path, monkeypatch):
 
     ``answers`` maps a command's second word to the exit code and output it
     gets; a command not named succeeds with no output. ``pid`` is the process
-    id of the model's running server, ``None`` for none. Nothing listens on
+    id of the model's running server, ``None`` for none, and ``cards`` what
+    ``nvidia-smi`` lists, which is asked and not recorded. Nothing listens on
     the server's port and the server does not answer unless a test says so.
     """
     path = tmp_path / "model.yaml"
@@ -58,12 +59,15 @@ def machine(tmp_path, monkeypatch):
         answers={},
         started=[],
         pid=None,
+        cards="",
     )
 
     def run(command, **_):
+        if command[0] == "nvidia-smi":
+            return SimpleNamespace(returncode=0, stdout=stand_in.cards)
         stand_in.calls.append(command)
         code, out = stand_in.answers.get(command[1], (0, ""))
-        return SimpleNamespace(returncode=code, stdout=out)
+        return SimpleNamespace(returncode=code, stdout=out, stderr="")
 
     def popen(command, **options):
         stand_in.started.append((command, options))
@@ -195,9 +199,53 @@ def test_a_port_another_program_uses_stops_the_start(machine, monkeypatch):
 def test_a_server_that_stopped_by_itself_is_not_started_again(machine):
     machine.state.mkdir()
     (machine.state / "model.pid").write_text("99")
-    with pytest.raises(SystemExit, match="stopped by itself.*model.log"):
+    (machine.state / "model.log").write_text(
+        "(EngineCore pid=7) ERROR 11-23 [core.py:1] ValueError: too long, at most 9\n"
+        "    raise ValueError(\n"
+        "ValueError: too long, at most 9\n"
+        "RuntimeError: Engine core initialization failed.\n"
+    )
+    with pytest.raises(SystemExit) as exit_info:
         cli.main(["server", machine.path])
+    # The errors its output names, each once, then where the output is.
+    assert str(exit_info.value) == (
+        "error: the server of model stopped by itself\n"
+        "  ValueError: too long, at most 9\n"
+        "  RuntimeError: Engine core initialization failed.\n"
+        f"Its whole output: {machine.state}/model.log\n"
+        f"Then clear it with: mas-optimiser server {machine.path} --stop"
+    )
     assert machine.started == []
+
+
+def test_the_gpus_option_limits_the_server_to_the_cards_named(machine):
+    cli.main(["server", machine.path, "--gpus", "2,3"])
+    assert machine.started[0][1]["env"]["CUDA_VISIBLE_DEVICES"] == "2,3"
+    machine.answers["container"] = (1, "")
+    cli.main(["server", machine.path, "--docker", "--gpus", "2,3"])
+    assert '--gpus="device=2,3"' in machine.calls[-1]
+
+
+def test_a_start_warns_of_cards_other_programs_already_use(machine, capsys):
+    machine.cards = "0, 43184, 46068\n1, 3000, 46068\n2, 40000, 46068\n"
+    cli.main(["server", machine.path, "--gpus", "0,1"])
+    out = capsys.readouterr().out
+    assert "warning: card 0 already has 43,184 of 46,068 MiB in use" in out
+    # A card with room, and a card the server was not given, are not named.
+    assert "card 1" not in out and "card 2" not in out
+    assert len(machine.started) == 1
+
+
+def test_a_start_warns_when_the_machine_shows_no_nvidia_gpu(
+    machine, monkeypatch, capsys
+):
+    monkeypatch.setattr(
+        server.shutil,
+        "which",
+        lambda name: None if name == "nvidia-smi" else f"/bin/{Path(name).name}",
+    )
+    cli.main(["server", machine.path])
+    assert "warning: nvidia-smi not found" in capsys.readouterr().out
 
 
 def test_stop_ends_the_server_and_its_workers(machine, monkeypatch):
@@ -257,11 +305,18 @@ def test_docker_leaves_a_running_container_alone(machine):
     assert machine.calls == [INSPECT]
 
 
-def test_docker_keeps_a_stopped_container_for_its_log(machine):
+def test_docker_keeps_a_stopped_container_and_says_why_it_stopped(machine):
     machine.answers["container"] = (0, "exited\n")
-    with pytest.raises(SystemExit, match="is exited.*docker logs model"):
+    machine.answers["logs"] = (0, "torch.OutOfMemoryError: CUDA out of memory.\n")
+    with pytest.raises(SystemExit) as exit_info:
         cli.main(["server", machine.path, "--docker"])
-    assert machine.calls == [INSPECT]
+    assert str(exit_info.value) == (
+        "error: the server of model stopped by itself\n"
+        "  torch.OutOfMemoryError: CUDA out of memory.\n"
+        "Its whole output: docker logs model\n"
+        f"Then clear it with: mas-optimiser server {machine.path} --docker --stop"
+    )
+    assert machine.calls == [INSPECT, ["docker", "logs", "--tail=400", "model"]]
 
 
 def test_a_docker_start_that_fails_removes_its_container(machine):

@@ -14,6 +14,7 @@ decisions, the data model of each domain and the API.
 
 Install, run, read the results <usage>
 results
+gpu-memory
 ```
 
 ```{toctree}

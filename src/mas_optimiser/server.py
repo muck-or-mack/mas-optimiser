@@ -15,6 +15,7 @@ Sources: ``docs/how-it-works.md``, section 6, the row for ``server``.
 
 import argparse
 import os
+import re
 import shlex
 import shutil
 import signal
@@ -39,6 +40,10 @@ STATE = Path.home() / ".cache" / "mas-optimiser"
 VOLUME = "mas-optimiser-models"
 CONTAINER_CACHE = "/root/.cache/huggingface"
 CONTAINER_PORT = 8000
+# The share of a card already in use above which a start is warned about:
+# more than a screen or an idle driver takes. The server sizes itself to the
+# memory it finds free, so what another program holds is what it goes without.
+IN_USE = 0.08
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
@@ -52,6 +57,11 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         "--stop",
         action="store_true",
         help="end the model's server instead of starting it",
+    )
+    parser.add_argument(
+        "--gpus",
+        help="the cards the server may use, by their numbers in nvidia-smi, "
+        "for example 0,1 (default: every card the machine offers)",
     )
     parser.add_argument(
         "--docker",
@@ -93,9 +103,11 @@ def run(args: argparse.Namespace) -> None:
 
     Starting is safe to repeat: a server that is running is left alone, and
     the command says whether it answers yet. A server that stopped by itself
-    is not started again until ``--stop`` has cleared it, so that the reason
-    can be read first. With ``--docker``, a start that fails removes the
-    container it made.
+    is not started again until ``--stop`` has cleared it, and the command
+    prints the errors its output ends with. Before a start, a port that
+    another program holds stops the command, and a card that other programs
+    already use is warned about. With ``--docker``, a start that fails
+    removes the container it made.
 
     Args:
         args: The parsed options, as ``add_arguments`` defines them.
@@ -118,19 +130,10 @@ def run(args: argparse.Namespace) -> None:
     endpoint = fields["llm_api_endpoint"]
     port = urlsplit(endpoint).port
     options = [fields["llm_model"], *fields["server"]["args"]]
-    clear = f"mas-optimiser server {args.model} --stop"
-    # Whether a program already listens where the server is to listen, found
-    # as a client of the server would find it. Asked before a start only.
-    try:
-        socket.create_connection((urlsplit(endpoint).hostname, port), 2).close()
-        taken = True
-    except OSError:
-        taken = False
-    busy = (
-        f"error: port {port} is already in use on this machine by another "
-        f"program. Give the server another port: change llm_api_endpoint in {path}"
-    )
+    pid_file, log = STATE / f"{name}.pid", STATE / f"{name}.log"
 
+    # The state of the model's server: "running", "absent", or anything else
+    # for one that exists and no longer runs, with its output in ``said``.
     if args.docker:
         if shutil.which("docker") is None:
             raise SystemExit("error: docker not found")
@@ -144,38 +147,14 @@ def run(args: argparse.Namespace) -> None:
             capture_output=True,
             text=True,
         )
-        status = inspected.stdout.strip()
-        if inspected.returncode == 0 and status != "running":
-            raise SystemExit(
-                f"error: the container {name} exists and is {status}, not "
-                f"running. Read why with: docker logs {name}\n"
-                f"Then remove it with: {clear} --docker"
+        state = inspected.stdout.strip() if inspected.returncode == 0 else "absent"
+        clear, output = f"{args.model} --docker --stop", f"docker logs {name}"
+        if state not in ("running", "absent"):
+            logs = subprocess.run(
+                ["docker", "logs", "--tail=400", name], capture_output=True, text=True
             )
-        if inspected.returncode != 0:
-            if taken:
-                raise SystemExit(busy)
-            command = [
-                "docker",
-                "run",
-                "--detach",
-                f"--name={name}",
-                "--gpus=all",
-                # The server shares tensors between its processes through
-                # the host's shared memory.
-                "--ipc=host",
-                f"--publish=127.0.0.1:{port}:{CONTAINER_PORT}",
-                f"--volume={args.cache or VOLUME}:{CONTAINER_CACHE}",
-                f"vllm/vllm-openai:v{version}",
-                *options,
-            ]
-            print(shlex.join(command), flush=True)
-            started = subprocess.run(command)
-            if started.returncode:
-                subprocess.run(["docker", "rm", "--force", name], capture_output=True)
-                raise SystemExit(started.returncode)
-        watch = f"docker logs -f {name}"
+            said = logs.stdout + (logs.stderr or "")
     else:
-        pid_file, log = STATE / f"{name}.pid", STATE / f"{name}.log"
         pid = _process(name)
         if args.stop:
             if pid:
@@ -190,14 +169,78 @@ def run(args: argparse.Namespace) -> None:
                     os.killpg(pid, signal.SIGKILL)
             pid_file.unlink(missing_ok=True)
             return
-        if pid is None and pid_file.exists():
+        state = "running" if pid else "stopped" if pid_file.exists() else "absent"
+        clear, output = f"{args.model} --stop", str(log)
+        if state == "stopped":
+            said = log.read_text(errors="replace") if log.exists() else ""
+
+    if state not in ("running", "absent"):
+        # The lines that name an error, each once, the last of them: the
+        # cause comes first and what it brought down after it.
+        errors = list(dict.fromkeys(re.findall(r"\S*Error: .*", said)))[-4:]
+        raise SystemExit(
+            f"error: the server of {name} stopped by itself"
+            + "".join(f"\n  {error}" for error in errors)
+            + f"\nIts whole output: {output}"
+            + f"\nThen clear it with: mas-optimiser server {clear}"
+        )
+
+    if state == "absent":
+        # Found as a client of the server would find it.
+        try:
+            socket.create_connection((urlsplit(endpoint).hostname, port), 2).close()
+        except OSError:
+            pass
+        else:
             raise SystemExit(
-                f"error: the server of {name} stopped by itself. Read why in "
-                f"{log}\nThen clear it with: {clear}"
+                f"error: port {port} is already in use on this machine by "
+                "another program. Give the server another port: change "
+                f"llm_api_endpoint in {path}"
             )
-        if pid is None:
-            if taken:
-                raise SystemExit(busy)
+        if shutil.which("nvidia-smi") is None:
+            print("warning: nvidia-smi not found: the server needs an NVIDIA GPU")
+        else:
+            cards = subprocess.run(
+                ["nvidia-smi", "--query-gpu=index,memory.used,memory.total"]
+                + ["--format=csv,noheader,nounits"],
+                capture_output=True,
+                text=True,
+            ).stdout
+            chosen = args.gpus or os.environ.get("CUDA_VISIBLE_DEVICES", "")
+            for card in cards.splitlines():
+                index, used, total = (part.strip() for part in card.split(","))
+                if chosen and index not in chosen.split(","):
+                    continue
+                if int(used) > IN_USE * int(total):
+                    print(
+                        f"warning: card {index} already has {int(used):,} of "
+                        f"{int(total):,} MiB in use, so the server may not fit. "
+                        "nvidia-smi shows what is using it.",
+                        flush=True,
+                    )
+
+        if args.docker:
+            command = [
+                "docker",
+                "run",
+                "--detach",
+                f"--name={name}",
+                # Docker reads a list of cards only inside quotation marks.
+                f'--gpus="device={args.gpus}"' if args.gpus else "--gpus=all",
+                # The server shares tensors between its processes through
+                # the host's shared memory.
+                "--ipc=host",
+                f"--publish=127.0.0.1:{port}:{CONTAINER_PORT}",
+                f"--volume={args.cache or VOLUME}:{CONTAINER_CACHE}",
+                f"vllm/vllm-openai:v{version}",
+                *options,
+            ]
+            print(shlex.join(command), flush=True)
+            started = subprocess.run(command)
+            if started.returncode:
+                subprocess.run(["docker", "rm", "--force", name], capture_output=True)
+                raise SystemExit(started.returncode)
+        else:
             # A uv installed a moment ago by setup.sh is not yet on PATH.
             uv = shutil.which("uv") or shutil.which(
                 str(Path.home() / ".local" / "bin" / "uv")
@@ -215,7 +258,7 @@ def run(args: argparse.Namespace) -> None:
                 # The third fetches precompiled kernels from a site of its
                 # own and looks for uv on PATH; the server runs without
                 # them, so its failure does not stop the start.
-                path = f"{Path(uv).parent}{os.pathsep}{os.environ['PATH']}"
+                found = f"{Path(uv).parent}{os.pathsep}{os.environ['PATH']}"
                 environment.mkdir(parents=True, exist_ok=True)
                 for command in (
                     [
@@ -238,7 +281,7 @@ def run(args: argparse.Namespace) -> None:
                     [vllm, "download-kernels"],
                 ):
                     print(shlex.join(command), flush=True)
-                    built = subprocess.run(command, env=os.environ | {"PATH": path})
+                    built = subprocess.run(command, env=os.environ | {"PATH": found})
                     if built.returncode and command[-1] == "download-kernels":
                         print(
                             "vLLM's precompiled kernels were not installed: the "
@@ -253,17 +296,18 @@ def run(args: argparse.Namespace) -> None:
             command += ["--host=127.0.0.1", f"--port={port}"]
             print(shlex.join(command), flush=True)
             STATE.mkdir(parents=True, exist_ok=True)
-            with log.open("w") as output:
+            with log.open("w") as written:
                 started = subprocess.Popen(
                     command,
-                    stdout=output,
+                    stdout=written,
                     stderr=subprocess.STDOUT,
                     # Its own session, so that it outlives this terminal.
                     start_new_session=True,
-                    env=os.environ | ({"HF_HOME": args.cache} if args.cache else {}),
+                    env=os.environ
+                    | ({"HF_HOME": args.cache} if args.cache else {})
+                    | ({"CUDA_VISIBLE_DEVICES": args.gpus} if args.gpus else {}),
                 )
             pid_file.write_text(str(started.pid))
-        watch = f"tail -f {log}"
 
     # Ready means that the server answers and lists the model: it opens its
     # port once the model is loaded, and another program that answers at the
@@ -276,6 +320,7 @@ def run(args: argparse.Namespace) -> None:
     if ready:
         print(f"{name}: ready at {endpoint}")
     else:
+        watch = f"docker logs -f {name}" if args.docker else f"tail -f {log}"
         print(
             f"{name}: loading (the first start downloads the model's weights). "
             f"Watch it with: {watch}\n"

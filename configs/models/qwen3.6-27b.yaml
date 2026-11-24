@@ -2,6 +2,12 @@
 # vLLM, which answers in the OpenAI API's format. Keys are the benchmark's
 # LLMConfig fields (benchmark/models.py), plus the server block at the end.
 # Start the server with `mas-optimiser server qwen3.6-27b`.
+#
+# Three lines describe the machine and not the model, and are the ones to
+# change for other hardware: the port in llm_api_endpoint, and the options
+# --tensor-parallel-size and --max-model-len of the server. As written they
+# suit two cards of 48 GB with nothing else on them; docs/gpu-memory.md shows
+# where the memory goes.
 llm_provider: vllm
 llm_model: Qwen/Qwen3.6-27B
 # Where the server listens, as seen from the machine that runs the tasks. With
@@ -36,12 +42,12 @@ server:
   # supports CUDA 13.
   vllm: "0.34.0"
   args:
-    # The number of GPUs the model's layers are spread over.
+    # The machine. The number of GPUs the model's layers are spread over:
     - --tensor-parallel-size=2
     # The longest prompt and answer together, in tokens. The model takes
-    # 262,144; a smaller limit leaves room for it on less GPU memory.
+    # 262,144; a smaller limit needs less GPU memory for the prompt cache.
     - --max-model-len=131072
-    # Text only: the image and video inputs are switched off.
+    # The model. Text only: the image and video inputs are switched off.
     - --language-model-only
     # The model's thinking is returned apart from its answer.
     - --reasoning-parser=qwen3
