@@ -53,6 +53,17 @@ DESCRIPTION = (
     "improve a harness: rounds of proposals read from the training tasks and "
     "judged by the acceptance gate on the validation tasks"
 )
+# What a user accepts by letting a model rewrite the agent's code with nobody
+# reading the change before it runs.
+UNREVIEWED = (
+    "This experiment lets a model rewrite the agent's code (editable holds "
+    ".py) and runs what it writes without a person reading it first "
+    "(approval: none). That code runs as this user on this machine, and can "
+    "reach whatever this account can: its files, and the keys in .env. Each "
+    "change is screened and reviewed by a model before it runs, and each "
+    "attempt is held to a time and to a number of model calls; none of that "
+    "is a guarantee."
+)
 # What the proposer is told of an earlier proposal. No score and no cost: of
 # the validation tasks it learns only whether a proposal was accepted.
 TOLD = (
@@ -230,7 +241,14 @@ class Experiment(Run):
         for candidate in candidates:
             decision = {"variant": candidate.variant, "level": level, "accept": False}
             if candidate.ev is None:
-                decision["stopped"] = candidate.gate_failure or "not evaluated"
+                # The released loop files a person's no under the trial run
+                # it came before; here it is recorded as what it was.
+                declined = '"stage": "approval"' in (candidate.detail or "")
+                decision["stopped"] = (
+                    "declined by a person"
+                    if declined
+                    else candidate.gate_failure or "not evaluated"
+                )
             else:
                 differences = np.array(
                     [
@@ -375,6 +393,18 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         help="the types of file in the harness folder a proposal may edit, "
         "e.g. .md for text only",
     )
+    parser.add_argument(
+        "--approval",
+        choices=("none", "each"),
+        help="each: show every proposed change and wait for a yes at the "
+        "terminal before it is run; none: run without asking (the default)",
+    )
+    parser.add_argument(
+        "--accept-unreviewed-code",
+        action="store_true",
+        help="needed to start an experiment that edits code (.py) with "
+        "approval none: the risk it prints is accepted",
+    )
 
 
 def run(args: argparse.Namespace) -> None:
@@ -384,8 +414,9 @@ def run(args: argparse.Namespace) -> None:
         args: The parsed arguments.
 
     Raises:
-        SystemExit: If the experiment names no split, names one set of it, or
-            names a harness with no ``agent.py``.
+        SystemExit: If the experiment names no split, names one set of it,
+            names a harness with no ``agent.py``, or would run code no person
+            has read without that having been accepted.
     """
     overrides = {key: getattr(args, key) for key in runner.EXPERIMENT_DEFAULTS}
     experiment = runner.load_experiment(args.experiment, overrides)
@@ -395,6 +426,15 @@ def run(args: argparse.Namespace) -> None:
             "error: evolve needs a split by its name alone (split: <name>), "
             "since it uses all three of its sets"
         )
+    if ".py" in experiment["editable"] and experiment["approval"] == "none":
+        if not args.accept_unreviewed_code:
+            raise SystemExit(
+                f"error: {UNREVIEWED}\nTo go on as it is, add "
+                "--accept-unreviewed-code. To read and approve each change, "
+                "add --approval each. To have only the agent's text changed, "
+                "add --editable .md"
+            )
+        print(f"warning: {UNREVIEWED}", flush=True)
     load_dotenv(REPO_ROOT / ".env")
     label = f"-{experiment['label']}" if experiment["label"] else ""
     folder = EVOLUTIONS / experiment["experiment"] / f"{split}{label}"

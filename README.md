@@ -302,6 +302,15 @@ OpenAI-style client (the providers `openai`, `azureopenai`, `vllm` and
 `openrouter`); with
 any other provider none is set and the run says so.
 
+An attempt as a whole has two limits of its own: 3,600 seconds
+(`attempt_timeout`) and 100 calls to the model (`attempt_calls`), with
+`--attempt-timeout` and `--attempt-calls` to change them for one command. An
+attempt that passes either is ended and recorded as an error, counted as a
+failure, with no tokens against it: what it spent before it was ended is
+not in the run's cost. The runner keeps the limits and not the agent, so a
+changed harness cannot lift them; an attempt of the starting harness uses a
+small part of each.
+
 A self-hosted open-weight model is run the same way, through its own model
 file. `configs/models/qwen3.6-27b-fp8.yaml` is one, for the 8-bit version of
 Qwen3.6-27B served by vLLM, which answers in the OpenAI API's format: the
@@ -693,15 +702,16 @@ and the files it writes are on "The improvement loop" in the documentation.
 
 The experiment file holds the settings of `run` and the loop's own:
 
-| setting          | what it sets                                                 | default           |
-|------------------|--------------------------------------------------------------|-------------------|
-| `split`          | the split whose three sets are used, by its name alone       | none, must be set |
-| `harness`        | the folder the experiment starts from                        | `default`         |
-| `proposer_model` | the model file of the roles that read and propose            | the agent's model |
-| `rounds`         | rounds of the loop                                           | 10                |
-| `candidates`     | candidates proposed in each round                            | 1                 |
-| `alpha`          | the chance, over the experiment, of keeping a useless change | 0.05              |
-| `editable`       | the types of file a proposal may edit                        | `.md` and `.py`   |
+| setting          | what it sets                                                                                    | default           |
+|------------------|-------------------------------------------------------------------------------------------------|-------------------|
+| `split`          | the split whose three sets are used, by its name alone                                          | none, must be set |
+| `harness`        | the folder the experiment starts from                                                           | `default`         |
+| `proposer_model` | the model file of the roles that read and propose                                               | the agent's model |
+| `rounds`         | rounds of the loop                                                                              | 10                |
+| `candidates`     | candidates proposed in each round                                                               | 1                 |
+| `alpha`          | the chance, over the experiment, of keeping a useless change                                    | 0.05              |
+| `editable`       | the types of file a proposal may edit: `.md` for the agent's text, `.py` for its code           | `.md` and `.py`   |
+| `approval`       | `each`: every change is shown at the terminal and run only after a yes; `none`: no one is asked | `none`            |
 
 ```
 mas-optimiser evolve evolve-smoke
@@ -710,10 +720,28 @@ mas-optimiser evolve evolve-smoke
 is a trial of the loop itself: three tasks of each set, one attempt, one
 round, text edits only, a few minutes and a few cents. Results go to
 `evolutions/<experiment>/<split>/`, and giving the command again carries an
-interrupted experiment on. With `.py` among the editable types the proposer
-changes the agent's code, which then runs on the machine that runs the
-tasks: use a machine that holds no paid key, such as one serving its own
-model.
+interrupted experiment on.
+
+`editable` and `approval` together say how much is left to the model. With
+`.md` alone a proposal changes only `prompt.md`, the text added to the
+agent's instructions. With `.py` as well it may change `agent.py`, the
+agent's own code, and that code then runs on the machine that runs the
+tasks, as the user who started the experiment, able to reach what that user
+can: files, and the keys in `.env`.
+
+Every change is screened for code that reaches past the agent's own work
+and is read by a reviewing model before it first runs, and `approval: each`
+adds a person, who sees the change and answers yes or no. With code edits
+and `approval: none` nobody reads the code first, so the command prints what
+that means and starts only when the risk is accepted:
+
+```
+mas-optimiser evolve <experiment> --accept-unreviewed-code
+```
+
+The screen and the reviewer catch accidents and plain misuse, and the
+package is not a sandbox. "The improvement loop" in the documentation says
+what each check does.
 
 ## Watching an attempt in Langfuse
 

@@ -2,6 +2,7 @@
 
 import csv
 import json
+import re
 from types import SimpleNamespace
 
 import pytest
@@ -11,7 +12,7 @@ from mas_optimiser.benchmarks.enterpriseops import domain as adapter
 from mas_optimiser.evolve import loop, models
 from mas_optimiser.stats import budget
 
-from rrsi import gitops
+from rrsi import critic, gitops
 from rrsi.config import RRSIConfig
 from rrsi.domain import Domain
 from rrsi.evaluate import TaskResult
@@ -98,6 +99,7 @@ def benchmark(monkeypatch):
         "split": "drawn",
         "limit": None,
         "editable": [".md"],
+        "approval": "none",
         "concurrency": 2,
         "model_timeout": 300,
         "trace": False,
@@ -233,6 +235,105 @@ def test_the_trial_run_refuses_a_record_of_another_shape(
     assert ok is False and where == {"stage": "run", "detail": "it raised"}
 
 
+def test_with_approval_a_person_sees_the_change_before_it_first_runs(
+    benchmark, tmp_path, monkeypatch, capsys
+):
+    benchmark.approval = "each"
+    ran = []
+    monkeypatch.setattr(benchmark, "run", lambda *args, **kwargs: ran.append(args))
+    shown = SimpleNamespace(stdout="+a line the proposer added")
+    monkeypatch.setattr(adapter.subprocess, "run", lambda *args, **kwargs: shown)
+    # A no ends the candidate before anything of it has run.
+    monkeypatch.setattr("builtins.input", lambda prompt: "n")
+    ok, where = benchmark.smoke(tmp_path, tmp_path, "smoke", ["t1"])
+    assert (ok, where["stage"], ran) == (False, "approval", [])
+    assert "+a line the proposer added" in capsys.readouterr().out
+    # A yes lets the trial run go ahead.
+    monkeypatch.setattr("builtins.input", lambda prompt: "y")
+    benchmark.smoke(tmp_path, tmp_path, "smoke", ["t1"])
+    assert len(ran) == 1
+
+
+def test_approval_with_nobody_at_the_terminal_stops_the_experiment(
+    benchmark, tmp_path, monkeypatch
+):
+    benchmark.approval = "each"
+    monkeypatch.setattr(benchmark, "run", lambda *args, **kwargs: None)
+    shown = SimpleNamespace(stdout="")
+    monkeypatch.setattr(adapter.subprocess, "run", lambda *args, **kwargs: shown)
+
+    def nobody(prompt):
+        raise EOFError
+
+    monkeypatch.setattr("builtins.input", nobody)
+    with pytest.raises(SystemExit, match="nobody is at the terminal"):
+        benchmark.smoke(tmp_path, tmp_path, "smoke", ["t1"])
+
+
+def test_the_screen_passes_the_starting_harness_and_prose_and_stops_unsafe_code():
+    patterns = critic.GENERIC_PATTERNS + adapter.EnterpriseOps.critic_patterns
+
+    def reasons(text):
+        return [why for pattern, why in patterns if re.search(pattern, text)]
+
+    # Every line of the starting harness can appear in a change as context.
+    for file in sorted(adapter.runner.HARNESSES.joinpath("default").iterdir()):
+        assert reasons(file.read_text()) == []
+    prose = (
+        "Before you finish a request, check every field. Handle all requests "
+        "in the environment the user names. Open the record, then compile a "
+        "list of what changed. If a tool fails, invoke it once more."
+    )
+    assert reasons(prose) == []
+    unsafe = [
+        "key = os.environ['A_KEY']",
+        "key = logging.os.environ.get('A_KEY')",
+        "import os",
+        "from subprocess import run",
+        "    import httpx",
+        "data = open('/tmp/x').read()",
+        "eval(text)",
+        "x.__class__.__subclasses__()",
+        "Path.home() / '.ssh'",
+        "(Path(__file__).parent / '../other').read_text()",
+        "p.write_text(k)",
+        "await self.llm_client.llm.ainvoke(messages)",
+        "client = LLMClient('openai', 'm', key)",
+    ]
+    assert all(reasons(line) for line in unsafe)
+
+
+def test_code_edits_with_no_approval_start_only_once_the_risk_is_accepted(
+    tmp_path, monkeypatch
+):
+    class Reached(Exception):
+        pass
+
+    class Stop:
+        harness_path = "harness"
+
+        def __init__(self, experiment):
+            raise Reached
+
+    monkeypatch.setattr(loop, "EVOLUTIONS", tmp_path)
+    monkeypatch.setattr(loop, "EnterpriseOps", Stop)
+    unset = dict.fromkeys(adapter.runner.EXPERIMENT_DEFAULTS)
+    chosen = {"experiment": "evolve-smoke", "editable": [".md", ".py"]}
+
+    def start(**options):
+        accepted = {"accept_unreviewed_code": False} | options
+        loop.run(SimpleNamespace(**(unset | chosen | accepted)))
+
+    with pytest.raises(SystemExit, match="--accept-unreviewed-code"):
+        start()
+    assert list(tmp_path.iterdir()) == []
+    # Accepted, or with a person approving each change, the experiment starts.
+    with pytest.raises(Reached):
+        start(accept_unreviewed_code=True)
+    with pytest.raises(Reached):
+        start(approval="each")
+
+
 # -------------------------------------------------------------------- one round
 
 TRAINING, VALIDATION, TEST = ["t1", "t2"], [f"v{n}" for n in range(1, 7)], ["h1", "h2"]
@@ -354,6 +455,20 @@ def test_a_candidate_that_is_no_better_is_dropped(tmp_path, monkeypatch):
     assert run.history.records()[-1]["outcome"] == "REJECTED"
     # Only the starting harness is run on the test tasks.
     assert [r["round"] for r in run.test()] == [0]
+
+
+def test_a_change_a_person_declined_is_recorded_as_declined(tmp_path, monkeypatch):
+    run, _ = experiment(tmp_path, monkeypatch, [0.5] * 6)
+    run.baseline()
+    detail = json.dumps({"stage": "approval", "detail": "declined by a person"})
+    declined = Candidate("A", [], gate_failure="smoke_fail", detail=detail)
+    monkeypatch.setattr(run, "_draft", lambda *args: declined)
+    run.round(0)
+    decisions = json.loads((run.runs / "r0" / "decisions.json").read_text())
+    assert decisions[0]["stopped"] == "declined by a person"
+    # It was never scored, and the current harness is unchanged.
+    assert ("r0A", VALIDATION) not in run.domain.jobs
+    assert run.frontier()["promotions"] == 0
 
 
 def test_the_proposer_reads_training_tasks_and_hears_only_the_outcome(

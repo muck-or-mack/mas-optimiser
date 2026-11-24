@@ -108,16 +108,22 @@ EXPERIMENT_DEFAULTS = {
     "thinking_summary": False,
     "prompt_caching": True,
     "model_timeout": 300,
+    # What one attempt may use at most, held outside the harness: its seconds
+    # and its calls to the model.
+    "attempt_timeout": 3600,
+    "attempt_calls": 100,
     "harness": "default",
     # The rest is read by ``mas-optimiser evolve`` only: the model of the
     # search roles (the agent's when not given), the rounds of the loop, the
     # candidates proposed in each, the error budget of the whole experiment,
-    # and the types of file in the harness folder a proposal may edit.
+    # the types of file in the harness folder a proposal may edit, and
+    # whether a person approves each change before it is run.
     "proposer_model": None,
     "rounds": 10,
     "candidates": 1,
     "alpha": 0.05,
     "editable": [".md", ".py"],
+    "approval": "none",
 }
 # The providers whose client takes the time limit on a model call:
 # Anthropic's, and the OpenAI-style client the benchmark builds for the other
@@ -228,6 +234,8 @@ class TaskExecutor(BenchmarkExecutor):
         seed: The task's seed copy and its layout, from ``states.seed_copy``.
         domain: The task's domain, for the columns its server stamps.
         task_id: The task's dataset ID, for its entry in the patch list.
+        calls: The most calls to the model the attempt may make, or ``None``
+            for no cap; a call past it raises inside the harness.
         **kwargs: Passed on to ``BenchmarkExecutor`` (the orchestrator class).
     """
 
@@ -242,6 +250,7 @@ class TaskExecutor(BenchmarkExecutor):
         seed: tuple,
         domain: str,
         task_id: str,
+        calls: int | None = None,
         **kwargs,
     ):
         config.verifiers, self.names, self.check_gyms = checks.prepare(
@@ -252,6 +261,7 @@ class TaskExecutor(BenchmarkExecutor):
         self.thinking = thinking
         self.caching = caching
         self.timeout = timeout
+        self.calls = calls
         self.seed, self.layout = seed
         self.skip = states.STAMPED.get(domain, frozenset())
         self.changes = None
@@ -295,6 +305,22 @@ class TaskExecutor(BenchmarkExecutor):
                 # Anthropic's client is built on the first call, so a limit
                 # set on the model here applies.
                 model.default_request_timeout = self.timeout
+        if self.calls:
+            # Counted where the harness reaches the model, in a client the
+            # harness is handed and does not build, so that no change to the
+            # harness lifts the cap.
+            invoke, made = self.llm_client.invoke_with_tools, 0
+
+            async def counted(*args, **kwargs):
+                nonlocal made
+                made += 1
+                if made > self.calls:
+                    raise RuntimeError(
+                        f"the attempt made more than {self.calls} calls to the model"
+                    )
+                return await invoke(*args, **kwargs)
+
+            self.llm_client.invoke_with_tools = counted
 
     async def _run_verifiers(self, task_result: dict) -> dict[str, dict]:
         """Run the checks as the benchmark does, then correct, record and diagnose the verdicts.
@@ -491,12 +517,15 @@ def load_experiment(spec: str, overrides: dict) -> dict:
                 f"error: no split named {name!r} in {splits.SPLITS_DIR}; "
                 f"draw it with `mas-optimiser split --name {name}`"
             )
-    for key in ("attempts", "concurrency"):
+    for key in ("attempts", "concurrency", "attempt_calls"):
         if not isinstance(settings[key], int) or settings[key] < 1:
             raise SystemExit(f"error: {key} must be a whole number of at least 1")
-    limit = settings["model_timeout"]
-    if isinstance(limit, bool) or not isinstance(limit, (int, float)) or limit <= 0:
-        raise SystemExit("error: model_timeout must be a number of seconds above 0")
+    for key in ("model_timeout", "attempt_timeout"):
+        limit = settings[key]
+        if isinstance(limit, bool) or not isinstance(limit, (int, float)) or limit <= 0:
+            raise SystemExit(f"error: {key} must be a number of seconds above 0")
+    if settings["approval"] not in ("none", "each"):
+        raise SystemExit("error: approval must be none or each")
     for key in ("rounds", "candidates"):
         if not isinstance(settings[key], int) or settings[key] < 1:
             raise SystemExit(f"error: {key} must be a whole number of at least 1")
@@ -1124,6 +1153,8 @@ async def run_task(
     agent: type[AgentOrchestrator],
     tags: list[str],
     arguments: dict[str, list[str]],
+    seconds: float | None = None,
+    calls: int | None = None,
 ) -> tuple[dict, list[dict], list[dict], list[dict]]:
     """Run one task once with the harness's agent, save the attempt and return its rows.
 
@@ -1142,6 +1173,9 @@ async def run_task(
         agent: The harness's agent class, which the executor runs the task with.
         tags: The trace's tags; the attempt number is added.
         arguments: Each tool's argument names, from ``tool_arguments``.
+        seconds: The longest the attempt may take, or ``None`` for no limit;
+            past it the attempt is ended and recorded as an error.
+        calls: The most calls to the model the attempt may make, or ``None``.
 
     Returns:
         What ``outputs`` returns.
@@ -1161,6 +1195,7 @@ async def run_task(
         ),
         domain=domain,
         task_id=task_id,
+        calls=calls,
     )
     # The evaluation's experiment and folder name group the traces as one session.
     span_context = (
@@ -1179,7 +1214,11 @@ async def run_task(
     )
     with span_context as span:
         try:
-            result = await executor.execute_benchmark()
+            result = await asyncio.wait_for(executor.execute_benchmark(), seconds)
+        except TimeoutError:
+            # Ended from outside the harness, whatever the harness was doing.
+            said = f"the attempt ran past its limit of {seconds:g} seconds"
+            result = {"runs": [{"run_number": 1, "error": said}]}
         except Exception as exc:
             # Raised before the attempt started, e.g. a server that is not up.
             result = {"runs": [{"run_number": 1, "error": repr(exc)}]}
@@ -1253,6 +1292,8 @@ async def run_tasks(
     timeout: float | None,
     agent: type[AgentOrchestrator],
     tags: list[str],
+    seconds: float | None = None,
+    calls: int | None = None,
 ) -> tuple[list[dict], list[dict], list[dict], list[dict]]:
     """Run every task ``attempts`` times, at most ``concurrency`` runs at once, and gather the rows.
 
@@ -1274,6 +1315,8 @@ async def run_tasks(
         timeout: Seconds a try at a model call may wait, or ``None`` for no limit.
         agent: The harness's agent class.
         tags: The traces' tags.
+        seconds: The longest one attempt may take, or ``None`` for no limit.
+        calls: The most calls to the model one attempt may make, or ``None``.
 
     Returns:
         The ``tasks.csv`` rows, then the ``checks.csv``, ``cells.csv`` and
@@ -1303,6 +1346,8 @@ async def run_tasks(
                 agent=agent,
                 tags=tags,
                 arguments=arguments,
+                seconds=seconds,
+                calls=calls,
             )
         done += 1
         status = (
@@ -1403,6 +1448,18 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         type=float,
         help="seconds a call to the model may wait for its answer before the try "
         "is given up and repeated (300 by default)",
+    )
+    parser.add_argument(
+        "--attempt-timeout",
+        type=float,
+        help="seconds one attempt may take before it is ended and counted as an "
+        "error (3600 by default)",
+    )
+    parser.add_argument(
+        "--attempt-calls",
+        type=int,
+        help="calls to the model one attempt may make before it is ended and "
+        "counted as an error (100 by default)",
     )
 
 
@@ -1602,6 +1659,8 @@ def evaluate(
                 timeout=timeout,
                 agent=agent,
                 tags=tags,
+                seconds=experiment["attempt_timeout"],
+                calls=experiment["attempt_calls"],
             )
         )
     finally:
@@ -1623,7 +1682,16 @@ def evaluate(
         table_rows,
     )
     counted = totals(outcomes, len(tasks), experiment["attempts"])
-    kept = ("experiment", "experiment_file", "label", "overrides", "mode", "limit")
+    kept = (
+        "experiment",
+        "experiment_file",
+        "label",
+        "overrides",
+        "mode",
+        "limit",
+        "attempt_timeout",
+        "attempt_calls",
+    )
     settings = {key: experiment[key] for key in kept} | {
         "evaluation": name,
         "run": "" if experiment["out"] else run_dir.name,

@@ -65,13 +65,45 @@ class EnterpriseOps(Domain):
     name = "enterpriseops"
     harness_path = "harness"
     # What a proposal's diff must not contain, checked before any model reads
-    # it: content of a task, or a reference to the measure.
+    # it: content of a task, a reference to the measure, and code that reaches
+    # past the agent's own work. The last five are a screen for accidents and
+    # plain misuse, written so that neither the starting harness nor ordinary
+    # prose matches them; code set on getting round them can.
     critic_patterns = [
         (r"task_\d{8}_\d{6}_\d{3}_[0-9a-f]{8}_[0-9a-f]{8}", "a task id in the diff"),
         (r"\b[A-Z]{2,6}[_-]?\d{3,}\b", "a record number or row id in the diff"),
         (
             r"verifier|checks\.csv|cells\.csv|database_state",
             "a reference to the measure in the diff",
+        ),
+        (
+            r"\.environ\b|\bgetenv\(|\bdotenv\b",
+            "code that reads the environment, where keys are kept",
+        ),
+        (
+            r"\b(import|from)\s+(os|sys|subprocess|multiprocessing|socket|ssl|"
+            r"requests|httpx|urllib3?|aiohttp|ftplib|smtplib|shutil|tempfile|"
+            r"ctypes|pickle|marshal|importlib|runpy|builtins|pty)\b",
+            "an import that reaches files, other programs, the network or the "
+            "interpreter",
+        ),
+        (
+            r"\b(eval|exec|compile|__import__|open)\(|__builtins__|"
+            r"\.__(?!init__|name__|doc__)[a-z][a-z_]*__",
+            "code that runs text as code, opens a file by itself or reaches "
+            "into the interpreter",
+        ),
+        (
+            r"\.\./|~/|/etc/|/home/|/root/|\.ssh\b|\.env\b|expanduser|Path\.home|"
+            r"\.write_(text|bytes)\(|\.unlink\(|\.rmdir\(",
+            "code that reaches files outside the harness folder, or writes or "
+            "removes files",
+        ),
+        (
+            r"llm_client\.llm\b|\.a?invoke\(|\.astream\(|\.bind_tools\(|"
+            r"\b(LLMClient|MCPClient)\(",
+            "a call to the model or the tools by a route that is not the one "
+            "the agent is given",
         ),
     ]
     component_signals = [("prompt", [r"prompt\.md"])]
@@ -92,6 +124,7 @@ class EnterpriseOps(Domain):
             for name in splits.SETS
         }
         self.source_exts = set(experiment["editable"])
+        self.approval = experiment["approval"]
         self.briefs = {
             "analyst": prompts.ANALYST,
             "digester": prompts.DIGESTER,
@@ -368,10 +401,13 @@ class EnterpriseOps(Domain):
     ) -> tuple[bool, dict]:
         """Check that a candidate still works, before it is scored.
 
-        Each task is run once with it. The attempt must end without an
-        error, and its record must keep the shape the rest of the package
-        reads: a conversation that opens with the system and user messages
-        and holds no entry of an unknown kind.
+        This is the first time a candidate's files are run. With
+        ``approval: each`` the change is shown and a person is asked whether
+        to run it; a no ends the candidate here. Then each task is run once
+        with it. The attempt must end without an error, and its record must
+        keep the shape the rest of the package reads: a conversation that
+        opens with the system and user messages and holds no entry of an
+        unknown kind.
 
         Args:
             root: The candidate's checkout.
@@ -381,7 +417,30 @@ class EnterpriseOps(Domain):
 
         Returns:
             Whether the candidate works, and where the check stopped.
+
+        Raises:
+            SystemExit: If a person's approval is needed and there is no
+                terminal to ask at.
         """
+        if self.approval == "each":
+            # The first time the change would run: a person reads it first.
+            change = subprocess.run(
+                ["git", "-C", str(root), "show", "--stat", "--patch", "HEAD", "--"]
+                + [self.harness_path],
+                capture_output=True,
+                text=True,
+            ).stdout
+            print(f"\n{change}\nThis change has not been run yet.", flush=True)
+            try:
+                answer = input("Run it on the tasks? [y/N] ")
+            except EOFError:
+                raise SystemExit(
+                    "error: approval is set to each, and nobody is at the "
+                    "terminal to answer. Give the command again from a "
+                    "terminal; the experiment carries on from this change."
+                ) from None
+            if answer.strip().lower() not in ("y", "yes"):
+                return False, {"stage": "approval", "detail": "declined by a person"}
         out = Path(runs_dir) / "jobs" / job
         self.run(root, runs_dir, job, ids, 1)
         rows = self.rows(out)

@@ -17,6 +17,7 @@ test; the baseline is an arm.
 | The model                    | one model and its settings for every arm                                                                                           | the model file in `configs/models/`       |
 | Prompt caching               | on, for a provider it is built for; it changes the cost of repeated input and nothing the model receives                           | `prompt_caching` in the experiment file   |
 | Time limit on a model call   | 300 seconds for each try, after which the try is repeated; it changes nothing the model receives                                   | `model_timeout` in the experiment file    |
+| Limits on an attempt         | 3,600 seconds and 100 calls to the model, kept outside the harness; an attempt past either is an error                             | `attempt_timeout`, `attempt_calls`        |
 | Attempts per task            | the same number for every arm                                                                                                      | `attempts` in the experiment file         |
 | The task sets                | one split into training, validation and test, drawn once                                                                           | the split file in `configs/splits/`       |
 | The decision rule            | the test and its level                                                                                                             | [the acceptance gate](acceptance-gate.md) |

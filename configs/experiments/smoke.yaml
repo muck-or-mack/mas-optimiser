@@ -50,6 +50,12 @@ prompt_caching: true
 # azureopenai, vllm and openrouter: with any other provider no limit is set,
 # and the run says so.
 model_timeout: 300
+# The most one attempt may use, kept by the runner and not by the harness:
+# its seconds, and its calls to the model. An attempt that passes either is
+# ended and recorded as an error. An attempt of the starting harness uses a
+# small part of each.
+attempt_timeout: 3600
+attempt_calls: 100
 # The harness whose agent runs the tasks: a folder's name under harnesses/, or
 # a path to such a folder. The folder holds the agent's code (agent.py) and
 # the text it adds to every task's system message (prompt.md). "default" is
