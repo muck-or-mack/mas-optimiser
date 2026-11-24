@@ -252,6 +252,19 @@ job's `tasks.csv` has the input tokens, output tokens and dollars of every
 attempt, and `search_usage.jsonl` has a line for every call of the search
 roles.
 
+## Trying a design
+
+<a href="../_static/planner.html">The experiment planner</a> is these steps
+and this cost table as a page with sliders. It works both ways round: choose
+the split and the attempts and see what the experiment can show, or choose
+the smallest gain to find and the confidence interval and see the split
+they need. It shows the runs, the tokens, the dollars and the hours of the
+design, with the cost part by part, for a model whose figures can be typed
+in. Its figures for the models measured here are marked as measured, and
+the rest as assumed. It supposes that more attempts shrink the spread of a
+task's difference by the square root of their number, which is a little
+more cautious than the two baseline runs showed.
+
 ## Doing this for another model
 
 1. Run the baseline twice with the same settings, as two runs of

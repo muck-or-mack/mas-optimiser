@@ -43,4 +43,5 @@ exclude_patterns = [
     "figures/calibration/calibration.md",
 ]
 html_theme = "sphinx_rtd_theme"
-html_static_path: list[str] = []
+# The planner, a page of its own that needs nothing but its file.
+html_static_path = ["_static"]
