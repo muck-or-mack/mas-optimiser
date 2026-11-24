@@ -1,0 +1,26 @@
+# An experiment of the improvement loop on the default design
+# (docs/methodology/sizing.md): Claude Haiku 5.5 as the agent and as the model
+# that reads the results and proposes, every task of the three domains split
+# by seed 1, one attempt a task, ten rounds. Run it with
+# `mas-optimiser evolve evolve-haiku --accept-unreviewed-code`; the keys are
+# those of smoke.yaml and evolve-smoke.yaml, each explained there.
+model: haiku-5-5
+domain: [itsm, csm, hr]
+mode: all_tools
+attempts: 1
+concurrency: 4
+trace: false
+split: seed-1
+proposer_model: haiku-5-5
+rounds: 10
+candidates: 1
+alpha: 0.05
+filter_share: 0.5
+filter_threshold: 0
+pool_share: 0.5
+pool_pick: spread
+# The proposer may change the agent's instructions and its code, and no
+# person reads a change before it runs, which the command must be told is
+# accepted (--accept-unreviewed-code).
+editable: [".md", ".py"]
+approval: none
