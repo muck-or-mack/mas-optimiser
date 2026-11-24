@@ -108,13 +108,24 @@ and not the agent: an attempt is ended after `attempt_timeout` seconds
 recorded as an error. A change that makes the agent loop without end
 therefore costs one attempt's limit and not the experiment.
 
-A failure of the model service is kept apart from a failure of the harness.
-An attempt that ends because a call to the model failed is run again once
-the service answers a one-word question, and an attempt the service never
-answered is no score at all: the experiment stops there and carries on from
-that job when the command is given again. Without this a run that sets the
-yardstick, hit by an outage, would score too low, and the next candidate
-would look better than it is.
+A failure of a service is kept apart from a failure of the harness. An
+attempt that ends because a call to the model failed is run again once the
+model service answers a one-word question, and one that ends in an error
+while the domain's server is down is run again once the server answers its
+health check. An attempt the service never answered is no score at all: the
+experiment stops there and carries on from that job when the command is
+given again. Without this a run that sets the yardstick, hit by an outage,
+would score too low, and the next candidate would look better than it is.
+
+An attempt that ends in an error while its services answer is the harness's
+failure, and a result like any other: it scores zero. An agent that asks for
+a tool the server does not have ends this way, because the benchmark ends
+such an attempt, and a weaker model does it more often. These attempts do
+not stop an experiment, however many they are, and a change after which
+fewer attempts end in an error gains by it at the gate. The released loop
+counts every attempt that ended in an error as one with no result, and
+refuses a job with more than 15% of them; here that limit is kept for
+attempts that left no result at all.
 
 A person's no is a decision made outside the gate. An experiment run with
 `approval: each` is the loop with a person in it, and is reported as such.
@@ -197,17 +208,17 @@ same traces read again, and `spread` has other tasks read.
 The search roles run under limits that are constants of the released code.
 Its paper does not give them, and they are not settings here.
 
-| limit                                                                   | value            |
-|-------------------------------------------------------------------------|------------------|
-| turns the analyst may take in a round                                   | 30               |
-| digesters the analyst may send in one turn                              | 8                |
-| calls to the model by one digester                                      | 15               |
-| length of one digest                                                    | 6,000 characters |
-| turns the proposer may take on one candidate                            | 40               |
-| edits the proposer may make in one drafting of a candidate              | 80               |
-| characters of a trace given to the proposer by one read                 | 60,000           |
-| times a proposal is sent back after the reviewer objects                | 5                |
-| share of a job's attempts that may be missing before the job is refused | 15%              |
+| limit                                                                            | value            |
+|----------------------------------------------------------------------------------|------------------|
+| turns the analyst may take in a round                                            | 30               |
+| digesters the analyst may send in one turn                                       | 8                |
+| calls to the model by one digester                                               | 15               |
+| length of one digest                                                             | 6,000 characters |
+| turns the proposer may take on one candidate                                     | 40               |
+| edits the proposer may make in one drafting of a candidate                       | 80               |
+| characters of a trace given to the proposer by one read                          | 60,000           |
+| times a proposal is sent back after the reviewer objects                         | 5                |
+| share of a job's attempts that may have left no result before the job is refused | 15%              |
 
 ## The gate inside the loop
 
@@ -431,10 +442,10 @@ the gate asks for a gain that a test at a stated error level supports.
 - A rule on cost. The record holds every candidate's change in tokens, and
   no decision uses it.
 - Carrying a job on from where it stopped. A job that was interrupted, or
-  that holds an attempt the model service never answered, is run again as a
-  whole. So is a job with more than 15% of its attempts in error, once; if
-  it is then still so, a baseline stops the experiment and a candidate is
-  set aside.
+  that holds an attempt a service never answered, is run again as a whole.
+  So is a job with more than 15% of its attempts left without a result,
+  once; if it is then still so, a baseline stops the experiment and a
+  candidate is set aside.
 - A second benchmark. The loop holds nothing of this benchmark's; another
   one needs a class like `domain.EnterpriseOps`.
 

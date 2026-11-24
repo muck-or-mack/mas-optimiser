@@ -208,7 +208,7 @@ def test_run_starts_one_run_per_domain_with_the_harness_and_the_set(
     assert "--split" not in commands[0]
 
 
-def test_run_leaves_a_finished_job_alone_and_repeats_one_with_an_error(
+def test_run_leaves_a_finished_job_alone_and_repeats_one_with_no_verdict(
     benchmark, tmp_path, monkeypatch
 ):
     commands = []
@@ -219,17 +219,29 @@ def test_run_leaves_a_finished_job_alone_and_repeats_one_with_an_error(
             commands.append(command) or SimpleNamespace(returncode=0)
         ),
     )
+    # Every attempt has a row: finished, an attempt that the harness ended
+    # in an error included, since that is a result like any other.
     out = tmp_path / "jobs" / "done"
-    write_rows(out, [("itsm", "t1", 1, 4, ""), ("hr", "t3", 1, 2, "")])
+    write_rows(out, [("itsm", "t1", 1, 4, ""), ("hr", "t3", 1, 0, "no such tool")])
     benchmark.run(tmp_path, tmp_path, "done", ["t1", "t3"], 1)
     assert commands == []
-    out = tmp_path / "jobs" / "broken"
-    write_rows(out, [("itsm", "t1", 1, 0, "the model did not answer")])
-    benchmark.run(tmp_path, tmp_path, "broken", ["t1"], 1)
+    # An attempt has no row: the job was cut short, and is run again whole.
+    out = tmp_path / "jobs" / "short"
+    write_rows(out, [("itsm", "t1", 1, 4, "")])
+    benchmark.run(tmp_path, tmp_path, "short", ["t1", "t3"], 1)
+    assert len(commands) == 2 and not out.exists()
+    # An attempt a service never answered is no verdict: run again whole.
+    commands.clear()
+    out = tmp_path / "jobs" / "unanswered"
+    (out / "itsm").mkdir(parents=True)
+    (out / "itsm" / "tasks.csv").write_text(
+        "task_id,attempt,error,service_error\nt1,1,down,True\n"
+    )
+    benchmark.run(tmp_path, tmp_path, "unanswered", ["t1"], 1)
     assert len(commands) == 1 and not out.exists()
 
 
-def test_run_stops_the_experiment_when_the_model_service_did_not_answer(
+def test_run_stops_the_experiment_when_a_service_did_not_answer(
     benchmark, tmp_path, monkeypatch
 ):
     out = tmp_path / "jobs" / "r0A"
@@ -244,25 +256,26 @@ def test_run_stops_the_experiment_when_the_model_service_did_not_answer(
         return SimpleNamespace(returncode=1)
 
     monkeypatch.setattr(adapter.subprocess, "run", run)
-    with pytest.raises(SystemExit, match="1 attempts of r0A ended because the model"):
+    with pytest.raises(SystemExit, match="1 attempts of r0A ended because a service"):
         benchmark.run(tmp_path / "checkout", tmp_path, "r0A", ["t1"], 1)
 
 
-def test_score_is_the_fraction_of_checks_and_an_error_is_a_missing_attempt(
+def test_score_is_the_fraction_of_checks_and_an_error_is_a_failure_not_a_gap(
     benchmark, tmp_path
 ):
     rows = [
         ("itsm", "t1", 1, 4, ""),
         ("itsm", "t1", 2, 2, ""),
-        ("itsm", "t2", 1, 3, "the model did not answer"),
+        ("itsm", "t2", 1, 0, "no such tool"),
     ]
     write_rows(tmp_path / "jobs" / "a-job", rows)
     per_task, totals = benchmark.score(tmp_path, "a-job", ["t1", "t2"], 2)
     assert per_task["t1"].rewards == [1.0, 0.5] and per_task["t1"].missing == 0
     assert per_task["t1"].tokens == [110, 110]
-    # One attempt ended in an error and one never ran: both missing, both zero.
-    assert per_task["t2"].rewards == [0.0, 0.0] and per_task["t2"].missing == 2
-    assert totals == {"attempts_passed": 1, "cost_usd": 0.02, "seconds": 10}
+    # One attempt ended in an error, which is the harness's failure and a
+    # result; one never ran, which is the only attempt missing. Both zero.
+    assert per_task["t2"].rewards == [0.0, 0.0] and per_task["t2"].missing == 1
+    assert totals == {"attempts_passed": 1, "cost_usd": 0.03, "seconds": 15}
 
 
 def test_the_trace_marks_each_turn_and_the_checks(benchmark):

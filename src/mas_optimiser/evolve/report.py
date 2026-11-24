@@ -69,7 +69,7 @@ ENDED = {
 
 
 def attempts(job: Path) -> pd.DataFrame:
-    """A job's attempts over its domains, without those the model service never answered.
+    """A job's attempts over its domains, without those a service they need never answered.
 
     Args:
         job: The job's folder, holding one evaluation folder per domain.

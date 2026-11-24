@@ -857,13 +857,19 @@ def test_an_attempt_ended_by_a_failed_call_is_settled_by_asking_the_service(
             waited.append(wait)
             return answers
 
+    async def server_up(urls, wait):
+        return True
+
     monkeypatch.setattr(runner, "TaskExecutor", Failed)
+    monkeypatch.setattr(runner, "servers_answer", server_up)
     monkeypatch.setattr(runner, "BenchmarkConfig", lambda **fields: fields)
     monkeypatch.setattr(runner.states, "seed_copy", lambda path, domain: ((), {}))
     saved = []
     monkeypatch.setattr(runner, "save_attempt", lambda *args: saved.append(args))
     config = {
-        "gym_servers_config": [{"seed_database_file": "s.sql"}],
+        "gym_servers_config": [
+            {"seed_database_file": "s.sql", "mcp_server_url": "http://server"}
+        ],
         "selected_tools": [],
     }
     attempt = runner.run_task(
@@ -896,6 +902,125 @@ def test_an_attempt_ended_by_a_failed_call_is_settled_by_asking_the_service(
         assert outcome["service_error"] is expected
         assert outcome["error"] == "the line dropped" and len(saved) == 1
     assert waited == [90]
+
+
+def test_the_domain_servers_are_asked_for_their_health_until_they_answer(monkeypatch):
+    asked = []
+
+    async def no_sleep(seconds):
+        return None
+
+    monkeypatch.setattr(runner.asyncio, "sleep", no_sleep)
+
+    def servers(replies):
+        class Client:
+            def __init__(self, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return None
+
+            async def get(self, url):
+                asked.append(url)
+                reply = replies.pop(0)
+                if isinstance(reply, Exception):
+                    raise reply
+                return SimpleNamespace(raise_for_status=lambda: None)
+
+        monkeypatch.setattr(runner.httpx, "AsyncClient", Client)
+
+    urls = ["http://one", "http://two"]
+    # Both answer: each is asked once for its health.
+    servers(["up", "up"])
+    assert asyncio.run(runner.servers_answer(urls, 0)) is True
+    assert asked == ["http://one/health", "http://two/health"]
+    # One is down and there is no time to wait: no answer.
+    servers(["up", runner.httpx.ConnectError("down")])
+    assert asyncio.run(runner.servers_answer(urls, 0)) is False
+    # Down, and back the second time of asking within the wait.
+    asked.clear()
+    servers([runner.httpx.ConnectError("down"), "up", "up"])
+    assert asyncio.run(runner.servers_answer(urls, 600)) is True and len(asked) == 3
+
+
+@pytest.mark.parametrize(
+    ("at_once", "in_time", "retry", "expected"),
+    [
+        # The server answers at once: the error is the harness's own.
+        (True, None, True, False),
+        # It was down and came back: the attempt is asked for again.
+        (False, True, True, "repeat"),
+        # It came back with no try left: the failure stands as the harness's.
+        (False, True, False, False),
+        # It never came back: the attempt is marked as the service's.
+        (False, False, True, True),
+    ],
+)
+def test_an_attempt_ended_by_an_error_is_the_harnesses_only_if_its_server_answers(
+    tmp_path, monkeypatch, at_once, in_time, retry, expected
+):
+    asked = []
+
+    class Failed:
+        diagnosis_error, changes, call_error = None, None, None
+        names = checks.prepare("task_a", [])[1]
+        layout = {"keys": {}}
+
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def execute_benchmark(self):
+            return {"runs": [{"run_number": 1, "error": "no such tool"}]}
+
+    async def servers_answer(urls, wait):
+        asked.append((urls, wait))
+        return at_once if wait == 0 else in_time
+
+    monkeypatch.setattr(runner, "TaskExecutor", Failed)
+    monkeypatch.setattr(runner, "servers_answer", servers_answer)
+    monkeypatch.setattr(runner, "BenchmarkConfig", lambda **fields: fields)
+    monkeypatch.setattr(runner.states, "seed_copy", lambda path, domain: ((), {}))
+    saved = []
+    monkeypatch.setattr(runner, "save_attempt", lambda *args: saved.append(args))
+    config = {
+        "gym_servers_config": [
+            {"seed_database_file": "s.sql", "mcp_server_url": "http://server"}
+        ],
+        "selected_tools": [],
+    }
+    attempt = runner.run_task(
+        "task_a",
+        config,
+        1,
+        SimpleNamespace(),
+        PRICING,
+        tmp_path,
+        domain="itsm",
+        trace=False,
+        thinking=None,
+        caching=False,
+        timeout=None,
+        agent=None,
+        tags=[],
+        arguments={},
+        retry=retry,
+        wait=90,
+    )
+    if expected == "repeat":
+        with pytest.raises(runner.Repeat):
+            asyncio.run(attempt)
+        assert saved == []
+    else:
+        outcome, _, _, _ = asyncio.run(attempt)
+        assert outcome["service_error"] is expected
+        assert outcome["error"] == "no such tool" and len(saved) == 1
+    # Asked once with no waiting, and waited for only when it was down.
+    waits = [wait for _, wait in asked]
+    assert waits == ([0] if at_once else [0, 90])
+    assert asked[0][0] == ["http://server"]
 
 
 def test_run_tasks_runs_an_attempt_again_when_asked_and_no_more_than_allowed(
@@ -947,7 +1072,7 @@ def test_run_tasks_runs_an_attempt_again_when_asked_and_no_more_than_allowed(
     assert "task_a attempt 1 no service:" in capsys.readouterr().out
 
 
-def test_totals_leave_out_an_attempt_the_model_service_did_not_answer():
+def test_totals_leave_out_an_attempt_a_service_did_not_answer():
     row = {"task_id": "t1", "success": True, "error": "", "benchmark_success": True}
     row |= dict.fromkeys(set(runner.SUMMED) - {"benchmark_successes"}, 1)
     lost = row | {"task_id": "t2", "success": False, "error": "down"}
@@ -968,7 +1093,7 @@ def test_a_run_with_attempts_the_service_did_not_answer_ends_in_an_error(
     monkeypatch.setattr(runner, "evaluate", lambda *args, **kwargs: 2)
     unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
     chosen = {"experiment": "smoke", "out": tmp_path / "e", "trace": False}
-    with pytest.raises(SystemExit, match="2 attempts ended because the model service"):
+    with pytest.raises(SystemExit, match="2 attempts ended because a service"):
         runner.run(SimpleNamespace(**(unset | chosen)))
 
 
@@ -1001,12 +1126,18 @@ def test_an_attempt_past_its_seconds_is_ended_and_recorded_as_an_error(
         async def execute_benchmark(self):
             await asyncio.sleep(60)
 
+    async def server_up(urls, wait):
+        return True
+
     monkeypatch.setattr(runner, "TaskExecutor", Stuck)
+    monkeypatch.setattr(runner, "servers_answer", server_up)
     monkeypatch.setattr(runner, "BenchmarkConfig", lambda **fields: fields)
     monkeypatch.setattr(runner.states, "seed_copy", lambda path, domain: ((), {}))
     monkeypatch.setattr(runner, "save_attempt", lambda *args: None)
     config = {
-        "gym_servers_config": [{"seed_database_file": "s.sql"}],
+        "gym_servers_config": [
+            {"seed_database_file": "s.sql", "mcp_server_url": "http://server"}
+        ],
         "selected_tools": [],
     }
     outcome, _, _, _ = asyncio.run(
