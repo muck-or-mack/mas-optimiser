@@ -1,6 +1,6 @@
 """Start and stop a self-hosted model's server: the ``server`` command.
 
-A model file with a ``server`` block (``configs/models/qwen3.6-27b.yaml``)
+A model file with a ``server`` block (``configs/models/qwen3.6-27b-fp8.yaml``)
 names a release of vLLM and the options its server starts with.
 ``mas-optimiser server <model>`` installs that release into an environment of
 its own, the first time, and starts the server as a background process

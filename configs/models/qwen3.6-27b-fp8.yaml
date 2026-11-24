@@ -1,0 +1,64 @@
+# Qwen3.6-27B-FP8 (Apache-2.0): Qwen3.6-27B with its weights stored in 8 bits
+# each and not 16, published by the model's authors
+# (huggingface.co/Qwen/Qwen3.6-27B-FP8), who report its results as nearly the
+# same as the released model's. At half the size it fits one card of 48 GB,
+# where the released model (qwen3.6-27b.yaml) needs two. It is another model:
+# results on it are reported under this name. Start its server with
+# `mas-optimiser server qwen3.6-27b-fp8`.
+#
+# Keys are the benchmark's LLMConfig fields (benchmark/models.py), plus the
+# server block at the end. Everything is as in qwen3.6-27b.yaml but the model,
+# the port and the number of cards.
+#
+# Three lines describe the machine and not the model, and are the ones to
+# change for other hardware: the port in llm_api_endpoint, and the options
+# --tensor-parallel-size and --max-model-len of the server. As written they
+# suit one card of 48 GB with nothing else on it; docs/gpu-memory.md shows
+# where the memory goes. The 8-bit arithmetic needs a card of NVIDIA's Ada
+# Lovelace generation or newer (an L40 is one); on an older card vLLM runs
+# the model with the weights alone in 8 bits.
+llm_provider: vllm
+llm_model: Qwen/Qwen3.6-27B-FP8
+# Where the server listens, as seen from the machine that runs the tasks. With
+# the server on another machine, forward its port and keep localhost here.
+# The port is one few programs use (8000, the usual one, is often taken on a
+# shared machine); `mas-optimiser server` says so if another program has it.
+llm_api_endpoint: http://localhost:8028/v1
+# No api_key_env: a server started without --api-key asks for none. If it is
+# started with one, name here the variable in .env that holds it.
+# The model card's sampling settings for its thinking mode on general tasks.
+temperature: 1.0
+top_p: 0.95
+# Thinking is on by default and its tokens count towards max_tokens.
+max_tokens: 16384
+# A self-hosted model has no price per token, so the cost in dollars is zero
+# and the measures of cost are the tokens and the seconds, which every
+# attempt records.
+pricing:
+  input: 0
+  output: 0
+  cache_read: 0
+  cache_write: 0
+  long_prompt_tokens: 0
+  long_prompt_multiplier: 1
+# How `mas-optimiser server` starts the server: the release of vLLM, then the
+# options of `vllm serve` that follow the model's name. The options join the
+# model card's commands for tool calling and for text only.
+server:
+  # One release, so that a later one cannot change a run. The model card asks
+  # for 0.19.0 or newer; releases after 0.32.0 need an NVIDIA driver that
+  # supports CUDA 13.
+  vllm: "0.34.0"
+  args:
+    # The machine. The number of GPUs the model's layers are spread over:
+    - --tensor-parallel-size=1
+    # The longest prompt and answer together, in tokens. The model takes
+    # 262,144; a smaller limit needs less GPU memory for the prompt cache.
+    - --max-model-len=131072
+    # The model. Text only: the image and video inputs are switched off.
+    - --language-model-only
+    # The model's thinking is returned apart from its answer.
+    - --reasoning-parser=qwen3
+    # The model's tool calls are returned as tool calls, not as text.
+    - --enable-auto-tool-choice
+    - --tool-call-parser=qwen3_coder
