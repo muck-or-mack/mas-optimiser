@@ -44,6 +44,7 @@ import os
 import re
 import runpy
 from contextlib import nullcontext
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
@@ -125,7 +126,8 @@ EXPERIMENT_DEFAULTS = {
     "editable": [".md", ".py"],
     "approval": "none",
 }
-# The providers whose client takes the time limit on a model call:
+# The providers whose client takes the time limit on a model call and the
+# number of tries of a failed one:
 # Anthropic's, and the OpenAI-style client the benchmark builds for the other
 # three (``vllm`` for a self-hosted server, ``openrouter`` for a hosted one).
 TIMEOUT_PROVIDERS = ("anthropic", "openai", "azureopenai", "vllm", "openrouter")
@@ -268,7 +270,7 @@ class TaskExecutor(BenchmarkExecutor):
         self.diagnosis_error = None
 
     async def initialize(self):
-        """Build the clients as the benchmark does, then attach tracing, the thinking setting, prompt caching and the time limit to the model.
+        """Build the clients as the benchmark does, then attach tracing, the thinking setting, prompt caching, the time limit and the tries of a failed call to the model.
 
         The executor builds its model client here, so this is the first point
         at which the model object exists.
@@ -305,6 +307,16 @@ class TaskExecutor(BenchmarkExecutor):
                 # Anthropic's client is built on the first call, so a limit
                 # set on the model here applies.
                 model.default_request_timeout = self.timeout
+        retries = self.llm_config.max_retries
+        if retries is not None:
+            # How many more times the provider's library sends a call that
+            # was refused or got no answer, waiting between tries for as long
+            # as the service asks. It goes on the two clients the time limit
+            # goes on, in the same two ways.
+            if hasattr(model, "root_async_client"):
+                model.root_async_client.max_retries = retries
+            else:
+                model.max_retries = retries
         if self.calls:
             # Counted where the harness reaches the model, in a client the
             # harness is handed and does not build, so that no change to the
@@ -830,10 +842,24 @@ def tool_arguments(out: Path) -> dict[str, list[str]]:
     }
 
 
-def load_model(path: Path) -> tuple[LLMConfig, dict]:
-    """The benchmark's model config and the price table from a model file.
+@dataclass
+class ModelConfig(LLMConfig):
+    """The benchmark's model config, with one setting of the provider's library.
 
-    The file holds ``LLMConfig`` fields and ``pricing``, the ``PRICING_KEYS``
+    Attributes:
+        max_retries: How many more times the provider's library sends a call
+            that failed in a way worth repeating (a refusal for a rate limit,
+            a time-out, a server error), waiting between tries for as long as
+            the service asks; ``None`` leaves the library's own number.
+    """
+
+    max_retries: int | None = None
+
+
+def load_model(path: Path) -> tuple[ModelConfig, dict]:
+    """The model config and the price table from a model file.
+
+    The file holds ``ModelConfig`` fields and ``pricing``, the ``PRICING_KEYS``
     in US dollars per million tokens. What belongs to one's own account is
     kept out of the file: a key ending in ``_env`` names the variable of the
     environment that holds the value of the field it is named after
@@ -851,7 +877,9 @@ def load_model(path: Path) -> tuple[LLMConfig, dict]:
 
     Raises:
         SystemExit: If a price is missing, before any money is spent on runs
-            whose cost could not be reported.
+            whose cost could not be reported, or if ``max_retries`` is not a
+            whole number or is set for a provider outside
+            ``TIMEOUT_PROVIDERS``.
         RuntimeError: If the file names a variable of the environment and it
             is not set.
     """
@@ -872,7 +900,18 @@ def load_model(path: Path) -> tuple[LLMConfig, dict]:
             )
         field = "llm_api_key" if name == "api_key_env" else name.removesuffix("_env")
         fields[field] = os.environ[variable]
-    return LLMConfig(**{"llm_api_key": ""} | fields), pricing
+    retries = fields.get("max_retries")
+    if retries is not None:
+        if type(retries) is not int or retries < 0:
+            raise SystemExit(
+                f"error: {path}: max_retries must be a whole number, zero or more"
+            )
+        if fields.get("llm_provider") not in TIMEOUT_PROVIDERS:
+            raise SystemExit(
+                f"error: {path}: max_retries is built for the providers "
+                f"{', '.join(TIMEOUT_PROVIDERS)}"
+            )
+    return ModelConfig(**{"llm_api_key": ""} | fields), pricing
 
 
 def cost(usage: list[dict], pricing: dict) -> float:

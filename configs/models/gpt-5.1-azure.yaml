@@ -18,6 +18,13 @@ max_tokens: 16384
 # How much the model reasons before it answers: none, low, medium or high.
 # Left out, it is none, the model's own default.
 # effort: low
+# How many more times a call is sent when the service refuses it or gives no
+# answer; left out, the library's own 2. A deployment refuses calls while its
+# allowance of tokens a minute is used up, as one shared with other users
+# often is, and says how long to wait, a few seconds as a rule: each try
+# waits that long. The limit on an attempt's seconds (attempt_timeout, in
+# the experiment file) is the cap on the waiting.
+max_retries: 1000
 # US dollars per million tokens, from OpenAI's price list for gpt-5.1
 # (developers.openai.com/api/docs/pricing, read 24/11/2026; Azure's own page
 # gave no figures). Input that repeats from call to call is stored by the

@@ -119,6 +119,26 @@ def test_load_model_takes_the_key_from_the_environment(tmp_path, monkeypatch):
         runner.load_model(path)
 
 
+def test_a_model_file_may_set_the_tries_of_a_failed_call(tmp_path):
+    path = tmp_path / "model.yaml"
+    prices = "pricing:\n" + "".join(f"  {k}: 1\n" for k in PRICING)
+    path.write_text("llm_provider: vllm\nllm_model: m\nmax_retries: 7\n" + prices)
+    assert runner.load_model(path)[0].max_retries == 7
+    # Left out, the provider's library keeps its own number.
+    path.write_text("llm_provider: vllm\nllm_model: m\n" + prices)
+    assert runner.load_model(path)[0].max_retries is None
+    for wrong in ("-1", "2.5", "true", "many"):
+        path.write_text(
+            f"llm_provider: vllm\nllm_model: m\nmax_retries: {wrong}\n" + prices
+        )
+        with pytest.raises(SystemExit, match="whole number"):
+            runner.load_model(path)
+    # A provider whose client is not known here.
+    path.write_text("llm_provider: google\nllm_model: m\nmax_retries: 7\n" + prices)
+    with pytest.raises(SystemExit, match="built for the providers"):
+        runner.load_model(path)
+
+
 def test_a_model_file_takes_what_belongs_to_an_account_from_the_environment(
     tmp_path, monkeypatch
 ):
@@ -156,6 +176,8 @@ def test_the_azure_file_names_four_variables_and_records_no_address(
         "api_version",
     )
     assert pricing["cache_read"] < pricing["input"] < pricing["output"]
+    # More tries than the library's own, for a deployment that limits its rate.
+    assert config.max_retries > 2
     # A run on it hands the evaluation the variable's name for the address.
     seen = {}
     monkeypatch.setattr(runner.tracing, "configured", lambda: False)
@@ -606,6 +628,7 @@ def test_the_executor_switches_prompt_caching_on_only_when_asked(monkeypatch, ca
     executor = runner.TaskExecutor.__new__(runner.TaskExecutor)
     executor.trace, executor.thinking, executor.caching = False, None, caching
     executor.timeout = executor.calls = None
+    executor.llm_config = SimpleNamespace(max_retries=None)
     asyncio.run(executor.initialize())
     tools = [{"name": "find_user", "description": "Finds a user."}]
     last = executor.llm_client._convert_mcp_tools_to_langchain(tools)[-1]
@@ -665,6 +688,7 @@ def test_the_executor_puts_the_time_limit_on_the_model_client(
     executor = runner.TaskExecutor.__new__(runner.TaskExecutor)
     executor.trace, executor.thinking, executor.caching = False, None, False
     executor.timeout, executor.calls = timeout, None
+    executor.llm_config = SimpleNamespace(max_retries=None)
     asyncio.run(executor.initialize())
     # The client that sends the calls; with nothing set the benchmark's own
     # model waits without limit, whichever provider it is built for.
@@ -674,6 +698,36 @@ def test_the_executor_puts_the_time_limit_on_the_model_client(
     if provider != "anthropic":
         # The calls go through the client that carries the limit.
         assert model.async_client._client is client
+
+
+@pytest.mark.parametrize("provider", runner.TIMEOUT_PROVIDERS)
+@pytest.mark.parametrize("retries", [7, None])
+def test_the_executor_puts_the_tries_of_a_failed_call_on_the_model_client(
+    monkeypatch, provider, retries
+):
+    from benchmark.llm_client import LLMClient
+
+    async def build_client(self):
+        self.llm_client = LLMClient(
+            provider,
+            "a-model",
+            "not-a-key",
+            api_endpoint="http://localhost:9/v1",
+            api_version="2025-01-01",
+        )
+
+    monkeypatch.setattr(runner.BenchmarkExecutor, "initialize", build_client)
+    executor = runner.TaskExecutor.__new__(runner.TaskExecutor)
+    executor.trace, executor.thinking, executor.caching = False, None, False
+    executor.timeout = executor.calls = None
+    executor.llm_config = runner.ModelConfig(
+        provider, "a-model", "not-a-key", max_retries=retries
+    )
+    asyncio.run(executor.initialize())
+    model = executor.llm_client.llm
+    client = model._async_client if provider == "anthropic" else model.root_async_client
+    # With nothing set, each provider's library sends a failed call twice more.
+    assert client.max_retries == (2 if retries is None else retries)
 
 
 def test_the_executor_caps_the_model_calls_of_an_attempt(monkeypatch):
@@ -692,6 +746,7 @@ def test_the_executor_caps_the_model_calls_of_an_attempt(monkeypatch):
     executor = runner.TaskExecutor.__new__(runner.TaskExecutor)
     executor.trace, executor.thinking, executor.caching = False, None, False
     executor.timeout, executor.calls = None, 2
+    executor.llm_config = SimpleNamespace(max_retries=None)
     asyncio.run(executor.initialize())
 
     async def three_calls():

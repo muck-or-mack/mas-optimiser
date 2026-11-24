@@ -101,6 +101,7 @@ keys; every shipped file has a comment on each.
 | `api_key_env`                                  | the name of the variable of `.env` that holds the key; left out for a server that asks for none                                                                    |
 | a key ending in `_env`                         | the name of the variable of `.env` that holds the value of the field it is named after: `llm_api_endpoint_env` for `llm_api_endpoint`                              |
 | `temperature`, `top_p`, `max_tokens`, `effort` | how the model samples, the most tokens of an answer, and how much it reasons                                                                                       |
+| `max_retries`                                  | how many more times a call is sent when the service refuses it or gives no answer; left out, the provider's library sends it twice more                            |
 | `pricing`                                      | US dollars per million tokens, six figures, from the provider's price list; all zero for a server of one's own                                                     |
 | `server`                                       | for a model served on the machine: how its server is started                                                                                                       |
 
@@ -293,14 +294,27 @@ it was used, and costs with and without it are not comparable.
 
 A call to the model has a time limit of 300 seconds (`model_timeout: 300`;
 `--model-timeout <seconds>` changes it for one command). A try that gets no
-answer in that time is given up and repeated, up to nine tries in all, and
-if none succeeds the attempt is recorded as an error and counted as a
-failure. Without a limit, a connection that goes silent would hold the run
-for ever; real calls answer in seconds. The limit is set on the provider's
-own client, for Anthropic models and for models reached through an
-OpenAI-style client (the providers `openai`, `azureopenai`, `vllm` and
-`openrouter`); with
-any other provider none is set and the run says so.
+answer in that time is given up and repeated, up to nine tries in all unless
+the model file sets `max_retries`, and if none succeeds the attempt is
+recorded as an error and counted as a failure. Without a limit, a connection
+that goes silent would hold the run for ever; real calls answer in seconds.
+The limit is set on the provider's own client, for Anthropic models and for
+models reached through an OpenAI-style client (the providers `openai`,
+`azureopenai`, `vllm` and `openrouter`); with any other provider none is set
+and the run says so.
+
+A service may also refuse a call outright, most often because its rate
+limit is used up: a deployment allows so many tokens a minute, and one
+shared with other users is often at that ceiling. The service says how long
+to wait, a few seconds as a rule, and the provider's library waits that
+long and sends the call again, twice at most unless the model file gives
+another number as `max_retries` (`configs/models/gpt-5.1-azure.yaml` gives
+1,000). The benchmark's client makes three such rounds, and a call still
+refused ends the attempt as an error. The waiting counts towards the
+attempt's limit of seconds, described next, which is the cap on it. A
+call of one of the improvement loop's own roles has the same limit of
+seconds as an attempt. A run's `evaluation.log`, in its folder, has a line
+for every answer and every refusal, with the wait after each.
 
 An attempt as a whole has two limits of its own: 3,600 seconds
 (`attempt_timeout`) and 100 calls to the model (`attempt_calls`), with
