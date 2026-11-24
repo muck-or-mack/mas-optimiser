@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Experiment planner</title>
+<style>
+:root {
+  color-scheme: light;
+  --plane: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+  --series: #2a78d6; --context: #898781; --wash: #cde2fb; --warn: #d03b3b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --plane: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --series: #3987e5; --context: #898781; --wash: #184f95; --warn: #e66767;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--plane); color: var(--ink);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 48px; }
+h1 { font-size: 24px; margin: 0 0 4px; }
+h2 { font-size: 16px; margin: 0 0 12px; }
+p { margin: 0 0 12px; color: var(--ink-2); max-width: 78ch; }
+.layout { display: grid; grid-template-columns: 340px 1fr; gap: 16px; align-items: start; }
+@media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+fieldset { border: 0; padding: 0; margin: 0 0 14px; }
+legend { font-weight: 600; padding: 0; margin-bottom: 6px; }
+.row { display: grid; grid-template-columns: 1fr 84px; gap: 4px 8px; align-items: center; margin-bottom: 8px; }
+.row label { color: var(--ink-2); }
+.row input[type=number], select { width: 100%; padding: 4px 6px; font: inherit; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--axis); border-radius: 4px; }
+.row input[type=range] { grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--series); }
+.row input:disabled { color: var(--muted); }
+.modes label { display: block; margin-bottom: 4px; color: var(--ink); }
+.tag { font-size: 12px; color: var(--muted); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+.tile .label { color: var(--ink-2); font-size: 13px; }
+.tile .value { font-size: 26px; font-weight: 600; }
+.tile .note { color: var(--muted); font-size: 12px; }
+.alert { border-left: 3px solid var(--warn); padding: 6px 10px; margin-bottom: 12px; color: var(--ink); display: none; }
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+svg text { fill: var(--ink-2); font: 12px system-ui, -apple-system, "Segoe UI", sans-serif; }
+svg .strong { fill: var(--ink); font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; color: var(--ink-2); font-size: 13px; margin-bottom: 4px; }
+.key { display: inline-block; width: 18px; height: 0; border-top: 2px solid var(--series); vertical-align: middle; margin-right: 6px; }
+.key.context { border-color: var(--context); }
+.tip { position: fixed; pointer-events: none; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 9px; font-size: 13px; box-shadow: 0 2px 10px rgba(0,0,0,0.12); display: none; z-index: 2; }
+.tip b { color: var(--ink); }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: right; padding: 4px 8px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--ink-2); font-weight: 600; }
+tfoot td { font-weight: 600; border-bottom: 0; }
+details summary { cursor: pointer; color: var(--ink-2); margin-bottom: 8px; }
+.bar:focus { outline: 2px solid var(--ink); outline-offset: 1px; }
+</style>
+</head>
+<body>
+<main>
+<h1>Experiment planner</h1>
+<p>What an experiment of the improvement loop can show, and what it costs, for a design of your choosing. Every figure is worked out from the formulas of the page "Sizing an experiment"; nothing here runs anything. Figures marked <em>measured</em> come from stored runs, and those marked <em>assumed</em> are placeholders to replace with your own.</p>
+
+<div class="layout">
+<div>
+  <div class="card">
+    <h2>The design</h2>
+    <fieldset class="modes">
+      <legend>What is fixed</legend>
+      <label><input type="radio" name="mode" value="sizes" checked> I choose the split, and see what it can show</label>
+      <label><input type="radio" name="mode" value="targets"> I choose what it must show, and see the split</label>
+    </fieldset>
+    <fieldset id="design"></fieldset>
+  </div>
+  <div class="card">
+    <h2>The model</h2>
+    <div class="row"><label for="preset">Figures of</label><span></span>
+      <select id="preset" style="grid-column: 1 / -1"></select></div>
+    <fieldset id="model"></fieldset>
+  </div>
+</div>
+
+<div>
+  <div class="alert" id="alert" role="status"></div>
+  <div class="tiles" id="tiles"></div>
+
+  <div class="card">
+    <h2>The smallest gain the gate finds, against the validation tasks</h2>
+    <p>The true gain that the gate keeps with the chosen power at the first decision of an experiment. The dot is this design. Theory, not data: it supposes the spread of a task's difference given under "The model", divided by the square root of the attempts at each task.</p>
+    <div class="legend" id="curve-legend"></div>
+    <svg id="curve" viewBox="0 0 720 300" role="img" aria-label="Smallest gain found against the number of validation tasks"></svg>
+  </div>
+
+  <div class="card">
+    <h2>Where the dollars go</h2>
+    <p>Each part of the experiment, largest first.</p>
+    <svg id="bars" viewBox="0 0 720 260" role="img" aria-label="Dollars of each part of the experiment"></svg>
+    <details>
+      <summary>The same as a table, with runs, tokens and hours</summary>
+      <table id="parts"></table>
+    </details>
+  </div>
+</div>
+</div>
+<div class="tip" id="tip"></div>
+</main>
+
+<script>
+"use strict";
+// ---------------------------------------------------------------- the arithmetic
+// The standard normal quantile (Acklam's rational approximation).
+function normInv(p) {
+  const a = [-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02, 1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00];
+  const b = [-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02, 6.680131188771972e+01, -1.328068155288572e+01];
+  const c = [-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00, -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00];
+  const d = [7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00, 3.754408661907416e+00];
+  if (p < 0.02425) { const q = Math.sqrt(-2 * Math.log(p));
+    return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1); }
+  if (p > 1 - 0.02425) return -normInv(1 - p);
+  const q = p - 0.5, r = q * q;
+  return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q / (((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);
+}
+// The quantile of Student's t, from the normal one (Cornish and Fisher's expansion).
+function tInv(p, df) {
+  const z = normInv(p);
+  return z + (z**3 + z) / (4 * df) + (5 * z**5 + 16 * z**3 + 3 * z) / (96 * df * df);
+}
+function choose(n, k) { let c = 1; for (let i = 0; i < k; i++) c = c * (n - i) / (i + 1); return c; }
+// The level of one decision: round t, p changes kept before it, m candidates a round.
+function level(alpha, t, p, m) {
+  return alpha / (t * (t + 1)) / ((p + 1) * (p + 2)) / (choose(t - 1, p) * m ** (p + 1));
+}
+// The smallest true gain kept with the power given, in points.
+function detectable(spread, tasks, attempts, lvl, power) {
+  if (tasks < 3) return Infinity;
+  return (tInv(1 - lvl, tasks - 1) + tInv(power, tasks - 1)) * spread / Math.sqrt(attempts * tasks);
+}
+// How far either side of the measured gain its 95% confidence interval reaches, in points.
+function interval(spread, tasks, attempts) {
+  if (tasks < 3) return Infinity;
+  return tInv(0.975, tasks - 1) * spread / Math.sqrt(attempts * tasks);
+}
+function fewest(reaches) { for (let n = 3; n <= 100000; n++) if (reaches(n)) return n; return Infinity; }
+
+function compute(s) {
+  const first = level(s.alpha, 1, 0, s.candidates);
+  let training, validation, test, short = 0;
+  if (s.mode === "targets") {
+    validation = fewest(n => detectable(s.spread, n, s.attempts, first, s.power) <= s.targetGain);
+    test = fewest(n => interval(s.spread, n, s.attempts) <= s.targetInterval);
+    training = s.tasks - validation - test;
+    if (training < 0) { short = -training; training = 0; }
+  } else {
+    training = Math.round(s.tasks * s.shareTraining / 100);
+    validation = Math.round(s.tasks * s.shareValidation / 100);
+    test = Math.max(0, s.tasks - training - validation);
+  }
+  const kept = Math.min(s.kept, s.rounds);
+  const tried = s.rounds * s.candidates;
+  // A change that does nothing is run on the filter's share, and on the rest half the time.
+  const rejected = s.filter > 0 ? s.filter + (1 - s.filter) / 2 : 1;
+  const pool = training ? Math.max(1, Math.round(s.pool * training)) : 0;
+  const agent = [
+    ["The starting harness on the training tasks", training * s.attempts],
+    ["The starting harness on the validation tasks", validation * s.attempts],
+    ["The one-task trial of each candidate", tried],
+    ["The candidates on the validation tasks", validation * s.attempts * (kept + rejected * (tried - kept))],
+    ["Each harness kept, on the training tasks", training * s.attempts * kept],
+    ["Each harness kept, on the test tasks", test * s.attempts * (1 + kept)],
+  ].map(([part, runs]) => ({ part, runs, tokens: runs * s.tokensRun, dollars: runs * s.dollarsRun, hours: runs / s.runsHour }));
+  const reads = s.rounds * pool;
+  const search = [
+    { part: "The analysis: traces read", runs: reads, tokens: reads * s.tokensRead, dollars: reads * s.dollarsRead, hours: reads * s.minutesRead / 60 },
+    { part: "The proposer and the reviewer", runs: tried, tokens: tried * s.tokensCandidate, dollars: tried * s.dollarsCandidate, hours: tried * s.minutesCandidate / 60 },
+  ];
+  const parts = agent.concat(search);
+  const total = k => parts.reduce((sum, row) => sum + row[k], 0);
+  return {
+    training, validation, test, short, pool, first, parts,
+    gain: detectable(s.spread, validation, s.attempts, first, s.power),
+    lastGain: detectable(s.spread, validation, s.attempts, level(s.alpha, s.rounds, 0, s.candidates), s.power),
+    interval: interval(s.spread, test, s.attempts),
+    runs: agent.reduce((sum, row) => sum + row.runs, 0),
+    tokens: total("tokens"), dollars: total("dollars"), hours: total("hours"),
+  };
+}
+if (typeof module !== "undefined") module.exports = { normInv, tInv, level, detectable, interval, compute };
+
+// ---------------------------------------------------------------- the page
+if (typeof document !== "undefined") {
+const DESIGN = [
+  // key, label, least, most, step, default, the mode it belongs to (or both)
+  ["tasks", "Tasks in all", 30, 1200, 1, 307, ""],
+  ["shareTraining", "Training tasks, %", 0, 90, 1, 17, "sizes"],
+  ["shareValidation", "Validation tasks, %", 5, 95, 1, 52, "sizes"],
+  ["targetGain", "Smallest gain the gate must find, points", 2, 15, 0.5, 6, "targets"],
+  ["targetInterval", "Confidence interval of the final gain, ± points", 2, 15, 0.5, 5, "targets"],
+  ["attempts", "Attempts at each task", 1, 6, 1, 1, ""],
+  ["rounds", "Rounds", 1, 40, 1, 10, ""],
+  ["candidates", "Candidates in each round", 1, 4, 1, 1, ""],
+  ["kept", "Changes kept (a guess, until an experiment has run)", 0, 40, 1, 3, ""],
+  ["filter", "Share of the validation tasks in the filter", 0, 0.95, 0.05, 0.5, ""],
+  ["pool", "Share of the training traces that can be read a round", 0.05, 1, 0.05, 0.5, ""],
+  ["alpha", "Chance, over the experiment, of keeping a useless change", 0.01, 0.2, 0.01, 0.05, ""],
+  ["power", "Chance of finding a gain of the size above", 0.5, 0.95, 0.05, 0.8, ""],
+];
+const MODEL = [
+  ["spread", "Spread of a task's difference between two runs, one attempt, points"],
+  ["tokensRun", "Input tokens of one run of the agent"],
+  ["dollarsRun", "Dollars of one run of the agent"],
+  ["runsHour", "Runs of the agent an hour"],
+  ["tokensRead", "Input tokens of the analysis, a trace read"],
+  ["dollarsRead", "Dollars of the analysis, a trace read"],
+  ["minutesRead", "Minutes of the analysis, a trace read"],
+  ["tokensCandidate", "Input tokens of the proposer and reviewer, a candidate"],
+  ["dollarsCandidate", "Dollars of the proposer and reviewer, a candidate"],
+  ["minutesCandidate", "Minutes of the proposer and reviewer, a candidate"],
+];
+// The search roles' figures are those of Claude Haiku 5.5 in every preset.
+const ROLES = { tokensRead: [59000, "measured, twelve trial rounds"], dollarsRead: [0.012, "from the tokens measured"],
+  minutesRead: [0.9, "measured, one trial"], tokensCandidate: [52000, "measured, twelve trial rounds"],
+  dollarsCandidate: [0.007, "from the tokens measured"], minutesCandidate: [3, "assumed"] };
+const PRESETS = {
+  "Claude Haiku 5.5, four runs at once": { spread: [24.4, "measured, with each task's own tools"], tokensRun: [283000, "measured, 372 runs"],
+    dollarsRun: [0.010, "measured, 226 runs with prompt caching"], runsHour: [720, "measured"] },
+  "GPT-5.1, a deployment to itself, eight at once": { spread: [24.4, "assumed: not measured for this model"], tokensRun: [115000, "measured, 10 runs of one domain"],
+    dollarsRun: [0.080, "measured, 10 runs"], runsHour: [200, "from the measured time of a run"] },
+  "GPT-5.1, a shared deployment at its limit": { spread: [24.4, "assumed: not measured for this model"], tokensRun: [115000, "measured, 10 runs of one domain"],
+    dollarsRun: [0.080, "measured, 10 runs"], runsHour: [30, "measured"] },
+};
+const $ = id => document.getElementById(id);
+const state = { mode: "sizes" };
+const number = (v, digits = 0) => v.toLocaleString("en-GB", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+const compact = v => v >= 1e9 ? number(v / 1e9, 2) + " billion" : v >= 1e6 ? number(v / 1e6, 0) + " million" : number(v);
+const time = h => h >= 48 ? number(h / 24, 1) + " days" : number(h, h < 10 ? 1 : 0) + " hours";
+
+function field(parent, key, label, least, most, step, value, note) {
+  const row = document.createElement("div"); row.className = "row"; row.dataset.key = key;
+  const name = document.createElement("label"); name.htmlFor = key; name.textContent = label;
+  const box = document.createElement("input"); box.type = "number"; box.id = key; box.step = step ?? "any"; box.value = value;
+  row.append(name, box);
+  if (least !== undefined) {
+    box.min = least; box.max = most;
+    const slide = document.createElement("input"); slide.type = "range"; slide.min = least; slide.max = most; slide.step = step; slide.value = value;
+    slide.setAttribute("aria-label", label);
+    slide.oninput = () => { box.value = slide.value; state[key] = +slide.value; render(); };
+    box.oninput = () => { slide.value = box.value; state[key] = +box.value; render(); };
+    row.append(slide);
+  } else { box.oninput = () => { state[key] = +box.value; render(); }; }
+  if (note !== undefined) { const tag = document.createElement("span"); tag.className = "tag"; tag.style.gridColumn = "1 / -1"; tag.textContent = note; row.append(tag); }
+  state[key] = +value;
+  parent.append(row);
+}
+DESIGN.forEach(([key, label, least, most, step, value, mode]) => { field($("design"), key, label, least, most, step, value); $("design").lastChild.dataset.mode = mode; });
+Object.keys(PRESETS).forEach(name => $("preset").add(new Option(name)));
+function preset() {
+  $("model").replaceChildren();
+  const figures = { ...PRESETS[$("preset").value], ...ROLES };
+  MODEL.forEach(([key, label]) => field($("model"), key, label, undefined, undefined, undefined, figures[key][0], figures[key][1]));
+  render();
+}
+$("preset").onchange = preset;
+document.querySelectorAll("input[name=mode]").forEach(radio => radio.onchange = () => { state.mode = radio.value; render(); });
+
+const NS = "http://www.w3.org/2000/svg";
+function el(name, attrs, text) { const node = document.createElementNS(NS, name);
+  for (const k in attrs) node.setAttribute(k, attrs[k]); if (text !== undefined) node.textContent = text; return node; }
+function tip(event, lines) { const box = $("tip"); box.replaceChildren();
+  lines.forEach(([strong, rest]) => { const row = document.createElement("div"); const b = document.createElement("b"); b.textContent = strong; row.append(b, " " + rest); box.append(row); });
+  box.style.display = "block"; const x = event.clientX ?? event.target.getBoundingClientRect().right, y = event.clientY ?? event.target.getBoundingClientRect().top;
+  box.style.left = Math.min(x + 12, window.innerWidth - box.offsetWidth - 8) + "px"; box.style.top = y + 12 + "px"; }
+const hide = () => $("tip").style.display = "none";
+
+function render() {
+  document.querySelectorAll("#design .row").forEach(row => { const m = row.dataset.mode;
+    row.style.display = m && m !== state.mode ? "none" : ""; });
+  const r = compute(state);
+  const alert = $("alert");
+  if (r.short) { alert.style.display = "block"; alert.textContent = `These two targets need ${number(r.validation + r.test)} tasks at ${state.attempts} attempt${state.attempts > 1 ? "s" : ""} a task, ${number(r.short)} more than there are. More attempts at each task, or looser targets, bring them within reach.`; }
+  else if (state.mode === "sizes" && state.shareTraining + state.shareValidation > 100) { alert.style.display = "block"; alert.textContent = "Training and validation together take more than every task; nothing is left for the test."; }
+  else alert.style.display = "none";
+
+  const tiles = [
+    ["Training / validation / test", `${number(r.training)} / ${number(r.validation)} / ${number(r.test)}`, `${number(r.pool)} training traces can be read a round`],
+    ["Smallest gain found, first decision", isFinite(r.gain) ? number(r.gain, 1) + " points" : "none", isFinite(r.lastGain) ? `${number(r.lastGain, 1)} at the last, if none was kept before` : ""],
+    ["Confidence interval of the final gain", isFinite(r.interval) ? "±" + number(r.interval, 1) + " points" : "none", "at 95%"],
+    ["Runs of the agent", number(r.runs), compact(r.tokens) + " input tokens in all"],
+    ["Cost", "$" + number(r.dollars, r.dollars < 100 ? 2 : 0), ""],
+    ["Time", time(r.hours), "attempts and search, one after another"],
+  ];
+  $("tiles").replaceChildren(...tiles.map(([label, value, note]) => { const tile = document.createElement("div"); tile.className = "tile";
+    [["label", label], ["value", value], ["note", note]].forEach(([c, t]) => { const d = document.createElement("div"); d.className = c; d.textContent = t; tile.append(d); }); return tile; }));
+
+  // The curve: the gain found against the validation tasks, this design's attempts in the accent and the others as context.
+  const svg = $("curve"); svg.replaceChildren();
+  const W = 720, H = 300, L = 46, R = 96, T = 12, B = 40;
+  const most = Math.max(state.tasks, r.validation, 60), top = 15;
+  const x = n => L + (W - L - R) * n / most, y = g => T + (H - T - B) * (1 - Math.min(g, top) / top);
+  for (let g = 0; g <= top; g += 5) { svg.append(el("line", { x1: L, x2: W - R, y1: y(g), y2: y(g), stroke: "var(--grid)" }), el("text", { x: L - 8, y: y(g) + 4, "text-anchor": "end" }, g)); }
+  const stride = most <= 400 ? 50 : most <= 800 ? 100 : 200;
+  for (let n = 0; n <= most; n += stride) svg.append(el("text", { x: x(n), y: H - B + 18, "text-anchor": "middle" }, number(n)));
+  svg.append(el("line", { x1: L, x2: W - R, y1: y(0), y2: y(0), stroke: "var(--axis)" }),
+    el("text", { x: (L + W - R) / 2, y: H - 4, "text-anchor": "middle" }, "validation tasks"),
+    el("text", { x: 12, y: (T + H - B) / 2, "text-anchor": "middle", transform: `rotate(-90 12 ${(T + H - B) / 2})` }, "smallest gain found, points"));
+  const series = [...new Set([1, 2, 3, state.attempts])].sort((a, b) => a - b);
+  const at = (k, n) => detectable(state.spread, n, k, r.first, state.power);
+  series.forEach(k => { const mine = k === state.attempts; let d = "";
+    for (let n = 10; n <= most; n += Math.max(1, Math.round(most / 180))) { const g = at(k, n); if (g <= top) d += (d ? "L" : "M") + x(n).toFixed(1) + " " + y(g).toFixed(1); }
+    svg.append(el("path", { d, fill: "none", stroke: mine ? "var(--series)" : "var(--context)", "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round", opacity: mine ? 1 : 0.55 }));
+    if (mine) svg.append(el("text", { x: W - R + 8, y: y(at(k, most)) + 4, class: "strong" }, `${k} attempt${k > 1 ? "s" : ""}`)); });
+  if (isFinite(r.gain) && r.validation >= 10) svg.append(el("circle", { cx: x(r.validation), cy: y(r.gain), r: 6, fill: "var(--series)", stroke: "var(--surface)", "stroke-width": 2 }),
+    el("text", { x: x(r.validation) + 10, y: y(r.gain) - 10, class: "strong" }, `${number(r.gain, 1)} points at ${number(r.validation)} tasks`));
+  const hair = el("line", { y1: T, y2: H - B, stroke: "var(--axis)", visibility: "hidden" }); svg.append(hair);
+  const pane = el("rect", { x: L, y: T, width: W - L - R, height: H - T - B, fill: "transparent" });
+  pane.onpointermove = e => { const box = svg.getBoundingClientRect(); const n = Math.max(10, Math.min(most, Math.round((e.clientX - box.left) / box.width * W - L) * most / (W - L - R)));
+    const tasks = Math.round(n); hair.setAttribute("x1", x(tasks)); hair.setAttribute("x2", x(tasks)); hair.setAttribute("visibility", "visible");
+    tip(e, [[number(tasks) + " validation tasks", ""], ...series.map(k => [number(at(k, tasks), 1) + " points", `with ${k} attempt${k > 1 ? "s" : ""}`])]); };
+  pane.onpointerleave = () => { hair.setAttribute("visibility", "hidden"); hide(); };
+  svg.append(pane);
+  $("curve-legend").replaceChildren(...series.map(k => { const item = document.createElement("span"); const key = document.createElement("span");
+    key.className = "key" + (k === state.attempts ? "" : " context"); item.append(key, `${k} attempt${k > 1 ? "s" : ""} a task` + (k === state.attempts ? " (this design)" : "")); return item; }));
+
+  // The bars: dollars by part, largest first.
+  const bars = $("bars"); bars.replaceChildren();
+  const ranked = r.parts.filter(p => p.runs > 0).sort((a, b) => b.dollars - a.dollars);
+  const rowH = 30, left = 280, right = 110, widest = Math.max(...ranked.map(p => p.dollars), 1e-9);
+  bars.setAttribute("viewBox", `0 0 720 ${ranked.length * rowH + 8}`);
+  ranked.forEach((p, i) => { const w = Math.max(1, (720 - left - right) * p.dollars / widest), yy = i * rowH + 6;
+    bars.append(el("text", { x: left - 10, y: yy + 14, "text-anchor": "end" }, p.part));
+    const bar = el("path", { class: "bar", tabindex: 0, fill: "var(--series)", d: `M${left} ${yy}h${Math.max(0, w - 4)}a4 4 0 0 1 4 4v12a4 4 0 0 1 -4 4h${-Math.max(0, w - 4)}z` });
+    const show = e => tip(e, [["$" + number(p.dollars, 2), p.part.toLowerCase()], [number(p.runs), p.part.startsWith("The analysis") ? "traces read" : p.part.startsWith("The proposer") ? "candidates" : "runs"], [number(100 * p.dollars / r.dollars, 1) + "%", "of the dollars"]]);
+    bar.onpointermove = show; bar.onfocus = show; bar.onpointerleave = hide; bar.onblur = hide;
+    bars.append(bar, el("text", { x: left + w + 8, y: yy + 14, class: "strong" }, "$" + number(p.dollars, p.dollars < 100 ? 2 : 0))); });
+
+  const table = $("parts"); table.replaceChildren();
+  const line = (cells, tag = "td") => { const tr = document.createElement("tr"); cells.forEach(c => { const cell = document.createElement(tag); cell.textContent = c; tr.append(cell); }); return tr; };
+  const head = document.createElement("thead"); head.append(line(["Part", "Runs, reads or candidates", "Input tokens", "Dollars", "Share", "Hours"], "th"));
+  const body = document.createElement("tbody"); r.parts.forEach(p => body.append(line([p.part, number(p.runs), number(p.tokens), number(p.dollars, 2), number(100 * p.dollars / r.dollars, 1) + "%", number(p.hours, 1)])));
+  const foot = document.createElement("tfoot"); foot.append(line(["All", "", number(r.tokens), number(r.dollars, 2), "100%", number(r.hours, 1)]));
+  table.append(head, body, foot);
+}
+preset();
+}
+</script>
+</body>
+</html>
