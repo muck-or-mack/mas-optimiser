@@ -72,8 +72,8 @@ from benchmark.models import BenchmarkConfig, LLMConfig
 from orchestrators.base import AgentOrchestrator
 
 HF_DATASET = "ServiceNow-AI/EnterpriseOps-Gym"
-# Dataset commit of 30/04/2026, pinned so that a later edit of the dataset
-# cannot change the tasks between runs.
+#: Dataset commit of 30/04/2026, pinned so that a later edit of the dataset
+#: cannot change the tasks between runs.
 HF_REVISION = "c8e538eae8a6205294f0a86675fefdc1fac408f6"
 # Dataset columns stored as JSON strings, and columns that are not part of a
 # task config (as in evaluate.py).
@@ -91,9 +91,9 @@ DOMAINS = ["itsm", "csm", "hr"]
 # ``all_tools`` is the oracle tasks with the tool filter removed, so the agent
 # sees every tool the domain's server offers.
 MODES = ["oracle", "all_tools", "plus_5_tools", "plus_10_tools", "plus_15_tools"]
-# Every key an experiment file may set, with its default. ``model`` and
-# ``domain`` have none: the file or the command line must supply them.
-# ``domain`` may be a list, giving one evaluation per domain.
+#: Every key an experiment file may set, with its default. ``model`` and
+#: ``domain`` have none: the file or the command line must supply them.
+#: ``domain`` may be a list, giving one evaluation per domain.
 EXPERIMENT_DEFAULTS = {
     "model": None,
     "domain": None,
@@ -160,11 +160,11 @@ SUMMED = (
 # the trace then shows. Thinking happens either way; only its visibility
 # changes, at some cost in output tokens.
 THINKING_SUMMARY = {"type": "adaptive", "display": "summarized"}
-# Anthropic's mark for prompt caching, on the request as a whole or on a
-# tool. The provider stores a request up to a mark and bills that part at the
-# ``cache_read`` rate when it is sent again within five minutes; the model
-# receives the same input either way. The mark is Anthropic's own: other
-# providers cache by other means, which nothing here switches on.
+#: Anthropic's mark for prompt caching, on the request as a whole or on a
+#: tool. The provider stores a request up to a mark and bills that part at the
+#: ``cache_read`` rate when it is sent again within five minutes; the model
+#: receives the same input either way. The mark is Anthropic's own: other
+#: providers cache by other means, which nothing here switches on.
 CACHE_MARK = {"type": "ephemeral"}
 # Where LangChain's usage reports the tokens a call wrote to the cache: under
 # the two lifetime keys when the provider gives that breakdown (the general
