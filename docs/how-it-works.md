@@ -517,7 +517,8 @@ loop](methodology/improvement-loop.md)). It starts from
 `harnesses/default/`, the loop of section 2.4 as it is. A proposer (a model,
 run offline) reads the pages of the training attempts and proposes one
 change to a copy of the harness folder. The candidate runs on the validation
-tasks through the runner of section 2, and the acceptance gate compares it
+tasks through the runner of section 2, on a share of them first so that one
+that does no better there is dropped early, and the acceptance gate compares it
 with the current harness task by task ([The acceptance
 gate](methodology/acceptance-gate.md)). An accepted candidate becomes the
 current harness; a rejected one is recorded and dropped. Everything outside
@@ -618,6 +619,7 @@ is credited in `NOTICE.md` as well.
 | `evolve` | StarHarness (arXiv:2608.24804), section 3 and Algorithm 1 | search tasks the proposer reads and selection tasks hidden from it; a candidate judged on the hidden set and kept or reverted; one evaluation on the held-out set at the end | `evolve.loop.Experiment.round`, `test` |
 | `evolve` | Sun et al. (arXiv:2609.33180), Eq. 4 | the level of each decision of one experiment | `evolve.loop.Experiment.round`, through `stats.budget.reuse_level` |
 | `evolve` | own design | the proposer told only whether a proposal was accepted; a harness's test score taken for every harness kept, after the last decision; the model call from a model file | `evolve.loop`, `evolve.models` |
+| `evolve` | stopping early for futility in sequential testing (Jennison and Turnbull, *Group Sequential Methods with Applications to Clinical Trials*, Chapman and Hall, 2000) | the filter: a candidate is run on a share of the validation tasks first and dropped if it does no better there; it can only drop, so the gate's error level holds | `evolve.loop.Experiment.filter_ids`, `evolve.loop.Experiment.round` |
 | `evolve` | own design, on `threading` of Python's standard library | the limit of seconds on one call of a search role: the call runs in a thread that can be left behind when the limit passes | `evolve.models.generate` |
 | `domain` | RRSI's `Domain` interface (`rrsi/domain.py`), its `critic_patterns` and `smoke` | the screen of a proposed change for task ids, references to the checks and code that reaches past the harness's own work; a person's yes or no asked before a change first runs | `domain.EnterpriseOps.critic_patterns`, `domain.EnterpriseOps.smoke` |
 | `stats` | own design | per-task scores for two outcomes, the paired comparison over the same tasks, the `compare` command with its results as data files and a report of them, and the figures | `stats.outcomes`, `stats.compare`, `stats.figures` |

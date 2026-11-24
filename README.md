@@ -721,16 +721,18 @@ and the files it writes are on "The improvement loop" in the documentation.
 
 The experiment file holds the settings of `run` and the loop's own:
 
-| setting          | what it sets                                                                                    | default           |
-|------------------|-------------------------------------------------------------------------------------------------|-------------------|
-| `split`          | the split whose three sets are used, by its name alone                                          | none, must be set |
-| `harness`        | the folder the experiment starts from                                                           | `default`         |
-| `proposer_model` | the model file of the roles that read and propose                                               | the agent's model |
-| `rounds`         | rounds of the loop                                                                              | 10                |
-| `candidates`     | candidates proposed in each round                                                               | 1                 |
-| `alpha`          | the chance, over the experiment, of keeping a useless change                                    | 0.05              |
-| `editable`       | the types of file a proposal may edit: `.md` for the agent's text, `.py` for its code           | `.md` and `.py`   |
-| `approval`       | `each`: every change is shown at the terminal and run only after a yes; `none`: no one is asked | `none`            |
+| setting            | what it sets                                                                                                           | default           |
+|--------------------|------------------------------------------------------------------------------------------------------------------------|-------------------|
+| `split`            | the split whose three sets are used, by its name alone                                                                 | none, must be set |
+| `harness`          | the folder the experiment starts from                                                                                  | `default`         |
+| `proposer_model`   | the model file of the roles that read and propose                                                                      | the agent's model |
+| `rounds`           | rounds of the loop                                                                                                     | 10                |
+| `candidates`       | candidates proposed in each round                                                                                      | 1                 |
+| `alpha`            | the chance, over the experiment, of keeping a useless change                                                           | 0.05              |
+| `filter_share`     | the share of the validation tasks a candidate is run on first, and dropped if it does no better there; 0 for no filter | 0.5               |
+| `filter_threshold` | the gain, in percentage points, a candidate must be above on the filter's tasks                                        | 0                 |
+| `editable`         | the types of file a proposal may edit: `.md` for the agent's text, `.py` for its code                                  | `.md` and `.py`   |
+| `approval`         | `each`: every change is shown at the terminal and run only after a yes; `none`: no one is asked                        | `none`            |
 
 ```
 mas-optimiser evolve evolve-smoke
@@ -740,6 +742,14 @@ is a trial of the loop itself: three tasks of each set, one attempt, one
 round, text edits only, a few minutes and a few cents. Results go to
 `evolutions/<experiment>/<split>/`, and giving the command again carries an
 interrupted experiment on.
+
+A candidate is run on the filter's share of the validation tasks first,
+and on the rest only if its score there is above the current harness's by
+more than the threshold. That saves most of the cost of a change that does
+harm and half the rest of the cost of one that does nothing, and it cannot
+make the gate less strict, since a change is kept only if it passes the
+gate's test on every validation task as before. "The improvement loop" in
+the documentation gives the figures.
 
 `editable` and `approval` together say how much is left to the model. With
 `.md` alone a proposal changes only `prompt.md`, the text added to the

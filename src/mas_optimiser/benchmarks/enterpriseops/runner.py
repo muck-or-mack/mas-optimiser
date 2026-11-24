@@ -117,12 +117,17 @@ EXPERIMENT_DEFAULTS = {
     # The rest is read by ``mas-optimiser evolve`` only: the model of the
     # search roles (the agent's when not given), the rounds of the loop, the
     # candidates proposed in each, the error budget of the whole experiment,
-    # the types of file in the harness folder a proposal may edit, and
-    # whether a person approves each change before it is run.
+    # the filter a candidate passes before the full test (the share of the
+    # validation tasks it is run on first, none at 0, and the gain in
+    # percentage points it must be above there), the types of file in the
+    # harness folder a proposal may edit, and whether a person approves each
+    # change before it is run.
     "proposer_model": None,
     "rounds": 10,
     "candidates": 1,
     "alpha": 0.05,
+    "filter_share": 0.5,
+    "filter_threshold": 0.0,
     "editable": [".md", ".py"],
     "approval": "none",
 }
@@ -543,6 +548,19 @@ def load_experiment(spec: str, overrides: dict) -> dict:
             raise SystemExit(f"error: {key} must be a whole number of at least 1")
     if not isinstance(settings["alpha"], float) or not 0 < settings["alpha"] < 1:
         raise SystemExit("error: alpha must be a number between 0 and 1")
+    share, threshold = settings["filter_share"], settings["filter_threshold"]
+    if (
+        isinstance(share, bool)
+        or not isinstance(share, (int, float))
+        or not 0 <= share < 1
+    ):
+        raise SystemExit(
+            "error: filter_share must be a number from 0 (no filter) to below 1"
+        )
+    if isinstance(threshold, bool) or not isinstance(threshold, (int, float)):
+        raise SystemExit(
+            "error: filter_threshold must be a number of percentage points"
+        )
     editable = settings["editable"]
     if not isinstance(editable, list) or not all(
         isinstance(e, str) and e.startswith(".") for e in editable

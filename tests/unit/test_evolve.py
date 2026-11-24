@@ -5,6 +5,7 @@ import json
 import re
 import threading
 from types import SimpleNamespace
+from unittest.mock import ANY
 
 import pytest
 from langchain_core.messages import AIMessage
@@ -374,6 +375,8 @@ class Scores(Domain):
 
     name = "made-up"
     harness_path = "harness"
+    # Two groups of three validation tasks, for a filter to take a share of each.
+    domain_of = {f"v{n}": "odd" if n % 2 else "even" for n in range(1, 7)}
 
     def __init__(self, scores):
         self.scores, self.jobs = scores, []
@@ -404,7 +407,7 @@ class Scores(Domain):
         return {"task_id": task_id, "job": job}
 
 
-def experiment(tmp_path, monkeypatch, candidate_scores):
+def experiment(tmp_path, monkeypatch, candidate_scores, **settings):
     """An experiment on a made-up benchmark, with the search roles stubbed."""
     repository = tmp_path / "repository"
     (repository / "harness").mkdir(parents=True)
@@ -413,16 +416,22 @@ def experiment(tmp_path, monkeypatch, candidate_scores):
     gitops.git(repository, "add", "-A", check=True)
     gitops.git(repository, "commit", "-q", "-m", "the starting harness", check=True)
     flat = dict.fromkeys(TRAINING + VALIDATION + TEST, 0.5)
+    candidate = dict(zip(VALIDATION, candidate_scores, strict=True))
     scores = {
         "base_training": flat,
         "base_validation": flat,
-        "r0A": dict(zip(VALIDATION, candidate_scores, strict=True)),
+        "r0A": candidate,
+        # The two parts a candidate is scored in when there is a filter.
+        "r0A_filter": candidate,
+        "r0A_rest": candidate,
         "r0A_training": dict.fromkeys(TRAINING, 0.75),
         "heldout_t0": flat,
         "heldout_t1": dict.fromkeys(TEST, 1.0),
     }
     cfg = RRSIConfig(T=3, k=1, m=1, b_min=1, b_max=1, delta=0.0)
-    run = loop.Experiment(Scores(scores), cfg, repository, tmp_path, alpha=0.05)
+    run = loop.Experiment(
+        Scores(scores), cfg, repository, tmp_path, alpha=0.05, **settings
+    )
     given = {}
     monkeypatch.setattr(loop.analyst, "analyze", lambda *args, **kwargs: {})
 
@@ -485,6 +494,94 @@ def test_a_candidate_that_is_no_better_is_dropped(tmp_path, monkeypatch):
     assert run.history.records()[-1]["outcome"] == "REJECTED"
     # Only the starting harness is run on the test tasks.
     assert [r["round"] for r in run.test()] == [0]
+
+
+def test_a_candidate_that_does_no_better_on_the_filter_is_not_run_on_the_rest(
+    tmp_path, monkeypatch
+):
+    run, _ = experiment(tmp_path, monkeypatch, [0.4] * 6, filter_share=0.5)
+    run.baseline()
+    start = run.frontier()["incumbent"]
+    run.round(0)
+    first = run.filter_ids(0, VALIDATION)
+    # Two of each group's three tasks, and nothing else of the candidate's.
+    assert len(first) == 4
+    assert [job for job in run.domain.jobs if job[0].startswith("r0A")] == [
+        ("r0A_filter", first)
+    ]
+    decision = json.loads((run.runs / "r0" / "decisions.json").read_text())[0]
+    assert decision["stopped"] == "filtered_out" and decision["accept"] is False
+    assert decision["filter"] == {
+        "tasks": 4,
+        "gain_points": -10.0,
+        "threshold_points": 0.0,
+        "passed": False,
+    }
+    assert run.frontier()["incumbent"] == start
+    # The proposer is told no more than of a candidate the gate turned down.
+    record = run.history.records()[-1]
+    assert record["outcome"] == "REJECTED" and record["delta_S"] is None
+
+
+def test_a_candidate_that_passes_the_filter_is_judged_on_every_validation_task(
+    tmp_path, monkeypatch
+):
+    better = [0.9, 0.8, 1.0, 0.85, 0.95, 0.9]
+    run, _ = experiment(tmp_path, monkeypatch, better, filter_share=0.5)
+    run.baseline()
+    run.round(0)
+    first = run.filter_ids(0, VALIDATION)
+    rest = [task for task in VALIDATION if task not in first]
+    # The rest is run by itself, so no attempt of the filter is run again.
+    assert [job for job in run.domain.jobs if job[0].startswith("r0A")] == [
+        ("r0A_filter", first),
+        ("r0A_rest", rest),
+        ("r0A_training", TRAINING),
+    ]
+    decision = json.loads((run.runs / "r0" / "decisions.json").read_text())[0]
+    assert decision["filter"]["passed"] is True
+    # The gate's test is on all six tasks, the filter's among them.
+    assert decision["accept"] is True and decision["n"] == 6
+    state = run.frontier()
+    assert state["promotions"] == 1 and state["incumbent"]["S"] == pytest.approx(0.9)
+    kept = loop.EvalResult.load(run.eval_path(state["incumbent"]["job"]))
+    assert list(kept.per_task) == VALIDATION
+
+
+@pytest.mark.parametrize(("threshold", "passed"), [(30.0, True), (50.0, False)])
+def test_the_filters_threshold_is_the_gain_a_candidate_must_be_above(
+    tmp_path, monkeypatch, threshold, passed
+):
+    # Every task up by 0.35 to 0.45: a gain of about 40 points on any filter.
+    better = [0.9, 0.95, 0.85, 0.9, 0.95, 0.85]
+    run, _ = experiment(
+        tmp_path, monkeypatch, better, filter_share=0.5, filter_threshold=threshold
+    )
+    run.baseline()
+    run.round(0)
+    decision = json.loads((run.runs / "r0" / "decisions.json").read_text())[0]
+    assert 30 < decision["filter"]["gain_points"] < 50
+    assert decision["filter"]["threshold_points"] == threshold
+    assert decision["filter"]["passed"] is passed
+    assert (("r0A_rest", ANY) in run.domain.jobs) is passed
+
+
+def test_the_filter_takes_a_share_of_each_group_and_is_drawn_afresh_each_round(
+    tmp_path, monkeypatch
+):
+    run, _ = experiment(tmp_path, monkeypatch, [0.5] * 6, filter_share=0.25, seed=3)
+    ids = [f"a{n}" for n in range(12)] + [f"b{n}" for n in range(8)]
+    run.domain.domain_of = {task: task[0] for task in ids}
+    rounds = [run.filter_ids(t, ids) for t in range(6)]
+    for drawn in rounds:
+        # A quarter of each group, in the order of the tasks.
+        assert [task[0] for task in drawn] == ["a"] * 3 + ["b"] * 2
+        assert drawn == [task for task in ids if task in drawn]
+    assert len({tuple(drawn) for drawn in rounds}) > 1
+    # The same round of the same experiment draws the same tasks again.
+    assert run.filter_ids(4, ids) == rounds[4]
+    run.filter_share = 0.0
+    assert run.filter_ids(0, ids) == []
 
 
 def test_a_change_a_person_declined_is_recorded_as_declined(tmp_path, monkeypatch):

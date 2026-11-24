@@ -32,7 +32,9 @@ fixed at the start except the harness.
    taken from a particular task and for any reference to the checks, and
    the changed harness is run on one training task to see that it still
    works and still writes its record in the same form.
-6. **The score.** The changed harness is run on the validation tasks.
+6. **The score.** The changed harness is run on the validation tasks: on a
+   share of them first, the filter, and on the rest only if it does better
+   there than the current harness ("The filter before the full test").
 7. **The decision.** The gate compares it with the current harness task by
    task. If it is accepted it becomes the current harness and is run on the
    training tasks, so that the next round reads its traces. If not, it is
@@ -162,26 +164,95 @@ A single test at 5% has a bar of 1.66 standard errors. `stats.budget` also
 holds an equal split over a fixed number of decisions; the loop does not yet
 offer it as a setting.
 
+## The filter before the full test
+
+Most proposals do not help, and each costs a run on every validation task
+before the gate can say so. The filter spends less on those. A candidate is
+run on a share of the validation tasks first. If its mean score there is
+not above the current harness's by more than a threshold, it is dropped,
+and the other tasks are never run. If it is, the other tasks are run and
+the gate's test is made on all the validation tasks, the filter's among
+them, so no attempt is run twice.
+
+### Why it cannot make the gate less strict
+
+The filter can only drop a candidate. One that is kept has still passed the
+gate's test on every validation task, so the candidates kept with a filter
+are among those the gate would have kept without one. The chance of keeping
+a change that does nothing is therefore at most what it was: the level of
+the decision. This is the reasoning of stopping a trial early for futility
+in sequential testing (Jennison and Turnbull, *Group Sequential Methods
+with Applications to Clinical Trials*, Chapman and Hall, 2000).
+
+### What it costs
+
+A change that would have passed the gate can be dropped at the filter,
+because on a part of the tasks a real gain can look like none. A larger
+share loses fewer of them and saves less:
+
+| `filter_share`   | validation cost of a change that does nothing   | a gain of the smallest findable size is kept   | a change that does nothing is kept   | a 5-point loss passes the filter, 3 attempts a task   | the same, 1 attempt a task   |
+|------------------|-------------------------------------------------|------------------------------------------------|--------------------------------------|-------------------------------------------------------|------------------------------|
+| none             | 100%                                            | 80%                                            | 5.0%                                 | -                                                     | -                            |
+| 0.25             | 62%                                             | 75%                                            | 4.3%                                 | 3.3%                                                  | 13.0%                        |
+| 0.5              | 75%                                             | 79%                                            | 4.8%                                 | 0.5%                                                  | 5.5%                         |
+| 0.75             | 88%                                             | 80%                                            | 4.9%                                 | 0.1%                                                  | 2.5%                         |
+
+The figures are computed and not measured (`docs/data/filter.csv`). They
+suppose what the gate's test supposes, that the mean difference over the
+tasks is close to normal, with a threshold of 0, a single test at 5% and
+125 validation tasks. "The smallest findable size" is the gain that the
+gate by itself keeps four times in five, the minimum detectable effect of
+[The acceptance gate](acceptance-gate.md). The first three columns hold
+whatever the spread of the scores. The last two need it, and use the spread
+between the two baseline runs of that page: a task's difference has a
+standard deviation of 15.2 percentage points at three attempts a
+task and 24.8 at one.
+
+### The tasks of the filter
+
+They are drawn afresh for each round: the same share of each domain's
+validation tasks, from the split's seed and the number of the round. An
+experiment given again therefore draws the same tasks, and no fixed part of
+the validation tasks carries every filter. All the candidates of a round
+are filtered on the same tasks.
+
+### What the proposer learns
+
+No more than before. A candidate dropped at the filter is told to it as
+rejected, like one the gate turned down.
+
+### What the filter does not do
+
+Every decision of an experiment still rests on the same validation tasks.
+What keeps a harness from being fitted to them is unchanged: the proposer
+never reads them, it learns only "accepted" or "rejected", each decision
+has a smaller share of the error budget than the last, and the test tasks
+take no part until the end.
+
 ## The settings
 
 An experiment file holds the settings of `mas-optimiser run` (the model,
 the domains, the attempts and so on) and these, which only `evolve` reads:
 
-| setting          | what it sets                                                                 | default           |
-|------------------|------------------------------------------------------------------------------|-------------------|
-| `split`          | the split whose three sets are used, by its name alone                       | none, must be set |
-| `harness`        | the folder the experiment starts from                                        | `default`         |
-| `proposer_model` | the model file of the analyst, the proposer and the reviewer                 | the agent's model |
-| `rounds`         | rounds of the loop                                                           | 10                |
-| `candidates`     | candidates proposed in each round                                            | 1                 |
-| `alpha`          | the error budget of the whole experiment                                     | 0.05              |
-| `editable`       | the types of file in the harness folder a proposal may edit                  | `.md` and `.py`   |
-| `approval`       | whether a person approves each change before it first runs: `each` or `none` | `none`            |
-| `limit`          | at most this many tasks of each set, for a trial of the loop itself          | all               |
+| setting            | what it sets                                                                                 | default           |
+|--------------------|----------------------------------------------------------------------------------------------|-------------------|
+| `split`            | the split whose three sets are used, by its name alone                                       | none, must be set |
+| `harness`          | the folder the experiment starts from                                                        | `default`         |
+| `proposer_model`   | the model file of the analyst, the proposer and the reviewer                                 | the agent's model |
+| `rounds`           | rounds of the loop                                                                           | 10                |
+| `candidates`       | candidates proposed in each round                                                            | 1                 |
+| `alpha`            | the error budget of the whole experiment                                                     | 0.05              |
+| `filter_share`     | the share of the validation tasks a candidate is run on first; 0 for no filter               | 0.5               |
+| `filter_threshold` | the gain, in percentage points of the score, a candidate must be above on the filter's tasks | 0                 |
+| `editable`         | the types of file in the harness folder a proposal may edit                                  | `.md` and `.py`   |
+| `approval`         | whether a person approves each change before it first runs: `each` or `none`                 | `none`            |
+| `limit`            | at most this many tasks of each set, for a trial of the loop itself                          | all               |
 
 The agent's model and the proposer's are two settings, so they can be the
 same model or different ones, hosted or self-hosted. `editable` and
-`approval` are described under "What a proposal can change".
+`approval` are described under "What a proposal can change", and the two
+settings of the filter under "The filter before the full test". Each can
+also be given for one command, as `--filter-share 0` for instance.
 `configs/experiments/evolve-smoke.yaml` is a trial with three tasks of each
 set and one round.
 
@@ -197,10 +268,14 @@ evolutions/<experiment>/<split>/
     frontier.json             the current harness and the score after each round
     history.jsonl             every proposal: what it changed, its outcome, its numbers
     test.csv                  one row per harness kept: its validation and test scores
-    jobs/<job>/<domain>/      one evaluation folder per run of a harness
+    jobs/<job>/<domain>/      one evaluation folder per run of a harness; a
+                              candidate's validation run is two jobs with
+                              a filter, <job>_filter and <job>_rest
     r<round>/
       analysis_report.json    what the analyst found in the training traces
-      decisions.json          the gate's numbers for each candidate
+      decisions.json          the gate's numbers for each candidate, and
+                              the filter's: its tasks, the gain there, the
+                              threshold and whether the candidate passed
       <candidate>/            the proposal, its diff, its review, its trial run
 ```
 
@@ -220,6 +295,7 @@ arXiv:2609.24972; Apache License 2.0), kept unchanged in `vendor/rrsi`.
 | the record of proposals, a git checkout per candidate          | RRSI's, as released                     |
 | what a benchmark must provide (its `Domain` interface)         | RRSI's; `domain.EnterpriseOps` fills it |
 | the round and the baseline                                     | this package's (`evolve.loop`)          |
+| the scoring of a candidate                                     | this package's when there is a filter   |
 | the rule that keeps a change                                   | this package's: the gate                |
 | the model call of the search roles                             | this package's (`evolve.models`)        |
 | what the search roles are told about the benchmark             | this package's (`prompts`)              |
