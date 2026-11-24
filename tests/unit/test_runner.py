@@ -181,7 +181,9 @@ def test_the_azure_file_names_four_variables_and_records_no_address(
     # A run on it hands the evaluation the variable's name for the address.
     seen = {}
     monkeypatch.setattr(runner.tracing, "configured", lambda: False)
-    monkeypatch.setattr(runner, "evaluate", lambda *args, **kwargs: seen.update(kwargs))
+    monkeypatch.setattr(
+        runner, "evaluate", lambda *args, **kwargs: seen.update(kwargs) or 0
+    )
     unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
     chosen = {"experiment": "smoke", "out": tmp_path / "e", "model": "gpt-5.1-azure"}
     runner.run(SimpleNamespace(**(unset | chosen)))
@@ -654,7 +656,9 @@ def test_prompt_caching_is_used_for_anthropic_models_only(
         runner, "load_model", lambda path: (SimpleNamespace(llm_provider=provider), {})
     )
     monkeypatch.setattr(runner.tracing, "configured", lambda: False)
-    monkeypatch.setattr(runner, "evaluate", lambda *args, **kwargs: seen.update(kwargs))
+    monkeypatch.setattr(
+        runner, "evaluate", lambda *args, **kwargs: seen.update(kwargs) or 0
+    )
     # ``mas-optimiser run smoke`` with every option unset but these.
     unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
     chosen = {"experiment": "smoke", "out": tmp_path / "e", "prompt_caching": asked}
@@ -762,11 +766,230 @@ def test_the_executor_caps_the_model_calls_of_an_attempt(monkeypatch):
     assert asyncio.run(three_calls()) == "an answer" and len(answered) == 2
 
 
+def test_the_executor_notes_a_call_that_failed_and_forgets_it_once_one_is_answered(
+    monkeypatch,
+):
+    replies = [OSError("the line dropped"), "an answer"]
+
+    async def build_client(self):
+        async def invoke_with_tools(*args, **kwargs):
+            reply = replies.pop(0)
+            if isinstance(reply, Exception):
+                raise reply
+            return reply
+
+        self.llm_client = SimpleNamespace(
+            llm=SimpleNamespace(), invoke_with_tools=invoke_with_tools
+        )
+
+    monkeypatch.setattr(runner.BenchmarkExecutor, "initialize", build_client)
+    executor = runner.TaskExecutor.__new__(runner.TaskExecutor)
+    executor.trace, executor.thinking, executor.caching = False, None, False
+    executor.timeout, executor.calls, executor.call_error = None, None, None
+    executor.llm_config = SimpleNamespace(max_retries=None)
+    asyncio.run(executor.initialize())
+
+    async def two_calls():
+        # The failure reaches the harness as it was raised.
+        with pytest.raises(OSError, match="the line dropped"):
+            await executor.llm_client.invoke_with_tools("a")
+        noted = executor.call_error
+        return noted, await executor.llm_client.invoke_with_tools("b")
+
+    noted, answer = asyncio.run(two_calls())
+    assert "the line dropped" in noted and answer == "an answer"
+    assert executor.call_error is None
+
+
+def test_the_service_is_asked_a_word_until_it_answers_or_the_wait_is_over(monkeypatch):
+    asked = []
+
+    async def no_sleep(seconds):
+        return None
+
+    monkeypatch.setattr(runner.asyncio, "sleep", no_sleep)
+    executor = runner.TaskExecutor.__new__(runner.TaskExecutor)
+
+    def service(replies):
+        async def ainvoke(prompt):
+            asked.append(prompt)
+            reply = replies.pop(0)
+            if isinstance(reply, Exception):
+                raise reply
+            return reply
+
+        executor.llm_client = SimpleNamespace(llm=SimpleNamespace(ainvoke=ainvoke))
+
+    # It answers: one question, a word that owes nothing to the harness.
+    service(["pong"])
+    assert asyncio.run(executor.service_answers(0)) is True and asked == ["ping"]
+    # It is down and there is no time to wait: one question, no answer.
+    service([OSError("down")])
+    assert asyncio.run(executor.service_answers(0)) is False
+    # It is down, and back at the third time of asking within the wait.
+    asked.clear()
+    service([OSError("down"), OSError("down"), "pong"])
+    assert asyncio.run(executor.service_answers(600)) is True and len(asked) == 3
+
+
+@pytest.mark.parametrize(
+    ("answers", "retry", "expected"),
+    [(True, True, "repeat"), (True, False, False), (False, True, True)],
+)
+def test_an_attempt_ended_by_a_failed_call_is_settled_by_asking_the_service(
+    tmp_path, monkeypatch, answers, retry, expected
+):
+    waited = []
+
+    class Failed:
+        diagnosis_error, changes = None, None
+        call_error = "ConnectionError('the line dropped')"
+        names = checks.prepare("task_a", [])[1]
+        layout = {"keys": {}}
+
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def execute_benchmark(self):
+            return {"runs": [{"run_number": 1, "error": "the line dropped"}]}
+
+        async def service_answers(self, wait):
+            waited.append(wait)
+            return answers
+
+    monkeypatch.setattr(runner, "TaskExecutor", Failed)
+    monkeypatch.setattr(runner, "BenchmarkConfig", lambda **fields: fields)
+    monkeypatch.setattr(runner.states, "seed_copy", lambda path, domain: ((), {}))
+    saved = []
+    monkeypatch.setattr(runner, "save_attempt", lambda *args: saved.append(args))
+    config = {
+        "gym_servers_config": [{"seed_database_file": "s.sql"}],
+        "selected_tools": [],
+    }
+    attempt = runner.run_task(
+        "task_a",
+        config,
+        1,
+        SimpleNamespace(),
+        PRICING,
+        tmp_path,
+        domain="itsm",
+        trace=False,
+        thinking=None,
+        caching=False,
+        timeout=None,
+        agent=None,
+        tags=[],
+        arguments={},
+        retry=retry,
+        wait=90,
+    )
+    if expected == "repeat":
+        # The service answers and a try is left: asked for again, nothing kept.
+        with pytest.raises(runner.Repeat):
+            asyncio.run(attempt)
+        assert saved == []
+    else:
+        outcome, _, _, _ = asyncio.run(attempt)
+        # With the service answering and no try left the failure stands as the
+        # harness's; with the service silent it is marked as the service's.
+        assert outcome["service_error"] is expected
+        assert outcome["error"] == "the line dropped" and len(saved) == 1
+    assert waited == [90]
+
+
+def test_run_tasks_runs_an_attempt_again_when_asked_and_no_more_than_allowed(
+    tmp_path, monkeypatch, capsys
+):
+    tries = []
+
+    async def fake_run_task(task_id, config, attempt, *args, retry, wait, **kwargs):
+        tries.append((task_id, retry, wait))
+        if retry:
+            raise runner.Repeat
+        row = {
+            "task_id": task_id,
+            "attempt": attempt,
+            "error": "down",
+            "success": False,
+        }
+        row |= {"checks_passed": 0, "checks_total": 2, "model_calls": 1}
+        row |= {"input_tokens": 10, "output_tokens": 0, "cost_usd": 0.0, "seconds": 1}
+        return row | {"service_error": True}, [], [], []
+
+    async def no_tools(out, tasks):
+        return None
+
+    monkeypatch.setattr(runner, "run_task", fake_run_task)
+    monkeypatch.setattr(runner, "save_tools", no_tools)
+    outcomes, _, _, _ = asyncio.run(
+        runner.run_tasks(
+            {"task_a": {}},
+            None,
+            PRICING,
+            tmp_path,
+            domain="itsm",
+            attempts=1,
+            concurrency=1,
+            trace=False,
+            thinking=None,
+            caching=False,
+            timeout=None,
+            agent=None,
+            tags=[],
+            retries=2,
+            wait=30,
+        )
+    )
+    # Twice more, and the last try may not ask for another.
+    assert tries == [("task_a", True, 30), ("task_a", True, 30), ("task_a", False, 30)]
+    assert len(outcomes) == 1
+    assert "task_a attempt 1 no service:" in capsys.readouterr().out
+
+
+def test_totals_leave_out_an_attempt_the_model_service_did_not_answer():
+    row = {"task_id": "t1", "success": True, "error": "", "benchmark_success": True}
+    row |= dict.fromkeys(set(runner.SUMMED) - {"benchmark_successes"}, 1)
+    lost = row | {"task_id": "t2", "success": False, "error": "down"}
+    counted = runner.totals([row, lost | {"service_error": True}], 2, 1)
+    assert (counted["total_attempts"], counted["successes"], counted["errors"]) == (
+        1,
+        1,
+        0,
+    )
+
+
+def test_a_run_with_attempts_the_service_did_not_answer_ends_in_an_error(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(runner.tracing, "configured", lambda: False)
+    monkeypatch.setattr(runner, "evaluate", lambda *args, **kwargs: 2)
+    unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
+    chosen = {"experiment": "smoke", "out": tmp_path / "e", "trace": False}
+    with pytest.raises(SystemExit, match="2 attempts ended because the model service"):
+        runner.run(SimpleNamespace(**(unset | chosen)))
+
+
+def test_a_setting_for_failed_calls_that_makes_no_sense_is_refused():
+    unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
+    for retries in (-1, 1.5, "twice", True):
+        with pytest.raises(SystemExit, match="attempt_retries"):
+            runner.load_experiment("smoke", unset | {"attempt_retries": retries})
+    for wait in (-1, "long", True):
+        with pytest.raises(SystemExit, match="service_wait"):
+            runner.load_experiment("smoke", unset | {"service_wait": wait})
+    # No repeat and no waiting are both a user's to choose.
+    settings = runner.load_experiment(
+        "smoke", unset | {"attempt_retries": 0, "service_wait": 0}
+    )
+    assert (settings["attempt_retries"], settings["service_wait"]) == (0, 0)
+
+
 def test_an_attempt_past_its_seconds_is_ended_and_recorded_as_an_error(
     tmp_path, monkeypatch
 ):
     class Stuck:
-        diagnosis_error, changes = None, None
+        diagnosis_error, changes, call_error = None, None, None
         names = checks.prepare("task_a", [])[1]
         layout = {"keys": {}}
 
@@ -824,7 +1047,9 @@ def test_the_time_limit_is_set_for_the_providers_whose_client_takes_it(
         runner, "load_model", lambda path: (SimpleNamespace(llm_provider=provider), {})
     )
     monkeypatch.setattr(runner.tracing, "configured", lambda: False)
-    monkeypatch.setattr(runner, "evaluate", lambda *args, **kwargs: seen.update(kwargs))
+    monkeypatch.setattr(
+        runner, "evaluate", lambda *args, **kwargs: seen.update(kwargs) or 0
+    )
     unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
     chosen = {"experiment": "smoke", "out": tmp_path / "e", "model_timeout": asked}
     runner.run(SimpleNamespace(**(unset | chosen)))

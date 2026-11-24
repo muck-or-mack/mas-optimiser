@@ -135,6 +135,8 @@ def benchmark(monkeypatch):
         "model_timeout": 300,
         "attempt_timeout": 900,
         "attempt_calls": 40,
+        "attempt_retries": 1,
+        "service_wait": 120,
         "trace": False,
         "thinking_summary": True,
         "prompt_caching": True,
@@ -194,6 +196,8 @@ def test_run_starts_one_run_per_domain_with_the_harness_and_the_set(
     assert itsm[itsm.index("--model-timeout") + 1] == "300"
     assert itsm[itsm.index("--attempt-timeout") + 1] == "900"
     assert itsm[itsm.index("--attempt-calls") + 1] == "40"
+    assert itsm[itsm.index("--attempt-retries") + 1] == "1"
+    assert itsm[itsm.index("--service-wait") + 1] == "120"
     assert "--thinking-summary" in itsm
     assert itsm[itsm.index("--task") + 1 :] == ["v1"]
     # Named as the validation set, so that its summary leaves out the failures.
@@ -223,6 +227,25 @@ def test_run_leaves_a_finished_job_alone_and_repeats_one_with_an_error(
     write_rows(out, [("itsm", "t1", 1, 0, "the model did not answer")])
     benchmark.run(tmp_path, tmp_path, "broken", ["t1"], 1)
     assert len(commands) == 1 and not out.exists()
+
+
+def test_run_stops_the_experiment_when_the_model_service_did_not_answer(
+    benchmark, tmp_path, monkeypatch
+):
+    out = tmp_path / "jobs" / "r0A"
+
+    def run(command, **kwargs):
+        # The run it starts leaves one attempt the service never answered.
+        folder = out / "itsm"
+        folder.mkdir(parents=True)
+        (folder / "tasks.csv").write_text(
+            "task_id,attempt,error,service_error\nt1,1,down,True\n"
+        )
+        return SimpleNamespace(returncode=1)
+
+    monkeypatch.setattr(adapter.subprocess, "run", run)
+    with pytest.raises(SystemExit, match="1 attempts of r0A ended because the model"):
+        benchmark.run(tmp_path / "checkout", tmp_path, "r0A", ["t1"], 1)
 
 
 def test_score_is_the_fraction_of_checks_and_an_error_is_a_missing_attempt(

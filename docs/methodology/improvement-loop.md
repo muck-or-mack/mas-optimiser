@@ -108,6 +108,14 @@ and not the agent: an attempt is ended after `attempt_timeout` seconds
 recorded as an error. A change that makes the agent loop without end
 therefore costs one attempt's limit and not the experiment.
 
+A failure of the model service is kept apart from a failure of the harness.
+An attempt that ends because a call to the model failed is run again once
+the service answers a one-word question, and an attempt the service never
+answered is no score at all: the experiment stops there and carries on from
+that job when the command is given again. Without this a run that sets the
+yardstick, hit by an outage, would score too low, and the next candidate
+would look better than it is.
+
 A person's no is a decision made outside the gate. An experiment run with
 `approval: each` is the loop with a person in it, and is reported as such.
 
@@ -394,10 +402,11 @@ the gate asks for a gain that a test at a stated error level supports.
 
 - A rule on cost. The record holds every candidate's change in tokens, and
   no decision uses it.
-- A repeat of single attempts. An attempt that ended in an error is scored
-  as a failure of its task, whatever ended it. A job with more than 15% of
-  its attempts in error is run again once, as a whole; if it is then still
-  so, a baseline stops the experiment and a candidate is set aside.
+- Carrying a job on from where it stopped. A job that was interrupted, or
+  that holds an attempt the model service never answered, is run again as a
+  whole. So is a job with more than 15% of its attempts in error, once; if
+  it is then still so, a baseline stops the experiment and a candidate is
+  set aside.
 - A figure of the test score against the round.
 - A second benchmark. The loop holds nothing of this benchmark's; another
   one needs a class like `domain.EnterpriseOps`.

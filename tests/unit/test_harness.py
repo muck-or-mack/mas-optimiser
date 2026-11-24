@@ -75,7 +75,9 @@ def test_run_loads_the_agent_of_the_harness_it_is_given(tmp_path, monkeypatch, n
         runner, "load_model", lambda path: (SimpleNamespace(llm_provider="vllm"), {})
     )
     monkeypatch.setattr(runner.tracing, "configured", lambda: False)
-    monkeypatch.setattr(runner, "evaluate", lambda *args, **kwargs: seen.update(kwargs))
+    monkeypatch.setattr(
+        runner, "evaluate", lambda *args, **kwargs: seen.update(kwargs) or 0
+    )
     folder = tmp_path / "copy"
     shutil.copytree(runner.HARNESSES / "default", folder)
     unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)

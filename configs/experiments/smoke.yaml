@@ -56,6 +56,14 @@ model_timeout: 300
 # small part of each.
 attempt_timeout: 3600
 attempt_calls: 100
+# An attempt that ends because a call to the model failed for good says
+# nothing of the harness until the model service has been asked a one-word
+# question. If the service answers, the attempt is run again, at most this
+# many times. The service is waited for at most this many seconds; an attempt
+# it never answered is marked as the service's failure, not counted against
+# the harness, and the command ends with an error.
+attempt_retries: 2
+service_wait: 1800
 # The harness whose agent runs the tasks: a folder's name under harnesses/, or
 # a path to such a folder. The folder holds the agent's code (agent.py) and
 # the text it adds to every task's system message (prompt.md). "default" is

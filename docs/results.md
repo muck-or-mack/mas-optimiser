@@ -272,20 +272,21 @@ a row belongs to one attempt, so the files can be joined on them.
 
 ### `tasks.csv`: one row per attempt
 
-| column                                                                     | meaning                                                          |
-|----------------------------------------------------------------------------|------------------------------------------------------------------|
-| `success`                                                                  | whether every check passed                                       |
-| `checks_passed`, `checks_total`                                            | the checks passed, of the checks that are counted                |
-| `tables_checked`                                                           | the tables with a check on them                                  |
-| `tables_correct`, `tables_wrong`, `tables_missed`                          | those tables by result                                           |
-| `benchmark_success`, `benchmark_checks_passed`, `benchmark_checks_total`   | the same verdicts as the benchmark's own code counts them        |
-| `error`                                                                    | the error, when the attempt raised one before it finished        |
-| `tool_errors`                                                              | tool calls that answered with an error                           |
-| `lookups_empty`                                                            | lookups that found no record; they are not among the tool errors |
-| `model_calls`                                                              | calls to the model                                               |
-| `input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_write_tokens` | the tokens the model read and wrote                              |
-| `cost_usd`                                                                 | those tokens priced in US dollars                                |
-| `seconds`                                                                  | how long the attempt took                                        |
+| column                                                                     | meaning                                                                                                                        |
+|----------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
+| `success`                                                                  | whether every check passed                                                                                                     |
+| `checks_passed`, `checks_total`                                            | the checks passed, of the checks that are counted                                                                              |
+| `tables_checked`                                                           | the tables with a check on them                                                                                                |
+| `tables_correct`, `tables_wrong`, `tables_missed`                          | those tables by result                                                                                                         |
+| `benchmark_success`, `benchmark_checks_passed`, `benchmark_checks_total`   | the same verdicts as the benchmark's own code counts them                                                                      |
+| `error`                                                                    | the error, when the attempt raised one before it finished                                                                      |
+| `service_error`                                                            | `True` when the attempt ended because the model service did not answer: no verdict on the harness, and left out of every score |
+| `tool_errors`                                                              | tool calls that answered with an error                                                                                         |
+| `lookups_empty`                                                            | lookups that found no record; they are not among the tool errors                                                               |
+| `model_calls`                                                              | calls to the model                                                                                                             |
+| `input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_write_tokens` | the tokens the model read and wrote                                                                                            |
+| `cost_usd`                                                                 | those tokens priced in US dollars                                                                                              |
+| `seconds`                                                                  | how long the attempt took                                                                                                      |
 
 ### `tables.csv`: one row per attempt and table
 

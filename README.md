@@ -330,6 +330,17 @@ not in the run's cost. The runner keeps the limits and not the agent, so a
 changed harness cannot lift them; an attempt of the starting harness uses a
 small part of each.
 
+An attempt can also end because a call to the model failed for good: the
+service was down, or refused the key. That is no failure of the harness, and
+counting it as one would lower a score for nothing. So the runner asks the
+model service a one-word question. If the service answers, the attempt is
+run again, up to `attempt_retries` times (2); a call that still fails is
+then the harness's own doing and the attempt counts as a failure. If the
+service does not answer within `service_wait` seconds (1,800), the attempt
+is marked `service_error` in `tasks.csv`, left out of every score, and the
+command ends with an error. The improvement loop stops at such a job and
+carries on from it when its command is given again.
+
 A self-hosted open-weight model is run the same way, through its own model
 file. `configs/models/qwen3.6-27b-fp8.yaml` is one, for the 8-bit version of
 Qwen3.6-27B served by vLLM, which answers in the OpenAI API's format: the

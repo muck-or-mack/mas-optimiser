@@ -223,6 +223,9 @@ class EnterpriseOps(Domain):
         A job whose every attempt has a row with no error is left alone;
         otherwise the whole job is run again.
 
+        An attempt that ended because the model service did not answer is no
+        verdict on the harness, so a job that holds one stops the experiment.
+
         Args:
             root: The checkout whose harness folder is run.
             runs_dir: The experiment's folder; the job goes to ``jobs/<job>``.
@@ -230,6 +233,10 @@ class EnterpriseOps(Domain):
             ids: The task ids.
             k: Attempts per task.
             log_prefix: The name of the log file, the job's by default.
+
+        Raises:
+            SystemExit: If attempts of the job ended because the model
+                service did not answer.
         """
         out = Path(runs_dir) / "jobs" / job
         rows = self.rows(out)
@@ -268,6 +275,8 @@ class EnterpriseOps(Domain):
             command += ["--model-timeout", str(settings["model_timeout"])]
             command += ["--attempt-timeout", str(settings["attempt_timeout"])]
             command += ["--attempt-calls", str(settings["attempt_calls"])]
+            command += ["--attempt-retries", str(settings["attempt_retries"])]
+            command += ["--service-wait", str(settings["service_wait"])]
             command += ["--trace" if settings["trace"] else "--no-trace"]
             if settings["thinking_summary"]:
                 command += ["--thinking-summary"]
@@ -285,6 +294,18 @@ class EnterpriseOps(Domain):
                 print(
                     f"[{self.name}] run of {job}/{domain} ended with {done.returncode}; see {log}"
                 )
+        unanswered = sum(
+            row.get("service_error") == "True" for row in self.rows(out).values()
+        )
+        if unanswered:
+            # No verdict on the harness: the experiment waits for the service
+            # and carries on from this job when the command is given again.
+            raise SystemExit(
+                f"error: {unanswered} attempts of {job} ended because the model "
+                "service did not answer. Nothing was scored. Give the command "
+                "again when the service answers; the experiment carries on "
+                "from this job."
+            )
 
     def score(
         self, runs_dir: Path, job: str, ids: list[str], k: int
