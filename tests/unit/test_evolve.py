@@ -3,6 +3,7 @@
 import csv
 import json
 import re
+import threading
 from types import SimpleNamespace
 
 import pytest
@@ -48,6 +49,25 @@ def test_generate_returns_the_text_and_logs_the_call(tmp_path, monkeypatch):
     )
 
 
+def test_generate_builds_its_client_with_the_time_limit_and_the_model_files_tries(
+    monkeypatch,
+):
+    client = SimpleNamespace(timeout=None, max_retries=2)
+    model = SimpleNamespace(
+        root_client=client, invoke=lambda messages: AIMessage(content="OK")
+    )
+    config = models.runner.ModelConfig("openai", "m", "not-a-key", max_retries=7)
+    monkeypatch.setattr(models.runner, "config_path", lambda kind, name: name)
+    monkeypatch.setattr(models.runner, "load_model", lambda path: (config, {}))
+    monkeypatch.setattr(
+        models, "LLMClient", lambda *args, **kwargs: SimpleNamespace(llm=model)
+    )
+    monkeypatch.setattr(models, "_clients", {})
+    monkeypatch.setattr(models, "timeout", 45)
+    assert models.generate("Say OK.", model="a-model") == "OK"
+    assert (client.timeout, client.max_retries) == (45, 7)
+
+
 def test_generate_asks_for_json_and_returns_only_the_json(monkeypatch):
     model = Scripted(AIMessage(content='Here it is:\n```json\n{"a": 1}\n```'))
     monkeypatch.setitem(models._clients, "a-model", model)
@@ -69,6 +89,16 @@ def test_generate_tries_again_and_then_gives_up(monkeypatch):
     monkeypatch.setitem(models._clients, "a-model", Scripted(AIMessage(content="")))
     with pytest.raises(RuntimeError, match="no answer after 1 tries"):
         models.generate("Say something.", model="a-model", max_retries=1)
+
+
+def test_generate_gives_up_a_call_that_runs_past_its_limit_of_seconds(monkeypatch):
+    release = threading.Event()
+    stuck = SimpleNamespace(invoke=lambda messages: release.wait(5))
+    monkeypatch.setitem(models._clients, "a-model", stuck)
+    monkeypatch.setattr(models, "limit", 0.05)
+    with pytest.raises(RuntimeError, match="within its limit of 0.05 seconds"):
+        models.generate("Say something.", model="a-model")
+    release.set()
 
 
 # ------------------------------------------------------------------ the adapter

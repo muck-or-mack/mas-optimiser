@@ -12,9 +12,11 @@ Sources: ``docs/how-it-works.md``, section 6, the rows for ``evolve``.
 """
 
 import json
+import threading
 import time
 from pathlib import Path
 
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
 import mas_optimiser.evolve  # noqa: F401  (puts vendor/rrsi on sys.path)
@@ -29,8 +31,25 @@ usage_log: Path | None = None
 # Seconds one try at a call may wait for its answer; the loop sets it from
 # the experiment's ``model_timeout``.
 timeout: float = 300
+# Seconds one call of a role may take in all, its tries and the waits between
+# them included; the loop sets it from the experiment's ``attempt_timeout``.
+limit: float = 3600
 # Clients by model file, built on first use and kept for the process.
 _clients: dict = {}
+
+
+def _ask(client: BaseChatModel, messages: list, outcome: list) -> None:
+    """Put the client's answer to the messages, or the error it raised, in ``outcome``.
+
+    Args:
+        client: The model client.
+        messages: The messages to send.
+        outcome: The list the answer or the error is appended to.
+    """
+    try:
+        outcome.append(client.invoke(messages))
+    except Exception as error:  # noqa: BLE001 - handed back, to be tried again
+        outcome.append(error)
 
 
 def generate(
@@ -61,7 +80,8 @@ def generate(
         The answer's text, or its JSON part when ``json_only`` is set.
 
     Raises:
-        RuntimeError: If no try gave an answer.
+        RuntimeError: If no try gave an answer, or the call ran past
+            ``limit`` seconds.
     """
     if model not in _clients:
         config, _ = runner.load_model(runner.config_path("models", model))
@@ -85,6 +105,13 @@ def generate(
                 llm.root_client.timeout = timeout
             else:
                 llm.default_request_timeout = timeout
+        if config.max_retries is not None:
+            # The model file's tries of a failed call, set as the runner
+            # sets them, on the client these calls go through.
+            if hasattr(llm, "root_client"):
+                llm.root_client.max_retries = config.max_retries
+            else:
+                llm.max_retries = config.max_retries
         _clients[model] = llm
     messages = [HumanMessage(f"{cache_prefix}\n\n{prompt}" if cache_prefix else prompt)]
     if system or json_only:
@@ -92,12 +119,27 @@ def generate(
         ending = released._JSON_SUFFIX if json_only else ""
         messages.insert(0, SystemMessage((system or "") + ending))
     failure = "no try was made"
+    late = f"no answer within its limit of {limit:g} seconds"
+    deadline = time.monotonic() + limit
     for attempt in range(max_retries):
         started = time.monotonic()
-        try:
-            answer = _clients[model].invoke(messages)
-        except Exception as error:  # noqa: BLE001 - any failure is retried
-            failure = repr(error)
+        if started >= deadline:
+            raise RuntimeError(late)
+        # The provider's library repeats a failed call by itself, with no
+        # limit on the time that takes in all, so the call runs in a thread
+        # that can be left behind: a daemon, which does not hold the command
+        # open once the experiment has stopped.
+        outcome: list = []
+        asking = threading.Thread(
+            target=_ask, args=(_clients[model], messages, outcome), daemon=True
+        )
+        asking.start()
+        asking.join(deadline - started)
+        if asking.is_alive():
+            raise RuntimeError(late)
+        answer = outcome[0]
+        if isinstance(answer, Exception):
+            failure = repr(answer)
             time.sleep(min(2**attempt, 30))
             continue
         if usage_log is not None:

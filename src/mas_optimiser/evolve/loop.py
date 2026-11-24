@@ -467,6 +467,7 @@ def run(args: argparse.Namespace) -> None:
     )
     models.usage_log = folder / "search_usage.jsonl"
     models.timeout = experiment["model_timeout"]
+    models.limit = experiment["attempt_timeout"]
     settings = experiment | {"mas_optimiser_version": mas_optimiser.code_version()}
     (folder / "experiment.json").write_text(json.dumps(settings, indent=2, default=str))
 

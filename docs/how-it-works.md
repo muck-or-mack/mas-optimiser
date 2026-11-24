@@ -156,8 +156,12 @@ ten-minute default of Anthropic's library, so a call on a connection that
 has gone silent would wait for ever and hold the whole run. With the limit,
 a try that runs out is given up and repeated: the library makes two more
 tries, and the benchmark's client makes three such rounds
-(`llm_client.py:363`), nine tries in all. If every one fails, the attempt
-ends with an error, which `run_task` records and the totals count as a
+(`llm_client.py:363`), nine tries in all. A model file may give the
+library another number of further tries (`max_retries`, a field of
+`runner.ModelConfig`), which a service that limits its rate needs: a call
+refused for the rate limit is told how long to wait, and the library waits
+that long before each further try. If every try fails, the attempt ends
+with an error, which `run_task` records and the totals count as a
 failure. The limit is far above any real call: over the stored baseline
 runs a whole attempt, several calls long, took under a minute at most. The
 limit is set on the provider's own client, so it is built provider by
