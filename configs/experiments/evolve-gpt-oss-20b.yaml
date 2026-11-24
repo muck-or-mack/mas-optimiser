@@ -1,0 +1,30 @@
+# An experiment of the improvement loop on the default design
+# (docs/methodology/sizing.md) with gpt-oss-20b, served on the machine that
+# runs the tasks, as the agent and as the model that reads the results and
+# proposes: the tasks, the split and the settings of evolve-haiku.yaml, so
+# that no call leaves the machine and no key is needed. Start the model's
+# server first (`mas-optimiser server gpt-oss-20b`), then run it with
+# `mas-optimiser evolve evolve-gpt-oss-20b --accept-unreviewed-code`; the
+# keys are those of smoke.yaml and evolve-smoke.yaml, each explained there.
+model: gpt-oss-20b
+domain: [itsm, csm, hr]
+mode: all_tools
+attempts: 1
+# As many at once as have been tried on one 48 GB card, where an attempt
+# took about as long among eight as alone.
+concurrency: 8
+trace: false
+split: seed-1
+proposer_model: gpt-oss-20b
+rounds: 10
+candidates: 1
+alpha: 0.05
+filter_share: 0.5
+filter_threshold: 0
+pool_share: 0.5
+pool_pick: spread
+# The proposer may change the agent's instructions and its code, and no
+# person reads a change before it runs, which the command must be told is
+# accepted (--accept-unreviewed-code).
+editable: [".md", ".py"]
+approval: none
