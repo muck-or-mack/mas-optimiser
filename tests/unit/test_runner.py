@@ -962,6 +962,8 @@ def test_totals_leave_out_an_attempt_the_model_service_did_not_answer():
 def test_a_run_with_attempts_the_service_did_not_answer_ends_in_an_error(
     tmp_path, monkeypatch
 ):
+    # The run reads its model's key before anything else; any value will do.
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "a-key")
     monkeypatch.setattr(runner.tracing, "configured", lambda: False)
     monkeypatch.setattr(runner, "evaluate", lambda *args, **kwargs: 2)
     unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
