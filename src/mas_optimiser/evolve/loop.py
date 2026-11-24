@@ -6,8 +6,10 @@ commit on a branch of its own) and everything the loop writes. Its steps:
 
 1. The baseline: the starting harness on the training tasks, kept in full
    for the search roles, and on the validation tasks, kept for the gate.
-2. A round, repeated: the analyst reads the current harness's training
-   traces; the proposer drafts each candidate in its own checkout, told of
+2. A round, repeated: the analyst and the proposer are given the current
+   harness's score on every training task, and may read the traces of the
+   round's pool, a share of those tasks picked each round; the
+   proposer drafts each candidate in its own checkout, told of
    earlier proposals only whether each was accepted; a candidate that passes
    the review and still runs is scored on the validation tasks, on a share
    of them first (the filter), which drops a candidate that does no better
@@ -70,6 +72,14 @@ UNREVIEWED = (
 )
 # What the proposer is told of an earlier proposal. No score and no cost: of
 # the validation tasks it learns only whether a proposal was accepted.
+# Put before every training task's score in the analyst's and the proposer's
+# instructions, each round.
+SCORES = (
+    "Every training task's score with the current harness, lowest first: the "
+    "mean over its attempts of the fraction of checks passed. A task marked * "
+    "is in this round's pool, and only those have a trace that can be read; "
+    "the others are listed for their scores."
+)
 TOLD = (
     "t",
     "variant",
@@ -86,9 +96,9 @@ class Experiment(Run):
 
     Kept from ``Run``: the paths, the record of proposals, the checkouts
     and the drafting of a candidate (proposer, review, trial run). Replaced:
-    the baseline and the round, which here use two sets of tasks, the
-    scoring of a candidate, which here may begin with a filter, and the rule
-    that keeps a change.
+    the baseline and the round, which here use two sets of tasks, the pick
+    of the training tasks whose traces are read, the scoring of a candidate,
+    which here may begin with a filter, and the rule that keeps a change.
 
     Args:
         domain: The benchmark, a ``Domain`` that also gives
@@ -104,6 +114,10 @@ class Experiment(Run):
             candidate must be above on the filter's tasks to be run on the
             rest.
         seed: Seeds the draw of each round's filter tasks.
+        pool_share: The share of the training tasks whose traces the search
+            roles may read in a round; 1 for every task.
+        pool_pick: How those tasks are picked from the ranking by score:
+            ``"spread"`` or ``"ends"`` (see ``pool``).
     """
 
     def __init__(
@@ -116,6 +130,8 @@ class Experiment(Run):
         filter_share: float = 0.0,
         filter_threshold: float = 0.0,
         seed: int = 0,
+        pool_share: float = 1.0,
+        pool_pick: str = "spread",
     ):
         super().__init__(domain, cfg, repo, runs_root)
         self.harness_rel = domain.harness_path
@@ -123,6 +139,11 @@ class Experiment(Run):
         self.filter_share = filter_share
         self.filter_threshold = filter_threshold
         self.seed = seed
+        self.pool_share = pool_share
+        self.pool_pick = pool_pick
+        # The roles' instructions as the benchmark gives them; each round's
+        # scores are added to a copy.
+        self.briefs = dict(domain.briefs)
 
     def baseline(self, job: str = "base") -> EvalResult:
         """Run the starting harness on the training and validation tasks.
@@ -310,6 +331,42 @@ class Experiment(Run):
         self.eval_path(job).parent.mkdir(parents=True, exist_ok=True)
         c.ev.save(self.eval_path(job))
 
+    def pool(self, t: int, per_task: dict) -> dict[str, int]:
+        """The training tasks whose traces may be read in a round: the pool.
+
+        The tasks are ranked by score, lowest first, and a share of them is
+        taken. ``"spread"`` takes them at even steps along the ranking and
+        starts one place further each round, so that over the rounds every
+        task comes into the pool; the attempt shown is a task's
+        lowest-scoring one. ``"ends"`` takes the lowest and the highest, 22
+        to 6 as RRSI does, and shows the lowest-scoring attempt of a low task
+        and the highest-scoring attempt of a high one.
+
+        Args:
+            t: The round, from 0.
+            per_task: The current harness's results on the training tasks.
+
+        Returns:
+            Each task of the pool with the attempt of it to show, from 0.
+        """
+        ranked = sorted(per_task, key=lambda task: per_task[task].mean)
+        if not ranked:
+            return {}
+        n = max(1, round(self.pool_share * len(ranked)))
+        if self.pool_pick == "ends":
+            high = round(n * 6 / 28)
+            low, top = ranked[: n - high], ranked[len(ranked) - high :]
+        else:
+            step = len(ranked) / n
+            low = [ranked[int(t + i * step) % len(ranked)] for i in range(n)]
+            top = []
+        shown = {}
+        for tasks, choose in ((low, min), (top, max)):
+            for task in tasks:
+                rewards = per_task[task].rewards
+                shown[task] = rewards.index(choose(rewards))
+        return shown
+
     def round(self, t: int) -> None:
         """One round: read the training traces, draft, score on validation, decide.
 
@@ -324,8 +381,28 @@ class Experiment(Run):
         training = EvalResult.load(self.eval_path(current["training_job"]))
         validation = EvalResult.load(self.eval_path(current["job"]))
 
-        # What went wrong, from the training tasks only.
-        traces = self.build_traces(current["training_job"], training.per_task)
+        # What went wrong, from the training tasks only: the score of every
+        # one of them, and the traces of this round's pool.
+        traces = {}
+        for task, attempt in self.pool(t, training.per_task).items():
+            record = d.load_trial(self.runs, current["training_job"], task, attempt)
+            if record is not None:
+                traces[task] = record
+        scores = "\n".join(
+            f"{task} {training.per_task[task].mean:.2f}{' *' if task in traces else ''}"
+            for task in sorted(
+                training.per_task, key=lambda task: training.per_task[task].mean
+            )
+        )
+        d.briefs = self.briefs | {
+            role: f"{self.briefs[role]}\n\n{SCORES}\n{scores}"
+            for role in ("analyst", "proposer")
+        }
+        log(
+            d.name,
+            f"round {t}: the traces of {len(traces)} of {len(training.per_task)} "
+            f"training tasks can be read ({self.pool_pick})",
+        )
         report_path = folder / "analysis_report.json"
         if report_path.exists():
             report = json.loads(report_path.read_text())
@@ -542,6 +619,20 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         "be above on the filter's tasks",
     )
     parser.add_argument(
+        "--pool-share",
+        type=float,
+        help="the share of the training tasks whose traces the search roles "
+        "may read in a round (1 for every task); every task's score is shown "
+        "whatever the share",
+    )
+    parser.add_argument(
+        "--pool-pick",
+        choices=runner.POOL_PICKS,
+        help="how the pool is picked from the training tasks ranked by score: "
+        "spread, evenly over the ranking and one place further each round, or "
+        "ends, its lowest and its highest",
+    )
+    parser.add_argument(
         "--editable",
         nargs="+",
         help="the types of file in the harness folder a proposal may edit, "
@@ -625,6 +716,8 @@ def run(args: argparse.Namespace) -> None:
         experiment["filter_share"],
         experiment["filter_threshold"],
         splits.load_split(split)["seed"],
+        experiment["pool_share"],
+        experiment["pool_pick"],
     )
     models.usage_log = folder / "search_usage.jsonl"
     models.timeout = experiment["model_timeout"]

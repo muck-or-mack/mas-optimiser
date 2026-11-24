@@ -386,6 +386,7 @@ class Scores(Domain):
     harness_path = "harness"
     # Two groups of three validation tasks, for a filter to take a share of each.
     domain_of = {f"v{n}": "odd" if n % 2 else "even" for n in range(1, 7)}
+    briefs = {"analyst": "the analyst's brief", "proposer": "the proposer's brief"}
 
     def __init__(self, scores):
         self.scores, self.jobs = scores, []
@@ -446,6 +447,7 @@ def experiment(tmp_path, monkeypatch, candidate_scores, **settings):
 
     def draft(t, variant, folder, report, digests, traces, current, *rest):
         given.update(traces=traces, current=current, told=rest[4])
+        given.update(briefs=dict(run.domain.briefs))
         (folder / variant).mkdir(exist_ok=True)
         branch = f"{run.domain.name}/r{t}{variant}"
         checkout = gitops.worktree_add(
@@ -605,6 +607,65 @@ def test_a_change_a_person_declined_is_recorded_as_declined(tmp_path, monkeypatc
     # It was never scored, and the current harness is unchanged.
     assert ("r0A", VALIDATION) not in run.domain.jobs
     assert run.frontier()["promotions"] == 0
+
+
+def test_the_pool_is_spread_over_the_ranking_and_moves_one_place_on_each_round(
+    tmp_path, monkeypatch
+):
+    run, _ = experiment(tmp_path, monkeypatch, [0.5] * 6, pool_share=0.3)
+    # Ten tasks ranked t0 (lowest) to t9; three attempts each, the second the lowest.
+    results = {f"t{n}": TaskResult(rewards=[n / 10, n / 20, n / 10]) for n in range(10)}
+    assert list(run.pool(0, results)) == ["t0", "t3", "t6"]
+    assert list(run.pool(1, results)) == ["t1", "t4", "t7"]
+    # Over the rounds every task comes into the pool.
+    read = {task for t in range(4) for task in run.pool(t, results)}
+    assert read == set(results)
+    # The attempt shown is the task's lowest-scoring one.
+    assert run.pool(1, results) == {"t1": 1, "t4": 1, "t7": 1}
+    # A share of 1 is every task, and of nearly none still one task.
+    run.pool_share = 1.0
+    assert set(run.pool(5, results)) == set(results)
+    run.pool_share = 0.01
+    assert list(run.pool(0, results)) == ["t0"]
+    assert run.pool(0, {}) == {}
+
+
+def test_the_ends_pick_takes_the_lowest_and_the_highest_22_to_6(tmp_path, monkeypatch):
+    run, _ = experiment(
+        tmp_path, monkeypatch, [0.5] * 6, pool_share=0.5, pool_pick="ends"
+    )
+    # 56 tasks ranked t00 to t55, two attempts each, the first the higher.
+    results = {
+        f"t{n:02d}": TaskResult(rewards=[(n + 1) / 100, n / 100]) for n in range(56)
+    }
+    # Half of 56 is 28: the 22 lowest and the 6 highest, as in RRSI.
+    shown = run.pool(3, results)
+    assert list(shown) == [f"t{n:02d}" for n in [*range(22), *range(50, 56)]]
+    # A low task by its lowest attempt, a high one by its highest.
+    assert shown["t00"] == 1 and shown["t55"] == 0
+    # The same tasks every round: this pick does not move.
+    assert run.pool(4, results) == shown
+
+
+def test_both_roles_are_given_every_training_score_with_the_pool_marked(
+    tmp_path, monkeypatch
+):
+    run, given = experiment(tmp_path, monkeypatch, [0.5] * 6, pool_share=0.5)
+    run.baseline()
+    run.round(0)
+    # One of the two training tasks is in the pool, and only its trace is given.
+    assert list(given["traces"]) == ["t1"]
+    for role in ("analyst", "proposer"):
+        brief = given["briefs"][role]
+        assert brief.startswith(f"the {role}'s brief")
+        assert brief.endswith("t1 0.50 *\nt2 0.50")
+    # The next round's pool starts one place further.
+    run.domain.scores["r1A"] = run.domain.scores["r0A"]
+    run.round(1)
+    assert list(given["traces"]) == ["t2"]
+    assert given["briefs"]["analyst"].endswith("t1 0.50\nt2 0.50 *")
+    # The benchmark's own texts are left as they were.
+    assert Scores.briefs["analyst"] == "the analyst's brief"
 
 
 def test_the_proposer_reads_training_tasks_and_hears_only_the_outcome(

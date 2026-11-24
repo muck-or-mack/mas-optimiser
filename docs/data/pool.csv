@@ -1,0 +1,5 @@
+pool_share,training_tasks,tasks_in_pool,rounds_until_every_task_read,input_tokens_per_read,input_tokens_a_round
+0.1,61,6,11,59000,354000
+0.25,61,15,5,59000,885000
+0.5,61,30,3,59000,1770000
+1.0,61,61,1,59000,3599000
