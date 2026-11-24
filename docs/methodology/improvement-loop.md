@@ -367,12 +367,40 @@ evolutions/<experiment>/<split>/
                               the filter's: its tasks, the gain there, the
                               threshold and whether the candidate passed
       <candidate>/            the proposal, its diff, its review, its trial run
+  report/                     written by `mas-optimiser report`, see below
 ```
 
 Each job folder is an evaluation as described in
 [Reading the results](../results.md); the summary of a job on validation or
 test tasks gives the headline only. Giving the command again carries the
 experiment on from the last step that left its result.
+
+## Reading an experiment
+
+```
+mas-optimiser report evolutions/<experiment>/<split>
+```
+
+reads what an experiment wrote, finished or still going, and writes a
+`report/` folder inside it. Nothing is run and nothing is measured again.
+
+| file                 | what it holds                                                                                                                                                                             |
+|----------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `report.md`          | the three tables below and the figure, as a page to read                                                                                                                                  |
+| `harnesses.csv`      | each harness the experiment kept, the starting one first: its validation and test scores, what an attempt at a test task used, and its gain on the test tasks over the starting harness |
+| `rounds.csv`         | each candidate: what it changed, where it ended (the review, its one-task trial, the filter or the gate), and the filter's and the gate's numbers                                         |
+| `parts.csv`          | the runs, tokens, dollars and hours of each part of the experiment, the agent's and the search roles'                                                                                    |
+| `figures/scores.png` | the current harness's score after each round, on the validation tasks and, once the test step has run, on the test tasks; also as PDF, with its numbers in `scores.csv`                  |
+
+The gain on the test tasks is the mean, over the test tasks, of a task's
+score with the harness less its score with the starting harness. It comes
+with the gate's one-sided test and with a 95% confidence interval, 1.98
+standard errors either way at about a hundred tasks
+([Sizing an experiment](sizing.md)). The test tasks took no part in any
+decision, so this gain is not flattered by selection as the validation
+gain of an accepted change is. A search role's call is priced from the
+tokens it used at the rates of its model file; the hours are the runs' own
+times added up, not time on the clock.
 
 ## What is taken from RRSI and what is replaced
 
@@ -407,7 +435,6 @@ the gate asks for a gain that a test at a stated error level supports.
   whole. So is a job with more than 15% of its attempts in error, once; if
   it is then still so, a baseline stops the experiment and a candidate is
   set aside.
-- A figure of the test score against the round.
 - A second benchmark. The loop holds nothing of this benchmark's; another
   one needs a class like `domain.EnterpriseOps`.
 

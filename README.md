@@ -543,6 +543,7 @@ Every evaluation folder is written to be read without a tracing server:
 | every run of an experiment, at a glance, with its domains | `mas-optimiser list <experiment>`, from `index.csv` | `listing` |
 | whether a candidate beat the current harness, by how much, and the smallest gain the data could show | `comparison.md`, its data files and `figures/` in the folder `mas-optimiser compare` writes | `stats.compare` |
 | whether that test can be trusted on this benchmark and model | `calibration.md` and its data files in the folder `mas-optimiser calibrate` writes | `stats.calibrate` |
+| what an experiment of the loop found and what each part of it cost | `report/report.md` and its data files in the experiment's folder, written by `mas-optimiser report` | `evolve.report` |
 
 ## Splitting the tasks
 
@@ -762,6 +763,16 @@ is a trial of the loop itself: three tasks of each set, one attempt, one
 round, text edits only, a few minutes and a few cents. Results go to
 `evolutions/<experiment>/<split>/`, and giving the command again carries an
 interrupted experiment on.
+
+```
+mas-optimiser report evolutions/<experiment>/<split>
+```
+
+writes `report/report.md` in that folder, for an experiment that has
+finished or one still going: each harness kept, with its gain on the test
+tasks and a 95% confidence interval; each round's candidate and where it
+ended; what every part of the experiment cost; and a figure of the score
+after each round. The tables are beside it as CSV files.
 
 A candidate is run on the filter's share of the validation tasks first,
 and on the rest only if its score there is above the current harness's by
