@@ -1,0 +1,7 @@
+tools,domain,tasks,attempts,median_prompt_tokens,p95_prompt_tokens
+own,csm,103,309,10128,31031
+own,hr,102,306,10964,18751
+own,itsm,102,306,11911,22513
+all,csm,42,125,34021,57738
+all,hr,41,123,45474,50817
+all,itsm,42,124,51274,65173

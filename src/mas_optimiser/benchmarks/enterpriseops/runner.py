@@ -1425,7 +1425,10 @@ def run(args: argparse.Namespace) -> None:
     agent = runpy.run_path(str(folder / "agent.py"))["Agent"]
 
     load_dotenv(REPO_ROOT / ".env")
-    model, pricing = load_model(config_path("models", experiment["model"]))
+    model_file = config_path("models", experiment["model"])
+    model, pricing = load_model(model_file)
+    # How a self-hosted model's server is started, kept with the results.
+    server = yaml.safe_load(model_file.read_text()).get("server")
     trace = tracing.configured() and experiment["trace"]
     thinking = THINKING_SUMMARY if experiment["thinking_summary"] else None
     # The caching here is Anthropic's: for any other provider nothing is
@@ -1471,6 +1474,7 @@ def run(args: argparse.Namespace) -> None:
             timeout=timeout,
             agent=agent,
             version=version,
+            server=server,
         )
     if not experiment["out"]:
         write_run_summary(run_dir, experiment["experiment"])
@@ -1492,6 +1496,7 @@ def evaluate(
     timeout: float | None,
     agent: type[AgentOrchestrator],
     version: str,
+    server: dict | None = None,
 ) -> None:
     """Run one domain's tasks as one evaluation: the folder, its tables, ``evaluation.json`` and the index row.
 
@@ -1509,6 +1514,9 @@ def evaluate(
         agent: The agent class of the experiment's harness.
         version: The code's version when the run began, from
             ``mas_optimiser.code_version``, recorded in ``evaluation.json`` and the index.
+        server: The ``server`` block of a self-hosted model's file, recorded
+            in ``evaluation.json`` as the file gives it; ``None`` for a
+            hosted model.
 
     Raises:
         SystemExit: If a chosen task is not one of the domain's.
@@ -1603,6 +1611,7 @@ def evaluate(
         "harness": experiment["harness"],
         "model": {k: v for k, v in vars(model).items() if k != "llm_api_key"},
         "pricing": pricing,
+        "server": server,
         "domain": domain,
         "attempts": experiment["attempts"],
         "concurrency": experiment["concurrency"],

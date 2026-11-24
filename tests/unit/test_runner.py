@@ -309,10 +309,13 @@ def test_evaluate_writes_the_tables_the_settings_and_the_index_row(
         timeout=300,
         agent=None,
         version="v0",
+        server={"vllm": "1", "args": ["--max-model-len=9"]},
     )
     folder = tmp_path / "exp" / "e1"
     settings = json.loads((folder / "evaluation.json").read_text())
     assert settings["tasks"] == ["task_b"]
+    # How a self-hosted model was served is kept with its results.
+    assert settings["server"] == {"vllm": "1", "args": ["--max-model-len=9"]}
     assert settings["prompt_caching"] is True
     assert settings["model_timeout"] == 300
     assert settings["harness"] == "default"

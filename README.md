@@ -59,33 +59,61 @@ Stop them with `docker compose -f docker/compose.yaml down`.
 ## Serving an open-weight model
 
 An open-weight model runs on the machine's own GPUs, served by
-[vLLM](https://docs.vllm.ai/). The package starts the server from the
-model's file:
+[vLLM](https://docs.vllm.ai/). One command installs vLLM, starts the server
+and reports on it, and the settings are in the model's file. The example
+throughout is Qwen3.6-27B, `configs/models/qwen3.6-27b.yaml`.
+
+### What the machine needs
+
+| the machine needs                      | for Qwen3.6-27B as its file is written                                                                                                 | how to check                                                                  |
+|----------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
+| NVIDIA GPUs with free memory           | two cards of 48 GB with nothing else running on them; the model takes about 33,000 MiB of each, and more with several attempts at once | `nvidia-smi`: the memory in use on each card and the programs listed under it |
+| an NVIDIA driver that supports CUDA 13 | asked for by vLLM 0.34.0, the release the file names                                                                                   | the first line of `nvidia-smi` gives the CUDA version                         |
+| disk space in the home folder          | about 75 GB: 19 GB for vLLM and 56 GB for the model's weights                                                                          | `df -h ~`                                                                     |
+| a free port                            | 8027                                                                                                                                   | the command says so if another program has it                                 |
+
+Docker is not needed, and neither are administrator rights.
+`docs/gpu-memory.md` shows where the GPU memory goes, how the need grows
+with the benchmark's domain and with the attempts run at once, and what to
+change for other cards.
+
+### From a fresh clone to a first task
+
+```bash
+./setup.sh
+source .venv/bin/activate
+mas-optimiser server qwen3.6-27b      # again, until it says ready
+docker compose -f docker/compose.yaml up -d
+mas-optimiser run smoke --model qwen3.6-27b --limit 1
+```
+
+The fourth line starts the benchmark's servers and the fifth runs one task
+on the model.
+
+### Start, check, stop
 
 ```bash
 mas-optimiser server qwen3.6-27b
 ```
 
-`configs/models/qwen3.6-27b.yaml` ends in a `server` block: the release of
-vLLM, and the options the server starts with (how many GPUs the model is
-spread over, the longest prompt it takes, and the model card's options for
-tool calling). The first time, the command installs that release of vLLM
-with uv into an environment of its own, apart from the package's
-(`~/.cache/mas-optimiser/vllm-<release>/`, about 19 GB, half of it
-kernels that vLLM fetches for itself in an optional last step; a few
-minutes on a fast connection). It then
-starts the server as a background process that outlives the terminal,
-listening where the file's `llm_api_endpoint` says and reachable from this
-machine only, and prints each command it runs. Docker is not needed, and
-neither are administrator rights: the machine needs its NVIDIA driver and
-nothing else.
+does four things in turn:
 
-The first start also downloads the model's weights (56 GB for
-Qwen3.6-27B) into the user's Hugging Face cache, `~/.cache/huggingface`, or
-into the folder `--cache <folder>` names, and then loads the model. Run the
-same command again at any time: it starts nothing new and says whether the
-server is still `loading` or `ready`. The server's output is in
-`~/.cache/mas-optimiser/<name>.log`.
+1. It checks that the server's port is free, and warns of any card that
+   already has memory in use.
+2. The first time only, it installs the release of vLLM that the file names
+   into an environment of its own, apart from the package's
+   (`~/.cache/mas-optimiser/vllm-<release>/`, about 19 GB, a few minutes on
+   a fast connection).
+3. It starts the server in the background, where it outlives the terminal,
+   and prints each command it runs.
+4. It says whether the server is `loading` or `ready`.
+
+The first start also downloads the model's weights (56 GB) into the user's
+Hugging Face cache, `~/.cache/huggingface`, and then loads the model. Run
+the same command again at any time: it starts nothing new and says whether
+the server is still `loading` or `ready`. The server's own output is in
+`~/.cache/mas-optimiser/<name>.log`, and the server is reachable from this
+machine only.
 
 ```bash
 mas-optimiser server qwen3.6-27b --stop
@@ -94,16 +122,39 @@ mas-optimiser server qwen3.6-27b --stop
 ends the server. The environment and the weights stay, so the next start
 installs and downloads nothing.
 
-| The command says | What it means | What to do |
-|---|---|---|
-| `loading` | the server is running and does not answer yet | wait; `tail -f` on the log shows progress |
-| `ready at <address>` | the server answers and lists the model | run an experiment with `--model <name>` |
-| `port ... is already in use` | another program on the machine listens on the server's port, which is common on a shared machine | give the server another port in `llm_api_endpoint` of the model file, then start again |
-| the server `stopped by itself` | it ended without being asked, for instance for lack of GPU memory | read the log, then `--stop` and start again |
-| `precompiled kernels were not installed`, during the first start | vLLM's last install step could not fetch its kernels, for instance from a machine that cannot reach the site they come from | nothing: the server starts without them and falls back to slower sampling code; the message gives the command that tries again |
+### What the command says
 
-With `--docker` the same release runs as a container of vLLM's image
-instead, named after the model file, with the weights in the Docker volume
+| the command says                                                     | what it means                                                                                                                                                                               | what to do                                                                                                         |
+|----------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
+| `loading`                                                            | the server is running and does not list the model yet                                                                                                                                       | wait; `tail -f` on the log shows the download and the loading                                                      |
+| `ready at <address>`                                                 | the server answers and lists the model                                                                                                                                                      | run an experiment with `--model <name>`                                                                            |
+| `warning: card ... already has ... MiB in use`                       | another program holds memory on a card the server is about to use                                                                                                                           | look at `nvidia-smi`; if the server then stops for lack of memory, free the card or name other cards with `--gpus` |
+| `port ... is already in use`                                         | another program listens on the server's port, which is common on a shared machine                                                                                                           | give the server another port in `llm_api_endpoint` of the model file, then start again                             |
+| the server `stopped by itself`, then the errors its output ends with | it ended without being asked. `out of memory` means the model did not fit in the cards' free memory; `estimated maximum model length` means the limit on prompt length is too long for them | put the cause right (`docs/gpu-memory.md`), clear the server with `--stop`, and start again                        |
+| `precompiled kernels were not installed`                             | the last step of vLLM's install, which is optional, could not fetch them                                                                                                                    | nothing: the server starts without them, and the message gives the command that tries again                        |
+
+### Fitting it to another machine
+
+The settings that depend on the machine are three lines of the model file
+and two options of the command. To change the file's, copy it under a new
+name in `configs/models/` and use that name in the commands.
+
+| the machine has                | what to set                                                                             |
+|--------------------------------|-----------------------------------------------------------------------------------------|
+| a different number of cards    | `--tensor-parallel-size` in the file's `server` block                                   |
+| less memory on its cards       | `--max-model-len` in the `server` block, the longest prompt and answer the server takes |
+| the port taken                 | the port in `llm_api_endpoint`                                                          |
+| some cards in use, others free | `--gpus 2,3` on the command, the cards by their numbers in `nvidia-smi`                 |
+| little room in the home folder | `--cache <folder>` on the command, where the weights are kept                           |
+
+An evaluation records the file's `server` block in its `evaluation.json`
+beside the model's other settings, so that results say how their model was
+served.
+
+### In Docker instead
+
+With `--docker` the same release runs as a container of vLLM's image,
+named after the model file, with the weights in the Docker volume
 `mas-optimiser-models` (or the folder `--cache` names); `--docker --stop`
 removes the container and `docker logs -f <name>` shows its output. This
 needs Docker, room for the image (about 10 GB to download) on Docker's
@@ -111,15 +162,18 @@ disk, and NVIDIA's Container Toolkit
 ([its install guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)),
 which takes administrator rights to install.
 
-Another model is another file in `configs/models/` with its own `server`
-block; a file without one, such as a hosted model's, is refused. Releases
-of vLLM after 0.32.0 need an NVIDIA driver that supports CUDA 13
-(`nvidia-smi` shows the driver's CUDA version on its first line).
+### Another model, and what has been run
 
-The command has been run end to end on one GPU with a small model: vLLM
-installed, the server started, a task run against it, the server stopped.
-The options in the Qwen3.6-27B file, and `--docker` with vLLM's own image,
-have not been run yet.
+Another model is another file in `configs/models/` with its own `server`
+block; a file without one, such as a hosted model's, is refused.
+
+The command has been run end to end on one GPU with a small model of the
+same family, Qwen3-0.6B: vLLM installed, the server started, a task run
+against it, the reason for a stop printed, the server stopped. On a machine
+with two cards of 48 GB, Qwen3.6-27B was installed and downloaded and began
+to load, and stopped for lack of memory because another program held the
+cards; it has not yet been served. `--docker` has been run with a stand-in
+for vLLM's image.
 
 ## Running an experiment
 
