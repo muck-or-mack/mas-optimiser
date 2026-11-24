@@ -7,7 +7,7 @@ module, which defines its options (``add_arguments``) and its work (``run``):
     mas-optimiser run smoke --domain itsm --limit 5
     mas-optimiser rescore evaluations/<experiment>/<evaluation>
     mas-optimiser rebuild evaluations/<experiment>/<evaluation> <task_id> 1
-    mas-optimiser split --name domain-20-40-40
+    mas-optimiser split --name by-domain
     mas-optimiser schema
     mas-optimiser compare --experiment baseline-haiku --a 20261027 --b 20261103
     mas-optimiser calibrate --experiment baseline-haiku --a 20261027 --b 20261103

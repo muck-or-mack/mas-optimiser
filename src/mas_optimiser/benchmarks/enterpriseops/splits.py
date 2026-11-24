@@ -11,7 +11,9 @@ validation, then test in the proportions given, rounded by largest remainder
 so that every task lands in exactly one set. Two options shape it.
 ``--balance`` names what every set should hold the same mix of: ``domain``,
 ``difficulty`` (whether all, some or none of a task's attempts passed in a
-baseline run), both, or neither. The tasks are grouped by the values named,
+baseline run), both, or neither. Left out, it is ``domain``, and
+``difficulty`` as well once ``--experiment`` names a baseline run to read it
+from. The tasks are grouped by the values named,
 shuffled within each group, and each group is shared out in the proportions;
 with nothing named there is one group, a plain shuffle. ``--seen`` names a
 file of tasks that have already been read by hand. They go into training
@@ -35,9 +37,9 @@ the file holds no result of any single task. A split is drawn once and never
 redrawn: the command refuses a name that already has a file, since redrawing
 could move tasks someone has read into a sealed set. Usage::
 
-    mas-optimiser split --name domain-20-40-40
+    mas-optimiser split --name by-domain
     mas-optimiser split --name trial --proportions 0.6 0.2 0.2 --seed 7 --balance
-    mas-optimiser split --name by-difficulty --balance domain difficulty --experiment baseline-haiku
+    mas-optimiser split --name by-difficulty --experiment baseline-haiku
 
 Sources: ``docs/how-it-works.md``, section 6, the rows for ``splits``.
 """
@@ -63,7 +65,11 @@ SETS = ("training", "validation", "test")
 # The sets harnesses are judged on. What goes wrong on their tasks is not
 # listed for reading, so that no change to a harness is made in its light.
 HELD_OUT = ("validation", "test")
-DEFAULT_PROPORTIONS = (0.2, 0.4, 0.4)
+#: The default shares of training, validation and test. With one attempt a
+#: task they let the gate find a gain of 6 percentage points at an
+#: experiment's first decision and give the final gain a 95% confidence
+#: interval of about 5 points either way (``docs/methodology/sizing.md``).
+DEFAULT_PROPORTIONS = (0.17, 0.52, 0.31)
 # What a draw can balance, in the order a task's values are held.
 BALANCE_KEYS = ("domain", "difficulty")
 SPLITS_DIR = REPO_ROOT / "configs" / "splits"
@@ -338,14 +344,14 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         "--balance",
         nargs="*",
         choices=BALANCE_KEYS,
-        default=["domain"],
         help="what every set holds the same mix of: domain, difficulty, both, or "
-        "nothing after the option for a plain shuffle (default: domain)",
+        "nothing after the option for a plain shuffle (default: domain, and "
+        "difficulty too when --experiment names a baseline run)",
     )
     parser.add_argument(
         "--experiment",
         help="the evaluations/<experiment> folder whose baseline run gives each "
-        "task's difficulty; given with --balance difficulty and only then",
+        "task's difficulty; a balance on difficulty needs it",
     )
     parser.add_argument(
         "--seen",
@@ -363,8 +369,9 @@ def run(args: argparse.Namespace) -> None:
 
     Raises:
         SystemExit: For a malformed name, a name that already has a split, an
-            experiment given without a balance on difficulty or left out with
-            one, a missing or malformed file of seen tasks, or a draw that is
+            experiment given with a balance that leaves difficulty out or
+            left out of one that names it, a missing or malformed file of
+            seen tasks, or a draw that is
             refused.
     """
     if not NAME.fullmatch(args.name) or args.name.endswith(".json"):
@@ -378,11 +385,17 @@ def run(args: argparse.Namespace) -> None:
             f"error: {path} exists; a split is never redrawn, so give a new one "
             "another name"
         )
-    balance = tuple(key for key in BALANCE_KEYS if key in args.balance)
+    # With no balance given the sets are balanced on the domain, and on
+    # difficulty as well once a baseline run is named to read it from.
+    chosen = args.balance
+    if chosen is None:
+        chosen = BALANCE_KEYS if args.experiment else ("domain",)
+    balance = tuple(key for key in BALANCE_KEYS if key in chosen)
     if ("difficulty" in balance) != bool(args.experiment):
         raise SystemExit(
             "error: --experiment names the baseline run that gives each task's "
-            "difficulty; give it with --balance difficulty and only then"
+            "difficulty; a balance on difficulty needs it, and a balance given "
+            "without difficulty has no use for it"
         )
     seen = {}
     if args.seen:

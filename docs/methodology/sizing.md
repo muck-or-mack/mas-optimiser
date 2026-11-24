@@ -184,9 +184,24 @@ cost:
   to the validation set instead, where each lowers the smallest gain found,
   or be left out of the experiment.
 
-For comparison, the default split of 20%, 40% and 40% at one attempt a task
-is 61, 123 and 123 tasks and 1,874 attempts, with a confidence interval of
-±4.4 points on the final gain and a smallest gain found of 6.9.
+### The default
+
+`mas-optimiser split` shares the tasks out as 17% training, 52% validation
+and 31% test unless told otherwise. Those shares come from these steps with
+two round targets at one attempt a task: a gain of 6 points found at the
+first decision, and the final gain to within 5 points either way. The
+number of attempts is then a separate setting, `attempts`, and a second
+attempt sharpens both figures with the same split:
+
+| attempts a task   | training / validation / test   | smallest gain found at the first decision   | 95% confidence interval of the final gain   | attempts in the experiment   |
+|-------------------|--------------------------------|---------------------------------------------|---------------------------------------------|------------------------------|
+| 1                 | 51 / 160 / 96                  | 6.0                                         | ±4.9                                        | 2,068                        |
+| 2                 | 51 / 160 / 96                  | 3.9                                         | ±3.2                                        | 4,136                        |
+
+A second attempt divides both figures by about 1.5 and doubles the cost.
+Other shares are given with `--proportions`; shares that favour the
+training set, as in the worked example, measure less sharply for the same
+attempts.
 
 ## What an experiment costs, part by part
 
@@ -204,26 +219,26 @@ propose. What one unit of each takes has been measured, with Claude Haiku
 
 The two figures of the search roles are medians of rounds that differed
 widely: a trace read took from 24,000 to 113,000 input tokens. With those,
-the default experiment (61, 123 and 123 tasks, one attempt a
+the default experiment (51, 160 and 96 tasks, one attempt a
 task, 10 rounds of which 3 end in a change kept, the filter and the pool at
 their default shares, every tool given) comes to (`docs/data/cost.csv`):
 
 | part                                         | how many   | input tokens each   | input tokens, millions   | share   |
 |----------------------------------------------|------------|---------------------|--------------------------|---------|
-| the starting harness on the training tasks   | 61         | 283,000             | 17.3                     | 3.1%    |
-| the starting harness on the validation tasks | 123        | 283,000             | 34.8                     | 6.3%    |
+| the starting harness on the training tasks   | 51         | 283,000             | 14.4                     | 2.4%    |
+| the starting harness on the validation tasks | 160        | 283,000             | 45.3                     | 7.5%    |
 | the one-task trial of each candidate         | 10         | 283,000             | 2.8                      | 0.5%    |
-| the candidates on the validation tasks       | 1,015      | 283,000             | 287.2                    | 52.1%   |
-| each harness kept, on the training tasks     | 183        | 283,000             | 51.8                     | 9.4%    |
-| each harness kept, on the test tasks         | 492        | 283,000             | 139.2                    | 25.3%   |
-| the analysis: traces read                    | 300        | 59,000              | 17.7                     | 3.2%    |
+| the candidates on the validation tasks       | 1,320      | 283,000             | 373.6                    | 61.9%   |
+| each harness kept, on the training tasks     | 153        | 283,000             | 43.3                     | 7.2%    |
+| each harness kept, on the test tasks         | 384        | 283,000             | 108.7                    | 18.0%   |
+| the analysis: traces read                    | 260        | 59,000              | 15.3                     | 2.5%    |
 | the proposer and the reviewer: candidates    | 10         | 52,000              | 0.5                      | 0.1%    |
-| all                                          |            |                     | 551.3                    | 100%    |
+| all                                          |            |                     | 603.9                    | 100%    |
 
-- **Half of it is the candidates' validation runs, and a quarter the test
-  runs.** The settings that move the cost most are therefore the rounds,
-  the validation tasks, the filter and the attempts.
-- **The search roles are about 3%.** Reading more traces each round costs
+- **Six tenths of it is the candidates' validation runs, and nearly two
+  tenths the test runs.** The settings that move the cost most are
+  therefore the rounds, the validation tasks, the filter and the attempts.
+- **The search roles are under 3%.** Reading more traces each round costs
   little beside one more attempt on every validation task.
 - **The figures are input tokens.** An attempt's output is about 3,000
   tokens. Tokens are not money: a provider bills repeated input at a lower

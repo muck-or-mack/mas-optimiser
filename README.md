@@ -531,7 +531,7 @@ Every evaluation folder is written to be read without a tracing server:
 ## Splitting the tasks
 
 ```
-mas-optimiser split --name domain-20-40-40
+mas-optimiser split --name by-domain
 ```
 
 Draws the training, validation and test sets with a seeded shuffle and
@@ -541,16 +541,16 @@ alone, and the test set is opened once for the reported number.
 
 | option          | what it sets                                            | default       |
 |-----------------|---------------------------------------------------------|---------------|
-| `--proportions` | shares of training, validation and test, summing to one | `0.2 0.4 0.4` |
+| `--proportions` | shares of training, validation and test, summing to one | `0.17 0.52 0.31` |
 | `--seed`        | seed of the shuffle; the same seed gives the same sets  | `0`           |
 | `--balance`     | what every set holds the same mix of                    | `domain`      |
-| `--experiment`  | the baseline run read for each task's difficulty        |               |
+| `--experiment`  | the baseline run read for each task's difficulty        | none          |
 | `--seen`        | a file of tasks already read by hand, kept in training  | none          |
 
 ```
 mas-optimiser split --name trial --proportions 0.6 0.2 0.2 --seed 7
 mas-optimiser split --name plain --balance
-mas-optimiser split --name by-difficulty --balance domain difficulty --experiment baseline-haiku
+mas-optimiser split --name by-difficulty --experiment baseline-haiku
 mas-optimiser split --name with-seen --seen seen-tasks.yaml
 ```
 
@@ -561,8 +561,10 @@ are shuffled as one group. The more that is balanced, the smaller the groups,
 and the set sizes can differ from the exact shares by a few tasks.
 
 A task's difficulty is whether all, some or none of its attempts passed in a
-baseline run, named by `--experiment` and given only with a balance on
-difficulty. For each domain the command reads the experiment's latest full
+baseline run, named by `--experiment`. Naming one is enough: with no
+`--balance` given, the sets are then balanced on domain and on difficulty.
+With no run yet there is no difficulty to balance on, and the sets are
+balanced on domain alone. For each domain the command reads the experiment's latest full
 evaluation that has no label and no command-line option that changes what is
 measured (`--domain`, `--concurrency`, `--out` and the tracing switch change
 nothing). It stops if a domain with a full evaluation has none that
