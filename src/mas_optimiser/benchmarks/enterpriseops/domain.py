@@ -220,11 +220,13 @@ class EnterpriseOps(Domain):
         """Run the harness in a checkout on some tasks, ``k`` attempts each.
 
         One ``mas-optimiser run`` per domain, each in a process of its own.
-        A job whose every attempt has a row with no error is left alone;
-        otherwise the whole job is run again.
+        A job whose every attempt has a row is left alone, an attempt that
+        ended in an error included: that is the harness's failure and a
+        result like any other. Otherwise the whole job is run again.
 
-        An attempt that ended because the model service did not answer is no
-        verdict on the harness, so a job that holds one stops the experiment.
+        An attempt that ended because a service it needs did not answer is
+        no verdict on the harness, so a job that holds one stops the
+        experiment, and is run again when the command is next given.
 
         Args:
             root: The checkout whose harness folder is run.
@@ -235,13 +237,13 @@ class EnterpriseOps(Domain):
             log_prefix: The name of the log file, the job's by default.
 
         Raises:
-            SystemExit: If attempts of the job ended because the model
-                service did not answer.
+            SystemExit: If attempts of the job ended because a service
+                they need did not answer.
         """
         out = Path(runs_dir) / "jobs" / job
         rows = self.rows(out)
         if all(
-            (task, n) in rows and not rows[task, n]["error"]
+            (task, n) in rows and rows[task, n].get("service_error") != "True"
             for task in ids
             for n in range(1, k + 1)
         ):
@@ -301,10 +303,11 @@ class EnterpriseOps(Domain):
             # No verdict on the harness: the experiment waits for the service
             # and carries on from this job when the command is given again.
             raise SystemExit(
-                f"error: {unanswered} attempts of {job} ended because the model "
-                "service did not answer. Nothing was scored. Give the command "
-                "again when the service answers; the experiment carries on "
-                "from this job."
+                f"error: {unanswered} attempts of {job} ended because a "
+                "service they need did not answer (the model service or the "
+                "domain's server). Nothing was scored. Give the command again "
+                "when the service answers; the experiment carries on from "
+                "this job."
             )
 
     def score(
@@ -320,9 +323,11 @@ class EnterpriseOps(Domain):
 
         Returns:
             Per task, the fraction of checks each attempt passed and the
-            tokens it used, with an attempt that has no row or ended in an
-            error counted as missing and scored zero; and the attempts fully
-            passed, the cost in dollars and the seconds, over the job.
+            tokens it used; and the attempts fully passed, the cost in
+            dollars and the seconds, over the job. An attempt that ended in
+            an error is the harness's failure: none of its checks passed, as
+            the runner recorded it. Only an attempt with no row is counted
+            as missing, and scored zero.
         """
         rows = self.rows(Path(runs_dir) / "jobs" / job)
         per_task, passed, dollars, seconds = {}, 0, 0.0, 0.0
@@ -330,7 +335,7 @@ class EnterpriseOps(Domain):
             rewards, tokens = [], []
             for n in range(1, k + 1):
                 row = rows.get((task, n))
-                if row is None or row["error"]:
+                if row is None:
                     continue
                 rewards.append(int(row["checks_passed"]) / int(row["checks_total"]))
                 tokens.append(int(row["input_tokens"]) + int(row["output_tokens"]))

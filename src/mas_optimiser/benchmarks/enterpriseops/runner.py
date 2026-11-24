@@ -114,10 +114,12 @@ EXPERIMENT_DEFAULTS = {
     # and its calls to the model.
     "attempt_timeout": 3600,
     "attempt_calls": 100,
-    # When a call to the model has failed for good, the attempt is no verdict
-    # on the harness yet: it is run again up to this many times, each time
-    # once the model service answers a one-word request, which is waited for
-    # at most this many seconds.
+    # An attempt that ended in an error is no verdict on the harness while a
+    # service it needs is not answering: the model service, asked a one-word
+    # question after a call that failed for good, or the domain's server,
+    # asked for its health after any error. Such an attempt is run again up
+    # to this many times, each time once the service answers, which is
+    # waited for at most this many seconds.
     "attempt_retries": 2,
     "service_wait": 1800,
     "harness": "default",
@@ -228,7 +230,7 @@ def mark_tool_list(tools: list[dict]) -> list[dict]:
 
 
 class Repeat(Exception):
-    """An attempt ended by a failed call to the model, to be run again."""
+    """An attempt ended by a failure of a service it needs, to be run again."""
 
 
 class TaskExecutor(BenchmarkExecutor):
@@ -699,7 +701,7 @@ def totals(outcomes: list[dict], tasks: int, attempts: int) -> dict:
     Returns:
         The counts (attempts and successes, tasks passed on every attempt,
         errors) and the sums of ``SUMMED`` over the rows. An attempt that
-        ended because the model service did not answer is in none of them:
+        ended because a service it needs did not answer is in none of them:
         it is no attempt at the task.
     """
     outcomes = [r for r in outcomes if not r.get("service_error")]
@@ -881,6 +883,35 @@ def check_servers(urls: set[str]) -> None:
                 f"error: domain server {url} is not answering ({type(exc).__name__}); "
                 "start the servers with: docker compose -f docker/compose.yaml up -d"
             ) from exc
+
+
+async def servers_answer(urls: list[str], wait: float) -> bool:
+    """Ask each domain server for its health, again each minute until all answer.
+
+    An attempt can end in an error because of what the harness did or
+    because its domain server is down, and a server that is down ends every
+    attempt in an error, whatever the harness. A request that owes nothing
+    to the harness tells the two apart.
+
+    Args:
+        urls: The servers' base URLs.
+        wait: The longest to go on asking, in seconds; 0 asks once.
+
+    Returns:
+        Whether every server answered within that time.
+    """
+    deadline = time.monotonic() + wait
+    async with httpx.AsyncClient(timeout=3) as client:
+        while True:
+            try:
+                for url in urls:
+                    (await client.get(f"{url}/health")).raise_for_status()
+            except httpx.HTTPError:
+                if time.monotonic() >= deadline:
+                    return False
+                await asyncio.sleep(min(60, max(1, deadline - time.monotonic())))
+            else:
+                return True
 
 
 async def save_tools(out: Path, tasks: dict[str, dict]) -> None:
@@ -1301,6 +1332,13 @@ async def run_task(
     does not within ``wait`` seconds, the attempt is recorded with
     ``service_error`` set.
 
+    An attempt that ended in any error is likewise no verdict until the
+    domain's server has been asked for its health. If the server answers at
+    once, the error is the harness's own and the attempt is a failure. If
+    it does not, it is waited for: once it answers the attempt can be run
+    again, and if it does not within ``wait`` seconds the attempt is
+    recorded with ``service_error`` set.
+
     Args:
         task_id: The task's dataset ID.
         config: The task's config, from ``load_tasks``.
@@ -1320,14 +1358,16 @@ async def run_task(
             past it the attempt is ended and recorded as an error.
         calls: The most calls to the model the attempt may make, or ``None``.
         retry: Whether the attempt may be asked for again.
-        wait: The longest to wait for the model service to answer, in seconds.
+        wait: The longest to wait for the model service or the domain's
+            server to answer, in seconds.
 
     Returns:
         What ``outputs`` returns.
 
     Raises:
-        Repeat: If a call to the model failed, the service answers again and
-            ``retry`` is set; nothing of the attempt is saved.
+        Repeat: If a call to the model failed, or the domain's server was
+            down, the service answers again and ``retry`` is set; nothing of
+            the attempt is saved.
     """
     # One executor call per attempt, so that each attempt is its own trace and
     # its own unit of concurrency; the executor's own loop over runs stays at one.
@@ -1379,6 +1419,16 @@ async def run_task(
                 execution["service_error"] = True
             elif retry:
                 raise Repeat
+        if execution.get("error") and not execution.get("service_error"):
+            # Whatever the error says, it is the harness's own only if the
+            # domain's server is answering: one that is down ends every
+            # attempt in an error.
+            urls = [server["mcp_server_url"] for server in config["gym_servers_config"]]
+            if not await servers_answer(urls, 0):
+                if not await servers_answer(urls, wait):
+                    execution["service_error"] = True
+                elif retry:
+                    raise Repeat
         if executor.diagnosis_error:
             execution["diagnosis_error"] = executor.diagnosis_error
         # The executor's own verdict reads an excluded check as a failure.
@@ -1476,9 +1526,9 @@ async def run_tasks(
         seconds: The longest one attempt may take, or ``None`` for no limit.
         calls: The most calls to the model one attempt may make, or ``None``.
         retries: How many times an attempt ended by a failed call to the
-            model is run again.
-        wait: The longest to wait for the model service before each of
-            those, in seconds.
+            model, or while the domain's server was down, is run again.
+        wait: The longest to wait for that service before each of those,
+            in seconds.
 
     Returns:
         The ``tasks.csv`` rows, then the ``checks.csv``, ``cells.csv`` and
@@ -1642,14 +1692,14 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         "--attempt-retries",
         type=int,
         help="times an attempt is run again when a call to the model failed "
-        "for good (2 by default)",
+        "for good or the domain's server was down (2 by default)",
     )
     parser.add_argument(
         "--service-wait",
         type=float,
-        help="seconds to wait for the model service to answer again before "
-        "such an attempt is recorded as a failure of the service and not of "
-        "the harness (1800 by default)",
+        help="seconds to wait for the model service or the domain's server "
+        "to answer again before such an attempt is recorded as a failure of "
+        "the service and not of the harness (1800 by default)",
     )
 
 
@@ -1662,7 +1712,7 @@ def run(args: argparse.Namespace) -> None:
     Raises:
         SystemExit: If the experiment's harness has no folder with an
             ``agent.py``, before any money is spent; or, at the end, if
-            attempts ended because the model service did not answer.
+            attempts ended because a service they need did not answer.
     """
     # The keys only ``evolve`` reads are no options of this command.
     overrides = {key: getattr(args, key, None) for key in EXPERIMENT_DEFAULTS}
@@ -1748,10 +1798,11 @@ def run(args: argparse.Namespace) -> None:
         tracing.shutdown()
     if unanswered:
         raise SystemExit(
-            f"error: {unanswered} attempts ended because the model service did "
-            f"not answer, after {experiment['service_wait']:g} seconds of waiting "
-            "for it. They are marked service_error in tasks.csv and say nothing "
-            "of the harness; run again when the service answers."
+            f"error: {unanswered} attempts ended because a service they need "
+            "did not answer (the model service or the domain's server), after "
+            f"{experiment['service_wait']:g} seconds of waiting for it. They "
+            "are marked service_error in tasks.csv and say nothing of the "
+            "harness; run again when the service answers."
         )
 
 
@@ -1795,8 +1846,8 @@ def evaluate(
             environment, the variable it came from.
 
     Returns:
-        The number of attempts that ended because the model service did not
-        answer.
+        The number of attempts that ended because a service they need did
+        not answer.
 
     Raises:
         SystemExit: If a chosen task is not one of the domain's.
@@ -1944,7 +1995,7 @@ def evaluate(
     unanswered = sum(r["service_error"] for r in outcomes)
     if unanswered:
         print(
-            f"{unanswered} more attempts ended because the model service did "
-            "not answer, and are counted nowhere above."
+            f"{unanswered} more attempts ended because a service they need "
+            "did not answer, and are counted nowhere above."
         )
     return unanswered

@@ -27,10 +27,11 @@ def task_scores(evaluation: Path, outcome: str) -> dict[str, float]:
 
     Reads the evaluation's ``tasks.csv`` (one row per attempt, written by
     ``runner.task_outcome``). An attempt that ended in an error counts as the
-    runner recorded it, a failure, unless it ended because the model service
-    did not answer (``service_error``): that says nothing of the harness, and
-    the attempt is left out. A task whose attempts have no checks
-    (``checks_total`` 0, every check excluded by the patch list) is left out.
+    runner recorded it, a failure, unless it ended because a service it
+    needs did not answer (``service_error``): that says nothing of the
+    harness, and the attempt is left out. A task whose attempts have no
+    checks (``checks_total`` 0, every check excluded by the patch list) is
+    left out.
 
     Args:
         evaluation: The evaluation's folder.

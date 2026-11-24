@@ -212,7 +212,12 @@ one-word question
 [`run_tasks`][runner.run_tasks] runs the attempt again, `attempt_retries`
 times at most, and a failure that is still there is the harness's own; if
 it does not answer within `service_wait` seconds, the attempt is marked
-`service_error`, and the command ends with an error.
+`service_error`, and the command ends with an error. After an attempt that
+ended in any error, [`run_task`][runner.run_task] asks the domain's server
+for its health in the same way ([`servers_answer`][runner.servers_answer]):
+a server that answers leaves the error as the harness's own, one that was
+down and comes back has the attempt run again, and one that stays down has
+it marked `service_error`.
 
 The benchmark's `execute_benchmark` (`executor.py:482`) then does the work:
 
@@ -579,7 +584,7 @@ What goes wrong, and where to look:
 | a failed check with `kind` `unsupported` in `checks.csv` | a query shape the diagnosis cannot take apart (a top-level OR, a GROUP BY, a derived table), or a table with no key to find its rows by | [`sql.parse`][sql.parse], [`diagnosis.diagnose`][diagnosis.diagnose] |
 | an attempt with 50 model calls | the agent hit `max_iterations` | `agent.py:59`, `base.py:23` |
 | an `error` of `the attempt ran past its limit of ... seconds` or `the attempt made more than ... calls to the model` | the attempt reached one of its two limits | `attempt_timeout` and `attempt_calls`, section 2.3 |
-| `service_error` is `True`, and the command ended with `the model service did not answer` | a call to the model failed and the service did not answer a one-word question within `service_wait` seconds: the key's spending limit, an outage | the attempt is left out of every score; give the command again when the service answers; section 2.3 |
+| `service_error` is `True`, and the command ended with `a service they need did not answer` | a call to the model failed and the model service did not answer a one-word question within `service_wait` seconds (the key's spending limit, an outage), or an attempt ended in an error and the domain's server did not answer its health check in that time (the server is down) | the attempt is left out of every score; give the command again when the service answers; section 2.3 |
 | an `error` that holds `429` or `rate limit` | the service refused the call more times than the model file's `max_retries` allows | `evaluation.log` has a line for each refusal and each wait; section 2.3 |
 | `tool_errors` above zero | a tool answered with an error; the page marks the call `ERROR`. A lookup that found no record is marked `nothing found` and counted in `lookups_empty` | [`succeeded`][report.succeeded] |
 
@@ -608,7 +613,7 @@ is credited in `NOTICE.md` as well.
 | `runner` | the Hugging Face dataset and the repository's `data/revised` | the task configs at a pinned revision, the corrected copies replacing the dataset's in oracle and all-tools mode | `runner.load_tasks` |
 | `runner` | the EnterpriseOps-Gym paper, its experimental set-up and distractor study | the setting it reports, each task's own tools (`oracle`), and its finding that added tools cost nothing in completion; why every arm is given all the tools here is argued on the page "What is fixed and what is optimised" | `runner.MODES` |
 | `runner` | StarHarness (arXiv:2608.24804), `docs/ADDING_A_BENCHMARK.md` | the precedent that an attempt which raises by the harness's own doing is scored as a failure, never retried or dropped | `runner.task_outcome` |
-| `runner` | own design | a failure of the model service kept apart from a failure of the harness: a call that failed for good is settled by asking the service a one-word question, which reads the same for every provider; the attempt is then run again, or marked as the service's and counted nowhere | `runner.TaskExecutor.service_answers`, `runner.run_tasks`, `runner.totals` |
+| `runner` | own design | a failure of a service kept apart from a failure of the harness: a call to the model that failed for good is settled by asking the model service a one-word question, and an attempt that ended in an error by asking the domain's server for its health, requests that read the same whatever went wrong; the attempt is then run again, counted as the harness's failure, or marked as the service's and counted nowhere | `runner.TaskExecutor.service_answers`, `runner.servers_answer`, `runner.run_tasks`, `runner.totals` |
 | `runner` | τ-bench (arXiv:2406.12045), pass^k | `tasks_passed_every_attempt` as the strict per-task measure | `runner.totals` |
 | `runner` | own design | experiments as YAML files with command-line overrides; `evaluations/<experiment>/<run>/<domain>/` with an `index.csv` per experiment; attempts in parallel under a semaphore; the price table in the model file; `tools.json` per evaluation | `runner.load_experiment`, `evaluate`, `run_tasks`, `cost`, `save_tools` |
 | `tracing` | Langfuse (self-hosted, MIT core) and its Python SDK | `CallbackHandler`, `score_trace` and `propagate_attributes`: one trace per attempt, scored with the verdict | `tracing.attach`, `task_trace`, `record_outcome` |
@@ -722,6 +727,7 @@ is credited in `NOTICE.md` as well.
 [runner.outputs]: #mas_optimiser.benchmarks.enterpriseops.runner.outputs
 [runner.run]: #mas_optimiser.benchmarks.enterpriseops.runner.run
 [runner.run_task]: #mas_optimiser.benchmarks.enterpriseops.runner.run_task
+[runner.servers_answer]: #mas_optimiser.benchmarks.enterpriseops.runner.servers_answer
 [runner.run_tasks]: #mas_optimiser.benchmarks.enterpriseops.runner.run_tasks
 [runner.save_attempt]: #mas_optimiser.benchmarks.enterpriseops.runner.save_attempt
 [runner.task_outcome]: #mas_optimiser.benchmarks.enterpriseops.runner.task_outcome
