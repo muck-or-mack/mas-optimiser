@@ -119,6 +119,54 @@ def test_load_model_takes_the_key_from_the_environment(tmp_path, monkeypatch):
         runner.load_model(path)
 
 
+def test_a_model_file_takes_what_belongs_to_an_account_from_the_environment(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "model.yaml"
+    path.write_text(
+        "llm_provider: azureopenai\napi_key_env: A_KEY\n"
+        "llm_api_endpoint_env: AN_ADDRESS\nllm_model_env: A_DEPLOYMENT\n"
+        "pricing:\n" + "".join(f"  {k}: 1\n" for k in PRICING)
+    )
+    values = {"A_KEY": "secret", "AN_ADDRESS": "https://x/", "A_DEPLOYMENT": "d"}
+    for name, value in values.items():
+        monkeypatch.setenv(name, value)
+    config, _ = runner.load_model(path)
+    assert (config.llm_api_key, config.llm_api_endpoint, config.llm_model) == (
+        "secret",
+        "https://x/",
+        "d",
+    )
+    # A variable that is not set, or set to nothing, stops the run by name.
+    monkeypatch.setenv("AN_ADDRESS", "")
+    with pytest.raises(RuntimeError, match="AN_ADDRESS is not set"):
+        runner.load_model(path)
+
+
+def test_the_azure_file_names_four_variables_and_records_no_address(
+    tmp_path, monkeypatch
+):
+    names = ("API_KEY", "ENDPOINT", "DEPLOYMENT", "API_VERSION")
+    for name in names:
+        monkeypatch.setenv(f"AZURE_OPENAI_{name}", name.lower())
+    config, pricing = runner.load_model(runner.config_path("models", "gpt-5.1-azure"))
+    assert (config.llm_provider, config.llm_model) == ("azureopenai", "deployment")
+    assert (config.llm_api_endpoint, config.llm_api_version) == (
+        "endpoint",
+        "api_version",
+    )
+    assert pricing["cache_read"] < pricing["input"] < pricing["output"]
+    # A run on it hands the evaluation the variable's name for the address.
+    seen = {}
+    monkeypatch.setattr(runner.tracing, "configured", lambda: False)
+    monkeypatch.setattr(runner, "evaluate", lambda *args, **kwargs: seen.update(kwargs))
+    unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
+    chosen = {"experiment": "smoke", "out": tmp_path / "e", "model": "gpt-5.1-azure"}
+    runner.run(SimpleNamespace(**(unset | chosen)))
+    assert seen["kept_out"] == {"llm_api_endpoint": "$AZURE_OPENAI_ENDPOINT"}
+    assert seen["timeout"] == 300
+
+
 def test_a_self_hosted_model_file_needs_no_key():
     path = runner.config_path("models", "qwen3.6-27b")
     config, pricing = runner.load_model(path)
@@ -310,6 +358,7 @@ def test_evaluate_writes_the_tables_the_settings_and_the_index_row(
         agent=None,
         version="v0",
         server={"vllm": "1", "args": ["--max-model-len=9"]},
+        kept_out={"llm_api_endpoint": "$SOME_ENDPOINT"},
     )
     folder = tmp_path / "exp" / "e1"
     settings = json.loads((folder / "evaluation.json").read_text())
@@ -323,6 +372,8 @@ def test_evaluate_writes_the_tables_the_settings_and_the_index_row(
         settings["totals"]["total_attempts"] == 1 and settings["totals"]["errors"] == 1
     )
     assert "llm_api_key" not in settings["model"]
+    # An address that came from the environment is recorded by its variable.
+    assert settings["model"]["llm_api_endpoint"] == "$SOME_ENDPOINT"
     assert (folder / "tasks.csv").exists()
     # The summary is headed by the evaluation's name, not by a file's.
     assert (folder / "summary.md").read_text().startswith("# e1\n")
@@ -600,7 +651,12 @@ def test_the_executor_puts_the_time_limit_on_the_model_client(
 
     async def build_client(self):
         self.llm_client = LLMClient(
-            provider, "a-model", "not-a-key", api_endpoint="http://localhost:9/v1"
+            provider,
+            "a-model",
+            "not-a-key",
+            api_endpoint="http://localhost:9/v1",
+            # Azure OpenAI's client cannot be built without one.
+            api_version="2025-01-01",
         )
 
     monkeypatch.setattr(runner.BenchmarkExecutor, "initialize", build_client)

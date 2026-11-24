@@ -122,7 +122,7 @@ EXPERIMENT_DEFAULTS = {
 # The providers whose client takes the time limit on a model call:
 # Anthropic's, and the OpenAI-style client the benchmark builds for the other
 # three (``vllm`` for a self-hosted server, ``openrouter`` for a hosted one).
-TIMEOUT_PROVIDERS = ("anthropic", "openai", "vllm", "openrouter")
+TIMEOUT_PROVIDERS = ("anthropic", "openai", "azureopenai", "vllm", "openrouter")
 # What a model file's price table must give; see ``cost``.
 PRICING_KEYS = {
     "input",
@@ -804,12 +804,15 @@ def tool_arguments(out: Path) -> dict[str, list[str]]:
 def load_model(path: Path) -> tuple[LLMConfig, dict]:
     """The benchmark's model config and the price table from a model file.
 
-    The file holds ``LLMConfig`` fields plus ``api_key_env``, the environment
-    variable that holds the API key, and ``pricing``, the ``PRICING_KEYS`` in
-    US dollars per million tokens. A self-hosted server that asks for no key
-    leaves ``api_key_env`` out, and its file may hold a ``server`` block, which
-    says how the server is started (``mas_optimiser.server``) and is not read
-    here.
+    The file holds ``LLMConfig`` fields and ``pricing``, the ``PRICING_KEYS``
+    in US dollars per million tokens. What belongs to one's own account is
+    kept out of the file: a key ending in ``_env`` names the variable of the
+    environment that holds the value of the field it is named after
+    (``llm_api_endpoint_env`` for ``llm_api_endpoint``), and ``api_key_env``
+    names the one that holds the API key. A self-hosted server that asks for
+    no key leaves ``api_key_env`` out, and its file may hold a ``server``
+    block, which says how the server is started (``mas_optimiser.server``)
+    and is not read here.
 
     Args:
         path: The model file.
@@ -820,7 +823,7 @@ def load_model(path: Path) -> tuple[LLMConfig, dict]:
     Raises:
         SystemExit: If a price is missing, before any money is spent on runs
             whose cost could not be reported.
-        RuntimeError: If the file names a variable for the API key and it
+        RuntimeError: If the file names a variable of the environment and it
             is not set.
     """
     fields = yaml.safe_load(path.read_text())
@@ -832,11 +835,15 @@ def load_model(path: Path) -> tuple[LLMConfig, dict]:
             f"error: {path} needs pricing keys {missing} "
             "(US dollars per million tokens, from the provider's price list)"
         )
-    key_name = fields.pop("api_key_env", None)
-    key = os.environ.get(key_name, "") if key_name else ""
-    if key_name and not key:
-        raise RuntimeError(f"{key_name} is not set; add it to .env (see .env.example)")
-    return LLMConfig(llm_api_key=key, **fields), pricing
+    for name in [name for name in fields if name.endswith("_env")]:
+        variable = fields.pop(name)
+        if not os.environ.get(variable):
+            raise RuntimeError(
+                f"{variable} is not set; add it to .env (see .env.example)"
+            )
+        field = "llm_api_key" if name == "api_key_env" else name.removesuffix("_env")
+        fields[field] = os.environ[variable]
+    return LLMConfig(**{"llm_api_key": ""} | fields), pricing
 
 
 def cost(usage: list[dict], pricing: dict) -> float:
@@ -1427,8 +1434,16 @@ def run(args: argparse.Namespace) -> None:
     load_dotenv(REPO_ROOT / ".env")
     model_file = config_path("models", experiment["model"])
     model, pricing = load_model(model_file)
+    written = yaml.safe_load(model_file.read_text())
     # How a self-hosted model's server is started, kept with the results.
-    server = yaml.safe_load(model_file.read_text()).get("server")
+    server = written.get("server")
+    # An address taken from the environment is that of one's own account:
+    # the results name the variable it came from and not the address.
+    kept_out = (
+        {"llm_api_endpoint": f"${written['llm_api_endpoint_env']}"}
+        if "llm_api_endpoint_env" in written
+        else {}
+    )
     trace = tracing.configured() and experiment["trace"]
     thinking = THINKING_SUMMARY if experiment["thinking_summary"] else None
     # The caching here is Anthropic's: for any other provider nothing is
@@ -1475,6 +1490,7 @@ def run(args: argparse.Namespace) -> None:
             agent=agent,
             version=version,
             server=server,
+            kept_out=kept_out,
         )
     if not experiment["out"]:
         write_run_summary(run_dir, experiment["experiment"])
@@ -1497,6 +1513,7 @@ def evaluate(
     agent: type[AgentOrchestrator],
     version: str,
     server: dict | None = None,
+    kept_out: dict | None = None,
 ) -> None:
     """Run one domain's tasks as one evaluation: the folder, its tables, ``evaluation.json`` and the index row.
 
@@ -1517,6 +1534,9 @@ def evaluate(
         server: The ``server`` block of a self-hosted model's file, recorded
             in ``evaluation.json`` as the file gives it; ``None`` for a
             hosted model.
+        kept_out: What ``evaluation.json`` records in place of a model
+            field's value, by field: for an address taken from the
+            environment, the variable it came from.
 
     Raises:
         SystemExit: If a chosen task is not one of the domain's.
@@ -1609,7 +1629,8 @@ def evaluate(
         "run": "" if experiment["out"] else run_dir.name,
         "split": experiment["split"],
         "harness": experiment["harness"],
-        "model": {k: v for k, v in vars(model).items() if k != "llm_api_key"},
+        "model": {k: v for k, v in vars(model).items() if k != "llm_api_key"}
+        | (kept_out or {}),
         "pricing": pricing,
         "server": server,
         "domain": domain,
