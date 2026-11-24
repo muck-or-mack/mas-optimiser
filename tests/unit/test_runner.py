@@ -848,6 +848,20 @@ def test_a_filter_setting_that_makes_no_sense_is_refused():
     assert (settings["filter_share"], settings["filter_threshold"]) == (0, -1.5)
 
 
+def test_a_pool_setting_that_makes_no_sense_is_refused():
+    unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
+    for share in (0, 1.5, -0.1, "half", True):
+        with pytest.raises(SystemExit, match="pool_share"):
+            runner.load_experiment("smoke", unset | {"pool_share": share})
+    with pytest.raises(SystemExit, match="pool_pick"):
+        runner.load_experiment("smoke", unset | {"pool_pick": "random"})
+    # Every training task, picked from the two ends, is a user's to choose.
+    settings = runner.load_experiment(
+        "smoke", unset | {"pool_share": 1, "pool_pick": "ends"}
+    )
+    assert (settings["pool_share"], settings["pool_pick"]) == (1, "ends")
+
+
 @pytest.mark.parametrize("limit", [0, -5, "soon", True])
 def test_a_time_limit_that_is_not_a_positive_number_is_refused(limit):
     unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)

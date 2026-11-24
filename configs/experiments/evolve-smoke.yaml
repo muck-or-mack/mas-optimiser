@@ -27,6 +27,13 @@ alpha: 0.05
 # share of 0 is no filter.
 filter_share: 0.5
 filter_threshold: 0
+# The pool: the share of the training tasks whose traces the analyst and the
+# proposer may read in a round (at least one task; 1 for every task), and how
+# it is picked from the tasks ranked by score: spread, evenly over the
+# ranking and one place further each round, or ends, the lowest and the
+# highest. Both roles are given every training task's score whatever the share.
+pool_share: 0.5
+pool_pick: spread
 # The types of file in the harness folder a proposal may edit: text only
 # here, so that no model-written code is run. With .py as well the agent's
 # code may be changed, and the command then asks for either a person's

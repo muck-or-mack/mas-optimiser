@@ -119,18 +119,26 @@ EXPERIMENT_DEFAULTS = {
     # candidates proposed in each, the error budget of the whole experiment,
     # the filter a candidate passes before the full test (the share of the
     # validation tasks it is run on first, none at 0, and the gain in
-    # percentage points it must be above there), the types of file in the
-    # harness folder a proposal may edit, and whether a person approves each
-    # change before it is run.
+    # percentage points it must be above there), the pool of training tasks
+    # whose traces the search roles may read in a round (its share of the
+    # training set, and how it is picked: spread evenly over the tasks ranked
+    # by score, or from the two ends of that ranking), the types of file in
+    # the harness folder a proposal may edit, and whether a person approves
+    # each change before it is run.
     "proposer_model": None,
     "rounds": 10,
     "candidates": 1,
     "alpha": 0.05,
     "filter_share": 0.5,
     "filter_threshold": 0.0,
+    "pool_share": 0.5,
+    "pool_pick": "spread",
     "editable": [".md", ".py"],
     "approval": "none",
 }
+#: How the pool of training tasks is picked from the tasks ranked by score:
+#: evenly over the ranking, or its lowest and its highest.
+POOL_PICKS = ("spread", "ends")
 # The providers whose client takes the time limit on a model call and the
 # number of tries of a failed one:
 # Anthropic's, and the OpenAI-style client the benchmark builds for the other
@@ -560,6 +568,20 @@ def load_experiment(spec: str, overrides: dict) -> dict:
     if isinstance(threshold, bool) or not isinstance(threshold, (int, float)):
         raise SystemExit(
             "error: filter_threshold must be a number of percentage points"
+        )
+    pool = settings["pool_share"]
+    if (
+        isinstance(pool, bool)
+        or not isinstance(pool, (int, float))
+        or not 0 < pool <= 1
+    ):
+        raise SystemExit(
+            "error: pool_share must be a number above 0, up to 1 (every training task)"
+        )
+    if settings["pool_pick"] not in POOL_PICKS:
+        raise SystemExit(
+            f"error: pool_pick must be one of {', '.join(POOL_PICKS)}, "
+            f"not {settings['pool_pick']!r}"
         )
     editable = settings["editable"]
     if not isinstance(editable, list) or not all(

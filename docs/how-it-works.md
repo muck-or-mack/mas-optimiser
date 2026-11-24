@@ -37,7 +37,7 @@ to one commit, and for the starting harness.
 | The runner (ours) | `src/mas_optimiser/cli.py`, `tracing.py`, `benchmarks/enterpriseops/runner.py` | about 2,000 | loads the tasks, runs attempts in parallel, applies the patch list, saves every record and the tables |
 | The measure (ours) | `checks.py`, `states.py`, `sql.py`, `diagnosis.py`, `report.py`, `rescore.py`, `rebuild.py` | about 2,700 | verdicts, changes against the seed, the cell-by-cell diagnosis, the trace to the turn, the results files, recomputation |
 | Set-up tools (ours) | `seeds.py`, `splits.py` | about 800 | local copies of the seed databases; the seeded draw of the training, validation and test sets |
-| The improvement loop (ours, round RRSI's released loop) | `evolve/loop.py`, `evolve/models.py`, `domain.py`, `prompts.py` | about 1,200 | one experiment of the loop: baseline, rounds, test; the model call of its search roles; this benchmark as the loop sees it |
+| The improvement loop (ours, round RRSI's released loop) | `evolve/loop.py`, `evolve/models.py`, `domain.py`, `prompts.py` | about 1,450 | one experiment of the loop: baseline, rounds, test; the model call of its search roles; this benchmark as the loop sees it |
 | Statistics (ours) | `stats/` | about 2,150 | the gate's test and the level of each decision; the `compare` and `calibrate` commands and their figures |
 | A self-hosted model's server (ours) | `server.py` | about 330 | the `server` command: vLLM installed, started and stopped |
 
@@ -515,8 +515,8 @@ The part of the package built on all of this is the loop that improves the
 harness, `mas-optimiser evolve` ([The improvement
 loop](methodology/improvement-loop.md)). It starts from
 `harnesses/default/`, the loop of section 2.4 as it is. A proposer (a model,
-run offline) reads the pages of the training attempts and proposes one
-change to a copy of the harness folder. The candidate runs on the validation
+run offline) is given the score of every training task, reads the pages of
+a share of them, and proposes one change to a copy of the harness folder. The candidate runs on the validation
 tasks through the runner of section 2, on a share of them first so that one
 that does no better there is dropped early, and the acceptance gate compares it
 with the current harness task by task ([The acceptance
@@ -620,6 +620,7 @@ is credited in `NOTICE.md` as well.
 | `evolve` | Sun et al. (arXiv:2609.33180), Eq. 4 | the level of each decision of one experiment | `evolve.loop.Experiment.round`, through `stats.budget.reuse_level` |
 | `evolve` | own design | the proposer told only whether a proposal was accepted; a harness's test score taken for every harness kept, after the last decision; the model call from a model file | `evolve.loop`, `evolve.models` |
 | `evolve` | stopping early for futility in sequential testing (Jennison and Turnbull, *Group Sequential Methods with Applications to Clinical Trials*, Chapman and Hall, 2000) | the filter: a candidate is run on a share of the validation tasks first and dropped if it does no better there; it can only drop, so the gate's error level holds | `evolve.loop.Experiment.filter_ids`, `evolve.loop.Experiment.round` |
+| `evolve` | own design, in place of the fixed counts of RRSI's released code (the 22 lowest-scoring tasks and the 6 highest) | the pool: the share of the training tasks whose traces the search roles may read in a round, taken evenly over the tasks ranked by score and one place further each round, with every task's score given to both roles | `evolve.loop.Experiment.pool`, `evolve.loop.Experiment.round` |
 | `evolve` | own design, on `threading` of Python's standard library | the limit of seconds on one call of a search role: the call runs in a thread that can be left behind when the limit passes | `evolve.models.generate` |
 | `domain` | RRSI's `Domain` interface (`rrsi/domain.py`), its `critic_patterns` and `smoke` | the screen of a proposed change for task ids, references to the checks and code that reaches past the harness's own work; a person's yes or no asked before a change first runs | `domain.EnterpriseOps.critic_patterns`, `domain.EnterpriseOps.smoke` |
 | `stats` | own design | per-task scores for two outcomes, the paired comparison over the same tasks, the `compare` command with its results as data files and a report of them, and the figures | `stats.outcomes`, `stats.compare`, `stats.figures` |

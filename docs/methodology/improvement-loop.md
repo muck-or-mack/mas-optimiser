@@ -21,11 +21,13 @@ fixed at the start except the harness.
 2. **The baseline.** The starting harness is run on the training tasks,
    whose results are kept in full, and on the validation tasks, whose
    results only the gate reads.
-3. **The analysis.** A model reads the pages of the training attempts, the
-   failed ones first, and writes down the ways the attempts went wrong.
+3. **The analysis.** A model, the analyst, is given the score of every
+   training task and may have the attempts of a share of them, the round's
+   pool, read in detail ("What the search roles read"). It writes down the
+   ways the attempts went wrong.
 4. **The proposal.** A second model, the proposer, works in a copy of the
-   harness folder. It can list and read the folder's files, read the
-   training attempts' pages, and edit the files. It must finish by naming
+   harness folder. It can list and read the folder's files, read the pages
+   of the pool's attempts, and edit the files. It must finish by naming
    each change it made and why. It is told what earlier proposals changed
    and whether each was accepted, and nothing else about them.
 5. **Two checks before any scoring.** The change is reviewed for anything
@@ -113,7 +115,8 @@ A person's no is a decision made outside the gate. An experiment run with
 
 | what                                             | the analyst and the proposer   | the gate   | a person, while the experiment runs   |
 |--------------------------------------------------|--------------------------------|------------|---------------------------------------|
-| the training attempts, in full                   | yes                            | no         | yes                                   |
+| the score of every training task                 | yes                            | no         | yes                                   |
+| the training attempts, in full                   | those of the round's pool      | no         | yes                                   |
 | the validation tasks and attempts                | no                             | scores     | the headline only                     |
 | whether an earlier proposal was accepted         | yes                            | made it    | yes                                   |
 | by how much a proposal changed the score or cost | no                             | yes        | yes, in the record                    |
@@ -123,6 +126,80 @@ The proposer learns one thing from the validation tasks, the outcome of
 each decision. The unit tests check it: the traces handed to the proposer
 are of training tasks, and what it is told of an earlier proposal holds no
 number (`tests/unit/test_evolve.py`).
+
+## What the search roles read
+
+The analyst and the proposer, the search roles, work from the current
+harness's run on the training tasks. A trace is the page of one attempt of
+that run. Each round the two roles are given two things.
+
+- **The score of every training task.** The tasks and their scores, lowest
+  first, are put into both roles' instructions, so that neither takes the
+  part it reads for the whole.
+- **The traces of the round's pool.** The pool is a share of the training
+  tasks, `pool_share`. Only a task of the pool has a trace that can be
+  read: the analyst can have it examined, and the proposer can open it.
+
+### Why not every trace
+
+Reading a trace is not one call to the model. The analyst reads none
+itself. It sends a digester, a small agent that searches one trace with
+read-only tools and reports back, and it may send several to one task with
+different questions. In twelve trial rounds of this package the analysis
+cost about 59,000 input tokens and 10 calls to the model for each trace
+read. That is the median: the rounds ranged from 24,000 to 113,000, the
+search model was a small one, and another will differ. At that rate, for
+the 61 training tasks of a 20% share of the three domains:
+
+| `pool_share`   | tasks in the pool   | rounds until every task has been in it   | input tokens a round, each task read once   |
+|----------------|---------------------|------------------------------------------|---------------------------------------------|
+| 0.1            | 6                   | 11                                       | 354,000                                     |
+| 0.25           | 15                  | 5                                        | 885,000                                     |
+| 0.5            | 30                  | 3                                        | 1,770,000                                   |
+| 1              | 61                  | 1                                        | 3,599,000                                   |
+
+The figures are in `docs/data/pool.csv`. The pool is a ceiling and not a
+quota: the analyst's instructions, which are RRSI's, tell it to cover each
+kind of failure and not every failure, and to read a few successes. With
+the default share of 0.5 and the pick described next, every one of these
+61 tasks has been in the pool after three rounds.
+
+### How the pool is picked
+
+The training tasks are ranked by their score with the current harness,
+lowest first, and `pool_pick` says which of them make the pool.
+
+- `spread` takes tasks at even steps along the ranking, and starts one
+  place further each round. The pool then holds failures, part passes and
+  full passes in about the proportions of the training set, and over the
+  rounds every task comes into it. The attempt read is a task's
+  lowest-scoring one.
+- `ends` takes the lowest of the ranking and the highest, in the proportion
+  22 to 6. RRSI's released code reads the 22 lowest and the 6 highest
+  whatever the size of the set; this is that pick as a share. The attempt
+  read is the lowest-scoring of a low task and the highest-scoring of a
+  high one.
+
+Which pick leads to better proposals has not been measured. A round in
+which nothing is accepted leaves the ranking as it was: `ends` then has the
+same traces read again, and `spread` has other tasks read.
+
+### Limits kept from RRSI's code
+
+The search roles run under limits that are constants of the released code.
+Its paper does not give them, and they are not settings here.
+
+| limit                                                                   | value            |
+|-------------------------------------------------------------------------|------------------|
+| turns the analyst may take in a round                                   | 30               |
+| digesters the analyst may send in one turn                              | 8                |
+| calls to the model by one digester                                      | 15               |
+| length of one digest                                                    | 6,000 characters |
+| turns the proposer may take on one candidate                            | 40               |
+| edits the proposer may make in one drafting of a candidate              | 80               |
+| characters of a trace given to the proposer by one read                 | 60,000           |
+| times a proposal is sent back after the reviewer objects                | 5                |
+| share of a job's attempts that may be missing before the job is refused | 15%              |
 
 ## The gate inside the loop
 
@@ -234,24 +311,27 @@ take no part until the end.
 An experiment file holds the settings of `mas-optimiser run` (the model,
 the domains, the attempts and so on) and these, which only `evolve` reads:
 
-| setting            | what it sets                                                                                 | default           |
-|--------------------|----------------------------------------------------------------------------------------------|-------------------|
-| `split`            | the split whose three sets are used, by its name alone                                       | none, must be set |
-| `harness`          | the folder the experiment starts from                                                        | `default`         |
-| `proposer_model`   | the model file of the analyst, the proposer and the reviewer                                 | the agent's model |
-| `rounds`           | rounds of the loop                                                                           | 10                |
-| `candidates`       | candidates proposed in each round                                                            | 1                 |
-| `alpha`            | the error budget of the whole experiment                                                     | 0.05              |
-| `filter_share`     | the share of the validation tasks a candidate is run on first; 0 for no filter               | 0.5               |
-| `filter_threshold` | the gain, in percentage points of the score, a candidate must be above on the filter's tasks | 0                 |
-| `editable`         | the types of file in the harness folder a proposal may edit                                  | `.md` and `.py`   |
-| `approval`         | whether a person approves each change before it first runs: `each` or `none`                 | `none`            |
-| `limit`            | at most this many tasks of each set, for a trial of the loop itself                          | all               |
+| setting            | what it sets                                                                                                    | default           |
+|--------------------|-----------------------------------------------------------------------------------------------------------------|-------------------|
+| `split`            | the split whose three sets are used, by its name alone                                                          | none, must be set |
+| `harness`          | the folder the experiment starts from                                                                           | `default`         |
+| `proposer_model`   | the model file of the analyst, the proposer and the reviewer                                                    | the agent's model |
+| `rounds`           | rounds of the loop                                                                                              | 10                |
+| `candidates`       | candidates proposed in each round                                                                               | 1                 |
+| `alpha`            | the error budget of the whole experiment                                                                        | 0.05              |
+| `filter_share`     | the share of the validation tasks a candidate is run on first; 0 for no filter                                  | 0.5               |
+| `filter_threshold` | the gain, in percentage points of the score, a candidate must be above on the filter's tasks                    | 0                 |
+| `pool_share`       | the share of the training tasks whose traces the analyst and the proposer may read in a round; 1 for every task | 0.5               |
+| `pool_pick`        | how the pool is picked from the training tasks ranked by score: `spread` or `ends`                              | `spread`          |
+| `editable`         | the types of file in the harness folder a proposal may edit                                                     | `.md` and `.py`   |
+| `approval`         | whether a person approves each change before it first runs: `each` or `none`                                    | `none`            |
+| `limit`            | at most this many tasks of each set, for a trial of the loop itself                                             | all               |
 
 The agent's model and the proposer's are two settings, so they can be the
 same model or different ones, hosted or self-hosted. `editable` and
 `approval` are described under "What a proposal can change", and the two
-settings of the filter under "The filter before the full test". Each can
+settings of the filter under "The filter before the full test", and the
+two of the pool under "What the search roles read". Each can
 also be given for one command, as `--filter-share 0` for instance.
 `configs/experiments/evolve-smoke.yaml` is a trial with three tasks of each
 set and one round.
@@ -272,6 +352,8 @@ evolutions/<experiment>/<split>/
                               candidate's validation run is two jobs with
                               a filter, <job>_filter and <job>_rest
     r<round>/
+      analysis/               the traces of the round's pool as the roles
+                              read them, and every digest
       analysis_report.json    what the analyst found in the training traces
       decisions.json          the gate's numbers for each candidate, and
                               the filter's: its tasks, the gain there, the
@@ -295,6 +377,7 @@ arXiv:2609.24972; Apache License 2.0), kept unchanged in `vendor/rrsi`.
 | the record of proposals, a git checkout per candidate          | RRSI's, as released                     |
 | what a benchmark must provide (its `Domain` interface)         | RRSI's; `domain.EnterpriseOps` fills it |
 | the round and the baseline                                     | this package's (`evolve.loop`)          |
+| the pick of the training traces the roles may read             | this package's (`evolve.loop`)          |
 | the scoring of a candidate                                     | this package's when there is a filter   |
 | the rule that keeps a change                                   | this package's: the gate                |
 | the model call of the search roles                             | this package's (`evolve.models`)        |
