@@ -22,5 +22,10 @@ candidates: 1
 # The chance, over the whole experiment, of keeping a change that does nothing.
 alpha: 0.05
 # The types of file in the harness folder a proposal may edit: text only
-# here, so that no model-written code is run.
+# here, so that no model-written code is run. With .py as well the agent's
+# code may be changed, and the command then asks for either a person's
+# approval of each change or --accept-unreviewed-code.
 editable: [".md"]
+# Whether a person approves each change before it is first run: each shows
+# the change at the terminal and waits for a yes; none asks no one.
+approval: none

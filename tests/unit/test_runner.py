@@ -367,6 +367,8 @@ def test_evaluate_writes_the_tables_the_settings_and_the_index_row(
     assert settings["server"] == {"vllm": "1", "args": ["--max-model-len=9"]}
     assert settings["prompt_caching"] is True
     assert settings["model_timeout"] == 300
+    # The limits an attempt is held to are kept with its results.
+    assert (settings["attempt_timeout"], settings["attempt_calls"]) == (3600, 100)
     assert settings["harness"] == "default"
     assert (
         settings["totals"]["total_attempts"] == 1 and settings["totals"]["errors"] == 1
@@ -603,7 +605,7 @@ def test_the_executor_switches_prompt_caching_on_only_when_asked(monkeypatch, ca
     monkeypatch.setattr(runner.BenchmarkExecutor, "initialize", build_client)
     executor = runner.TaskExecutor.__new__(runner.TaskExecutor)
     executor.trace, executor.thinking, executor.caching = False, None, caching
-    executor.timeout = None
+    executor.timeout = executor.calls = None
     asyncio.run(executor.initialize())
     tools = [{"name": "find_user", "description": "Finds a user."}]
     last = executor.llm_client._convert_mcp_tools_to_langchain(tools)[-1]
@@ -662,7 +664,7 @@ def test_the_executor_puts_the_time_limit_on_the_model_client(
     monkeypatch.setattr(runner.BenchmarkExecutor, "initialize", build_client)
     executor = runner.TaskExecutor.__new__(runner.TaskExecutor)
     executor.trace, executor.thinking, executor.caching = False, None, False
-    executor.timeout = timeout
+    executor.timeout, executor.calls = timeout, None
     asyncio.run(executor.initialize())
     # The client that sends the calls; with nothing set the benchmark's own
     # model waits without limit, whichever provider it is built for.
@@ -672,6 +674,82 @@ def test_the_executor_puts_the_time_limit_on_the_model_client(
     if provider != "anthropic":
         # The calls go through the client that carries the limit.
         assert model.async_client._client is client
+
+
+def test_the_executor_caps_the_model_calls_of_an_attempt(monkeypatch):
+    answered = []
+
+    async def build_client(self):
+        async def invoke_with_tools(*args, **kwargs):
+            answered.append(args)
+            return "an answer"
+
+        self.llm_client = SimpleNamespace(
+            llm=SimpleNamespace(), invoke_with_tools=invoke_with_tools
+        )
+
+    monkeypatch.setattr(runner.BenchmarkExecutor, "initialize", build_client)
+    executor = runner.TaskExecutor.__new__(runner.TaskExecutor)
+    executor.trace, executor.thinking, executor.caching = False, None, False
+    executor.timeout, executor.calls = None, 2
+    asyncio.run(executor.initialize())
+
+    async def three_calls():
+        client = executor.llm_client
+        first = await client.invoke_with_tools("a")
+        await client.invoke_with_tools("b")
+        with pytest.raises(RuntimeError, match="more than 2 calls to the model"):
+            await client.invoke_with_tools("c")
+        return first
+
+    # Calls within the cap go through as they were made; the one past it
+    # never reaches the model.
+    assert asyncio.run(three_calls()) == "an answer" and len(answered) == 2
+
+
+def test_an_attempt_past_its_seconds_is_ended_and_recorded_as_an_error(
+    tmp_path, monkeypatch
+):
+    class Stuck:
+        diagnosis_error, changes = None, None
+        names = checks.prepare("task_a", [])[1]
+        layout = {"keys": {}}
+
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def execute_benchmark(self):
+            await asyncio.sleep(60)
+
+    monkeypatch.setattr(runner, "TaskExecutor", Stuck)
+    monkeypatch.setattr(runner, "BenchmarkConfig", lambda **fields: fields)
+    monkeypatch.setattr(runner.states, "seed_copy", lambda path, domain: ((), {}))
+    monkeypatch.setattr(runner, "save_attempt", lambda *args: None)
+    config = {
+        "gym_servers_config": [{"seed_database_file": "s.sql"}],
+        "selected_tools": [],
+    }
+    outcome, _, _, _ = asyncio.run(
+        runner.run_task(
+            "task_a",
+            config,
+            1,
+            SimpleNamespace(),
+            PRICING,
+            tmp_path,
+            domain="itsm",
+            trace=False,
+            thinking=None,
+            caching=False,
+            timeout=None,
+            agent=None,
+            tags=[],
+            arguments={},
+            seconds=0.05,
+        )
+    )
+    assert outcome["error"] == "the attempt ran past its limit of 0.05 seconds"
+    assert outcome["success"] is False
 
 
 @pytest.mark.parametrize(

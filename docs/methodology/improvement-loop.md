@@ -45,6 +45,68 @@ fixed at the start except the harness.
 The current harness is never run again on the validation tasks: its scores
 there date from when it was the candidate.
 
+## What a proposal can change
+
+A harness is a folder of two files:
+
+| file        | what it is                                                                               | a change to it                                                                      |
+|-------------|------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
+| `agent.py`  | code: the program that calls the model, runs the tools it asks for and repeats           | try a failed tool call again; shorten a tool's over-long answer; plan before acting |
+| `prompt.md` | text: words added to the end of every task's instructions; empty in the starting harness | "check every field before you finish"                                               |
+
+The proposer does not describe a change, it makes one. It works step by
+step in a copy of the folder, with actions for files only: list the folder,
+read a file, read a training attempt, replace one passage of a file with
+another, create a file, and finish by naming each change and why. The
+experiment's repository keeps every candidate as a commit on a branch of
+its own, so the difference between a candidate and the current harness can
+be read exactly, with `git diff`.
+
+In a trial of the loop the proposer's whole change was one paragraph added
+to `prompt.md`, which began: "Before you finish a request, check every field
+that the request or a policy table determines."
+
+### Text and code
+
+| `editable`       | a proposal may change         | what that means                                                 |
+|------------------|-------------------------------|-----------------------------------------------------------------|
+| `[".md"]`        | the text the agent is given   | nothing new runs: the model reads other words                   |
+| `[".md", ".py"]` | the text and the agent's code | code written by a model runs on the machine that runs the tasks |
+
+### What stands between a change and its first run
+
+| check, in order                 | what it is                                        | what it stops                                                                                                                                                                                                                                                 |
+|---------------------------------|---------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| the screen                      | a fixed list of patterns                          | a task's id or a record number; a reference to the checks; code that reads the environment, imports a module that reaches files, other programs or the network, runs text as code, reaches files outside the folder, or calls the model by a route of its own |
+| the reviewer                    | a model that reads the change against the rules   | anything taken from one task, anything aimed at the checks, and code that reaches outside the folder or the clients it is given                                                                                                                               |
+| a person, with `approval: each` | the change shown at the terminal, and a yes or no | whatever the person declines; a no ends the candidate and is recorded                                                                                                                                                                                         |
+| the one-task run                | the changed harness run on one training task      | a harness that no longer runs, or no longer writes its record in the form the package reads                                                                                                                                                                   |
+
+A change stopped by the screen or the reviewer goes back to the proposer
+with the reasons.
+
+### What code edits ask of the machine
+
+Code the proposer writes runs as the user who started the experiment, and
+can reach what that user can: files, and the keys in `.env`. The screen and
+the reviewer catch accidents and plain misuse. They do not catch code set on
+getting round them, and the package is not a sandbox.
+
+So an experiment that edits code with `approval: none`, in which nobody
+reads a change before it runs, starts only when
+`--accept-unreviewed-code` is given, and prints what is being accepted
+either way. With `approval: each` a person reads every change, and with
+`editable: [".md"]` no code is written at all.
+
+Two limits hold whatever the harness becomes, because the runner keeps them
+and not the agent: an attempt is ended after `attempt_timeout` seconds
+(3,600 unless changed) or `attempt_calls` calls to the model (100), and
+recorded as an error. A change that makes the agent loop without end
+therefore costs one attempt's limit and not the experiment.
+
+A person's no is a decision made outside the gate. An experiment run with
+`approval: each` is the loop with a person in it, and is reported as such.
+
 ## Who may read what
 
 | what                                             | the analyst and the proposer   | the gate   | a person, while the experiment runs   |
@@ -105,23 +167,23 @@ offer it as a setting.
 An experiment file holds the settings of `mas-optimiser run` (the model,
 the domains, the attempts and so on) and these, which only `evolve` reads:
 
-| setting          | what it sets                                                        | default           |
-|------------------|---------------------------------------------------------------------|-------------------|
-| `split`          | the split whose three sets are used, by its name alone              | none, must be set |
-| `harness`        | the folder the experiment starts from                               | `default`         |
-| `proposer_model` | the model file of the analyst, the proposer and the reviewer        | the agent's model |
-| `rounds`         | rounds of the loop                                                  | 10                |
-| `candidates`     | candidates proposed in each round                                   | 1                 |
-| `alpha`          | the error budget of the whole experiment                            | 0.05              |
-| `editable`       | the types of file in the harness folder a proposal may edit         | `.md` and `.py`   |
-| `limit`          | at most this many tasks of each set, for a trial of the loop itself | all               |
+| setting          | what it sets                                                                 | default           |
+|------------------|------------------------------------------------------------------------------|-------------------|
+| `split`          | the split whose three sets are used, by its name alone                       | none, must be set |
+| `harness`        | the folder the experiment starts from                                        | `default`         |
+| `proposer_model` | the model file of the analyst, the proposer and the reviewer                 | the agent's model |
+| `rounds`         | rounds of the loop                                                           | 10                |
+| `candidates`     | candidates proposed in each round                                            | 1                 |
+| `alpha`          | the error budget of the whole experiment                                     | 0.05              |
+| `editable`       | the types of file in the harness folder a proposal may edit                  | `.md` and `.py`   |
+| `approval`       | whether a person approves each change before it first runs: `each` or `none` | `none`            |
+| `limit`          | at most this many tasks of each set, for a trial of the loop itself          | all               |
 
 The agent's model and the proposer's are two settings, so they can be the
-same model or different ones, hosted or self-hosted. `editable: [".md"]`
-holds an experiment to the text the agent is given; with `.py` the proposer
-may change the agent's code, which then runs on the machine that runs the
-tasks. `configs/experiments/evolve-smoke.yaml` is a trial with three tasks
-of each set and one round.
+same model or different ones, hosted or self-hosted. `editable` and
+`approval` are described under "What a proposal can change".
+`configs/experiments/evolve-smoke.yaml` is a trial with three tasks of each
+set and one round.
 
 ## What an experiment writes
 
