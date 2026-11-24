@@ -1,0 +1,9 @@
+part,count,input_tokens_each,input_tokens,share_percent
+the starting harness on the training tasks,61,283000,17263000,3.1
+the starting harness on the validation tasks,123,283000,34809000,6.3
+the one-task trial of each candidate,10,283000,2830000,0.5
+the candidates on the validation tasks,1014.8,283000,287174250,52.1
+"each harness kept, on the training tasks",183,283000,51789000,9.4
+"each harness kept, on the test tasks",492,283000,139236000,25.3
+the analysis: traces read,300,59000,17700000,3.2
+the proposer and the reviewer: candidates,10,52000,520000,0.1
