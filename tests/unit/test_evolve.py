@@ -133,7 +133,10 @@ def benchmark(monkeypatch):
         "approval": "none",
         "concurrency": 2,
         "model_timeout": 300,
+        "attempt_timeout": 900,
+        "attempt_calls": 40,
         "trace": False,
+        "thinking_summary": True,
         "prompt_caching": True,
     }
     return adapter.EnterpriseOps(experiment)
@@ -186,6 +189,12 @@ def test_run_starts_one_run_per_domain_with_the_harness_and_the_set(
     assert itsm[itsm.index("--harness") + 1] == str(tmp_path / "checkout" / "harness")
     assert itsm[itsm.index("--out") + 1] == str(tmp_path / "jobs" / "r0A" / "itsm")
     assert itsm[itsm.index("--attempts") + 1] == "2"
+    # The settings as the loop was given them, an option of its command
+    # included, and not as the experiment file alone has them.
+    assert itsm[itsm.index("--model-timeout") + 1] == "300"
+    assert itsm[itsm.index("--attempt-timeout") + 1] == "900"
+    assert itsm[itsm.index("--attempt-calls") + 1] == "40"
+    assert "--thinking-summary" in itsm
     assert itsm[itsm.index("--task") + 1 :] == ["v1"]
     # Named as the validation set, so that its summary leaves out the failures.
     assert itsm[itsm.index("--split") + 1] == "drawn:validation"

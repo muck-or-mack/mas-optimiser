@@ -266,7 +266,11 @@ class EnterpriseOps(Domain):
             command += ["--limit", str(len(chosen))]
             command += ["--concurrency", str(settings["concurrency"])]
             command += ["--model-timeout", str(settings["model_timeout"])]
+            command += ["--attempt-timeout", str(settings["attempt_timeout"])]
+            command += ["--attempt-calls", str(settings["attempt_calls"])]
             command += ["--trace" if settings["trace"] else "--no-trace"]
+            if settings["thinking_summary"]:
+                command += ["--thinking-summary"]
             if not settings["prompt_caching"]:
                 command += ["--no-prompt-caching"]
             if subset:
