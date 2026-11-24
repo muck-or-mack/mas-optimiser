@@ -348,7 +348,33 @@ def test_a_model_file_without_a_server_block_is_refused(machine):
     assert machine.calls == [] and machine.started == []
 
 
-def test_the_qwen_file_names_one_release_and_one_option_an_item():
-    block = yaml.safe_load(runner.config_path("models", "qwen3.6-27b").read_text())
+@pytest.mark.parametrize("name", ["qwen3.6-27b", "qwen3.6-27b-fp8"])
+def test_a_qwen_file_names_one_release_and_one_option_an_item(name):
+    path = runner.config_path("models", name)
+    block = yaml.safe_load(path.read_text())
     assert isinstance(block["server"]["vllm"], str)
     assert all(a.startswith("--") and " " not in a for a in block["server"]["args"])
+    # It loads as a model that asks for no key.
+    config, _ = runner.load_model(path)
+    assert (config.llm_provider, config.llm_api_key) == ("vllm", "")
+
+
+def test_the_fp8_file_differs_only_in_the_model_the_port_and_the_cards():
+    released, fp8 = (
+        yaml.safe_load(runner.config_path("models", name).read_text())
+        for name in ("qwen3.6-27b", "qwen3.6-27b-fp8")
+    )
+    assert {key for key in released if released[key] != fp8[key]} == {
+        "llm_model",
+        "llm_api_endpoint",
+        "server",
+    }
+    assert fp8["llm_model"] == "Qwen/Qwen3.6-27B-FP8"
+    assert released["server"]["vllm"] == fp8["server"]["vllm"]
+    # The same options but for the number of cards, so that results on the
+    # two differ by the model alone.
+    options = [
+        [a for a in block["server"]["args"] if "tensor-parallel-size" not in a]
+        for block in (released, fp8)
+    ]
+    assert options[0] == options[1]

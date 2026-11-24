@@ -60,31 +60,38 @@ Stop them with `docker compose -f docker/compose.yaml down`.
 
 An open-weight model runs on the machine's own GPUs, served by
 [vLLM](https://docs.vllm.ai/). One command installs vLLM, starts the server
-and reports on it, and the settings are in the model's file. The example
-throughout is Qwen3.6-27B, `configs/models/qwen3.6-27b.yaml`.
+and reports on it, and the settings are in the model's file.
+
+The example throughout is Qwen3.6-27B in its 8-bit version,
+`configs/models/qwen3.6-27b-fp8.yaml`: the model with each weight stored in
+8 bits and not 16, published by its authors, at half the size, so that it
+fits one card of 48 GB. `configs/models/qwen3.6-27b.yaml` is the model as
+released, which needs two such cards. The two are different models, and
+results say which was used.
 
 ### What the machine needs
 
-| the machine needs                      | for Qwen3.6-27B as its file is written                                                                                                 | how to check                                                                  |
-|----------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
-| NVIDIA GPUs with free memory           | two cards of 48 GB with nothing else running on them; the model takes about 33,000 MiB of each, and more with several attempts at once | `nvidia-smi`: the memory in use on each card and the programs listed under it |
-| an NVIDIA driver that supports CUDA 13 | asked for by vLLM 0.34.0, the release the file names                                                                                   | the first line of `nvidia-smi` gives the CUDA version                         |
-| disk space in the home folder          | about 75 GB: 19 GB for vLLM and 56 GB for the model's weights                                                                          | `df -h ~`                                                                     |
-| a free port                            | 8027                                                                                                                                   | the command says so if another program has it                                 |
+| the machine needs                      | for the example as its file is written                                                                                           | how to check                                                                  |
+|----------------------------------------|----------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
+| an NVIDIA GPU with free memory         | one card of 48 GB with nothing else running on it; the model takes about 41,000 MiB of it                                        | `nvidia-smi`: the memory in use on each card and the programs listed under it |
+| a card that computes in 8 bits         | NVIDIA's Ada Lovelace generation or newer, such as an L40; on an older card vLLM runs the model with the weights alone in 8 bits | the card's name in `nvidia-smi`                                               |
+| an NVIDIA driver that supports CUDA 13 | asked for by vLLM 0.34.0, the release the file names                                                                             | the first line of `nvidia-smi` gives the CUDA version                         |
+| disk space in the home folder          | about 50 GB: 19 GB for vLLM and 31 GB for the model's weights                                                                    | `df -h ~`                                                                     |
+| a free port                            | 8028                                                                                                                             | the command says so if another program has it                                 |
 
 Docker is not needed, and neither are administrator rights.
-`docs/gpu-memory.md` shows where the GPU memory goes, how the need grows
-with the benchmark's domain and with the attempts run at once, and what to
-change for other cards.
+`docs/gpu-memory.md` shows where the GPU memory goes for both versions of
+the model, how the need grows with the benchmark's domain and with the
+attempts run at once, and what to change for other cards.
 
 ### From a fresh clone to a first task
 
 ```bash
 ./setup.sh
 source .venv/bin/activate
-mas-optimiser server qwen3.6-27b      # again, until it says ready
+mas-optimiser server qwen3.6-27b-fp8      # again, until it says ready
 docker compose -f docker/compose.yaml up -d
-mas-optimiser run smoke --model qwen3.6-27b --limit 1
+mas-optimiser run smoke --model qwen3.6-27b-fp8 --limit 1
 ```
 
 The fourth line starts the benchmark's servers and the fifth runs one task
@@ -93,7 +100,7 @@ on the model.
 ### Start, check, stop
 
 ```bash
-mas-optimiser server qwen3.6-27b
+mas-optimiser server qwen3.6-27b-fp8
 ```
 
 does four things in turn:
@@ -108,7 +115,7 @@ does four things in turn:
    and prints each command it runs.
 4. It says whether the server is `loading` or `ready`.
 
-The first start also downloads the model's weights (56 GB) into the user's
+The first start also downloads the model's weights (31 GB) into the user's
 Hugging Face cache, `~/.cache/huggingface`, and then loads the model. Run
 the same command again at any time: it starts nothing new and says whether
 the server is still `loading` or `ready`. The server's own output is in
@@ -116,7 +123,7 @@ the server is still `loading` or `ready`. The server's own output is in
 machine only.
 
 ```bash
-mas-optimiser server qwen3.6-27b --stop
+mas-optimiser server qwen3.6-27b-fp8 --stop
 ```
 
 ends the server. The environment and the weights stay, so the next start
@@ -135,12 +142,13 @@ installs and downloads nothing.
 
 ### Fitting it to another machine
 
-The settings that depend on the machine are three lines of the model file
-and two options of the command. To change the file's, copy it under a new
+The settings that depend on the machine are the choice between the two
+model files, three lines within a file and two options of the command. To change the file's, copy it under a new
 name in `configs/models/` and use that name in the commands.
 
 | the machine has                | what to set                                                                             |
 |--------------------------------|-----------------------------------------------------------------------------------------|
+| two cards of 48 GB to itself   | the model as released: `qwen3.6-27b` in place of `qwen3.6-27b-fp8` in the commands      |
 | a different number of cards    | `--tensor-parallel-size` in the file's `server` block                                   |
 | less memory on its cards       | `--max-model-len` in the `server` block, the longest prompt and answer the server takes |
 | the port taken                 | the port in `llm_api_endpoint`                                                          |
@@ -170,10 +178,10 @@ block; a file without one, such as a hosted model's, is refused.
 The command has been run end to end on one GPU with a small model of the
 same family, Qwen3-0.6B: vLLM installed, the server started, a task run
 against it, the reason for a stop printed, the server stopped. On a machine
-with two cards of 48 GB, Qwen3.6-27B was installed and downloaded and began
-to load, and stopped for lack of memory because another program held the
-cards; it has not yet been served. `--docker` has been run with a stand-in
-for vLLM's image.
+with two cards of 48 GB, the model as released was installed and downloaded
+and began to load, and stopped for lack of memory because another program
+held the cards. Neither version of Qwen3.6-27B has yet been served.
+`--docker` has been run with a stand-in for vLLM's image.
 
 ## Running an experiment
 
@@ -228,14 +236,15 @@ OpenAI-style client (the providers `openai`, `vllm` and `openrouter`); with
 any other provider none is set and the run says so.
 
 A self-hosted open-weight model is run the same way, through its own model
-file. `configs/models/qwen3.6-27b.yaml` is one for Qwen3.6-27B served by
-vLLM, which answers in the OpenAI API's format: the file gives the provider
-`vllm`, the server's address and no API key, and its `server` block says how
-the server is started ([Serving an open-weight model](#serving-an-open-weight-model)).
-With the server ready,
+file. `configs/models/qwen3.6-27b-fp8.yaml` is one, for the 8-bit version of
+Qwen3.6-27B served by vLLM, which answers in the OpenAI API's format: the
+file gives the provider `vllm`, the server's address and no API key, and its
+`server` block says how the server is started
+([Serving an open-weight model](#serving-an-open-weight-model)). With the
+server ready,
 
 ```
-mas-optimiser run smoke --model qwen3.6-27b
+mas-optimiser run smoke --model qwen3.6-27b-fp8
 ```
 
 runs the smoke experiment on that model. Nothing is billed per token, so
