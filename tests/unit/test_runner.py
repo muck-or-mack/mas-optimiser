@@ -833,6 +833,21 @@ def test_the_time_limit_is_set_for_the_providers_whose_client_takes_it(
     assert said is (provider == "google")
 
 
+def test_a_filter_setting_that_makes_no_sense_is_refused():
+    unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
+    for share in (1, 1.5, -0.1, "half", True):
+        with pytest.raises(SystemExit, match="filter_share"):
+            runner.load_experiment("smoke", unset | {"filter_share": share})
+    for threshold in ("high", [1], True):
+        with pytest.raises(SystemExit, match="filter_threshold"):
+            runner.load_experiment("smoke", unset | {"filter_threshold": threshold})
+    # No filter, and a threshold below zero, are both a user's to choose.
+    settings = runner.load_experiment(
+        "smoke", unset | {"filter_share": 0, "filter_threshold": -1.5}
+    )
+    assert (settings["filter_share"], settings["filter_threshold"]) == (0, -1.5)
+
+
 @pytest.mark.parametrize("limit", [0, -5, "soon", True])
 def test_a_time_limit_that_is_not_a_positive_number_is_refused(limit):
     unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)

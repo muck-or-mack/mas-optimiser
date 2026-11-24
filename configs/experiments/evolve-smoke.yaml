@@ -21,6 +21,12 @@ rounds: 1
 candidates: 1
 # The chance, over the whole experiment, of keeping a change that does nothing.
 alpha: 0.05
+# The filter: a candidate is run on this share of the validation tasks first
+# and dropped, before the rest are run, unless its score there is above the
+# current harness's by more than the threshold (in percentage points). A
+# share of 0 is no filter.
+filter_share: 0.5
+filter_threshold: 0
 # The types of file in the harness folder a proposal may edit: text only
 # here, so that no model-written code is run. With .py as well the agent's
 # code may be changed, and the command then asks for either a person's

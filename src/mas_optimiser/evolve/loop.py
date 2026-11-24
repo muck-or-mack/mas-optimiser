@@ -9,8 +9,10 @@ commit on a branch of its own) and everything the loop writes. Its steps:
 2. A round, repeated: the analyst reads the current harness's training
    traces; the proposer drafts each candidate in its own checkout, told of
    earlier proposals only whether each was accepted; a candidate that passes
-   the review and still runs is scored on the validation tasks; the gate
-   compares it with the current harness task by task. An accepted candidate
+   the review and still runs is scored on the validation tasks, on a share
+   of them first (the filter), which drops a candidate that does no better
+   there before the rest are run; the gate compares a candidate that passed
+   with the current harness task by task, on all of them. An accepted candidate
    becomes the current harness and is run on the training tasks, so that the
    next round has its traces.
 3. The test: every harness the experiment kept, run once on the test tasks.
@@ -25,6 +27,7 @@ import argparse
 import csv
 import dataclasses
 import json
+import random
 import shutil
 from pathlib import Path
 
@@ -32,17 +35,18 @@ import numpy as np
 from dotenv import load_dotenv
 
 import mas_optimiser
-from mas_optimiser.benchmarks.enterpriseops import REPO_ROOT, runner
+from mas_optimiser.benchmarks.enterpriseops import REPO_ROOT, runner, splits
 from mas_optimiser.benchmarks.enterpriseops.domain import EnterpriseOps
 from mas_optimiser.evolve import models
 from mas_optimiser.stats import budget, gate
 
 from rrsi import analyst, critic, digester, gitops, propose
 from rrsi.config import RRSIConfig
-from rrsi.evaluate import EvalResult, evaluate, relative_cost_change
+from rrsi.evaluate import EvalResult, aggregate, evaluate, relative_cost_change
 from rrsi.history import exploration
-from rrsi.loop import VARIANT_LABELS, Run
+from rrsi.loop import VARIANT_LABELS, Run, log
 from rrsi.schedule import edit_budget
+from rrsi.selection import Candidate
 
 # RRSI's four search roles reach their model through this one name.
 for _role in (analyst, critic, digester, propose):
@@ -80,18 +84,26 @@ TOLD = (
 class Experiment(Run):
     """One experiment's state and steps, on RRSI's ``Run``.
 
-    Kept from ``Run``: the paths, the record of proposals, the checkouts,
-    the drafting of a candidate (proposer, review, trial run) and its
-    scoring. Replaced: the baseline and the round, which here use two sets
-    of tasks, and the rule that keeps a change.
+    Kept from ``Run``: the paths, the record of proposals, the checkouts
+    and the drafting of a candidate (proposer, review, trial run). Replaced:
+    the baseline and the round, which here use two sets of tasks, the
+    scoring of a candidate, which here may begin with a filter, and the rule
+    that keeps a change.
 
     Args:
         domain: The benchmark, a ``Domain`` that also gives
-            ``validation_ids``.
+            ``validation_ids`` and, for a filter, ``domain_of`` (each task's
+            group, of which the filter takes the same share).
         cfg: RRSI's settings: rounds, attempts, candidates and the models.
         repo: The experiment's git repository, with the harness at its top.
         runs_root: The experiment's folder.
         alpha: The Type-I error budget of the whole experiment.
+        filter_share: The share of the validation tasks a candidate is run on
+            first; 0 for no filter.
+        filter_threshold: The gain, in percentage points of the score, that a
+            candidate must be above on the filter's tasks to be run on the
+            rest.
+        seed: Seeds the draw of each round's filter tasks.
     """
 
     def __init__(
@@ -101,10 +113,16 @@ class Experiment(Run):
         repo: Path,
         runs_root: Path,
         alpha: float,
+        filter_share: float = 0.0,
+        filter_threshold: float = 0.0,
+        seed: int = 0,
     ):
         super().__init__(domain, cfg, repo, runs_root)
         self.harness_rel = domain.harness_path
         self.alpha = alpha
+        self.filter_share = filter_share
+        self.filter_threshold = filter_threshold
+        self.seed = seed
 
     def baseline(self, job: str = "base") -> EvalResult:
         """Run the starting harness on the training and validation tasks.
@@ -178,6 +196,120 @@ class Experiment(Run):
         )
         return validation
 
+    def filter_ids(self, t: int, ids: list[str]) -> list[str]:
+        """The tasks a round's candidates are filtered on.
+
+        The same share of each of the benchmark's groups (its domains),
+        drawn afresh each round, so that no fixed part of the validation
+        tasks carries every filter.
+
+        Args:
+            t: The round, from 0.
+            ids: The validation tasks.
+
+        Returns:
+            The filter's tasks, in the order of ``ids``; none with no filter.
+        """
+        if not self.filter_share:
+            return []
+        draw = random.Random(f"{self.seed}:{t}")
+        groups: dict[str, list[str]] = {}
+        for task in ids:
+            groups.setdefault(self.domain.domain_of[task], []).append(task)
+        chosen: set[str] = set()
+        for tasks in groups.values():
+            chosen.update(
+                draw.sample(tasks, max(1, round(self.filter_share * len(tasks))))
+            )
+        return [task for task in ids if task in chosen]
+
+    def _evaluate(self, t: int, c: Candidate, rdir: Path, ids: list[str]) -> None:
+        """Score a candidate on the validation tasks, on the filter's tasks first.
+
+        With no filter this is the released step. With one, the candidate is
+        run on the filter's tasks, and if its mean score there is not above
+        the current harness's by more than the threshold it is dropped and
+        the other tasks are not run. A candidate that passes is run on the
+        other tasks, and the two parts make its one result, so no attempt is
+        run twice. The filter can only drop a candidate: one that is kept has
+        still passed the gate's test on every validation task, so the chance
+        of keeping a change that does nothing is no higher than without it.
+
+        Args:
+            t: The round, from 0.
+            c: The candidate; its result goes to ``c.ev``, or the reason it
+                has none to ``c.gate_failure``.
+            rdir: The round's folder.
+            ids: The validation tasks.
+        """
+        first = self.filter_ids(t, ids)
+        done = rdir / c.variant / "eval.json"
+        if not first or done.exists():
+            super()._evaluate(t, c, rdir, ids)
+            return
+        cfg, job = self.cfg, f"r{t}{c.variant}"
+        current = EvalResult.load(self.eval_path(self.frontier()["incumbent"]["job"]))
+        rest = [task for task in ids if task not in set(first)]
+        per_task, totals = {}, {}
+        for stage, tasks in (("filter", first), ("rest", rest)):
+            if not tasks:
+                continue
+            # As the released step does: a second run when attempts are
+            # missing, and a candidate that cannot be scored is set aside.
+            for _ in range(2):
+                try:
+                    part = evaluate(
+                        self.domain,
+                        self.wt_root / job,
+                        self.runs,
+                        f"{job}_{stage}",
+                        tasks,
+                        cfg.k,
+                    )
+                except Exception as error:  # noqa: BLE001 - recorded with the candidate
+                    c.gate_failure = "eval_invalid"
+                    c.detail = f"evaluation crashed: {error!r}"[:600]
+                    return
+                if part.missing <= cfg.invalid_missing_frac * part.n_expected:
+                    break
+            else:
+                c.gate_failure = "eval_invalid"
+                c.detail = f"{part.missing}/{part.n_expected} attempts missing after a second run"
+                return
+            per_task |= part.per_task
+            for key, value in part.extra.items():
+                totals[key] = totals.get(key, 0) + value
+            if stage == "filter":
+                gain = 100 * float(
+                    np.mean(
+                        [
+                            part.per_task[i].mean - current.per_task[i].mean
+                            for i in tasks
+                        ]
+                    )
+                )
+                passed = gain > self.filter_threshold
+                record = {
+                    "tasks": len(tasks),
+                    "gain_points": round(gain, 3),
+                    "threshold_points": self.filter_threshold,
+                    "passed": passed,
+                }
+                (rdir / c.variant / "filter.json").write_text(json.dumps(record))
+                log(
+                    self.domain.name,
+                    f"{c.variant}: {gain:+.1f} points on the filter's {len(tasks)} "
+                    f"tasks, {'passed' if passed else 'dropped'}",
+                )
+                if not passed:
+                    c.gate_failure = "filtered_out"
+                    return
+        c.ev = aggregate(job, cfg.k, {task: per_task[task] for task in ids}, totals)
+        c.ev.save(done)
+        # The two parts ran as jobs of their own, so the whole has no folder yet.
+        self.eval_path(job).parent.mkdir(parents=True, exist_ok=True)
+        c.ev.save(self.eval_path(job))
+
     def round(self, t: int) -> None:
         """One round: read the training traces, draft, score on validation, decide.
 
@@ -240,6 +372,9 @@ class Experiment(Run):
         decisions, winner, best = [], None, None
         for candidate in candidates:
             decision = {"variant": candidate.variant, "level": level, "accept": False}
+            filtered = folder / candidate.variant / "filter.json"
+            if filtered.exists():
+                decision["filter"] = json.loads(filtered.read_text())
             if candidate.ev is None:
                 # The released loop files a person's no under the trial run
                 # it came before; here it is recorded as what it was.
@@ -271,11 +406,17 @@ class Experiment(Run):
             if self.history.has(t, candidate.variant):
                 continue
             if candidate.ev is None:
+                # A candidate dropped at the filter is told to the proposer
+                # as rejected, like one the gate turned down: of the
+                # validation tasks it learns no more than that.
+                filtered_out = candidate.gate_failure == "filtered_out"
                 self.history.append_candidate(
                     t,
                     candidate.variant,
                     candidate.edits,
-                    candidate.gate_failure or "not_evaluated",
+                    "REJECTED"
+                    if filtered_out
+                    else candidate.gate_failure or "not_evaluated",
                     None,
                     None,
                     False,
@@ -388,6 +529,19 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         "does nothing",
     )
     parser.add_argument(
+        "--filter-share",
+        type=float,
+        help="the share of the validation tasks a candidate is run on first; "
+        "one that does no better there is dropped before the rest are run "
+        "(0 for no filter)",
+    )
+    parser.add_argument(
+        "--filter-threshold",
+        type=float,
+        help="the gain, in percentage points of the score, a candidate must "
+        "be above on the filter's tasks",
+    )
+    parser.add_argument(
         "--editable",
         nargs="+",
         help="the types of file in the harness folder a proposal may edit, "
@@ -463,7 +617,14 @@ def run(args: argparse.Namespace) -> None:
         critic_model=proposer,
     )
     loop = Experiment(
-        EnterpriseOps(experiment), cfg, repository, folder, experiment["alpha"]
+        EnterpriseOps(experiment),
+        cfg,
+        repository,
+        folder,
+        experiment["alpha"],
+        experiment["filter_share"],
+        experiment["filter_threshold"],
+        splits.load_split(split)["seed"],
     )
     models.usage_log = folder / "search_usage.jsonl"
     models.timeout = experiment["model_timeout"]
