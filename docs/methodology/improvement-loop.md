@@ -171,12 +171,14 @@ that round with a message that says so.
 An attempt that ends in an error while its services answer is the harness's
 failure, and a result like any other: it scores zero. An agent that asks for
 a tool the server does not have ends this way, because the benchmark ends
-such an attempt, and a weaker model does it more often. These attempts do
-not stop an experiment, however many they are, and a change after which
-fewer attempts end in an error gains by it at the gate. The released loop
-counts every attempt that ended in an error as one with no result, and
-refuses a job with more than 15% of them; here that limit is kept for
-attempts that left no result at all.
+such an attempt, and a weaker model does it more often. Its page gives the
+conversation up to the error, from the runner's own record, so the search
+roles can read what led to it. These attempts do not stop an experiment,
+however many they are, and a change after which fewer attempts end in an
+error gains by it at the gate. The released loop counts every attempt that
+ended in an error as one with no result, and refuses a job with more than
+15% of them; here that limit is kept for attempts that left no result at
+all.
 
 A person's no is a decision made outside the gate. An experiment run with
 `approval: each` is the loop with a person in it, and is reported as such.

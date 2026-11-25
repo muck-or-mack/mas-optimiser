@@ -212,6 +212,15 @@ the server fills in when the column is not passed.
 | What the agent did        | turn by turn: what the model wrote, each tool call with its arguments, and what came back  |
 | Rows the attempt changed  | every row inserted, with all its columns, updated or deleted                               |
 
+An attempt that ended in an error says so under the heading, with the
+error. The agent hands its record of the conversation back only when it
+finishes, so the turns of such an attempt come from the runner's own
+record, kept where the agent reaches the model and the tools: every reply
+of the model up to the error, each tool call with what came back, and a
+call that got no answer marked `no answer`. Its tokens, cost and seconds
+are counted from the same record. Its checks were not run and the rows it
+changed were not read, so those sections are empty.
+
 The first table answers what the task needed and what the attempt did:
 
 ```

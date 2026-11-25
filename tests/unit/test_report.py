@@ -366,6 +366,30 @@ def test_what_the_agent_wrote_is_never_cut_and_keeps_its_lines():
     assert "message = Dear Ben,\n          \n          Logged.\nchannel = chat" in text
 
 
+def test_an_attempt_that_ended_in_an_error_shows_the_error_and_what_led_to_it():
+    # The first two turns of the made-up attempt, then a call to a tool the
+    # server does not have: no answer came back and the attempt ended.
+    flow = EXECUTION["conversation_flow"][:4] + [
+        {
+            "type": "ai_message",
+            "content": "",
+            "tool_calls": [{"name": "open_incident", "args": {"caller_id": 7}}],
+        }
+    ]
+    execution = {"error": "no such tool", "conversation_flow": flow}
+    text = report.attempt_text("task_x", 1, execution, None, GIVEN, ARGUMENTS)
+    assert "Ended in an error after 2 replies of the model: no such tool" in text
+    assert "The checks were not run" in text
+    # The turns are shown as for any attempt, the unanswered call among them.
+    assert "### Turn 1" in text and "`list_users` → ok" in text
+    assert "### Turn 2" in text and "`open_incident` → no answer" in text
+    # An attempt that raised before its first call has nothing to show.
+    before = report.attempt_text(
+        "task_x", 1, {"error": "server down"}, None, GIVEN, ARGUMENTS
+    )
+    assert "Raised before it started: server down" in before
+
+
 def test_a_long_field_of_an_answer_does_not_hide_the_ones_after_it():
     lines = report._fields({"description": "word " * 200, "channel": "chat"}, 40)
     # Forty characters of the value, then the mark that it was cut.

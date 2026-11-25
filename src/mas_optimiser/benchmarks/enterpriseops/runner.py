@@ -68,6 +68,7 @@ from mas_optimiser.benchmarks.enterpriseops import (
 )
 
 from benchmark.executor import BenchmarkExecutor
+from benchmark.llm_client import get_text_content
 from benchmark.mcp_client import MCPClient
 from benchmark.models import BenchmarkConfig, LLMConfig
 from orchestrators.base import AgentOrchestrator
@@ -247,6 +248,11 @@ class TaskExecutor(BenchmarkExecutor):
     diagnosed against the rows the attempt touched (see ``states`` and
     ``diagnosis``).
 
+    The executor also keeps its own record of the conversation, taken where
+    the harness reaches the model and the tools (``seen``). The harness's
+    record is returned only by an attempt that finishes, so an attempt that
+    ends in an error is recorded from this one.
+
     Args:
         config: The task's config; its ``verifiers`` are replaced by the
             prepared checks.
@@ -301,9 +307,14 @@ class TaskExecutor(BenchmarkExecutor):
         # What the last call to the model raised once the client's own tries
         # were spent; ``None`` if that call was answered.
         self.call_error = None
+        # The conversation as it passes through the clients the harness is
+        # handed: the first call's instructions and request, each answer of
+        # the model and each answer of a tool, in the entries the starting
+        # harness records.
+        self.seen: list[dict] = []
 
     async def initialize(self):
-        """Build the clients as the benchmark does, then attach tracing, the thinking setting, prompt caching, the time limit and the tries of a failed call to the model.
+        """Build the clients as the benchmark does, then attach tracing, the thinking setting, prompt caching, the time limit, the tries of a failed call to the model and the record of the conversation.
 
         The executor builds its model client here, so this is the first point
         at which the model object exists.
@@ -354,7 +365,9 @@ class TaskExecutor(BenchmarkExecutor):
         # handed and does not build: the calls are counted here, so that no
         # change to the harness lifts the cap, and a call that fails once the
         # client's own tries are spent is noted here, whatever the provider.
+        # Each call that is answered is added to the executor's record.
         invoke, made = self.llm_client.invoke_with_tools, 0
+        opening = {"system": "system_message", "human": "user_message"}
 
         async def reached(*args, **kwargs):
             nonlocal made
@@ -363,15 +376,53 @@ class TaskExecutor(BenchmarkExecutor):
                 raise RuntimeError(
                     f"the attempt made more than {self.calls} calls to the model"
                 )
+            if not self.seen:
+                self.seen += [
+                    {"type": opening[message.type], "content": message.content}
+                    for message in (args[0] if args else kwargs.get("messages", []))
+                    if getattr(message, "type", None) in opening
+                ]
             try:
                 answer = await invoke(*args, **kwargs)
             except Exception as exc:
                 self.call_error = repr(exc)
                 raise
             self.call_error = None
+            self.seen.append(
+                {
+                    "type": "ai_message",
+                    "content": get_text_content(getattr(answer, "content", "")),
+                    "usage_metadata": getattr(answer, "usage_metadata", None) or {},
+                    "response_metadata": getattr(answer, "response_metadata", None)
+                    or {},
+                    "tool_calls": [
+                        {"name": call["name"], "args": call["args"]}
+                        for call in getattr(answer, "tool_calls", None) or []
+                    ],
+                }
+            )
             return answer
 
         self.llm_client.invoke_with_tools = reached
+
+        def noted(server: str, call_tool):
+            # One server's tool call, with each answer added to the record.
+            async def call(tool_name, *args, **kwargs):
+                result = await call_tool(tool_name, *args, **kwargs)
+                self.seen.append(
+                    {
+                        "type": "tool_result",
+                        "tool_name": tool_name,
+                        "result": result,
+                        "gym_server": server,
+                    }
+                )
+                return result
+
+            return call
+
+        for server, client in self.mcp_clients.items():
+            client.call_tool = noted(server, client.call_tool)
 
     async def service_answers(self, wait: float) -> bool:
         """Ask the model service a one-word question, again each minute until it answers.
@@ -1134,8 +1185,9 @@ def task_outcome(
         attempt: The attempt number, from 1.
         execution: The executor's account of the attempt, one entry of the
             ``runs`` list it returns, or a stand-in holding the error if it
-            raised before the attempt started; such an attempt counts as
-            failed with none of its checks passed and zero tokens.
+            raised; such an attempt counts as failed with none of its checks
+            passed, and its tokens are those of the calls to the model that
+            were answered before the error.
         names: The maps from ``checks.prepare``.
         pricing: The price table from the model file.
         tables: The attempt's ``tables.csv`` rows, from ``report.table_rows``;
@@ -1389,6 +1441,12 @@ async def run_task(
     again, and if it does not within ``wait`` seconds the attempt is
     recorded with ``service_error`` set.
 
+    An attempt that ends in an error returns nothing of the harness's own
+    record. It is saved with the executor's record of the conversation up to
+    the error and the time it took, so that its page shows what led to the
+    error and its tokens are counted; its checks are not run and the rows it
+    changed are not read.
+
     Args:
         task_id: The task's dataset ID.
         config: The task's config, from ``load_tasks``.
@@ -1453,7 +1511,7 @@ async def run_task(
         else nullcontext()
     )
     with span_context as span:
-        cut_off = False
+        cut_off, started = False, time.monotonic()
         try:
             result = await asyncio.wait_for(executor.execute_benchmark(), seconds)
         except TimeoutError:
@@ -1468,6 +1526,9 @@ async def run_task(
             # Raised before the attempt started, e.g. a server that is not up.
             result = {"runs": [{"run_number": 1, "error": repr(exc)}]}
         execution = result["runs"][0]
+        if execution.get("error") and "conversation_flow" not in execution:
+            execution["conversation_flow"] = executor.seen
+            execution["execution_time_ms"] = int(1000 * (time.monotonic() - started))
         if executor.call_error or cut_off:
             # The attempt's last call to the model failed, whether or not the
             # harness went on to end the attempt in its own way, or the

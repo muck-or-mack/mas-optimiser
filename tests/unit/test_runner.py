@@ -5,6 +5,7 @@ import json
 from types import SimpleNamespace
 
 import pytest
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from mas_optimiser.benchmarks.enterpriseops import GYM_ROOT, checks, runner
 
@@ -628,6 +629,7 @@ def test_the_executor_switches_prompt_caching_on_only_when_asked(monkeypatch, ca
     # client matters here.
     monkeypatch.setattr(runner.BenchmarkExecutor, "initialize", build_client)
     executor = runner.TaskExecutor.__new__(runner.TaskExecutor)
+    executor.mcp_clients, executor.seen = {}, []
     executor.trace, executor.thinking, executor.caching = False, None, caching
     executor.timeout = executor.calls = None
     executor.llm_config = SimpleNamespace(max_retries=None)
@@ -690,6 +692,7 @@ def test_the_executor_puts_the_time_limit_on_the_model_client(
 
     monkeypatch.setattr(runner.BenchmarkExecutor, "initialize", build_client)
     executor = runner.TaskExecutor.__new__(runner.TaskExecutor)
+    executor.mcp_clients, executor.seen = {}, []
     executor.trace, executor.thinking, executor.caching = False, None, False
     executor.timeout, executor.calls = timeout, None
     executor.llm_config = SimpleNamespace(max_retries=None)
@@ -722,6 +725,7 @@ def test_the_executor_puts_the_tries_of_a_failed_call_on_the_model_client(
 
     monkeypatch.setattr(runner.BenchmarkExecutor, "initialize", build_client)
     executor = runner.TaskExecutor.__new__(runner.TaskExecutor)
+    executor.mcp_clients, executor.seen = {}, []
     executor.trace, executor.thinking, executor.caching = False, None, False
     executor.timeout = executor.calls = None
     executor.llm_config = runner.ModelConfig(
@@ -748,6 +752,7 @@ def test_the_executor_caps_the_model_calls_of_an_attempt(monkeypatch):
 
     monkeypatch.setattr(runner.BenchmarkExecutor, "initialize", build_client)
     executor = runner.TaskExecutor.__new__(runner.TaskExecutor)
+    executor.mcp_clients, executor.seen = {}, []
     executor.trace, executor.thinking, executor.caching = False, None, False
     executor.timeout, executor.calls = None, 2
     executor.llm_config = SimpleNamespace(max_retries=None)
@@ -784,6 +789,7 @@ def test_the_executor_notes_a_call_that_failed_and_forgets_it_once_one_is_answer
 
     monkeypatch.setattr(runner.BenchmarkExecutor, "initialize", build_client)
     executor = runner.TaskExecutor.__new__(runner.TaskExecutor)
+    executor.mcp_clients, executor.seen = {}, []
     executor.trace, executor.thinking, executor.caching = False, None, False
     executor.timeout, executor.calls, executor.call_error = None, None, None
     executor.llm_config = SimpleNamespace(max_retries=None)
@@ -801,6 +807,62 @@ def test_the_executor_notes_a_call_that_failed_and_forgets_it_once_one_is_answer
     assert executor.call_error is None
 
 
+def test_the_executor_keeps_its_own_record_of_the_conversation(monkeypatch):
+    answer = AIMessage(
+        "I will look the incident up.",
+        tool_calls=[{"name": "get_incident", "args": {"number": 7}, "id": "c1"}],
+        usage_metadata={"input_tokens": 90, "output_tokens": 10, "total_tokens": 100},
+    )
+
+    async def build_clients(self):
+        async def invoke_with_tools(messages, tools):
+            return answer
+
+        async def call_tool(tool_name, arguments):
+            return {"success": True, "result": {"state": "open"}}
+
+        self.llm_client = SimpleNamespace(
+            llm=SimpleNamespace(), invoke_with_tools=invoke_with_tools
+        )
+        self.mcp_clients = {"itsm": SimpleNamespace(call_tool=call_tool)}
+
+    monkeypatch.setattr(runner.BenchmarkExecutor, "initialize", build_clients)
+    executor = runner.TaskExecutor.__new__(runner.TaskExecutor)
+    executor.seen = []
+    executor.trace, executor.thinking, executor.caching = False, None, False
+    executor.timeout, executor.calls, executor.call_error = None, None, None
+    executor.llm_config = SimpleNamespace(max_retries=None)
+    asyncio.run(executor.initialize())
+
+    async def one_turn():
+        sent = [SystemMessage("the policy"), HumanMessage("the request")]
+        await executor.llm_client.invoke_with_tools(sent, [])
+        # What the harness gets back from a tool is what the server answered.
+        return await executor.mcp_clients["itsm"].call_tool(
+            "get_incident", {"number": 7}
+        )
+
+    assert asyncio.run(one_turn()) == {"success": True, "result": {"state": "open"}}
+    # The entries are those the starting harness records, in its order.
+    assert executor.seen == [
+        {"type": "system_message", "content": "the policy"},
+        {"type": "user_message", "content": "the request"},
+        {
+            "type": "ai_message",
+            "content": "I will look the incident up.",
+            "usage_metadata": answer.usage_metadata,
+            "response_metadata": {},
+            "tool_calls": [{"name": "get_incident", "args": {"number": 7}}],
+        },
+        {
+            "type": "tool_result",
+            "tool_name": "get_incident",
+            "result": {"success": True, "result": {"state": "open"}},
+            "gym_server": "itsm",
+        },
+    ]
+
+
 def test_the_service_is_asked_a_word_until_it_answers_or_the_wait_is_over(monkeypatch):
     asked = []
 
@@ -809,6 +871,7 @@ def test_the_service_is_asked_a_word_until_it_answers_or_the_wait_is_over(monkey
 
     monkeypatch.setattr(runner.asyncio, "sleep", no_sleep)
     executor = runner.TaskExecutor.__new__(runner.TaskExecutor)
+    executor.mcp_clients, executor.seen = {}, []
 
     def service(replies):
         async def ainvoke(prompt):
@@ -845,6 +908,7 @@ def test_an_ask_of_the_service_is_given_up_after_a_minute(monkeypatch):
 
     monkeypatch.setattr(runner.asyncio, "wait_for", cut_off)
     executor = runner.TaskExecutor.__new__(runner.TaskExecutor)
+    executor.mcp_clients, executor.seen = {}, []
     executor.llm_client = SimpleNamespace(llm=SimpleNamespace(ainvoke=ainvoke))
     # An ask the client would go on sending is ended, and counts as no answer.
     assert asyncio.run(executor.service_answers(0)) is False
@@ -861,7 +925,7 @@ def test_an_attempt_ended_by_a_failed_call_is_settled_by_asking_the_service(
     waited = []
 
     class Failed:
-        diagnosis_error, changes = None, None
+        diagnosis_error, changes, seen = None, None, []
         call_error = "ConnectionError('the line dropped')"
         names = checks.prepare("task_a", [])[1]
         layout = {"keys": {}}
@@ -921,6 +985,76 @@ def test_an_attempt_ended_by_a_failed_call_is_settled_by_asking_the_service(
         assert outcome["service_error"] is expected
         assert outcome["error"] == "the line dropped" and len(saved) == 1
     assert waited == [90]
+
+
+def test_an_attempt_that_ends_in_an_error_keeps_the_conversation_up_to_it(
+    tmp_path, monkeypatch
+):
+    # The model asked for a tool the server does not have, which ends the
+    # benchmark's agent: one call to the model was answered before that.
+    seen = [
+        {"type": "system_message", "content": "the policy"},
+        {"type": "user_message", "content": "the request"},
+        {
+            "type": "ai_message",
+            "content": "",
+            "usage_metadata": {"input_tokens": 90, "output_tokens": 10},
+            "response_metadata": {},
+            "tool_calls": [{"name": "open_incident", "args": {}}],
+        },
+    ]
+
+    class Failed:
+        diagnosis_error, changes, call_error = None, None, None
+        names = checks.prepare("task_a", [])[1]
+        layout = {"keys": {}}
+
+        def __init__(self, *args, **kwargs):
+            self.seen = seen
+
+        async def execute_benchmark(self):
+            return {"runs": [{"run_number": 1, "error": "no such tool"}]}
+
+    async def server_up(urls, wait):
+        return True
+
+    monkeypatch.setattr(runner, "TaskExecutor", Failed)
+    monkeypatch.setattr(runner, "servers_answer", server_up)
+    monkeypatch.setattr(runner, "BenchmarkConfig", lambda **fields: fields)
+    monkeypatch.setattr(runner.states, "seed_copy", lambda path, domain: ((), {}))
+    saved = []
+    monkeypatch.setattr(runner, "save_attempt", lambda *args: saved.append(args))
+    config = {
+        "gym_servers_config": [
+            {"seed_database_file": "s.sql", "mcp_server_url": "http://server"}
+        ],
+        "selected_tools": [],
+    }
+    outcome, _, _, _ = asyncio.run(
+        runner.run_task(
+            "task_a",
+            config,
+            1,
+            SimpleNamespace(),
+            PRICING,
+            tmp_path,
+            domain="itsm",
+            trace=False,
+            thinking=None,
+            caching=False,
+            timeout=None,
+            agent=None,
+            tags=[],
+            arguments={},
+        )
+    )
+    # The record saved is the executor's, and the attempt's use is counted.
+    execution = saved[0][2]["runs"][0]
+    assert execution["conversation_flow"] == seen
+    assert execution["execution_time_ms"] >= 0
+    assert outcome["error"] == "no such tool" and not outcome["success"]
+    assert (outcome["model_calls"], outcome["input_tokens"]) == (1, 90)
+    assert outcome["output_tokens"] == 10 and outcome["cost_usd"] > 0
 
 
 def test_the_domain_servers_are_asked_for_their_health_until_they_answer(monkeypatch):
@@ -984,7 +1118,7 @@ def test_an_attempt_ended_by_an_error_is_the_harnesses_only_if_its_server_answer
     asked = []
 
     class Failed:
-        diagnosis_error, changes, call_error = None, None, None
+        diagnosis_error, changes, call_error, seen = None, None, None, []
         names = checks.prepare("task_a", [])[1]
         layout = {"keys": {}}
 
@@ -1187,7 +1321,7 @@ def test_an_attempt_past_its_seconds_is_settled_by_asking_the_service(
     waited = []
 
     class Stuck:
-        diagnosis_error, changes, call_error = None, None, None
+        diagnosis_error, changes, call_error, seen = None, None, None, []
         # ``None`` until the benchmark has built the model client.
         llm_client = SimpleNamespace() if client else None
         names = checks.prepare("task_a", [])[1]
