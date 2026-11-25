@@ -61,12 +61,22 @@ th { color: var(--ink-2); font-weight: 600; }
 tfoot td { font-weight: 600; border-bottom: 0; }
 details summary { cursor: pointer; color: var(--ink-2); margin-bottom: 8px; }
 .bar:focus { outline: 2px solid var(--ink); outline-offset: 1px; }
+a { color: var(--series); }
+.crumbs { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+pre { margin: 0 0 10px; padding: 10px 12px; background: var(--plane); border: 1px solid var(--grid); border-radius: 6px;
+  font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--ink); overflow-x: auto; }
+button { font: inherit; padding: 4px 12px; color: var(--ink); background: var(--surface); border: 1px solid var(--axis); border-radius: 4px; cursor: pointer; }
+.plain th, .plain td { text-align: left; vertical-align: top; font-variant-numeric: normal; }
+.plain td:first-child { white-space: nowrap; }
+.plain caption { text-align: left; font-weight: 600; padding: 12px 8px 4px; color: var(--ink); }
+.scroll { overflow-x: auto; }
 </style>
 </head>
 <body>
 <main>
+<p class="crumbs"><a href="../index.html">mas-optimiser documentation</a> / <a href="../planner.html">Experiment planner</a></p>
 <h1>Experiment planner</h1>
-<p>What an experiment of the improvement loop can show, and what it costs, for a design of your choosing. Every figure is worked out from the formulas of the page "Sizing an experiment"; nothing here runs anything. Figures marked <em>measured</em> come from stored runs, and those marked <em>assumed</em> are placeholders to replace with your own.</p>
+<p>What an experiment of the improvement loop can show, and what it costs, for a design of your choosing. Every figure is worked out from the formulas of the page <a href="../methodology/sizing.html">Sizing an experiment</a>; nothing here runs anything. Figures marked <em>measured</em> come from stored runs, and those marked <em>assumed</em> are placeholders to replace with your own. Each setting is explained in full on <a href="../settings.html">Experiment settings</a>, and those this page has no control for are listed at its foot.</p>
 
 <div class="layout">
 <div>
@@ -107,7 +117,20 @@ details summary { cursor: pointer; color: var(--ink-2); margin-bottom: 8px; }
       <table id="parts"></table>
     </details>
   </div>
+
+  <div class="card">
+    <h2>This design as an experiment file</h2>
+    <p>The settings chosen above, as lines to paste into a copy of <code>configs/experiments/template.yaml</code>. The sizes of the three sets are not settings of that file: they are fixed when the split is drawn, by the command on the last line.</p>
+    <pre id="file"></pre>
+    <button type="button" id="copy">Copy</button>
+  </div>
 </div>
+</div>
+
+<div class="card">
+  <h2>The settings this page has no control for</h2>
+  <p>An experiment file has 29 settings. Six are controls above; the rest name things, switch things on or off, or set limits, and have no number to plot. They are listed here so that every setting can be seen in one place. Each name leads to its section of <a href="../settings.html">Experiment settings</a>.</p>
+  <div class="scroll" id="other"></div>
 </div>
 <div class="tip" id="tip"></div>
 </main>
@@ -205,7 +228,7 @@ const DESIGN = [
   ["attempts", "Attempts at each task", 1, 6, 1, 1, ""],
   ["rounds", "Rounds", 1, 40, 1, 10, ""],
   ["candidates", "Candidates in each round", 1, 4, 1, 1, ""],
-  ["kept", "Changes kept (a guess, until an experiment has run)", 0, 40, 1, 3, ""],
+  ["kept", "Changes kept (1 in the ten rounds of the first experiment)", 0, 40, 1, 1, ""],
   ["filter", "Share of the validation tasks in the filter", 0, 0.95, 0.05, 0.5, ""],
   ["pool", "Share of the training traces that can be read a round", 0.05, 1, 0.05, 0.5, ""],
   ["alpha", "Chance, over the experiment, of keeping a useless change", 0.01, 0.2, 0.01, 0.05, ""],
@@ -228,13 +251,43 @@ const ROLES = { tokensRead: [59000, "measured, twelve trial rounds"], dollarsRea
   minutesRead: [0.9, "measured, one trial"], tokensCandidate: [52000, "measured, twelve trial rounds"],
   dollarsCandidate: [0.007, "from the tokens measured"], minutesCandidate: [3, "assumed"] };
 const PRESETS = {
-  "Claude Haiku 5.5, four runs at once": { spread: [24.4, "measured, with each task's own tools"], tokensRun: [283000, "measured, 372 runs"],
-    dollarsRun: [0.010, "measured, 226 runs with prompt caching"], runsHour: [720, "measured"] },
-  "GPT-5.1, a deployment to itself, eight at once": { spread: [24.4, "assumed: not measured for this model"], tokensRun: [115000, "measured, 10 runs of one domain"],
-    dollarsRun: [0.080, "measured, 10 runs"], runsHour: [200, "from the measured time of a run"] },
-  "GPT-5.1, a shared deployment at its limit": { spread: [24.4, "assumed: not measured for this model"], tokensRun: [115000, "measured, 10 runs of one domain"],
-    dollarsRun: [0.080, "measured, 10 runs"], runsHour: [30, "measured"] },
+  "Claude Haiku 5.5, four runs at once": { spread: [24.4, "measured, with each task's own tools"], tokensRun: [296000, "measured, 1,891 runs of one experiment"],
+    dollarsRun: [0.0073, "measured, 1,891 runs with prompt caching"], runsHour: [720, "measured"] },
+  "GPT-5.1, a deployment to itself, six at once": { spread: [24.4, "assumed: not measured for this model"], tokensRun: [103000, "measured, 519 runs"],
+    dollarsRun: [0.066, "measured, 519 runs, at list prices"], runsHour: [210, "measured: 205 to 218"] },
+  "GPT-5.1, a deployment others use more than half of": { spread: [24.4, "assumed: not measured for this model"], tokensRun: [103000, "measured, 519 runs"],
+    dollarsRun: [0.066, "measured, 519 runs, at list prices"], runsHour: [80, "measured: 62 to 105"] },
+  "GPT-5.1, a deployment others use nearly all of": { spread: [24.4, "assumed: not measured for this model"], tokensRun: [103000, "measured, 519 runs"],
+    dollarsRun: [0.066, "measured, 519 runs, at list prices"], runsHour: [30, "measured"] },
 };
+// The controls that are settings of an experiment file: the control, then the setting.
+const FILE = [["attempts", "attempts"], ["rounds", "rounds"], ["candidates", "candidates"], ["alpha", "alpha"], ["filter", "filter_share"], ["pool", "pool_share"]];
+// The settings with no control here: its group, its name, what it is and does, its default.
+const OTHER = [
+  ["What is run", "model", "The agent's model, a file in configs/models/. It decides the scores, the cost and the speed. Must be set.", "not set"],
+  ["What is run", "proposer_model", "The model that reads the results and proposes changes. Left out, it is the agent's model.", "not set"],
+  ["What is run", "harness", "The harness the agent runs and the loop starts from, a folder under harnesses/.", "default"],
+  ["What is run", "domain", "The benchmark's domain, or a list: itsm, csm, hr. More domains give more tasks. Must be set.", "not set"],
+  ["What is run", "mode", "The tools the agent is offered: all_tools, oracle, or oracle with 5, 10 or 15 distractors.", "all_tools"],
+  ["What is run", "split", "The split of the tasks into training, validation and test sets, by its name.", "not set"],
+  ["What is run", "limit", "Only the first N tasks, or the first N of each set in the loop. For trials.", "not set"],
+  ["What is run", "task", "Only these tasks, by id. Read by run only.", "not set"],
+  ["How it is run", "concurrency", "Attempts in flight at once. Faster until a rate limit is reached; scores do not change.", "4"],
+  ["How it is run", "model_timeout", "Seconds one call to the model may wait before it is given up and sent again.", "300"],
+  ["How it is run", "attempt_timeout", "The most seconds one attempt may take before it is ended as an error.", "3600"],
+  ["How it is run", "attempt_calls", "The most calls to the model one attempt may make before it is ended as an error.", "100"],
+  ["How it is run", "attempt_retries", "Times an attempt is run again after an error met while a service was not answering.", "2"],
+  ["How it is run", "service_wait", "Seconds a service that is not answering is waited for before the command gives up.", "1800"],
+  ["What is recorded", "trace", "Send each attempt to Langfuse as a trace. Scores do not change.", "true"],
+  ["What is recorded", "thinking_summary", "Ask the model for a summary of its reasoning. It changes behaviour and cost: demonstrations only.", "false"],
+  ["What is recorded", "prompt_caching", "Bill input that repeats at the cheaper cache rate. Anthropic models only.", "true"],
+  ["What is recorded", "label", "A word added to the name of the results folder.", "not set"],
+  ["What is recorded", "out", "The results folder of a run. Read by run only.", "not set"],
+  ["The improvement loop", "filter_threshold", "Points above the current harness a candidate must score on the filter's tasks to go on.", "0"],
+  ["The improvement loop", "pool_pick", "How the pool is picked from the training tasks ranked by score: spread or ends.", "spread"],
+  ["The improvement loop", "editable", "The types of file a proposal may edit: .md is the agent's text, .py its code.", "['.md', '.py']"],
+  ["The improvement loop", "approval", "Whether a person approves each change before it is first run: each or none.", "none"],
+];
 const $ = id => document.getElementById(id);
 const state = { mode: "sizes" };
 const number = (v, digits = 0) => v.toLocaleString("en-GB", { minimumFractionDigits: digits, maximumFractionDigits: digits });
@@ -339,6 +392,17 @@ function render() {
     bar.onpointermove = show; bar.onfocus = show; bar.onpointerleave = hide; bar.onblur = hide;
     bars.append(bar, el("text", { x: left + w + 8, y: yy + 14, class: "strong" }, "$" + number(p.dollars, p.dollars < 100 ? 2 : 0))); });
 
+  // The design as the lines of an experiment file, and the command that draws its split.
+  const all = r.training + r.validation + r.test;
+  const share = n => all ? Math.round(100 * n / all) / 100 : 0;
+  const shares = [share(r.training), share(r.validation)];
+  shares.push(Math.max(0, Math.round(100 * (1 - shares[0] - shares[1])) / 100));
+  $("file").textContent = ["# From the experiment planner. Add model and domain, name the split, and",
+    "# save as configs/experiments/<name>.yaml.",
+    ...FILE.map(([key, setting]) => `${setting}: ${state[key]}`),
+    "", "# Its split is drawn once, with:",
+    `#   mas-optimiser split --name <name> --seed <seed> --proportions ${shares.join(" ")}`].join("\n");
+
   const table = $("parts"); table.replaceChildren();
   const line = (cells, tag = "td") => { const tr = document.createElement("tr"); cells.forEach(c => { const cell = document.createElement(tag); cell.textContent = c; tr.append(cell); }); return tr; };
   const head = document.createElement("thead"); head.append(line(["Part", "Runs, reads or candidates", "Input tokens", "Dollars", "Share", "Hours"], "th"));
@@ -346,6 +410,20 @@ function render() {
   const foot = document.createElement("tfoot"); foot.append(line(["All", "", number(r.tokens), number(r.dollars, 2), "100%", number(r.hours, 1)]));
   table.append(head, body, foot);
 }
+$("copy").onclick = () => { const done = () => { $("copy").textContent = "Copied"; setTimeout(() => $("copy").textContent = "Copy", 1500); };
+  const select = () => { const range = document.createRange(); range.selectNodeContents($("file")); const chosen = getSelection(); chosen.removeAllRanges(); chosen.addRange(range); };
+  navigator.clipboard ? navigator.clipboard.writeText($("file").textContent).then(done, select) : select(); };
+[...new Set(OTHER.map(row => row[0]))].forEach(group => { const table = document.createElement("table"); table.className = "plain";
+  const caption = document.createElement("caption"); caption.textContent = group; table.append(caption);
+  const head = document.createElement("tr"); ["Setting", "What it is and does", "Default"].forEach(text => { const th = document.createElement("th"); th.textContent = text; head.append(th); });
+  table.append(head);
+  OTHER.filter(row => row[0] === group).forEach(([, name, text, value]) => { const tr = document.createElement("tr");
+    const link = document.createElement("a"); link.href = "../settings.html#" + name.replace(/_/g, "-"); link.textContent = name;
+    const first = document.createElement("td"); first.append(link);
+    const second = document.createElement("td"); second.textContent = text;
+    const third = document.createElement("td"); third.textContent = value;
+    tr.append(first, second, third); table.append(tr); });
+  $("other").append(table); });
 preset();
 }
 </script>

@@ -255,7 +255,8 @@ roles.
 ## Trying a design
 
 <a href="../_static/planner.html">The experiment planner</a> is these steps
-and this cost table as a page with sliders. It works both ways round: choose
+and this cost table as a page with sliders
+([Experiment planner](../planner.md) describes it). It works both ways round: choose
 the split and the attempts and see what the experiment can show, or choose
 the smallest gain to find and the confidence interval and see the split
 they need. It shows the runs, the tokens, the dollars and the hours of the
