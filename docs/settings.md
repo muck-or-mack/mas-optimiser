@@ -333,3 +333,29 @@ Three things an experiment names are set in files of their own.
 | a model   | `configs/models/<name>.yaml` | its provider, temperature, answer length, prices and the names of its keys |
 | a split   | `configs/splits/<name>.json` | the seed, the shares of the three sets and the tasks of each               |
 | a harness | `harnesses/<name>/`          | the agent's code and the text added to every task                          |
+
+## What the results keep
+
+`run` and `evolve` begin by printing every setting that is not at its
+default, so a setting that was changed without being meant to shows on the
+first lines:
+
+```
+Settings that differ from the defaults:
+  model            haiku-5-5
+  domain           ['itsm']
+  limit            1
+  trace            False
+```
+
+A proposer named as the agent's model is the default by another name and is
+not listed.
+
+Every result also says which settings made it. An evaluation's folder holds
+`evaluation.json`: the experiment's name and file, the options given on the
+command line, the settings not at their defaults, the model's values, the
+prices, the tasks and the version of the code. An experiment of the loop
+holds `experiment.json`: every setting as used, the options given on the
+command line, the settings not at their defaults, the proposer's model file
+as written and the version of the code. A model file names the variables
+that hold a key or an address and never their values, so neither is stored.

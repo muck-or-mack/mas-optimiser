@@ -539,8 +539,9 @@ def load_experiment(spec: str, overrides: dict) -> dict:
             the command line did not set the option.
 
     Returns:
-        The settings, plus ``experiment`` (the file's stem), ``experiment_file``
-        and ``overrides`` (the values applied); ``domain`` is always a list.
+        The settings, plus ``experiment`` (the file's stem), ``experiment_file``,
+        ``overrides`` (the values applied) and ``changed`` (each setting whose
+        value is not its default); ``domain`` is always a list.
 
     Raises:
         SystemExit: For an unknown key in the file, a model or domain set
@@ -647,10 +648,18 @@ def load_experiment(spec: str, overrides: dict) -> dict:
         raise SystemExit(
             f"error: label {label!r} must be letters, digits, '-' or '_' (it names a folder)"
         )
+    # A proposer named as the agent's model is the default by another name.
+    changed = {
+        key: settings[key]
+        for key, default in EXPERIMENT_DEFAULTS.items()
+        if settings[key] != default
+        and not (key == "proposer_model" and settings[key] == settings["model"])
+    }
     return settings | {
         "experiment": path.stem,
         "experiment_file": str(path),
         "overrides": applied,
+        "changed": changed,
     }
 
 
@@ -1717,6 +1726,9 @@ def run(args: argparse.Namespace) -> None:
     # The keys only ``evolve`` reads are no options of this command.
     overrides = {key: getattr(args, key, None) for key in EXPERIMENT_DEFAULTS}
     experiment = load_experiment(args.experiment, overrides)
+    print("Settings that differ from the defaults:")
+    for key, value in experiment["changed"].items():
+        print(f"  {key:<17}{value}")
     harness = str(experiment["harness"])
     folder = Path(harness) if "/" in harness else HARNESSES / harness
     if not (folder / "agent.py").is_file():
@@ -1943,6 +1955,7 @@ def evaluate(
         "experiment_file",
         "label",
         "overrides",
+        "changed",
         "mode",
         "limit",
         "attempt_timeout",

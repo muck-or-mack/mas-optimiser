@@ -132,6 +132,27 @@ def test_the_settings_page_has_a_section_for_every_setting():
     )
 
 
+def test_the_settings_not_at_their_defaults_are_listed():
+    no_overrides = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
+    settings = runner.load_experiment(
+        "smoke", no_overrides | {"limit": 1, "trace": False}
+    )
+    assert settings["changed"] == {
+        "model": "haiku-5-5",
+        "domain": ["itsm"],
+        "limit": 1,
+        "trace": False,
+    }
+    # A proposer named as the agent's model is the default by another name.
+    same = runner.load_experiment("evolve-haiku", no_overrides)
+    assert same["proposer_model"] == same["model"]
+    assert "proposer_model" not in same["changed"]
+    mixed = runner.load_experiment("evolve-gpt-5.1", no_overrides)
+    assert mixed["changed"]["proposer_model"] == "haiku-5-5"
+    all_roles = runner.load_experiment("evolve-gpt-5.1-all-roles", no_overrides)
+    assert "proposer_model" not in all_roles["changed"]
+
+
 def test_run_name_is_the_start_minute_and_the_label():
     no_overrides = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
     started = runner.datetime(2026, 10, 27, 9, 30, 12)
