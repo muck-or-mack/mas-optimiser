@@ -491,28 +491,30 @@ class EnterpriseOps(Domain):
 
         Every line of a turn is prefixed ``[step N]``, so that a range of
         turns can be asked for, and the checks section is marked as the
-        verifier, so that it is always included.
+        verifier and moved to the end. RRSI's reader gives everything from
+        that mark on whatever range is asked for, so a mark before the turns,
+        where the page for people has its checks, would give every turn
+        every time; the roles are also told that the checks come last.
 
         Args:
             rec: What ``load_trial`` returned.
-            detail: Not used: the page is never cut.
+            detail: Not used: the page is given as it was written.
 
         Returns:
-            The page's text.
+            The page's text, its checks last.
         """
-        lines, step = [], None
+        lines, checks, step = [], [], None
+        part = lines
         for line in rec["page"].splitlines():
             turn = TURN.match(line)
             if turn:
                 step = int(turn.group(1))
             elif line.startswith("## "):
                 step = None
-                if line.startswith("## Checks"):
-                    lines.append(
-                        "=== VERIFIER: the task's checks on the final database ==="
-                    )
-            lines.append(f"[step {step}] {line}" if step is not None else line)
-        return "\n".join(lines)
+                part = checks if line.startswith("## Checks") else lines
+            part.append(f"[step {step}] {line}" if step is not None else line)
+        mark = "=== VERIFIER: the task's checks on the final database ==="
+        return "\n".join([*lines, mark, *checks])
 
     def task_row(self, task_id: str, rec: dict, tr: TaskResult) -> str:
         """One line about a traced task, for the tables the search roles read.
