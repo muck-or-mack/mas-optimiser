@@ -3,11 +3,11 @@
 RRSI's analyst, digester, proposer and critic each take a paragraph about
 the benchmark, and the proposer also takes a list of rules and a list of the
 kinds of change a harness can express (``domain.EnterpriseOps`` hands them
-over). The texts say how the benchmark and the harness folder work and what
-a proposal may not contain. They say nothing about what goes wrong on the
-tasks or how to put it right: that is for the proposer to find in the
-training traces, and anything a person has learnt by reading tasks stays out
-of this file.
+over). The texts say how the benchmark and the harness folder work, how the
+proposer is to go about a change, and what a proposal may not contain. They
+say nothing about what goes wrong on the tasks or how to put it right: that
+is for the proposer to find in the training traces, and anything a person
+has learnt by reading tasks stays out of this file.
 
 Sources: ``docs/how-it-works.md``, section 6, the rows for ``evolve``.
 """
@@ -46,6 +46,21 @@ and the scoring are outside the folder and cannot be changed. A change must
 be general: it has to help on requests and records its author has never
 seen. The agent's model is not you: read the traces for how it actually
 behaves."""
+
+# How the proposer is to go about a change, after its paragraph on the
+# benchmark. It is about the order of work and holds for any benchmark: what
+# to read before an edit, where a change belongs, what to check after one.
+WORKING = """How to work. The analyst's report and the digests in your context
+are another model's summaries, and the count of how the attempts went wrong
+shows which failures are common: aim at what happens often, not at one
+striking trace. Before you edit, open the trace of at least one task you
+expect your change to move (read_trace) and check in its turns that the
+failure is what the report says: a change built on a summary alone has no
+evidence behind it. Put a change where its kind belongs, as the pattern
+library says: words for the agent go in prompt.md and not in a string of
+agent.py. After your last edit, read each file you changed back once
+(read_file) and check that it is whole: nothing half edited, every name it
+uses defined, the record it returns unchanged. Then say you are done."""
 
 # Added to the proposer's paragraph when it is told how its earlier proposals
 # did on the training tasks (``feedback: training``).
@@ -93,14 +108,24 @@ Hard rules:
 
 PATTERNS = """# What a change to the harness can be (a reference, not a limit)
 
-1. Text for the agent (prompt.md): how to work a request in general.
-2. What the model is shown (agent.py): which tools are offered and how they
-   are described.
-3. What is sent to a tool (agent.py): a check or a repair of a call's
-   arguments before the call is made.
-4. What comes back (agent.py): how a tool's answer or its error is passed on
+Each line gives a kind of change by the name it is declared under, the file
+it belongs in, and what it is.
+
+1. prompt (prompt.md): words for the agent, on how to work a request in
+   general. They belong in prompt.md, which agent.py adds to the system
+   message, and not in a string of agent.py.
+2. context_mgmt (agent.py): what the model is shown: which tools are offered
+   and how they are described, and how much of the conversation is sent.
+3. output_plumbing (agent.py): how a tool's answer or its error is passed on
    to the model.
-5. The loop (agent.py): when to go on, when to stop, how many turns.
+4. control_flow (agent.py): the loop: when to go on, when to stop, a further
+   turn, what happens after a call fails, and a check or a repair of a
+   call's arguments before the call is made.
+5. config (agent.py): a limit or a constant of the loop.
+6. client_tool, skill, memory, subagent (agent.py, or a new file that it
+   imports): machinery the harness adds: a tool it runs by itself,
+   instructions it loads when they are needed, something it keeps and shows
+   the model again later in the attempt, a further call to the model.
 
 A change that adds text or a call on every turn adds its cost on every turn.
 """

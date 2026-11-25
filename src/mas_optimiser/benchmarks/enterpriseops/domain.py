@@ -156,6 +156,7 @@ class EnterpriseOps(Domain):
             "proposer": prompts.PROPOSER.format(
                 editable=", ".join(sorted(self.source_exts))
             )
+            + f"\n\n{prompts.WORKING}"
             + (
                 f"\n\n{prompts.FEEDBACK}"
                 if experiment["feedback"] == "training"

@@ -243,8 +243,14 @@ def test_the_sets_are_the_splits_tasks_that_can_be_run(benchmark):
     # The numbers from the training tasks are explained to a proposer that
     # will be given them, and to no other.
     assert "delta_S_training" not in benchmark.briefs["proposer"]
+    # After the paragraph on the benchmark comes how to go about a change.
+    assert benchmark.briefs["proposer"].endswith(adapter.prompts.WORKING)
+    # The pattern library names every kind a change can be declared under.
+    assert all(kind in adapter.prompts.PATTERNS for kind in components.K)
     fed = adapter.EnterpriseOps(benchmark.experiment | {"feedback": "training"})
-    assert fed.briefs["proposer"].endswith(adapter.prompts.FEEDBACK)
+    assert fed.briefs["proposer"].endswith(
+        f"{adapter.prompts.WORKING}\n\n{adapter.prompts.FEEDBACK}"
+    )
     assert benchmark.constitution("anywhere")[0].startswith("# Rules")
 
 
