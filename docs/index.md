@@ -17,6 +17,7 @@ Install, run, read the results <usage>
 settings
 planner
 results
+reading-a-decision
 gpu-memory
 ```
 

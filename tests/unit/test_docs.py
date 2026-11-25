@@ -1,9 +1,14 @@
 """The documentation's references to code, and the line counts it gives."""
 
+import csv
 import importlib
 import re
 from collections.abc import Iterator
 from pathlib import Path
+
+import pytest
+
+from mas_optimiser.stats import budget, gate
 
 ROOT = Path(__file__).parents[2]
 PACKAGE = ROOT / "src" / "mas_optimiser"
@@ -159,3 +164,24 @@ def test_the_walkthroughs_line_counts_are_near_the_files():
             lines += sum(len(source.read_text().splitlines()) for source in sources)
         documented = int(re.sub(r"\D", "", count))
         assert abs(lines - documented) <= 0.15 * lines, (layer, documented, lines)
+
+
+def test_the_table_of_levels_and_bars_is_what_the_statistics_module_gives():
+    # The table of "Reading a decision": 125 validation tasks, one candidate
+    # a round, a standard error of 1.36 points, an experiment at 5%.
+    with (ROOT / "docs" / "data" / "levels.csv").open() as f:
+        rows = list(csv.DictReader(f))
+    assert len(rows) == 9
+    for row in rows:
+        level = budget.reuse_level(
+            0.05, int(row["decision"]), int(row["changes_kept_before"]), 1
+        )
+        bar = gate.bar(125, level)
+        assert float(row["level_percent"]) == pytest.approx(100 * level, abs=5e-5)
+        assert float(row["bar"]) == pytest.approx(bar, abs=0.005)
+        needed = float(row["gain_needed_percentage_points"])
+        assert needed == pytest.approx(bar * 1.36, abs=0.05)
+        kept = 100 * gate.power(1.36, 125, 5.0, level)
+        assert float(row["real_gain_of_5_points_kept_percent"]) == pytest.approx(
+            kept, abs=0.5
+        )
