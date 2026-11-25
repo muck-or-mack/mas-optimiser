@@ -726,6 +726,7 @@ def run(args: argparse.Namespace) -> None:
     models.usage_log = folder / "search_usage.jsonl"
     models.timeout = experiment["model_timeout"]
     models.limit = experiment["attempt_timeout"]
+    models.wait = experiment["service_wait"]
     # The search roles' model file as written: it names the variables that
     # hold a key or an address, and never their values.
     settings = experiment | {

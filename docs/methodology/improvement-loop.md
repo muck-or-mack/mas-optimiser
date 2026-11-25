@@ -119,6 +119,11 @@ health check. An attempt the service never answered is no score at all: the
 experiment stops there and carries on from that job when the command is
 given again. Without this a run that sets the yardstick, hit by an outage,
 would score too low, and the next candidate would look better than it is.
+The analyst, the proposer and the reviewer are treated alike: a call of
+theirs that fails while their model service is silent is not counted
+against its six tries and is made again once the service answers, and a
+service silent for `service_wait` seconds in all stops the experiment at
+that round with a message that says so.
 
 An attempt that ends in an error while its services answer is the harness's
 failure, and a result like any other: it scores zero. An agent that asks for

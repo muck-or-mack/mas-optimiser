@@ -73,7 +73,8 @@ attempt_calls: 100
 # service's doing and not the harness's: the service is asked, and once it
 # answers the attempt is run again, at most attempt_retries times. The
 # service is waited for at most service_wait seconds; past that the attempt
-# counts for nothing and the command ends with an error. Defaults: 2 and 1800.
+# counts for nothing and the command ends with an error. The roles that read
+# and propose wait for their service as long. Defaults: 2 and 1800.
 attempt_retries: 2
 service_wait: 1800
 
