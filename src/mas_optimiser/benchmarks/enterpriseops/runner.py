@@ -1530,6 +1530,11 @@ async def run_tasks(
     nothing and can overlap; the limit keeps the server and the model API's
     rate limits in range.
 
+    Once an attempt has been recorded with ``service_error``, no attempt is
+    started any more: a service has been waited for and did not answer, and
+    each further attempt would wait for it as long. An attempt not started
+    leaves no row.
+
     Args:
         tasks: Each task ID to its config, from ``load_tasks``.
         model: The benchmark's model config.
@@ -1553,17 +1558,20 @@ async def run_tasks(
 
     Returns:
         The ``tasks.csv`` rows, then the ``checks.csv``, ``cells.csv`` and
-        ``tables.csv`` rows, in task order and then attempt order.
+        ``tables.csv`` rows, in task order and then attempt order, of the
+        attempts that were started.
     """
     await save_tools(out, tasks)
     arguments = tool_arguments(out)
     semaphore = asyncio.Semaphore(concurrency)
     total = len(tasks) * attempts
-    done = 0
+    done, silent = 0, False
 
-    async def run_one(task_id: str, config: dict, attempt: int) -> tuple:
-        nonlocal done
+    async def run_one(task_id: str, config: dict, attempt: int) -> tuple | None:
+        nonlocal done, silent
         async with semaphore:
+            if silent:
+                return None
             # The last time round nothing asks for a repeat, so the loop
             # always ends with an outcome.
             for left in range(retries, -1, -1):
@@ -1591,6 +1599,7 @@ async def run_tasks(
                 except Repeat:
                     continue
                 break
+            silent = silent or bool(outcome.get("service_error"))
         done += 1
         status = (
             "no service"
@@ -1617,6 +1626,7 @@ async def run_tasks(
             for attempt in range(1, attempts + 1)
         )
     )
+    results = [result for result in results if result]
     return (
         [r[0] for r in results],
         [row for r in results for row in r[1]],
@@ -2020,8 +2030,10 @@ def evaluate(
     )
     unanswered = sum(r["service_error"] for r in outcomes)
     if unanswered:
+        left = len(tasks) * experiment["attempts"] - len(outcomes)
         print(
             f"{unanswered} more attempts ended because a service they need "
-            "did not answer, and are counted nowhere above."
+            f"did not answer, and are counted nowhere above; {left} were not "
+            "started after that."
         )
     return unanswered

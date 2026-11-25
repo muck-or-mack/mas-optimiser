@@ -314,9 +314,11 @@ def test_run_stops_the_experiment_when_a_service_did_not_answer(
     benchmark, tmp_path, monkeypatch
 ):
     out = tmp_path / "jobs" / "r0A"
+    started = []
 
     def run(command, **kwargs):
         # The run it starts leaves one attempt the service never answered.
+        started.append(command)
         folder = out / "itsm"
         folder.mkdir(parents=True)
         (folder / "tasks.csv").write_text(
@@ -326,7 +328,9 @@ def test_run_stops_the_experiment_when_a_service_did_not_answer(
 
     monkeypatch.setattr(adapter.subprocess, "run", run)
     with pytest.raises(SystemExit, match="1 attempts of r0A ended because a service"):
-        benchmark.run(tmp_path / "checkout", tmp_path, "r0A", ["t1"], 1)
+        benchmark.run(tmp_path / "checkout", tmp_path, "r0A", ["t1", "t3"], 1)
+    # The job's other domain is not run: it would wait for the service as long.
+    assert len(started) == 1
 
 
 def test_score_is_the_fraction_of_checks_and_an_error_is_a_failure_not_a_gap(

@@ -217,7 +217,10 @@ each ask given a minute
 [`run_tasks`][runner.run_tasks] runs the attempt again, `attempt_retries`
 times at most, and a failure that is still there is the harness's own; if
 it does not answer within `service_wait` seconds, the attempt is marked
-`service_error`, and the command ends with an error. After an attempt that
+`service_error`, and the command ends with an error. From the first attempt
+so marked, [`run_tasks`][runner.run_tasks] starts no further attempt: each
+would wait for the same service as long, and those not started leave no
+row. After an attempt that
 ended in any error, [`run_task`][runner.run_task] asks the domain's server
 for its health in the same way ([`servers_answer`][runner.servers_answer]):
 a server that answers leaves the error as the harness's own, one that was

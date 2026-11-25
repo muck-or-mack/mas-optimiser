@@ -116,8 +116,9 @@ attempt that ends because a call to the model failed is run again once the
 model service answers a one-word question, and one that ends in an error
 while the domain's server is down is run again once the server answers its
 health check. An attempt the service never answered is no score at all: the
-experiment stops there and carries on from that job when the command is
-given again. Without this a run that sets the yardstick, hit by an outage,
+experiment stops there, without running the job's other attempts and
+domains first, and carries on from that job when the command is given
+again. Without this a run that sets the yardstick, hit by an outage,
 would score too low, and the next candidate would look better than it is.
 The analyst, the proposer and the reviewer are treated alike: a call of
 theirs that fails while their model service is silent is not counted
