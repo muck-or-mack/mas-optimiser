@@ -1,0 +1,29 @@
+# GPT-5.4 mini served by an Azure resource that serves several models.
+# Keys are the benchmark's LLMConfig fields (benchmark/models.py), plus
+# max_retries and pricing, as in gpt-5.1-azure.yaml.
+# The resource is reached by Azure's route in the OpenAI API's own format
+# (its address ends in /openai/v1), which takes no API version. The
+# benchmark's name for a service of that format at an address of one's
+# own is vllm.
+llm_provider: vllm
+# The key and the address of the resource, kept in .env.
+api_key_env: AZURE_MULTIMODEL_API_KEY
+llm_api_endpoint_env: AZURE_MULTIMODEL_ENDPOINT
+# The deployment's name on that resource, which is no secret.
+llm_model: gpt-5.4-mini
+# The model takes its default temperature of 1 and no other.
+temperature: 1.0
+max_tokens: 16384
+# As in gpt-5.1-azure.yaml: a call refused while the allowance is used up is
+# sent again, each try waiting as long as the service asks.
+max_retries: 1000
+# US dollars per million tokens, from OpenAI's price list for gpt-5.4-mini
+# (developers.openai.com/api/docs/pricing, read 26/11/2026).
+# The service's own price for this resource may differ.
+pricing:
+  input: 0.75
+  output: 4.5
+  cache_read: 0.075
+  cache_write: 0.75
+  long_prompt_tokens: 0
+  long_prompt_multiplier: 1
