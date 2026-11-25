@@ -58,6 +58,9 @@ A harness is a folder of two files:
 | `agent.py`  | code: the program that calls the model, runs the tools it asks for and repeats           | try a failed tool call again; shorten a tool's over-long answer; plan before acting |
 | `prompt.md` | text: words added to the end of every task's instructions; empty in the starting harness | "check every field before you finish"                                               |
 
+A proposal may also add a file of an editable type to the folder, and
+`agent.py` can import a file of code that is added beside it.
+
 The proposer does not describe a change, it makes one. It works step by
 step in a copy of the folder, with actions for files only: list the folder,
 read a file, read a training attempt, replace one passage of a file with

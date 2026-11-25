@@ -90,6 +90,34 @@ def test_run_loads_the_agent_of_the_harness_it_is_given(tmp_path, monkeypatch, n
     assert issubclass(seen["agent"], runner.AgentOrchestrator)
 
 
+def test_a_harness_of_several_files_loads(tmp_path, monkeypatch):
+    seen = {}
+    monkeypatch.setattr(
+        runner, "load_model", lambda path: (SimpleNamespace(llm_provider="vllm"), {})
+    )
+    monkeypatch.setattr(runner.tracing, "configured", lambda: False)
+    monkeypatch.setattr(
+        runner, "evaluate", lambda *args, **kwargs: seen.update(kwargs) or 0
+    )
+    # The import path is put back as it was when the test ends.
+    monkeypatch.setattr(runner.sys, "path", list(runner.sys.path))
+    folder = tmp_path / "two-files"
+    shutil.copytree(runner.HARNESSES / "default", folder)
+    (folder / "second_file_of_the_harness.py").write_text("LIMIT = 7\n")
+    agent = folder / "agent.py"
+    agent.write_text(
+        agent.read_text()
+        + "\nfrom second_file_of_the_harness import LIMIT\n\nAgent.limit = LIMIT\n"
+    )
+    unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
+    chosen = {"experiment": "smoke", "out": tmp_path / "e", "harness": str(folder)}
+    runner.run(SimpleNamespace(**(unset | chosen)))
+    # The agent's file imported the file beside it.
+    assert seen["agent"].limit == 7
+    # The folder is last on the path, so it shadows no installed module.
+    assert runner.sys.path[-1] == str(folder)
+
+
 def test_a_harness_without_an_agent_file_is_refused(tmp_path):
     (tmp_path / "empty").mkdir()
     unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
