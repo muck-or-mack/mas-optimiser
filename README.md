@@ -623,8 +623,8 @@ holds the seed, the proportions, the balance, what was read, the seen tasks
 and the three lists of task ids, and no result of any single task. The split
 `haiku-20-40-40`, used in the examples of this page, was drawn on 27 October
 with both balances and 20 seen tasks. The split `seed-1`, which the
-experiment files `evolve-haiku`, `evolve-gpt-5.1` and `evolve-gpt-oss-20b`
-use, has the default shares, a balance on domain and no seen task. Paths
+experiment files `evolve-haiku`, `evolve-gpt-5.1`, `evolve-gpt-5.1-all-roles`
+and `evolve-gpt-oss-20b` use, has the default shares, a balance on domain and no seen task. Paths
 here are inside the repository, whatever the working directory.
 
 ## Local copies of the seed databases

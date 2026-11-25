@@ -1,0 +1,26 @@
+# An experiment of the improvement loop with GPT-5.1 as the agent and as the
+# model that reads the results and proposes: no proposer is named, so it is
+# the agent's model. The tasks, the split and the other settings are those
+# of evolve-haiku.yaml. Run it with
+# `mas-optimiser evolve evolve-gpt-5.1-all-roles --accept-unreviewed-code`;
+# every setting is explained in template.yaml.
+model: gpt-5.1-azure
+domain: [itsm, csm, hr]
+mode: all_tools
+attempts: 1
+# More at once than the default, for a deployment that answers slowly.
+concurrency: 6
+trace: false
+split: seed-1
+rounds: 10
+candidates: 1
+alpha: 0.05
+filter_share: 0.5
+filter_threshold: 0
+pool_share: 0.5
+pool_pick: spread
+# The proposer may change the agent's instructions and its code, and no
+# person reads a change before it runs, which the command must be told is
+# accepted (--accept-unreviewed-code).
+editable: [".md", ".py"]
+approval: none
