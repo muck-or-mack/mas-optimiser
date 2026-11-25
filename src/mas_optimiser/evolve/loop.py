@@ -11,7 +11,8 @@ commit on a branch of its own) and everything the loop writes. Its steps:
    at them went wrong, and may read the traces of the round's pool, a share
    of those tasks picked each round; the
    proposer drafts each candidate in its own checkout, told of
-   earlier proposals only whether each was accepted; a candidate that passes
+   earlier proposals only whether each was accepted, or, if the experiment
+   asks for it, also how each did on the training tasks; a candidate that passes
    the review and still runs is scored on the validation tasks, on a share
    of them first (the filter), which drops a candidate that does no better
    there before the rest are run; the gate compares a candidate that passed
@@ -42,6 +43,7 @@ from pathlib import Path
 import numpy as np
 import yaml
 from dotenv import load_dotenv
+from scipy.stats import sem
 
 import mas_optimiser
 from mas_optimiser.benchmarks.enterpriseops import REPO_ROOT, runner, splits
@@ -84,7 +86,9 @@ UNREVIEWED = (
     "is a guarantee."
 )
 # What the proposer is told of an earlier proposal. No score and no cost: of
-# the validation tasks it learns only whether a proposal was accepted.
+# the validation tasks it learns only whether a proposal was accepted. With
+# ``feedback: training`` each row also carries how the proposal did on the
+# training tasks, which the proposer may read (see ``Experiment.round``).
 # Put before every training task's score in the analyst's and the proposer's
 # instructions, each round.
 SCORES = (
@@ -144,6 +148,10 @@ class Experiment(Run):
             filter and on the test tasks, by ``"training"``, ``"filter"``
             and ``"test"``; a stage left out has the gate's. The filter's
             may not be more than the gate's.
+        feedback: What the proposer is told of an earlier proposal:
+            ``"outcome"``, whether it was accepted, or ``"training"``, that
+            and how it did on the training tasks, each candidate then being
+            run on them.
     """
 
     def __init__(
@@ -159,8 +167,10 @@ class Experiment(Run):
         pool_share: float = 1.0,
         pool_pick: str = "spread",
         attempts: dict[str, int] | None = None,
+        feedback: str = "outcome",
     ):
         super().__init__(domain, cfg, repo, runs_root)
+        self.feedback = feedback
         self.attempts = dict.fromkeys(("training", "filter", "test"), cfg.k) | (
             attempts or {}
         )
@@ -475,6 +485,10 @@ class Experiment(Run):
             for record in self.history.records()
             if record.get("edit_id")
         ][-40:]
+        for row in told:
+            fed = self.runs / f"r{row['t']}" / row["variant"] / "training.json"
+            if self.feedback == "training" and fed.exists():
+                row |= json.loads(fed.read_text())
         rules, patterns = d.constitution(self.repo)
         candidates = [
             self._draft(
@@ -499,8 +513,46 @@ class Experiment(Run):
         # Each candidate that got this far, on the validation tasks.
         ids = d.validation_ids()
         for candidate in candidates:
-            if candidate.gate_failure is None:
-                self._evaluate(t, candidate, folder, ids)
+            if candidate.gate_failure is not None:
+                continue
+            fed = folder / candidate.variant / "training.json"
+            if self.feedback == "training" and not fed.exists():
+                # How the candidate does on the tasks the proposer may read,
+                # for it to be told in later rounds: the difference from the
+                # current harness's scores there, the chance in it, and the
+                # change in tokens. RRSI's record of which of an edit's
+                # predicted tasks moved is kept from the same two results.
+                # No decision uses any of it. A kept candidate's run is the
+                # one the next round's traces come from, so it is run once.
+                job = f"r{t}{candidate.variant}_training"
+                result = evaluate(
+                    d,
+                    self.wt_root / f"r{t}{candidate.variant}",
+                    self.runs,
+                    job,
+                    d.evolve_ids(),
+                    self.attempts["training"],
+                )
+                result.save(self.eval_path(job))
+                if result.missing <= cfg.invalid_missing_frac * result.n_expected:
+                    gains = [
+                        result.per_task[i].mean - training.per_task[i].mean
+                        for i in training.per_task
+                    ]
+                    self.attribute(
+                        t, candidate.variant, candidate.edits, training, result
+                    )
+                    record = {
+                        "delta_S_training": round(float(np.mean(gains)), 4),
+                        "standard_error": round(float(sem(gains)), 4)
+                        if len(gains) > 1
+                        else None,
+                        "delta_C_training": round(
+                            relative_cost_change(result.C, training.C), 4
+                        ),
+                    }
+                    fed.write_text(json.dumps(record))
+            self._evaluate(t, candidate, folder, ids)
 
         # The gate: a paired test of each candidate against the current
         # harness, at this decision's share of the experiment's error budget.
@@ -688,6 +740,13 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
             help=f"attempts at a task {words} (default: --attempts)",
         )
     parser.add_argument(
+        "--feedback",
+        choices=runner.FEEDBACK,
+        help="what the proposer is told of its earlier proposals: outcome, "
+        "whether each was accepted (the default), or training, that and how "
+        "each did on the training tasks, which every candidate is then run on",
+    )
+    parser.add_argument(
         "--alpha",
         type=float,
         help="the chance, over the whole experiment, of keeping a change that "
@@ -813,6 +872,7 @@ def run(args: argparse.Namespace) -> None:
             stage: experiment[f"attempts_{stage}"] or experiment["attempts"]
             for stage in ("training", "filter", "test")
         },
+        experiment["feedback"],
     )
     models.usage_log = folder / "search_usage.jsonl"
     models.timeout = experiment["model_timeout"]

@@ -1445,6 +1445,15 @@ def test_a_pool_setting_that_makes_no_sense_is_refused():
     assert (settings["pool_share"], settings["pool_pick"]) == (1, "ends")
 
 
+def test_what_the_proposer_is_told_is_one_of_two_things():
+    unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
+    with pytest.raises(SystemExit, match="feedback must be one of outcome, training"):
+        runner.load_experiment("smoke", unset | {"feedback": "validation"})
+    assert runner.load_experiment("smoke", unset)["feedback"] == "outcome"
+    told = runner.load_experiment("smoke", unset | {"feedback": "training"})
+    assert told["changed"]["feedback"] == "training"
+
+
 def test_the_attempts_of_a_stage_are_checked_and_the_filters_are_not_above_the_gates():
     unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
     for stage in ("training", "filter", "gate", "test"):

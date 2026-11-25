@@ -228,6 +228,24 @@ def test_rounds_give_the_proposers_own_record_of_each_drafting(experiment):
     assert "| 1       | 7 " in section.split("## ")[1]
 
 
+def test_rounds_give_the_gain_on_the_training_tasks_where_candidates_were_run_there(
+    experiment,
+):
+    report.run(argparse.Namespace(folder=experiment))
+    page = (experiment / "report" / "report.md").read_text()
+    assert "gain on the training tasks" not in page
+    record = {"delta_S_training": 0.125, "standard_error": 0.05}
+    record |= {"delta_C_training": 0.0}
+    folder = experiment / "enterpriseops" / "r0" / "A"
+    (folder / "training.json").write_text(json.dumps(record))
+    first, second = report.rounds(experiment).to_dict("records")
+    assert first["training_gain_points"] == 12.5
+    assert math.isnan(second["training_gain_points"])
+    report.run(argparse.Namespace(folder=experiment))
+    page = (experiment / "report" / "report.md").read_text()
+    assert "| gain on the training tasks   |" in page and "| +12.5 " in page
+
+
 def test_the_further_attempts_at_the_filters_tasks_are_a_job_the_report_knows():
     part = [name for name, pattern in report.PARTS if re.fullmatch(pattern, "r3A_more")]
     assert part == ["the candidates on the validation tasks"]

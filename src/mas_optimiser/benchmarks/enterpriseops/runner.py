@@ -130,7 +130,9 @@ EXPERIMENT_DEFAULTS = {
     # may hold (in the first round and in the last, with RRSI's schedule from
     # the one to the other), the attempts at each stage where they are to
     # differ from ``attempts`` (the training tasks, the filter, the gate and
-    # the test tasks), the error budget of the whole experiment,
+    # the test tasks), what the proposer is told of its earlier proposals
+    # (the outcome alone, or also how each did on the training tasks), the
+    # error budget of the whole experiment,
     # the filter a candidate passes before the full test (the share of the
     # validation tasks it is run on first, none at 0, and the gain in
     # percentage points it must be above there), the pool of training tasks
@@ -148,6 +150,7 @@ EXPERIMENT_DEFAULTS = {
     "attempts_filter": None,
     "attempts_gate": None,
     "attempts_test": None,
+    "feedback": "outcome",
     "alpha": 0.05,
     "filter_share": 0.5,
     "filter_threshold": 0.0,
@@ -159,6 +162,9 @@ EXPERIMENT_DEFAULTS = {
 #: How the pool of training tasks is picked from the tasks ranked by score:
 #: evenly over the ranking, or its lowest and its highest.
 POOL_PICKS = ("spread", "ends")
+#: What the proposer is told of an earlier proposal: whether it was accepted,
+#: or that and how it did on the training tasks.
+FEEDBACK = ("outcome", "training")
 # The providers whose client takes the time limit on a model call and the
 # number of tries of a failed one:
 # Anthropic's, and the OpenAI-style client the benchmark builds for the other
@@ -713,6 +719,11 @@ def load_experiment(spec: str, overrides: dict) -> dict:
     ):
         raise SystemExit(
             "error: pool_share must be a number above 0, up to 1 (every training task)"
+        )
+    if settings["feedback"] not in FEEDBACK:
+        raise SystemExit(
+            f"error: feedback must be one of {', '.join(FEEDBACK)}, "
+            f"not {settings['feedback']!r}"
         )
     if settings["pool_pick"] not in POOL_PICKS:
         raise SystemExit(

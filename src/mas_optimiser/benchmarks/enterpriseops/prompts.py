@@ -47,6 +47,18 @@ be general: it has to help on requests and records its author has never
 seen. The agent's model is not you: read the traces for how it actually
 behaves."""
 
+# Added to the proposer's paragraph when it is told how its earlier proposals
+# did on the training tasks (``feedback: training``).
+FEEDBACK = """Each earlier proposal in the edit history carries its outcome,
+which was decided on tasks you cannot see, and three numbers from the
+training tasks, which you can: delta_S_training is its score on them less
+the current harness's at the time, as a fraction of checks passed;
+standard_error is the chance in that difference, so a difference within
+about two standard errors of zero is no evidence either way;
+delta_C_training is the relative change in tokens an attempt used. The
+attribution scoreboard says, for the tasks an edit predicted it would move,
+which of them did move on the training tasks."""
+
 CRITIC = """The harness is a folder of two files: agent.py, the agent's loop
 of model calls and tool calls, and prompt.md, text added to the end of the
 system message. A general way of working is acceptable. Anything taken from

@@ -185,20 +185,21 @@ A person's no is a decision made outside the gate. An experiment run with
 
 ## Who may read what
 
-| what                                             | the analyst and the proposer | the gate | a person, while the experiment runs |
-|--------------------------------------------------|------------------------------|----------|-------------------------------------|
-| the score of every training task                 | yes                          | no       | yes                                 |
-| how the training attempts went wrong, counted    | yes                          | no       | yes                                 |
-| the training attempts, in full                   | those of the round's pool    | no       | yes                                 |
-| the validation tasks and attempts                | no                           | scores   | the headline only                   |
-| whether an earlier proposal was accepted         | yes                          | made it  | yes                                 |
-| by how much a proposal changed the score or cost | no                           | yes      | yes, in the record                  |
-| the test tasks and attempts                      | no                           | no       | the headline only, at the end       |
+| what                                                                     | the analyst and the proposer | the gate | a person, while the experiment runs |
+|--------------------------------------------------------------------------|------------------------------|----------|-------------------------------------|
+| the score of every training task                                         | yes                          | no       | yes                                 |
+| how the training attempts went wrong, counted                            | yes                          | no       | yes                                 |
+| the training attempts, in full                                           | those of the round's pool    | no       | yes                                 |
+| the validation tasks and attempts                                        | no                           | scores   | the headline only                   |
+| whether an earlier proposal was accepted                                 | yes                          | made it  | yes                                 |
+| by how much a proposal changed them on the training tasks                | with `feedback: training`    | no       | yes                                 |
+| by how much a proposal changed the score or cost on the validation tasks | no                           | yes      | yes, in the record                  |
+| the test tasks and attempts                                              | no                           | no       | the headline only, at the end       |
 
 The proposer learns one thing from the validation tasks, the outcome of
 each decision. The unit tests check it: the traces handed to the proposer
 are of training tasks, and what it is told of an earlier proposal holds no
-number (`tests/unit/test_evolve.py`).
+number from the validation tasks (`tests/unit/test_evolve.py`).
 
 ## What the search roles read
 
@@ -220,6 +221,38 @@ that run. Each round the two roles are given three things.
 - **The traces of the round's pool.** The pool is a share of the training
   tasks, `pool_share`. Only a task of the pool has a trace that can be
   read: the analyst can have it examined, and the proposer can open it.
+
+### What the proposer is told of its earlier proposals
+
+RRSI's proposer is written to learn from its own record: its instructions
+speak of the gain each earlier edit produced and of which predicted tasks
+moved. RRSI can show it those numbers because it judges a candidate on the
+tasks the proposer reads. Here a candidate is judged on the validation
+tasks, and a number from them would let the proposer fit its changes to
+the tasks that decide. `feedback` sets what it is told instead.
+
+| `feedback` | the proposer is told of an earlier proposal                                      | what is run for it                                |
+|------------|----------------------------------------------------------------------------------|---------------------------------------------------|
+| `outcome`  | its kind, its hypothesis and whether it was accepted                             | nothing more                                      |
+| `training` | that, and how it did on the training tasks, with RRSI's record of its predictions | every candidate, once more, on the training tasks |
+
+With `training` a candidate that passes its one-task trial is run on the
+training tasks before the filter. Three numbers are kept from that run
+(`r<round>/<candidate>/training.json`) and given to the proposer in later
+rounds:
+
+- the difference between the candidate's score on the training tasks and
+  the current harness's at the time, as a fraction of checks passed;
+- the standard error of that difference over the training tasks, so that
+  the proposer can tell a difference from chance;
+- the relative change in the tokens an attempt used.
+
+RRSI's own record of each edit's predictions is kept from the same two
+runs: of the training tasks the edit said it would move, which did, and
+which other tasks fell. No decision uses any of this. A candidate that is
+kept is run on the training tasks in any case, for the next round's
+traces, so the cost is one more run of them for each candidate that is
+not kept.
 
 ### Why not every trace
 
@@ -398,7 +431,8 @@ are filtered on the same tasks.
 ### What the proposer learns
 
 No more than before. A candidate dropped at the filter is told to it as
-rejected, like one the gate turned down.
+rejected, like one the gate turned down. With `feedback: training` it is
+told how that candidate did on the training tasks, as for any other.
 
 ### What the filter does not do
 
@@ -410,13 +444,13 @@ take no part until the end.
 
 ## The settings
 
-An experiment file holds the settings of `mas-optimiser run` (the model,
-the domains, the attempts and so on) and those only `evolve` reads: `split`,
+An experiment file holds the settings of `mas-optimiser run` (the model, the
+domains, the attempts and so on) and those only `evolve` reads: `split`,
 `harness`, `proposer_model`, `rounds`, `candidates`, `edits_first`,
-`edits_last`, the four `attempts_` settings of the stages, `alpha`,
-`filter_share`, `filter_threshold`, `pool_share`, `pool_pick`, `editable`
-and `approval`. [Experiment settings](../settings.md) gives each one's
-meaning, its default and what changing it does, and
+`edits_last`, the four `attempts_` settings of the stages, `feedback`,
+`alpha`, `filter_share`, `filter_threshold`, `pool_share`, `pool_pick`,
+`editable` and `approval`. [Experiment settings](../settings.md) gives each
+one's meaning, its default and what changing it does, and
 `configs/experiments/template.yaml` lists them all to copy.
 
 The agent's model and the proposer's are two settings, so they can be the
@@ -452,7 +486,9 @@ evolutions/<experiment>/<split>/
       decisions.json          the gate's numbers for each candidate, and
                               the filter's: its tasks, the gain there, the
                               threshold and whether the candidate passed
-      <candidate>/            the proposal, its diff, its review, its trial run
+      <candidate>/            the proposal, its diff, its review, its trial run,
+                              and with `feedback: training` how it did on
+                              the training tasks (training.json)
   report/                     written by `mas-optimiser report`, see below
 ```
 
