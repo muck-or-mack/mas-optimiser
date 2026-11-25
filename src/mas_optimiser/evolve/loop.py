@@ -19,6 +19,11 @@ commit on a branch of its own) and everything the loop writes. Its steps:
    next round has its traces.
 3. The test: every harness the experiment kept, run once on the test tasks.
 
+Each stage may have its own number of attempts at a task: the training
+tasks, the filter, the gate and the test. The filter's attempts are the
+first of the gate's, so a candidate that passes the filter is run only for
+the attempts it still lacks.
+
 The command can be given again after a stop of any kind: each step that left
 its result is skipped.
 
@@ -45,7 +50,13 @@ from mas_optimiser.stats import budget, gate
 
 from rrsi import analyst, critic, digester, gitops, propose
 from rrsi.config import RRSIConfig
-from rrsi.evaluate import EvalResult, aggregate, evaluate, relative_cost_change
+from rrsi.evaluate import (
+    EvalResult,
+    TaskResult,
+    aggregate,
+    evaluate,
+    relative_cost_change,
+)
 from rrsi.history import exploration
 from rrsi.loop import VARIANT_LABELS, Run, log
 from rrsi.schedule import edit_budget
@@ -105,8 +116,8 @@ class Experiment(Run):
         domain: The benchmark, a ``Domain`` that also gives
             ``validation_ids`` and, for a filter, ``domain_of`` (each task's
             group, of which the filter takes the same share).
-        cfg: RRSI's settings: rounds, attempts, candidates, the edits a
-            candidate may hold and the models.
+        cfg: RRSI's settings: rounds, the attempts at the gate (its ``k``),
+            candidates, the edits a candidate may hold and the models.
         repo: The experiment's git repository, with the harness at its top.
         runs_root: The experiment's folder.
         alpha: The Type-I error budget of the whole experiment.
@@ -120,6 +131,10 @@ class Experiment(Run):
             roles may read in a round; 1 for every task.
         pool_pick: How those tasks are picked from the ranking by score:
             ``"spread"`` or ``"ends"`` (see ``pool``).
+        attempts: The attempts at a task on the training tasks, at the
+            filter and on the test tasks, by ``"training"``, ``"filter"``
+            and ``"test"``; a stage left out has the gate's. The filter's
+            may not be more than the gate's.
     """
 
     def __init__(
@@ -134,8 +149,12 @@ class Experiment(Run):
         seed: int = 0,
         pool_share: float = 1.0,
         pool_pick: str = "spread",
+        attempts: dict[str, int] | None = None,
     ):
         super().__init__(domain, cfg, repo, runs_root)
+        self.attempts = dict.fromkeys(("training", "filter", "test"), cfg.k) | (
+            attempts or {}
+        )
         self.harness_rel = domain.harness_path
         self.alpha = alpha
         self.filter_share = filter_share
@@ -164,11 +183,13 @@ class Experiment(Run):
         self.ensure_branch()
         checkout = self.checkout("current", self.branch)
         results = {}
-        for name, ids in (
-            ("training", d.evolve_ids()),
-            ("validation", d.validation_ids()),
+        # The validation scores are what the gate compares a candidate with,
+        # so they have the gate's attempts.
+        for name, ids, attempts in (
+            ("training", d.evolve_ids(), self.attempts["training"]),
+            ("validation", d.validation_ids(), cfg.k),
         ):
-            result = evaluate(d, checkout, self.runs, f"{job}_{name}", ids, cfg.k)
+            result = evaluate(d, checkout, self.runs, f"{job}_{name}", ids, attempts)
             if result.missing > cfg.invalid_missing_frac * result.n_expected:
                 raise SystemExit(
                     f"error: the baseline on the {name} tasks is missing "
@@ -250,13 +271,16 @@ class Experiment(Run):
         """Score a candidate on the validation tasks, on the filter's tasks first.
 
         With no filter this is the released step. With one, the candidate is
-        run on the filter's tasks, and if its mean score there is not above
-        the current harness's by more than the threshold it is dropped and
-        the other tasks are not run. A candidate that passes is run on the
-        other tasks, and the two parts make its one result, so no attempt is
-        run twice. The filter can only drop a candidate: one that is kept has
-        still passed the gate's test on every validation task, so the chance
-        of keeping a change that does nothing is no higher than without it.
+        run on the filter's tasks, with the filter's attempts, and if its
+        mean score there is not above the current harness's by more than the
+        threshold it is dropped and nothing more is run. A candidate that
+        passes is run for the attempts it still lacks: on the filter's tasks
+        up to the gate's number, where the filter had fewer, and on the other
+        tasks. The parts make its one result, every task with the gate's
+        attempts, so no attempt is run twice. The filter can only drop a
+        candidate: one that is kept has still passed the gate's test on every
+        validation task with all of its attempts, so the chance of keeping a
+        change that does nothing is no higher than without it.
 
         Args:
             t: The round, from 0.
@@ -274,8 +298,12 @@ class Experiment(Run):
         current = EvalResult.load(self.eval_path(self.frontier()["incumbent"]["job"]))
         rest = [task for task in ids if task not in set(first)]
         per_task, totals = {}, {}
-        for stage, tasks in (("filter", first), ("rest", rest)):
-            if not tasks:
+        for stage, tasks, attempts in (
+            ("filter", first, self.attempts["filter"]),
+            ("more", first, cfg.k - self.attempts["filter"]),
+            ("rest", rest, cfg.k),
+        ):
+            if not tasks or not attempts:
                 continue
             # As the released step does: a second run when attempts are
             # missing, and a candidate that cannot be scored is set aside.
@@ -287,7 +315,7 @@ class Experiment(Run):
                         self.runs,
                         f"{job}_{stage}",
                         tasks,
-                        cfg.k,
+                        attempts,
                     )
                 except Exception as error:  # noqa: BLE001 - recorded with the candidate
                     c.gate_failure = "eval_invalid"
@@ -299,7 +327,19 @@ class Experiment(Run):
                 c.gate_failure = "eval_invalid"
                 c.detail = f"{part.missing}/{part.n_expected} attempts missing after a second run"
                 return
-            per_task |= part.per_task
+            for task, result in part.per_task.items():
+                # A task of the filter gets its further attempts added to
+                # those the filter ran.
+                earlier = per_task.get(task)
+                per_task[task] = (
+                    TaskResult(
+                        rewards=earlier.rewards + result.rewards,
+                        tokens=earlier.tokens + result.tokens,
+                        missing=earlier.missing + result.missing,
+                    )
+                    if earlier
+                    else result
+                )
             for key, value in part.extra.items():
                 totals[key] = totals.get(key, 0) + value
             if stage == "filter":
@@ -329,7 +369,7 @@ class Experiment(Run):
                     return
         c.ev = aggregate(job, cfg.k, {task: per_task[task] for task in ids}, totals)
         c.ev.save(done)
-        # The two parts ran as jobs of their own, so the whole has no folder yet.
+        # The parts ran as jobs of their own, so the whole has no folder yet.
         self.eval_path(job).parent.mkdir(parents=True, exist_ok=True)
         c.ev.save(self.eval_path(job))
 
@@ -531,7 +571,9 @@ class Experiment(Run):
             # between leaves the current harness as it was.
             job = f"r{t}{winner.variant}_training"
             checkout = self.wt_root / f"r{t}{winner.variant}"
-            result = evaluate(d, checkout, self.runs, job, d.evolve_ids(), cfg.k)
+            result = evaluate(
+                d, checkout, self.runs, job, d.evolve_ids(), self.attempts["training"]
+            )
             result.save(self.eval_path(job))
             gitops.fast_forward(self.repo, self.branch, winner.commit)
             current = {
@@ -577,7 +619,12 @@ class Experiment(Run):
             result = (
                 EvalResult.load(path)
                 if path.exists()
-                else self.heldout(label, self.domain.heldout_ids(), ref=entry["commit"])
+                else self.heldout(
+                    label,
+                    self.domain.heldout_ids(),
+                    ref=entry["commit"],
+                    k=self.attempts["test"],
+                )
             )
             rows.append(
                 {
@@ -619,6 +666,17 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         help="the same in the last round; the rounds between follow RRSI's "
         "schedule from the one number to the other",
     )
+    for stage, words in (
+        ("training", "on the training tasks, whose traces the search roles read"),
+        ("filter", "at the filter; not more than the gate's, being the first of them"),
+        ("gate", "on the validation tasks, where the gate decides"),
+        ("test", "on the test tasks"),
+    ):
+        parser.add_argument(
+            f"--attempts-{stage}",
+            type=int,
+            help=f"attempts at a task {words} (default: --attempts)",
+        )
     parser.add_argument(
         "--alpha",
         type=float,
@@ -721,7 +779,7 @@ def run(args: argparse.Namespace) -> None:
     proposer = experiment["proposer_model"] or experiment["model"]
     cfg = RRSIConfig(
         T=experiment["rounds"],
-        k=experiment["attempts"],
+        k=experiment["attempts_gate"] or experiment["attempts"],
         m=experiment["candidates"],
         b_min=experiment["edits_last"],
         b_max=experiment["edits_first"],
@@ -741,6 +799,10 @@ def run(args: argparse.Namespace) -> None:
         splits.load_split(split)["seed"],
         experiment["pool_share"],
         experiment["pool_pick"],
+        {
+            stage: experiment[f"attempts_{stage}"] or experiment["attempts"]
+            for stage in ("training", "filter", "test")
+        },
     )
     models.usage_log = folder / "search_usage.jsonl"
     models.timeout = experiment["model_timeout"]

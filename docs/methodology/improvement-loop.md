@@ -323,10 +323,31 @@ and the other tasks are never run. If it is, the other tasks are run and
 the gate's test is made on all the validation tasks, the filter's among
 them, so no attempt is run twice.
 
+### Attempts at each stage
+
+An experiment's `attempts` is the number of times a task is attempted at
+every stage. Each stage can be given its own number.
+
+| stage              | setting             | who is run                                                                                | what the attempts are for         |
+|--------------------|---------------------|-------------------------------------------------------------------------------------------|-----------------------------------|
+| the training tasks | `attempts_training` | the starting harness, and each harness kept                                               | the traces the search roles read  |
+| the filter         | `attempts_filter`   | each candidate, on the filter's tasks                                                     | dropping a weak candidate cheaply |
+| the gate           | `attempts_gate`     | the starting harness, and each candidate that passes the filter, on every validation task | the decision to keep a change     |
+| the test           | `attempts_test`     | each harness kept, at the end                                                             | the gain that is reported         |
+
+The gate's attempts are the ones that let it find a smaller gain, and the
+dearest. The filter can have fewer. Its attempts are then the first of the
+gate's: a candidate that passes is run for the attempts its filter tasks
+still lack, and on the other tasks in full, so every validation task ends
+with the gate's number and no attempt is run twice. The filter compares a
+candidate's mean over its own attempts with the current harness's mean over
+the gate's attempts, on the same tasks.
+
 ### Why it cannot make the gate less strict
 
 The filter can only drop a candidate. One that is kept has still passed the
-gate's test on every validation task, so the candidates kept with a filter
+gate's test on every validation task, with all of the gate's attempts,
+whatever number the filter used, so the candidates kept with a filter
 are among those the gate would have kept without one. The chance of keeping
 a change that does nothing is therefore at most what it was: the level of
 the decision. This is the reasoning of stopping a trial early for futility
@@ -383,8 +404,9 @@ take no part until the end.
 An experiment file holds the settings of `mas-optimiser run` (the model,
 the domains, the attempts and so on) and those only `evolve` reads: `split`,
 `harness`, `proposer_model`, `rounds`, `candidates`, `edits_first`,
-`edits_last`, `alpha`, `filter_share`, `filter_threshold`, `pool_share`,
-`pool_pick`, `editable` and `approval`. [Experiment settings](../settings.md) gives each one's
+`edits_last`, the four `attempts_` settings of the stages, `alpha`,
+`filter_share`, `filter_threshold`, `pool_share`, `pool_pick`, `editable`
+and `approval`. [Experiment settings](../settings.md) gives each one's
 meaning, its default and what changing it does, and
 `configs/experiments/template.yaml` lists them all to copy.
 
@@ -409,9 +431,11 @@ evolutions/<experiment>/<split>/
     frontier.json             the current harness and the score after each round
     history.jsonl             every proposal: what it changed, its outcome, its numbers
     test.csv                  one row per harness kept: its validation and test scores
-    jobs/<job>/<domain>/      one evaluation folder per run of a harness; a
-                              candidate's validation run is two jobs with
-                              a filter, <job>_filter and <job>_rest
+    jobs/<job>/<domain>/      one evaluation folder per run of a harness; with
+                              a filter a candidate's validation run is the
+                              jobs <job>_filter and <job>_rest, and
+                              <job>_more where the filter has fewer
+                              attempts than the gate
     r<round>/
       analysis/               the traces of the round's pool as the roles
                               read them, and every digest

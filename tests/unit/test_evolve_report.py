@@ -3,6 +3,7 @@
 import argparse
 import csv
 import json
+import re
 
 import pytest
 
@@ -204,6 +205,17 @@ def test_a_candidate_of_several_edits_shows_the_kind_and_hypothesis_of_each(expe
     assert first["hypothesis"] == (
         "Edit 1 (prompt): it helps Edit 2 (control_flow): one more turn"
     )
+
+
+def test_the_further_attempts_at_the_filters_tasks_are_a_job_the_report_knows():
+    part = [name for name, pattern in report.PARTS if re.fullmatch(pattern, "r3A_more")]
+    assert part == ["the candidates on the validation tasks"]
+    what = [
+        words.format(int(found.group(1)) + 1)
+        for pattern, words, _ in report.JOBS
+        if (found := re.fullmatch(pattern, "r3A_more"))
+    ]
+    assert what == ["round 4: further attempts at the filter's tasks"]
 
 
 def test_errors_list_each_job_with_attempts_in_error_and_their_kinds(experiment):

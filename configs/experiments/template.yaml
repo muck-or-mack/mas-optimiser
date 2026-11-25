@@ -121,6 +121,18 @@ candidates: 1
 edits_first: 1
 edits_last: 1
 
+# Attempts at a task at each stage of the loop, where they are to differ
+# from `attempts`: on the training tasks (what the proposing model reads),
+# at the filter, at the gate (every validation task, for the starting
+# harness and for each candidate that passes the filter) and on the test
+# tasks. The filter's are the first of the gate's and cannot be more: a
+# candidate that passes is run only for the attempts it still lacks.
+# Defaults: none, which is `attempts` for each.
+attempts_training:
+attempts_filter:
+attempts_gate:
+attempts_test:
+
 # The chance, over the whole experiment, of keeping a change that does
 # nothing. Higher keeps more changes, more of them useless; lower needs
 # larger gains. Above 0, below 1. Default: 0.05. (planner)

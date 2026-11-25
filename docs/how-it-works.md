@@ -34,7 +34,7 @@ to one commit, and for the starting harness.
 |---|---|---|---|
 | The harness (the agent, to be improved) | `harnesses/default/agent.py`, `prompt.md` | 150 | the loop of model calls and tool calls, and the text it adds to a task's system message |
 | The benchmark (unchanged) | `vendor/enterpriseops-gym/orchestrators/base.py`; `benchmark/executor.py`, `llm_client.py`, `mcp_client.py`, `verifier.py`, `models.py` | about 2,000 | the tool call, the model and tool clients, the database set-up on the domain server, the SQL checks |
-| The runner (ours) | `src/mas_optimiser/cli.py`, `tracing.py`, `benchmarks/enterpriseops/runner.py` | about 2,000 | loads the tasks, runs attempts in parallel, applies the patch list, saves every record and the tables |
+| The runner (ours) | `src/mas_optimiser/cli.py`, `tracing.py`, `benchmarks/enterpriseops/runner.py` | about 2,400 | loads the tasks, runs attempts in parallel, applies the patch list, saves every record and the tables |
 | The measure (ours) | `checks.py`, `states.py`, `sql.py`, `diagnosis.py`, `report.py`, `rescore.py`, `rebuild.py` | about 2,700 | verdicts, changes against the seed, the cell-by-cell diagnosis, the trace to the turn, the results files, recomputation |
 | Set-up tools (ours) | `seeds.py`, `splits.py` | about 800 | local copies of the seed databases; the seeded draw of the training, validation and test sets |
 | The improvement loop (ours, round RRSI's released loop) | `evolve/loop.py`, `evolve/models.py`, `evolve/report.py`, `domain.py`, `prompts.py` | about 2,000 | one experiment of the loop: baseline, rounds, test; the model call of its search roles; this benchmark as the loop sees it |
