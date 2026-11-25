@@ -586,7 +586,7 @@ What goes wrong, and where to look:
 |---|---|---|
 | `error: domain server ... is not answering` | the Docker servers are down | [`check_servers`][runner.check_servers]; start them and rerun |
 | `ANTHROPIC_API_KEY is not set; add it to .env`, or the same for another model's variable | no `.env`, or the model's line missing from it | [`load_model`][runner.load_model]; `.env.example` lists every line |
-| a `tasks.csv` row with `error` filled and zero checks | the attempt raised before the agent started (a server fault, a bad config) | the record's `error`; the traceback in `evaluation.log` |
+| a `tasks.csv` row with `error` filled and zero checks | the attempt raised: before the agent's first call (a server fault, a bad config), or partway, where the page gives the turns up to the error from the runner's own record | the record's `error`; the attempt's page; the traceback in `evaluation.log` |
 | `diagnosis_error` on the run in `attempt-N.json` | the checks ran but the diagnosis raised; verdicts are intact | `_run_verifiers` in [`TaskExecutor`][runner.TaskExecutor] |
 | `report_error` on the run | the trace or the rows raised; the page has no trace | [`run_task`][runner.run_task] |
 | a failed check with `kind` `unsupported` in `checks.csv` | a query shape the diagnosis cannot take apart (a top-level OR, a GROUP BY, a derived table), or a table with no key to find its rows by | [`sql.parse`][sql.parse], [`diagnosis.diagnose`][diagnosis.diagnose] |

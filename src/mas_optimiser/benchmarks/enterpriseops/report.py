@@ -601,7 +601,8 @@ def attempt_text(
 ) -> str:
     """One attempt as a page: the request, how it did table by table, the tools it had, every check, the turns and the rows it changed.
 
-    The page goes from the whole to the detail. After the request, one row
+    The page goes from the whole to the detail. An attempt that ended in an
+    error says so first, with the error. After the request, one row
     per table the checks look at says whether the attempt got it right
     (``table_rows``). Then the tools the task was given, the turns each was
     called at and the arguments each takes, and every check with, under a failure, what it wanted
@@ -641,6 +642,18 @@ def attempt_text(
         return "\n".join(
             lines + [f"Raised before it started: {execution['error']}", ""]
         )
+    if execution.get("error"):
+        replies = sum(step["type"] == "ai_message" for step in flow)
+        lines += [
+            f"Ended in an error after {replies} "
+            f"{'reply' if replies == 1 else 'replies'} of the model: "
+            f"{execution['error']}",
+            "",
+            "The turns below are the runner's record of what the agent sent "
+            "and received up to the error. The checks were not run and the "
+            "rows the attempt changed were not read.",
+            "",
+        ]
     request = next((s["content"] for s in flow if s["type"] == "user_message"), "")
     lines += ["## Request", "", request, "", "## Tables the checks look at", ""]
     if changes is None:
