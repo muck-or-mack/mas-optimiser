@@ -43,6 +43,8 @@ of `run`. "Planner" marks the settings the planner has a control for.
 | [`out`](#out)                           | none              | run     |         |
 | [`rounds`](#rounds)                     | 10                | evolve  | yes     |
 | [`candidates`](#candidates)             | 1                 | evolve  | yes     |
+| [`edits_first`](#edits-first)           | 1                 | evolve  |         |
+| [`edits_last`](#edits-last)             | 1                 | evolve  |         |
 | [`alpha`](#alpha)                       | 0.05              | evolve  | yes     |
 | [`filter_share`](#filter-share)         | 0.5               | evolve  | yes     |
 | [`filter_threshold`](#filter-threshold) | 0                 | evolve  |         |
@@ -268,6 +270,24 @@ How many changes are proposed in each round. More candidates search wider
 in a round. Each is run on the validation tasks, so the cost of a round
 grows with them, and each decision's share of the error budget is divided
 among them, so the bar is higher for every one.
+
+### `edits_first`
+
+An edit is one independent change to the harness: it works by itself, and
+the proposer gives it a kind and a hypothesis of its own. Parts that depend
+on each other are one edit, however many lines or files they touch. This
+setting is the most edits one candidate may hold in the first round. A
+candidate is run and judged as a whole, so with several edits the gate says
+whether they helped together and cannot say which of them did. At 1 every
+change that is kept is one idea that was tested by itself.
+
+### `edits_last`
+
+The most edits one candidate may hold in the last round. In the rounds
+between, the number goes from `edits_first` to `edits_last` along RRSI's
+schedule, a half cosine rounded up: over 10 rounds, 3 and 1 give
+3, 3, 3, 3, 3, 2, 2, 2, 2, 1. RRSI's released defaults are 4 and 1, so that early rounds may try
+several ideas at once and late rounds test one at a time.
 
 ### `alpha`
 

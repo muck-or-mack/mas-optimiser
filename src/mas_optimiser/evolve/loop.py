@@ -105,7 +105,8 @@ class Experiment(Run):
         domain: The benchmark, a ``Domain`` that also gives
             ``validation_ids`` and, for a filter, ``domain_of`` (each task's
             group, of which the filter takes the same share).
-        cfg: RRSI's settings: rounds, attempts, candidates and the models.
+        cfg: RRSI's settings: rounds, attempts, candidates, the edits a
+            candidate may hold and the models.
         repo: The experiment's git repository, with the harness at its top.
         runs_root: The experiment's folder.
         alpha: The Type-I error budget of the whole experiment.
@@ -399,10 +400,17 @@ class Experiment(Run):
             role: f"{self.briefs[role]}\n\n{SCORES}\n{scores}"
             for role in ("analyst", "proposer")
         }
+        # The most independent edits a candidate may hold this round: RRSI's
+        # schedule, a half cosine from the first round's number to the last
+        # round's. The released round divides by the number of rounds, which
+        # ends one step short of the last number; here the last round is the
+        # schedule's end.
+        allowed = edit_budget(t, cfg.T - 1, cfg.b_min, cfg.b_max)
         log(
             d.name,
             f"round {t}: the traces of {len(traces)} of {len(training.per_task)} "
-            f"training tasks can be read ({self.pool_pick})",
+            f"training tasks can be read ({self.pool_pick}); a candidate may "
+            f"hold {allowed} {'edit' if allowed == 1 else 'edits'}",
         )
         report_path = folder / "analysis_report.json"
         if report_path.exists():
@@ -427,7 +435,7 @@ class Experiment(Run):
                 analyst.load_digests(folder),
                 traces,
                 training,
-                edit_budget(t, cfg.T, cfg.b_min, cfg.b_max),
+                allowed,
                 exploration(t, 0, self.history.tried(), cfg.m_draft),
                 False,
                 [],
@@ -601,6 +609,17 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--rounds", type=int, help="rounds of the loop")
     parser.add_argument("--candidates", type=int, help="candidates proposed per round")
     parser.add_argument(
+        "--edits-first",
+        type=int,
+        help="the most independent edits one candidate may hold in the first round",
+    )
+    parser.add_argument(
+        "--edits-last",
+        type=int,
+        help="the same in the last round; the rounds between follow RRSI's "
+        "schedule from the one number to the other",
+    )
+    parser.add_argument(
         "--alpha",
         type=float,
         help="the chance, over the whole experiment, of keeping a change that "
@@ -704,8 +723,8 @@ def run(args: argparse.Namespace) -> None:
         T=experiment["rounds"],
         k=experiment["attempts"],
         m=experiment["candidates"],
-        b_min=1,
-        b_max=1,
+        b_min=experiment["edits_last"],
+        b_max=experiment["edits_first"],
         delta=0.0,
         proposer_model=proposer,
         analyst_model=proposer,

@@ -283,6 +283,8 @@ const OTHER = [
   ["What is recorded", "prompt_caching", "Bill input that repeats at the cheaper cache rate. Anthropic models only.", "true"],
   ["What is recorded", "label", "A word added to the name of the results folder.", "not set"],
   ["What is recorded", "out", "The results folder of a run. Read by run only.", "not set"],
+  ["The improvement loop", "edits_first", "The most independent edits one candidate may hold in the first round.", "1"],
+  ["The improvement loop", "edits_last", "The same in the last round; the rounds between go from the one number to the other.", "1"],
   ["The improvement loop", "filter_threshold", "Points above the current harness a candidate must score on the filter's tasks to go on.", "0"],
   ["The improvement loop", "pool_pick", "How the pool is picked from the training tasks ranked by score: spread or ends.", "spread"],
   ["The improvement loop", "editable", "The types of file a proposal may edit: .md is the agent's text, .py its code.", "['.md', '.py']"],
