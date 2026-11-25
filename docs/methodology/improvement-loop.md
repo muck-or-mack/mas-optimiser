@@ -205,6 +205,13 @@ A person's no is a decision made outside the gate. An experiment run with
 | by how much a proposal changed the score or cost on the validation tasks | no                           | yes      | yes, in the record                  |
 | the test tasks and attempts                                              | no                           | no       | the headline only, at the end       |
 
+The analyst has each trace of the pool examined by a digester, a call of
+the model with two tools: reading a file and searching it, both held to
+the folder of that round's traces. RRSI's digester is also offered a shell,
+whose commands are checked by the name of the program alone, so that one
+could have named any file of the machine, the validation results and the
+keys among them. That shell is switched off here and is not offered.
+
 The proposer learns one thing from the validation tasks, the outcome of
 each decision. The unit tests check it: the traces handed to the proposer
 are of training tasks, and what it is told of an earlier proposal holds no
@@ -553,7 +560,8 @@ arXiv:2609.24972; Apache License 2.0), kept unchanged in `vendor/rrsi`.
 
 | part                                                           | whose                                             |
 |----------------------------------------------------------------|---------------------------------------------------|
-| the analysis of traces, the proposer, the review of a proposal | RRSI's, as released                               |
+| the analysis of traces, the proposer, the review of a proposal | RRSI's, as released, but for the digester's shell |
+| the shell RRSI offers a digester                               | switched off by this package (`evolve.loop`)      |
 | the record of proposals, a git checkout per candidate          | RRSI's, as released                               |
 | what a benchmark must provide (its `Domain` interface)         | RRSI's; `domain.EnterpriseOps` fills it           |
 | the nine kinds of change and the rule that records one         | RRSI's; `domain.EnterpriseOps` gives its patterns |

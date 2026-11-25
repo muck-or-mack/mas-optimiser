@@ -996,6 +996,21 @@ def test_the_edits_allowed_go_from_the_first_rounds_number_to_the_last_rounds(
     assert allowed == [3, 2, 1]
 
 
+def test_the_digester_has_no_shell(tmp_path):
+    # The released digester may run shell commands that are checked by the
+    # program's name alone, which would let one read the validation results
+    # or the keys. With the loop loaded the shell is refused and not offered.
+    digester = loop.digester
+    assert not digester._bash_ok("cat task.txt")
+    assert not digester._bash_ok("grep -n FAILED task.txt | head -30")
+    assert "bash" not in digester.SYSTEM_TMPL and "shell" not in digester.SYSTEM_TMPL
+    # Its two confined tools are still offered, and still held to the folder.
+    assert '"action": "read_file"' in digester.SYSTEM_TMPL
+    assert '"action": "grep"' in digester.SYSTEM_TMPL
+    with pytest.raises(ValueError, match="escapes"):
+        digester._safe(tmp_path, "../outside.txt")
+
+
 def test_the_proposer_reads_training_tasks_and_hears_only_the_outcome(
     tmp_path, monkeypatch
 ):
