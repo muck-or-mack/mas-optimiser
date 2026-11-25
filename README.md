@@ -314,7 +314,9 @@ every setting at its default with a few lines on what it does;
 `smoke.yaml` is the smoke test, `demo.yaml` the two-task
 demonstration and `baseline-haiku.yaml` the full baseline (every task of the
 three domains, three attempts each). "Experiment settings" in the
-documentation explains each setting in full. Run an experiment by name:
+documentation explains each setting in full, and "Experiment planner" there
+shows what a design costs and can show before anything is run. Run an
+experiment by name:
 
 ```bash
 mas-optimiser run smoke
