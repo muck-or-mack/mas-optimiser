@@ -43,6 +43,7 @@ import logging
 import os
 import re
 import runpy
+import sys
 import time
 from contextlib import nullcontext
 from dataclasses import dataclass
@@ -1893,6 +1894,10 @@ def run(args: argparse.Namespace) -> None:
         )
     # Run from its file and not imported, so that a copy of the folder
     # anywhere, such as a candidate's, loads the same way as a named one.
+    # Running a file does not put its folder on the import path, so the
+    # folder is added, last: ``agent.py`` can import another file of the
+    # harness, and none stands in for an installed module of the same name.
+    sys.path.append(str(folder))
     agent = runpy.run_path(str(folder / "agent.py"))["Agent"]
 
     load_dotenv(REPO_ROOT / ".env")
