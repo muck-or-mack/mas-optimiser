@@ -838,9 +838,10 @@ and the files it writes are on "The improvement loop" in the documentation.
 The experiment file holds the settings of `run` and the loop's own, which
 only `evolve` reads: the split, the harness the experiment starts from, the
 proposer's model (the agent's when not given), the rounds and the candidates
-in each, the edits one candidate may hold, the attempts at each stage, the
-chance of keeping a useless change, the filter, the pool, the types of file
-a proposal may edit and whether a person approves each change.
+in each, the edits one candidate may hold, the attempts at each stage, what
+the proposer is told of its earlier proposals, the chance of keeping a
+useless change, the filter, the pool, the types of file a proposal may edit
+and whether a person approves each change.
 `configs/experiments/template.yaml` lists each at its default, and
 "Experiment settings" in the documentation explains them.
 
@@ -873,10 +874,12 @@ mas-optimiser report evolutions/<experiment>/<split>
 writes `report/report.md` in that folder, for an experiment that has
 finished or one still going: each harness kept, with its gain on the test
 tasks and a 95% confidence interval; each round's candidate, what it
-proposed in the proposer's own words and where it ended; the jobs with
-attempts that ended in an error, which are scored
-zero; what every part of the experiment cost; and a figure of the score
-after each round. The tables are beside it as CSV files.
+proposed in the proposer's own words, how the proposal was made and where
+it ended, with the gain it found beside the gain its decision needed; the
+jobs with attempts that ended in an error, which are scored zero; what
+every part of the experiment cost; and a figure of the score after each
+round. The tables are beside it as CSV files. "Reading a decision" in the
+documentation says which of its numbers answers which question.
 
 A candidate is run on the filter's share of the validation tasks first,
 and on the rest only if its score there is above the current harness's by
