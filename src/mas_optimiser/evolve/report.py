@@ -9,8 +9,9 @@ folder inside it:
   at a test task used, and its gain on the test tasks over the starting
   harness, task by task, with the gate's test and a 95% confidence interval;
 - ``rounds.csv``: each candidate, what it proposed (the proposer's
-  hypothesis, the files it edited and the lines it changed), how far it got
-  and the numbers of the filter and of the gate;
+  hypothesis, the files it edited and the lines it changed), how the
+  proposal was made (the proposer's actions), how far it got and the
+  numbers of the filter and of the gate;
 - ``errors.csv``: each job with attempts that ended in an error, which are
   scored zero, and how many of them ran past a limit;
 - ``parts.csv``: the attempts, tokens, dollars and hours of each part of the
@@ -196,7 +197,11 @@ def rounds(folder: Path) -> pd.DataFrame:
         of its edits, the proposer's hypothesis (one per edit, numbered,
         when a candidate holds several), the files its change edited, the
         lines it added and removed, and where its diff is kept, from the
-        experiment's folder.
+        experiment's folder. How the proposal was made is the proposer's own
+        record of its drafting: the actions it took, how many of them opened
+        a training trace or read a file, how often its saying it was done
+        was refused, how often the reviewer sent the proposal back, and the
+        edits it declared.
     """
     domain = folder / EnterpriseOps.name
     said = {}
@@ -223,6 +228,19 @@ def rounds(folder: Path) -> pd.DataFrame:
             # The candidate's change as the loop kept it: a unified diff.
             patch = path.parent / decision["variant"] / "diff.patch"
             lines = patch.read_text().splitlines() if patch.is_file() else []
+            # The proposer's draftings of this candidate, the first and then
+            # one for each time the reviewer sent it back.
+            drafts = [
+                json.loads(draft.read_text())
+                for draft in sorted(
+                    patch.parent.glob("proposal*.json"),
+                    key=lambda draft: (len(draft.name), draft.name),
+                )
+            ]
+            actions = [
+                step.get("action") for draft in drafts for step in draft.get("log", [])
+            ]
+            finished = sum(draft.get("status") == "done" for draft in drafts)
             rows.append(
                 {
                     "round": t + 1,
@@ -257,6 +275,14 @@ def rounds(folder: Path) -> pd.DataFrame:
                         for line in lines
                     ),
                     "diff": str(patch.relative_to(folder)) if lines else None,
+                    "actions": len(actions) if drafts else None,
+                    "traces_opened": actions.count("read_trace") if drafts else None,
+                    "files_read": actions.count("read_file") if drafts else None,
+                    "done_refused": actions.count("done") - finished
+                    if drafts
+                    else None,
+                    "sent_back": len(drafts) - 1 if drafts else None,
+                    "edits": len(edits) if drafts else None,
                 }
             )
     return pd.DataFrame(rows)
@@ -600,6 +626,37 @@ def run(args: argparse.Namespace) -> None:
                 f"**Round {row.round}** ({row.ended_at}; {change}). "
                 f"{said or 'No hypothesis was recorded.'}",
             ]
+
+    if len(decided) and decided["actions"].notna().any():
+        text += [
+            "",
+            "## How each proposal was made",
+            "",
+            "The proposer's own record of its drafting. It is given the "
+            "harness's files and the analyst's report, and may open a "
+            "training trace or read a file before it edits. Its saying it "
+            "is done is refused when what it declares does not hold, and "
+            "the reviewer may send a proposal back to be changed.",
+            "",
+            table(
+                decided,
+                {
+                    "round": "round",
+                    "actions": "actions taken",
+                    "traces_opened": "traces opened",
+                    "files_read": "files read",
+                    "done_refused": '"done" refused',
+                    "sent_back": "sent back by the reviewer",
+                    "edits": "edits declared",
+                    "changed": "kinds",
+                },
+                dict.fromkeys(
+                    ("actions", "traces_opened", "files_read", "done_refused")
+                    + ("sent_back", "edits"),
+                    "{:.0f}",
+                ),
+            ),
+        ]
 
     failed = errors(folder)
     failed.to_csv(out / "errors.csv", index=False)
