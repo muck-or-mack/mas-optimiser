@@ -23,6 +23,7 @@ def test_help_lists_every_command(capsys):
             "evolve",
             "report",
             "server",
+            "check",
         )
     )
 

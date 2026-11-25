@@ -55,6 +55,50 @@ def _ask(client: BaseChatModel, messages: list, outcome: list) -> None:
         outcome.append(error)
 
 
+def client(model: str) -> BaseChatModel:
+    """The client of a model file, built on first use and kept for the process.
+
+    Args:
+        model: The model file's name or path, as an experiment gives it.
+
+    Returns:
+        The LangChain model the benchmark's client builds for that file, with
+        the time limit of a try (``timeout``) and the model file's tries of a
+        failed call set on it.
+    """
+    if model not in _clients:
+        config, _ = runner.load_model(runner.config_path("models", model))
+        llm = LLMClient(
+            config.llm_provider,
+            config.llm_model,
+            config.llm_api_key,
+            api_endpoint=config.llm_api_endpoint,
+            api_version=config.llm_api_version,
+            region=config.llm_region,
+            temperature=config.temperature,
+            max_tokens=config.max_tokens,
+            top_p=config.top_p,
+            effort=config.effort,
+            reasoning=config.reasoning,
+        ).llm
+        # As in ``runner.TaskExecutor.initialize``, for the client these
+        # calls go through: the benchmark builds the model with no limit.
+        if config.llm_provider in runner.TIMEOUT_PROVIDERS:
+            if hasattr(llm, "root_client"):
+                llm.root_client.timeout = timeout
+            else:
+                llm.default_request_timeout = timeout
+        if config.max_retries is not None:
+            # The model file's tries of a failed call, set as the runner
+            # sets them, on the client these calls go through.
+            if hasattr(llm, "root_client"):
+                llm.root_client.max_retries = config.max_retries
+            else:
+                llm.max_retries = config.max_retries
+        _clients[model] = llm
+    return _clients[model]
+
+
 def generate(
     prompt: str,
     system: str | None = None,
@@ -89,36 +133,7 @@ def generate(
         SystemExit: If the model service did not answer a one-word question
             for ``wait`` seconds in all.
     """
-    if model not in _clients:
-        config, _ = runner.load_model(runner.config_path("models", model))
-        llm = LLMClient(
-            config.llm_provider,
-            config.llm_model,
-            config.llm_api_key,
-            api_endpoint=config.llm_api_endpoint,
-            api_version=config.llm_api_version,
-            region=config.llm_region,
-            temperature=config.temperature,
-            max_tokens=config.max_tokens,
-            top_p=config.top_p,
-            effort=config.effort,
-            reasoning=config.reasoning,
-        ).llm
-        # As in ``runner.TaskExecutor.initialize``, for the client these
-        # calls go through: the benchmark builds the model with no limit.
-        if config.llm_provider in runner.TIMEOUT_PROVIDERS:
-            if hasattr(llm, "root_client"):
-                llm.root_client.timeout = timeout
-            else:
-                llm.default_request_timeout = timeout
-        if config.max_retries is not None:
-            # The model file's tries of a failed call, set as the runner
-            # sets them, on the client these calls go through.
-            if hasattr(llm, "root_client"):
-                llm.root_client.max_retries = config.max_retries
-            else:
-                llm.max_retries = config.max_retries
-        _clients[model] = llm
+    llm = client(model)
     messages = [HumanMessage(f"{cache_prefix}\n\n{prompt}" if cache_prefix else prompt)]
     if system or json_only:
         # ``_JSON_SUFFIX`` is the released function's own instruction.
@@ -138,7 +153,7 @@ def generate(
         # open once the experiment has stopped.
         outcome: list = []
         asking = threading.Thread(
-            target=_ask, args=(_clients[model], messages, outcome), daemon=True
+            target=_ask, args=(llm, messages, outcome), daemon=True
         )
         asking.start()
         asking.join(deadline - started)
@@ -154,7 +169,7 @@ def generate(
                 word: list = []
                 ask = threading.Thread(
                     target=_ask,
-                    args=(_clients[model], [HumanMessage("ping")], word),
+                    args=(llm, [HumanMessage("ping")], word),
                     daemon=True,
                 )
                 ask.start()
