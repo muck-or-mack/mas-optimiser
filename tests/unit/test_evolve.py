@@ -402,11 +402,25 @@ def test_the_count_of_failures_adds_up_a_jobs_domains(benchmark, tmp_path):
     assert len(benchmark.failures(tmp_path, "a-job", most=1).splitlines()) == 3
 
 
-def test_the_trace_marks_each_turn_and_the_checks(benchmark):
-    page = "# t1\n## Request\nDo it.\n### Turn 1\nA call.\n## Checks\nFailed."
-    text = benchmark.render_trace({"page": page})
+def test_the_trace_marks_each_turn_and_puts_the_checks_last(benchmark):
+    # The page for people has its checks before its turns.
+    page = (
+        "# t1\n## Request\nDo it.\n## Checks\n### FAIL a check\nFailed.\n"
+        "## What the agent did\n### Turn 1\nA call.\n### Turn 2\nAnother.\n"
+        "## Rows the attempt changed\nnone"
+    )
+    record = {"page": page}
+    text = benchmark.render_trace(record)
     assert "[step 1] ### Turn 1\n[step 1] A call." in text
-    assert "=== VERIFIER" in text and "[step 1] Failed." not in text
+    assert text.endswith(
+        "=== VERIFIER: the task's checks on the final database ===\n## Checks\n### FAIL a check\nFailed."
+    )
+    assert "[step 2] Failed." not in text
+    # RRSI's reader, asked for the second turn alone, gives that turn, what
+    # belongs to no turn, and the checks: not the first turn.
+    part = propose._read_trace(benchmark, {"t1": record}, "t1", 2, 2, {}, False)
+    assert "[step 2] Another." in part and "[step 1]" not in part
+    assert "Do it." in part and "none" in part and "Failed." in part
 
 
 def test_the_trial_run_refuses_a_record_of_another_shape(
