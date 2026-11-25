@@ -1,6 +1,6 @@
 # Baseline: the starting harness with GPT-5.1 on every task of the three
-# domains, one attempt each, one evaluation per domain. Keys are explained in
-# smoke.yaml.
+# domains, one attempt each, one evaluation per domain. Every setting is
+# explained in template.yaml.
 model: gpt-5.1-azure
 domain: [itsm, csm, hr]
 mode: all_tools

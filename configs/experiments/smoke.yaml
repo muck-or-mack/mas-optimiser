@@ -1,72 +1,8 @@
-# Smoke test: the benchmark's own agent on the first five ITSM tasks.
-#
-# Run it with `mas-optimiser run smoke`; any option on the command line
-# overrides a value here (`mas-optimiser run smoke --limit 1`). To define a new
-# experiment, copy this file under a new name in this folder and refer to it by
-# that name. Every key is optional except model and domain; the defaults are
-# the values shown here.
-
-# Model file in configs/models/, by name (or a path to a YAML file).
+# Smoke test: the starting harness with Claude Haiku 5.5 on the first five
+# ITSM tasks, one attempt each. Run it with `mas-optimiser run smoke`; any
+# option on the command line overrides a value here (`mas-optimiser run smoke
+# --limit 1`). Every setting is explained in template.yaml; those left out
+# here take their defaults.
 model: haiku-5-5
-# Benchmark domain: itsm (IT service management), csm (customer service), hr.
-# A list, such as [itsm, csm, hr], runs one evaluation per domain in turn.
 domain: itsm
-# all_tools gives the agent every tool the domain's server offers, and is what
-# every arm of an experiment is given; oracle gives it only the tools the
-# benchmark lists with the task, the setting that published results use;
-# plus_5_tools, plus_10_tools and plus_15_tools add that many distractor
-# tools to that list.
-mode: all_tools
-# Run only the first N tasks of the domain; remove the line for all of them.
 limit: 5
-# Run only one set of a split in configs/splits/, as split-name:set, for
-# example haiku-20-40-40:training; the default is every task of the domain.
-# split: haiku-20-40-40:training
-# Attempts per task. One attempt cannot tell a task the agent always fails from
-# one it fails half the time; three can, and are the pilot for the final number.
-attempts: 1
-# Attempts in flight at once. Each has its own database, so attempts never touch
-# each other; the limit keeps the domain server and the model's rate limits
-# comfortable.
-concurrency: 4
-# Send each task to Langfuse as one trace, when the keys in .env are set.
-trace: true
-# Ask the model for a summary of its reasoning on every call, shown in the
-# trace. Changes the agent's behaviour and cost: demonstrations only, never a
-# evaluation whose numbers are reported.
-thinking_summary: false
-# Have the model provider store the input that repeats from call to call (the
-# tool descriptions, the policy, the conversation so far) and bill it at its
-# cheaper cache rate when it is sent again. The model receives the same input
-# either way; only the cost changes. This is Anthropic's prompt caching and is
-# built for Anthropic models only: with any other provider the setting does
-# nothing, and the run says so.
-prompt_caching: true
-# Seconds a call to the model may wait for its answer. A try that runs out is
-# given up and repeated, so a connection that goes silent costs this long and
-# not the whole run. Real calls answer in seconds; keep the limit well above
-# the slowest of them, since a call cut off here is lost to the attempt. Set
-# on the provider's own client, for the providers anthropic, openai,
-# azureopenai, vllm and openrouter: with any other provider no limit is set,
-# and the run says so.
-model_timeout: 300
-# The most one attempt may use, kept by the runner and not by the harness:
-# its seconds, and its calls to the model. An attempt that passes either is
-# ended and recorded as an error. An attempt of the starting harness uses a
-# small part of each.
-attempt_timeout: 3600
-attempt_calls: 100
-# An attempt that ends in an error says nothing of the harness while a
-# service it needs is not answering: the model service, asked a one-word
-# question after a call that failed for good, or the domain's server, asked
-# for its health after any error. Once the service answers, the attempt is
-# run again, at most this many times. The service is waited for at most this
-# many seconds; an attempt it never answered is marked as the service's
-# failure, not counted against the harness, and the command ends with an error.
-attempt_retries: 2
-service_wait: 1800
-# The harness whose agent runs the tasks: a folder's name under harnesses/, or
-# a path to such a folder. The folder holds the agent's code (agent.py) and
-# the text it adds to every task's system message (prompt.md). "default" is
-# the benchmark's own agent with nothing added.
-harness: default

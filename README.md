@@ -87,6 +87,22 @@ variables it reads, so choosing a model chooses its keys and nothing has to
 be swapped. A run on a model whose lines are blank stops at once and names
 the variable that is missing.
 
+The names of the variables are free: the provider fixes none of them. A
+provider's library looks for a key under a name of its own
+(`ANTHROPIC_API_KEY`, say) only when it is handed no key, and the package
+always hands it one. The model file names a variable, the package reads
+that variable's value from `.env`, and the value goes to the library with
+the call:
+
+| in the model file                   | in `.env`                        | what the provider's library is given |
+|-------------------------------------|----------------------------------|--------------------------------------|
+| `api_key_env: AZURE_OPENAI_API_KEY` | `AZURE_OPENAI_API_KEY=<the key>` | the key itself, with the call        |
+
+So a name has to agree in two places only, the model file and `.env`. Keep
+to capital letters, digits and underscores, with a letter first. The
+exception is the three `LANGFUSE_` lines, which the package reads under
+those names.
+
 To check a model and its key, run one task on it:
 
 ```bash
@@ -111,8 +127,32 @@ keys; every shipped file has a comment on each.
 | `server`                                       | for a model served on the machine: how its server is started                                                                                                       |
 
 A second account at the same service is a second file that names other
-variables, `AZURE_OPENAI_API_KEY_2` for instance, with those lines added to
-`.env`.
+variables. For a second Azure OpenAI resource, copy `gpt-5.1-azure.yaml` as
+`gpt-5.1-azure-2.yaml` and give its four lines ending in `_env` names of
+their own:
+
+```yaml
+api_key_env: AZURE_OPENAI_API_KEY_2
+llm_api_endpoint_env: AZURE_OPENAI_ENDPOINT_2
+llm_model_env: AZURE_OPENAI_DEPLOYMENT_2
+llm_api_version_env: AZURE_OPENAI_API_VERSION_2
+```
+
+Then add those four lines to `.env`, with the second account's values
+(made up here):
+
+```
+AZURE_OPENAI_API_KEY_2=fedcba9876543210fedcba9876543210
+AZURE_OPENAI_ENDPOINT_2=https://my-second-resource.openai.azure.com/
+AZURE_OPENAI_DEPLOYMENT_2=my-other-gpt-5-1-deployment
+AZURE_OPENAI_API_VERSION_2=2025-04-01-preview
+```
+
+`--model gpt-5.1-azure-2` then runs on the second account, and the one-task
+check of [Where the keys go](#where-the-keys-go) tests it. One label on the
+file and on its variables (`-2` and `_2` here) keeps the two easy to match.
+A model file may be committed and shared, and its variable names with it,
+so a label should not say whose the account is; the values stay in `.env`.
 
 ## Benchmark servers
 
@@ -269,10 +309,12 @@ and gpt-oss-20b has been served and has run a task in about 25 seconds.
 A run needs its model's key in `.env` ([Models and keys](#models-and-keys)).
 An experiment is a short
 YAML file in `configs/experiments/` that sets the model, the domain or
-domains, mode, task limit and tracing options, with a comment on each;
-`smoke.yaml` is the annotated example, `demo.yaml` the two-task
+domains and whatever else differs from the defaults. `template.yaml` lists
+every setting at its default with a few lines on what it does;
+`smoke.yaml` is the smoke test, `demo.yaml` the two-task
 demonstration and `baseline-haiku.yaml` the full baseline (every task of the
-three domains, three attempts each). Run one by name:
+three domains, three attempts each). "Experiment settings" in the
+documentation explains each setting in full. Run an experiment by name:
 
 ```bash
 mas-optimiser run smoke
@@ -289,7 +331,8 @@ Experiments give the agent every tool its domain's server offers
 (`mode: all_tools`); `--mode oracle` gives it only the tools the benchmark
 lists with each task, the setting that published results use (see "What is
 fixed and what is optimised" in the documentation).
-To define a new experiment, copy `smoke.yaml` under a new name. Models are
+To define a new experiment, copy `template.yaml` under a new name, set the
+model and the domain, and delete the settings left at their defaults. Models are
 named the same way: `model: haiku-5-5` means `configs/models/haiku-5-5.yaml`,
 and a path works in place of any name. The command checks that the domain's
 server answers before it starts, and names the servers' start command if not.
@@ -623,8 +666,8 @@ holds the seed, the proportions, the balance, what was read, the seen tasks
 and the three lists of task ids, and no result of any single task. The split
 `haiku-20-40-40`, used in the examples of this page, was drawn on 27 October
 with both balances and 20 seen tasks. The split `seed-1`, which the
-experiment files `evolve-haiku`, `evolve-gpt-5.1` and `evolve-gpt-oss-20b`
-use, has the default shares, a balance on domain and no seen task. Paths
+experiment files `evolve-haiku`, `evolve-gpt-5.1`, `evolve-gpt-5.1-all-roles`
+and `evolve-gpt-oss-20b` use, has the default shares, a balance on domain and no seen task. Paths
 here are inside the repository, whatever the working directory.
 
 ## Local copies of the seed databases
@@ -763,22 +806,13 @@ decides whether it replaces the current harness. At the end every harness
 that was kept is run once on the test tasks. The method, who may read what,
 and the files it writes are on "The improvement loop" in the documentation.
 
-The experiment file holds the settings of `run` and the loop's own:
-
-| setting            | what it sets                                                                                                                                      | default           |
-|--------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|-------------------|
-| `split`            | the split whose three sets are used, by its name alone                                                                                            | none, must be set |
-| `harness`          | the folder the experiment starts from                                                                                                             | `default`         |
-| `proposer_model`   | the model file of the roles that read and propose                                                                                                 | the agent's model |
-| `rounds`           | rounds of the loop                                                                                                                                | 10                |
-| `candidates`       | candidates proposed in each round                                                                                                                 | 1                 |
-| `alpha`            | the chance, over the experiment, of keeping a useless change                                                                                      | 0.05              |
-| `filter_share`     | the share of the validation tasks a candidate is run on first, and dropped if it does no better there; 0 for no filter                            | 0.5               |
-| `filter_threshold` | the gain, in percentage points, a candidate must be above on the filter's tasks                                                                   | 0                 |
-| `pool_share`       | the share of the training tasks whose traces the roles that read and propose may open in a round; 1 for every task                                | 0.5               |
-| `pool_pick`        | how that share is picked from the tasks ranked by score: `spread`, evenly and one place further each round, or `ends`, the lowest and the highest | `spread`          |
-| `editable`         | the types of file a proposal may edit: `.md` for the agent's text, `.py` for its code                                                             | `.md` and `.py`   |
-| `approval`         | `each`: every change is shown at the terminal and run only after a yes; `none`: no one is asked                                                   | `none`            |
+The experiment file holds the settings of `run` and the loop's own, which
+only `evolve` reads: the split, the harness the experiment starts from, the
+proposer's model (the agent's when not given), the rounds and the candidates
+in each, the chance of keeping a useless change, the filter, the pool, the
+types of file a proposal may edit and whether a person approves each change.
+`configs/experiments/template.yaml` lists each at its default, and
+"Experiment settings" in the documentation explains them.
 
 ```
 mas-optimiser evolve evolve-smoke

@@ -1,6 +1,9 @@
 """Unit tests of the experiment and model config loading in ``runner``."""
 
+import re
+
 import pytest
+import yaml
 
 from mas_optimiser.benchmarks.enterpriseops import runner
 from tests.unit.test_markdown import cells
@@ -100,6 +103,33 @@ def test_experiment_file_is_validated(tmp_path):
     # A split's name alone names all three of its sets.
     named = runner.load_experiment("smoke", no_overrides | {"split": "haiku-20-40-40"})
     assert named["split"] == "haiku-20-40-40"
+
+
+def test_the_template_lists_every_setting_at_its_default():
+    template = yaml.safe_load(
+        (runner.CONFIGS / "experiments" / "template.yaml").read_text()
+    )
+    assert template == runner.EXPERIMENT_DEFAULTS
+
+
+def test_every_experiment_file_loads_and_the_template_cannot_be_run():
+    no_overrides = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
+    names = sorted(p.stem for p in (runner.CONFIGS / "experiments").glob("*.yaml"))
+    assert "template" in names
+    for name in names:
+        if name == "template":
+            # Its model and domain are left empty.
+            with pytest.raises(SystemExit, match="model is set neither"):
+                runner.load_experiment(name, no_overrides)
+        else:
+            runner.load_experiment(name, no_overrides)
+
+
+def test_the_settings_page_has_a_section_for_every_setting():
+    page = (runner.REPO_ROOT / "docs" / "settings.md").read_text()
+    assert sorted(re.findall(r"^### `(\w+)`$", page, re.M)) == sorted(
+        runner.EXPERIMENT_DEFAULTS
+    )
 
 
 def test_run_name_is_the_start_minute_and_the_label():
