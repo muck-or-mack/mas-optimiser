@@ -67,8 +67,9 @@ class EnterpriseOps(Domain):
     Args:
         experiment: The settings from ``runner.load_experiment``; ``split``
             names the split, ``limit`` caps each of its sets (for a trial of
-            the loop), and ``editable`` gives the file types a proposal may
-            touch.
+            the loop), ``editable`` gives the file types a proposal may
+            touch, and ``feedback`` says what the proposer is told of its
+            earlier proposals.
 
     Attributes:
         name: The folder under the experiment's that holds the loop's files.
@@ -154,6 +155,11 @@ class EnterpriseOps(Domain):
             "digester": prompts.DIGESTER,
             "proposer": prompts.PROPOSER.format(
                 editable=", ".join(sorted(self.source_exts))
+            )
+            + (
+                f"\n\n{prompts.FEEDBACK}"
+                if experiment["feedback"] == "training"
+                else ""
             ),
             "critic": prompts.CRITIC,
         }

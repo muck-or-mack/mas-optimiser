@@ -192,8 +192,9 @@ def rounds(folder: Path) -> pd.DataFrame:
 
     Returns:
         One row per candidate, in the order they were decided. The gain on
-        the filter's tasks and the gate's gain and standard error are in
-        percentage points. What the candidate proposed is the kind of each
+        the training tasks (where the experiment had every candidate run on
+        them), the gain on the filter's tasks and the gate's gain and
+        standard error are in percentage points. What the candidate proposed is the kind of each
         of its edits, the proposer's hypothesis (one per edit, numbered,
         when a candidate holds several), the files its change edited, the
         lines it added and removed, and where its diff is kept, from the
@@ -241,6 +242,10 @@ def rounds(folder: Path) -> pd.DataFrame:
                 step.get("action") for draft in drafts for step in draft.get("log", [])
             ]
             finished = sum(draft.get("status") == "done" for draft in drafts)
+            # How the candidate did on the training tasks, where the
+            # experiment had every candidate run on them.
+            fed = patch.parent / "training.json"
+            fed = json.loads(fed.read_text()) if fed.is_file() else {}
             rows.append(
                 {
                     "round": t + 1,
@@ -255,6 +260,9 @@ def rounds(folder: Path) -> pd.DataFrame:
                     "filter_gain_points": (decision.get("filter") or {}).get(
                         "gain_points"
                     ),
+                    "training_gain_points": 100 * fed["delta_S_training"]
+                    if fed
+                    else None,
                     "gain_points": 100 * decision["mean"] if gated else None,
                     "standard_error_points": 100 * decision["se"] if gated else None,
                     "t": decision.get("t"),
@@ -444,13 +452,15 @@ def run(args: argparse.Namespace) -> None:
         Args:
             frame: The rows.
             columns: Each column to show and its heading.
-            formats: The format of a column's values; an empty value stays empty.
+            formats: The format of a column's values, for those of the
+                columns that are shown; an empty value stays empty.
 
         Returns:
             The table as markdown, its columns aligned.
         """
         shown = frame[list(columns)].copy()
-        for column, pattern in formats.items():
+        for column in shown.columns.intersection(list(formats)):
+            pattern = formats[column]
             shown[column] = [
                 "" if pd.isna(value) else pattern.format(value)
                 for value in shown[column]
@@ -583,6 +593,14 @@ def run(args: argparse.Namespace) -> None:
                     "round": "round",
                     "changed": "changed",
                     "ended_at": "ended at",
+                }
+                # Shown where the experiment ran its candidates on them.
+                | (
+                    {"training_gain_points": "gain on the training tasks"}
+                    if decided["training_gain_points"].notna().any()
+                    else {}
+                )
+                | {
                     "filter_gain_points": "gain on the filter's tasks",
                     "gain_points": "gain on all validation tasks",
                     "standard_error_points": "standard error",
@@ -591,6 +609,7 @@ def run(args: argparse.Namespace) -> None:
                     "p": "p",
                 },
                 {
+                    "training_gain_points": "{:+.1f}",
                     "filter_gain_points": "{:+.1f}",
                     "gain_points": "{:+.1f}",
                     "standard_error_points": "{:.1f}",

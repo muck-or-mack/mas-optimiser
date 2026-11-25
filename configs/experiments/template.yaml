@@ -133,6 +133,14 @@ attempts_filter:
 attempts_gate:
 attempts_test:
 
+# What the proposing model is told about its earlier proposals. outcome:
+# what each was and whether it was accepted. training: that, and how each
+# did on the training tasks (the difference in score from the current
+# harness, its standard error, the change in tokens), for which every
+# candidate is also run on the training tasks. It is never told a number
+# from the validation tasks. Default: outcome.
+feedback: outcome
+
 # The chance, over the whole experiment, of keeping a change that does
 # nothing. Higher keeps more changes, more of them useless; lower needs
 # larger gains. Above 0, below 1. Default: 0.05. (planner)

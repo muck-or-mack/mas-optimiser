@@ -199,6 +199,7 @@ def benchmark(monkeypatch):
         "split": "drawn",
         "limit": None,
         "editable": [".md"],
+        "feedback": "outcome",
         "approval": "none",
         "concurrency": 2,
         "model_timeout": 300,
@@ -239,6 +240,11 @@ def test_the_sets_are_the_splits_tasks_that_can_be_run(benchmark):
     assert benchmark.heldout_ids() == ["h1"]
     assert benchmark.smoke_ids() == ["t1"]
     assert ".md" in benchmark.briefs["proposer"]
+    # The numbers from the training tasks are explained to a proposer that
+    # will be given them, and to no other.
+    assert "delta_S_training" not in benchmark.briefs["proposer"]
+    fed = adapter.EnterpriseOps(benchmark.experiment | {"feedback": "training"})
+    assert fed.briefs["proposer"].endswith(adapter.prompts.FEEDBACK)
     assert benchmark.constitution("anywhere")[0].startswith("# Rules")
 
 
@@ -553,7 +559,7 @@ def test_an_experiment_says_and_records_what_differs_from_the_defaults(
         frontier_path = tmp_path / "none"
 
         def __init__(self, *args):
-            Stop.cfg, Stop.attempts = args[1], args[-1]
+            Stop.cfg, Stop.attempts, Stop.feedback = args[1], args[-2], args[-1]
 
         def baseline(self):
             raise Reached
@@ -567,6 +573,7 @@ def test_an_experiment_says_and_records_what_differs_from_the_defaults(
     chosen = {"experiment": "evolve-smoke", "accept_unreviewed_code": False}
     with pytest.raises(Reached):
         stages = {"edits_first": 3, "attempts_gate": 3, "attempts_test": 2}
+        stages |= {"feedback": "training"}
         loop.run(SimpleNamespace(**(unset | chosen | stages)))
 
     said = capsys.readouterr().out
@@ -580,6 +587,7 @@ def test_an_experiment_says_and_records_what_differs_from_the_defaults(
     # the experiment's ``attempts``.
     assert Stop.cfg.k == 3
     assert Stop.attempts == {"training": 1, "filter": 1, "test": 2}
+    assert Stop.feedback == "training"
     folder = tmp_path / "evolve-smoke" / "haiku-20-40-40"
     record = json.loads((folder / "experiment.json").read_text())
     assert record["changed"]["rounds"] == 1
@@ -1009,3 +1017,31 @@ def test_the_proposer_reads_training_tasks_and_hears_only_the_outcome(
     assert not held_out & set(json.dumps(given["told"]).replace('"', " ").split())
     # The record kept for people does hold the numbers.
     assert run.history.records()[1]["delta_S"] == pytest.approx(0.0)
+    # A candidate that is not kept is not run on the training tasks.
+    assert "r0A_training" not in dict(run.domain.jobs)
+
+
+def test_with_feedback_from_training_the_proposer_is_told_how_a_proposal_did_there(
+    tmp_path, monkeypatch
+):
+    no_better = [0.5, 0.4, 0.6, 0.5, 0.45, 0.55]
+    run, given = experiment(tmp_path, monkeypatch, no_better, feedback="training")
+    run.baseline()
+    run.round(0)
+    # The candidate is run on the training tasks although it is not kept.
+    assert dict(run.domain.jobs)["r0A_training"] == TRAINING
+    for job in ("r1A", "r1A_training"):
+        run.domain.scores[job] = run.domain.scores[job.replace("r1", "r0")]
+    run.round(1)
+    (told,) = given["told"]
+    assert told["outcome"] == "REJECTED"
+    # Both training tasks rose from 0.5 to 0.75: a quarter, with no chance in
+    # it, and the same tokens.
+    assert (told["delta_S_training"], told["standard_error"]) == (0.25, 0.0)
+    assert told["delta_C_training"] == 0.0
+    # Of the validation tasks it still hears the outcome and nothing else.
+    held_out = set(VALIDATION) | set(TEST)
+    assert not held_out & set(json.dumps(given["told"]).replace('"', " ").split())
+    assert "delta_S" not in told and "S" not in told
+    # RRSI's record of what each edit predicted is kept from the training runs.
+    assert [row["edit_id"] for row in run.scoreboard()] == ["C1", "C1"]

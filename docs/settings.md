@@ -49,6 +49,7 @@ of `run`. "Planner" marks the settings the planner has a control for.
 | [`attempts_filter`](#attempts-filter)     | `attempts`        | evolve  |         |
 | [`attempts_gate`](#attempts-gate)         | `attempts`        | evolve  |         |
 | [`attempts_test`](#attempts-test)         | `attempts`        | evolve  |         |
+| [`feedback`](#feedback)                   | `outcome`         | evolve  |         |
 | [`alpha`](#alpha)                         | 0.05              | evolve  | yes     |
 | [`filter_share`](#filter-share)           | 0.5               | evolve  | yes     |
 | [`filter_threshold`](#filter-threshold)   | 0                 | evolve  |         |
@@ -327,6 +328,20 @@ task this many times.
 How many times each test task is attempted, at the end, by each harness the
 experiment kept. Left out, it is `attempts`. More attempts narrow the
 confidence interval of the final gain. They take no part in any decision.
+
+### `feedback`
+
+What the proposer is told about its own earlier proposals. With `outcome`
+it is told what each was and whether it was accepted, and nothing else.
+With `training` every candidate is also run on the training tasks, and the
+proposer is told the difference from the current harness's score there,
+the standard error of that difference and the change in tokens an attempt
+used. It is never told a number from the validation tasks, on which the
+gate decides. `training` shows the proposer which of its ideas moved the
+tasks it can read, including those the gate turned down, and costs one
+more run of the training tasks for every candidate that is not kept. See
+"What the proposer is told of its earlier proposals" on
+[The improvement loop](methodology/improvement-loop.md).
 
 ### `alpha`
 
