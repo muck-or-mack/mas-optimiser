@@ -382,7 +382,9 @@ An attempt as a whole has two limits of its own: 3,600 seconds
 `--attempt-timeout` and `--attempt-calls` to change them for one command. An
 attempt that passes either is ended and recorded as an error, counted as a
 failure, with no tokens against it: what it spent before it was ended is
-not in the run's cost. The runner keeps the limits and not the agent, so a
+not in the run's cost. An attempt that passes its seconds is so recorded
+only once the model service has been found to answer, as the next paragraph
+says. The runner keeps the limits and not the agent, so a
 changed harness cannot lift them; an attempt of the starting harness uses a
 small part of each.
 
@@ -390,13 +392,16 @@ An attempt can also end because a service it needs failed, and not the
 harness: the model service was down or refused the key, or the domain's
 server was down. Counting that as the harness's failure would lower a score
 for nothing, so the runner asks the service before it counts anything. After
-a call to the model that failed for good it asks the model service a
-one-word question, and after an attempt that ended in an error it asks the
-domain's server for its health.
+a call to the model that failed for good, or an attempt cut off at its
+seconds, it asks the model service a one-word question, and after an attempt
+that ended in an error it asks the domain's server for its health. The
+seconds are in this because an outage does not make a call fail: a model
+file can tell the provider's library to go on sending a call
+(`max_retries`), and the attempt then waits until its limit ends it.
 
-- **The service answers.** After a failed call the attempt is run again, up
-  to `attempt_retries` times (2), and a call that still fails is the
-  harness's own doing. An error with the server answering is the harness's
+- **The service answers.** After a failed call or an attempt past its
+  seconds the attempt is run again, up to `attempt_retries` times (2), and
+  one that still fails is the harness's own doing. An error with the server answering is the harness's
   own doing at once. Either way the attempt counts as a failure, with none
   of its checks passed. An agent that asks for a tool the server does not
   have ends like this, since the benchmark ends such an attempt.

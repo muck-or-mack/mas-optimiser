@@ -116,10 +116,10 @@ EXPERIMENT_DEFAULTS = {
     "attempt_calls": 100,
     # An attempt that ended in an error is no verdict on the harness while a
     # service it needs is not answering: the model service, asked a one-word
-    # question after a call that failed for good, or the domain's server,
-    # asked for its health after any error. Such an attempt is run again up
-    # to this many times, each time once the service answers, which is
-    # waited for at most this many seconds.
+    # question after a call that failed for good or an attempt cut off at its
+    # limit, or the domain's server, asked for its health after any error.
+    # Such an attempt is run again up to this many times, each time once the
+    # service answers, which is waited for at most this many seconds.
     "attempt_retries": 2,
     "service_wait": 1800,
     "harness": "default",
@@ -375,10 +375,13 @@ class TaskExecutor(BenchmarkExecutor):
         A call of an attempt can fail because of what the harness sent or
         because the service is not answering, and the two read differently
         from one provider to the next. A request that owes nothing to the
-        harness tells them apart on any provider.
+        harness tells them apart on any provider. Each ask is given a minute:
+        the provider's library may go on sending a call that gets no answer
+        for far longer than any wait (``max_retries`` in the model file).
 
         Args:
-            wait: The longest to go on asking, in seconds.
+            wait: The longest to go on asking, in seconds; an ask begun
+                within it may end up to a minute past it.
 
         Returns:
             Whether the service answered within that time.
@@ -386,7 +389,7 @@ class TaskExecutor(BenchmarkExecutor):
         deadline = time.monotonic() + wait
         while True:
             try:
-                await self.llm_client.llm.ainvoke("ping")
+                await asyncio.wait_for(self.llm_client.llm.ainvoke("ping"), 60)
             except Exception:  # noqa: BLE001 - any failure is no answer
                 if time.monotonic() >= deadline:
                     return False
@@ -1335,11 +1338,13 @@ async def run_task(
 ) -> tuple[dict, list[dict], list[dict], list[dict]]:
     """Run one task once with the harness's agent, save the attempt and return its rows.
 
-    An attempt ended by a call to the model that failed for good is no
-    verdict on the harness until the model service has been asked a one-word
-    question. If the service answers, the attempt can be run again; if it
-    does not within ``wait`` seconds, the attempt is recorded with
-    ``service_error`` set.
+    An attempt ended by a call to the model that failed for good, or cut off
+    at its time limit, is no verdict on the harness until the model service
+    has been asked a one-word question: through an outage the provider's
+    library may go on sending a call for longer than the limit, and the
+    limit is then what ends the attempt. If the service answers, the attempt
+    can be run again; if it does not within ``wait`` seconds, the attempt is
+    recorded with ``service_error`` set.
 
     An attempt that ended in any error is likewise no verdict until the
     domain's server has been asked for its health. If the server answers at
@@ -1364,7 +1369,8 @@ async def run_task(
         tags: The trace's tags; the attempt number is added.
         arguments: Each tool's argument names, from ``tool_arguments``.
         seconds: The longest the attempt may take, or ``None`` for no limit;
-            past it the attempt is ended and recorded as an error.
+            past it the attempt is ended, and recorded as an error unless
+            the model service proves silent or the attempt is run again.
         calls: The most calls to the model the attempt may make, or ``None``.
         retry: Whether the attempt may be asked for again.
         wait: The longest to wait for the model service or the domain's
@@ -1374,9 +1380,9 @@ async def run_task(
         What ``outputs`` returns.
 
     Raises:
-        Repeat: If a call to the model failed, or the domain's server was
-            down, the service answers again and ``retry`` is set; nothing of
-            the attempt is saved.
+        Repeat: If a call to the model failed, the attempt ran past its
+            limit or the domain's server was down, the service answers again
+            and ``retry`` is set; nothing of the attempt is saved.
     """
     # One executor call per attempt, so that each attempt is its own trace and
     # its own unit of concurrency; the executor's own loop over runs stays at one.
@@ -1411,19 +1417,25 @@ async def run_task(
         else nullcontext()
     )
     with span_context as span:
+        cut_off = False
         try:
             result = await asyncio.wait_for(executor.execute_benchmark(), seconds)
         except TimeoutError:
             # Ended from outside the harness, whatever the harness was doing.
             said = f"the attempt ran past its limit of {seconds:g} seconds"
             result = {"runs": [{"run_number": 1, "error": said}]}
+            # A call the provider's library goes on sending through an outage
+            # never fails, so the limit is what ends the attempt. Before the
+            # model client is built no call can have been waiting.
+            cut_off = executor.llm_client is not None
         except Exception as exc:
             # Raised before the attempt started, e.g. a server that is not up.
             result = {"runs": [{"run_number": 1, "error": repr(exc)}]}
         execution = result["runs"][0]
-        if executor.call_error:
+        if executor.call_error or cut_off:
             # The attempt's last call to the model failed, whether or not the
-            # harness went on to end the attempt in its own way.
+            # harness went on to end the attempt in its own way, or the
+            # attempt was cut off at its limit.
             if not await executor.service_answers(wait):
                 execution["service_error"] = True
             elif retry:
@@ -1701,7 +1713,8 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         "--attempt-retries",
         type=int,
         help="times an attempt is run again when a call to the model failed "
-        "for good or the domain's server was down (2 by default)",
+        "for good, the attempt ran past its seconds or the domain's server "
+        "was down (2 by default)",
     )
     parser.add_argument(
         "--service-wait",

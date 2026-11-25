@@ -63,13 +63,15 @@ concurrency: 4
 model_timeout: 300
 
 # The most seconds, and the most calls to the model, one attempt may use.
-# Past either it is ended and recorded as an error. Lower stops runaway
-# attempts sooner and may cut off long tasks. Defaults: 3600 and 100.
+# Past either it is ended and recorded as an error; past its seconds, the
+# model service is asked first, as below. Lower stops runaway attempts
+# sooner and may cut off long tasks. Defaults: 3600 and 100.
 attempt_timeout: 3600
 attempt_calls: 100
 
-# An attempt that ends in an error while a service it needs is not answering
-# is run again once the service answers, at most attempt_retries times. The
+# An attempt that ends in an error or at its limit of seconds may be a
+# service's doing and not the harness's: the service is asked, and once it
+# answers the attempt is run again, at most attempt_retries times. The
 # service is waited for at most service_wait seconds; past that the attempt
 # counts for nothing and the command ends with an error. Defaults: 2 and 1800.
 attempt_retries: 2

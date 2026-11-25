@@ -276,7 +276,7 @@ const OTHER = [
   ["How it is run", "model_timeout", "Seconds one call to the model may wait before it is given up and sent again.", "300"],
   ["How it is run", "attempt_timeout", "The most seconds one attempt may take before it is ended as an error.", "3600"],
   ["How it is run", "attempt_calls", "The most calls to the model one attempt may make before it is ended as an error.", "100"],
-  ["How it is run", "attempt_retries", "Times an attempt is run again after an error met while a service was not answering.", "2"],
+  ["How it is run", "attempt_retries", "Times an attempt is run again after an error, or its limit of seconds, that may be a service's doing.", "2"],
   ["How it is run", "service_wait", "Seconds a service that is not answering is waited for before the command gives up.", "1800"],
   ["What is recorded", "trace", "Send each attempt to Langfuse as a trace. Scores do not change.", "true"],
   ["What is recorded", "thinking_summary", "Ask the model for a summary of its reasoning. It changes behaviour and cost: demonstrations only.", "false"],

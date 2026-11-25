@@ -198,16 +198,21 @@ the harness does not, so that no change to a harness lifts them:
 `attempt_timeout` (3,600 seconds unless the experiment says otherwise) and
 `attempt_calls` (100). [`run_task`][runner.run_task] ends an attempt that
 runs past its seconds, and the executor counts the calls where the harness
-reaches the model and raises at the first one past the cap. Either way the
-attempt is recorded as an error and counted as a failure. The waiting that
-a rate limit causes counts towards the seconds, so that limit is also the
+reaches the model and raises at the first one past the cap. An attempt
+past its calls is recorded as an error and counted as a failure. An attempt
+past its seconds is first settled as the next paragraph says, because the
+seconds may have gone on waiting for the service: the waiting that a rate
+limit or an outage causes counts towards them, so that limit is also the
 cap on the waiting.
 
 A call to the model that fails once the client's own tries are spent is
 noted where the harness reaches the model
 ([`TaskExecutor.initialize`][runner.TaskExecutor.initialize]). Such an
-attempt is no verdict on the harness yet. The executor asks the service a
-one-word question
+attempt is no verdict on the harness yet. Nor is an attempt cut off at its
+seconds: a client told to go on sending a call (`max_retries` in the model
+file) does not fail through an outage, and the limit is then what ends the
+attempt. In both cases the executor asks the service a one-word question,
+each ask given a minute
 ([`service_answers`][runner.TaskExecutor.service_answers]): if it answers,
 [`run_tasks`][runner.run_tasks] runs the attempt again, `attempt_retries`
 times at most, and a failure that is still there is the harness's own; if
@@ -583,8 +588,8 @@ What goes wrong, and where to look:
 | `report_error` on the run | the trace or the rows raised; the page has no trace | [`run_task`][runner.run_task] |
 | a failed check with `kind` `unsupported` in `checks.csv` | a query shape the diagnosis cannot take apart (a top-level OR, a GROUP BY, a derived table), or a table with no key to find its rows by | [`sql.parse`][sql.parse], [`diagnosis.diagnose`][diagnosis.diagnose] |
 | an attempt with 50 model calls | the agent hit `max_iterations` | `agent.py:59`, `base.py:23` |
-| an `error` of `the attempt ran past its limit of ... seconds` or `the attempt made more than ... calls to the model` | the attempt reached one of its two limits | `attempt_timeout` and `attempt_calls`, section 2.3 |
-| `service_error` is `True`, and the command ended with `a service they need did not answer` | a call to the model failed and the model service did not answer a one-word question within `service_wait` seconds (the key's spending limit, an outage), or an attempt ended in an error and the domain's server did not answer its health check in that time (the server is down) | the attempt is left out of every score; give the command again when the service answers; section 2.3 |
+| an `error` of `the attempt ran past its limit of ... seconds` or `the attempt made more than ... calls to the model` | the attempt reached one of its two limits; for the seconds, the model service was answering and no further try was left | `attempt_timeout`, `attempt_calls` and `attempt_retries`, section 2.3 |
+| `service_error` is `True`, and the command ended with `a service they need did not answer` | a call to the model failed, or the attempt ran past its seconds, and the model service did not answer a one-word question within `service_wait` seconds (the key's spending limit, an outage), or an attempt ended in an error and the domain's server did not answer its health check in that time (the server is down) | the attempt is left out of every score; give the command again when the service answers; section 2.3 |
 | an `error` that holds `429` or `rate limit` | the service refused the call more times than the model file's `max_retries` allows | `evaluation.log` has a line for each refusal and each wait; section 2.3 |
 | `tool_errors` above zero | a tool answered with an error; the page marks the call `ERROR`. A lookup that found no record is marked `nothing found` and counted in `lookups_empty` | [`succeeded`][report.succeeded] |
 

@@ -169,9 +169,12 @@ set, and the run says so.
 
 The most seconds one attempt may take. It is kept by the runner and not by
 the harness, so a change to the harness cannot lift it. An attempt that
-passes it is ended and recorded as an error. An attempt of the starting
-harness uses a small part of it; the limit exists for a candidate that
-loops.
+passes it is ended. It may have spent its seconds waiting for a model
+service that was down, so the service is asked first, as under
+[`attempt_retries`](#attempt-retries); the attempt is recorded as an error
+only when the service answers and no further try is left. An attempt of the
+starting harness uses a small part of the limit; it exists for a candidate
+that loops, which costs this many seconds for each try it is given.
 
 ### `attempt_calls`
 
@@ -185,13 +188,16 @@ needs many steps.
 An attempt that ends in an error says nothing about the harness while a
 service it needs is not answering. After such an error the runner asks the
 service: the model service a one-word question, after a call that failed
-for good, and the domain's server for its health, after any error. Once the
-service answers, the attempt is run again, at most this many times. With 0
-no attempt is run again.
+for good or an attempt cut off at its seconds, and the domain's server for
+its health, after any error. Once the service answers, the attempt is run
+again, at most this many times. With 0 no attempt is run again. More gives
+a harness that itself runs past its seconds more tries, each as long as
+[`attempt_timeout`](#attempt-timeout).
 
 ### `service_wait`
 
-The most seconds a service that is not answering is waited for. An attempt
+The most seconds a service that is not answering is waited for; the model
+service is asked about once a minute, each ask given a minute. An attempt
 whose service never answered in that time is marked as the service's
 failure, is left out of every score, and the command ends with an error
 that says so; giving the command again carries on. A long wait rides out a

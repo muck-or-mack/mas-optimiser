@@ -105,8 +105,11 @@ either way. With `approval: each` a person reads every change, and with
 Two limits hold whatever the harness becomes, because the runner keeps them
 and not the agent: an attempt is ended after `attempt_timeout` seconds
 (3,600 unless changed) or `attempt_calls` calls to the model (100), and
-recorded as an error. A change that makes the agent loop without end
-therefore costs one attempt's limit and not the experiment.
+recorded as an error; an attempt past its seconds is recorded so only once
+the model service has been found to answer and the attempt has had its
+further tries (`attempt_retries`, 2), since an outage runs an attempt past
+its seconds too. A change that makes the agent loop without end therefore
+costs a few attempts' limits and not the experiment.
 
 A failure of a service is kept apart from a failure of the harness. An
 attempt that ends because a call to the model failed is run again once the
