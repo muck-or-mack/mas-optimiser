@@ -1,7 +1,8 @@
 # Baseline: the starting harness with gpt-oss-20b, served on the machine that
 # runs the tasks, on every task of the three domains, one attempt each, one
 # evaluation per domain. Start the model's server first
-# (`mas-optimiser server gpt-oss-20b`). Keys are explained in smoke.yaml.
+# (`mas-optimiser server gpt-oss-20b`). Every setting is explained in
+# template.yaml.
 model: gpt-oss-20b
 domain: [itsm, csm, hr]
 mode: all_tools

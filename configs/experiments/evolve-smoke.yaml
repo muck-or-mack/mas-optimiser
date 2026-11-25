@@ -1,44 +1,14 @@
 # A trial of the improvement loop, small enough to watch: three tasks of each
 # set, one attempt, one round. It shows that the loop's parts connect; three
 # tasks decide nothing, so the gate is not expected to accept anything.
-# `mas-optimiser evolve evolve-smoke` runs it; the keys are those of
-# smoke.yaml and the loop's own, each explained there or below.
+# `mas-optimiser evolve evolve-smoke` runs it. Every setting is explained in
+# template.yaml; those left out here take their defaults.
 model: haiku-5-5
 domain: itsm
-mode: all_tools
-attempts: 1
 concurrency: 3
 trace: false
-# The split whose three sets the loop uses, by its name alone.
 split: haiku-20-40-40
-# At most this many tasks of each set.
 limit: 3
-# The model that reads the training results and proposes changes; the
-# agent's model when not given.
-proposer_model: haiku-5-5
-# Rounds of the loop, and candidates proposed in each.
 rounds: 1
-candidates: 1
-# The chance, over the whole experiment, of keeping a change that does nothing.
-alpha: 0.05
-# The filter: a candidate is run on this share of the validation tasks first
-# and dropped, before the rest are run, unless its score there is above the
-# current harness's by more than the threshold (in percentage points). A
-# share of 0 is no filter.
-filter_share: 0.5
-filter_threshold: 0
-# The pool: the share of the training tasks whose traces the analyst and the
-# proposer may read in a round (at least one task; 1 for every task), and how
-# it is picked from the tasks ranked by score: spread, evenly over the
-# ranking and one place further each round, or ends, the lowest and the
-# highest. Both roles are given every training task's score whatever the share.
-pool_share: 0.5
-pool_pick: spread
-# The types of file in the harness folder a proposal may edit: text only
-# here, so that no model-written code is run. With .py as well the agent's
-# code may be changed, and the command then asks for either a person's
-# approval of each change or --accept-unreviewed-code.
+# Text only, so that no code written by a model is run.
 editable: [".md"]
-# Whether a person approves each change before it is first run: each shows
-# the change at the terminal and waits for a yes; none asks no one.
-approval: none
