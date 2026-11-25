@@ -503,6 +503,21 @@ def test_the_screen_passes_the_starting_harness_and_prose_and_stops_unsafe_code(
     assert all(reasons(line) for line in unsafe)
 
 
+def test_the_screen_stops_a_change_to_a_file_type_that_may_not_be_edited(benchmark):
+    code, text = diff_of("harness/agent.py"), diff_of("harness/prompt.md")
+    why = "a change to a file of a type that may not be edited"
+    # The made-up experiment lets text alone be edited. The released tool
+    # for editing a file does not check its type, so the screen does.
+    assert why in critic.precheck(code, benchmark.critic_patterns)
+    assert critic.precheck(text, benchmark.critic_patterns) == []
+    assert why in critic.precheck(code + text, benchmark.critic_patterns)
+    # With code editable too, a change to either file passes.
+    both = adapter.EnterpriseOps(benchmark.experiment | {"editable": [".md", ".py"]})
+    assert critic.precheck(code + text, both.critic_patterns) == []
+    # The patterns of the class, which every experiment starts from, are as they were.
+    assert len(both.critic_patterns) == len(adapter.EnterpriseOps.critic_patterns) + 1
+
+
 def test_the_brief_says_how_the_empty_text_file_is_filled(tmp_path):
     # The starting harness's text file exists and is empty. The released
     # tools refuse to write a file that exists, and replace a passage only

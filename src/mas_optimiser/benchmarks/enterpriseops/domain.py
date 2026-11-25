@@ -75,7 +75,8 @@ class EnterpriseOps(Domain):
         name: The folder under the experiment's that holds the loop's files.
         harness_path: The harness folder inside the experiment's repository.
         critic_patterns: What a proposal's diff must not contain, each with
-            the reason given when it does.
+            the reason given when it does. An experiment's own list adds a
+            change to a file whose type is not among its ``editable``.
         component_signals: The patterns by which RRSI settles the kind of
             change an edit is recorded as. RRSI keeps the kind the proposer
             declares only where the diff holds one of that kind's patterns,
@@ -149,6 +150,17 @@ class EnterpriseOps(Domain):
             for name in splits.SETS
         }
         self.source_exts = set(experiment["editable"])
+        # RRSI's file tools check the type of a file that is created and not
+        # of one that is edited, so a change to a file of a type that may not
+        # be edited is stopped here, at the screen every diff goes through.
+        types = "|".join(re.escape(ext.lstrip(".")) for ext in self.source_exts)
+        self.critic_patterns = [
+            *type(self).critic_patterns,
+            (
+                rf"(?m)^(?:\+\+\+ b|--- a)/\S+\.(?!(?:{types})$)\w+$",
+                "a change to a file of a type that may not be edited",
+            ),
+        ]
         self.approval = experiment["approval"]
         self.briefs = {
             "analyst": prompts.ANALYST,
