@@ -3,6 +3,7 @@
 import argparse
 import csv
 import json
+import math
 import re
 
 import pytest
@@ -205,6 +206,26 @@ def test_a_candidate_of_several_edits_shows_the_kind_and_hypothesis_of_each(expe
     assert first["hypothesis"] == (
         "Edit 1 (prompt): it helps Edit 2 (control_flow): one more turn"
     )
+
+
+def test_rounds_give_the_proposers_own_record_of_each_drafting(experiment):
+    folder = experiment / "enterpriseops" / "r0" / "A"
+    # A first drafting whose first "done" was refused, and a second after the
+    # reviewer sent the proposal back.
+    first = ["read_trace", "edit_file", "done", "done"]
+    again = ["read_file", "edit_file", "done"]
+    for name, steps in (("proposal.json", first), ("proposal_r1.json", again)):
+        record = {"status": "done", "log": [{"action": step} for step in steps]}
+        (folder / name).write_text(json.dumps(record))
+    made, bare = report.rounds(experiment).to_dict("records")
+    assert (made["actions"], made["traces_opened"], made["files_read"]) == (7, 1, 1)
+    assert (made["done_refused"], made["sent_back"], made["edits"]) == (1, 1, 1)
+    # A candidate that left no record of its drafting has none of these.
+    assert math.isnan(bare["actions"]) and math.isnan(bare["sent_back"])
+    report.run(argparse.Namespace(folder=experiment))
+    page = (experiment / "report" / "report.md").read_text()
+    section = page[page.index("## How each proposal was made") :]
+    assert "| 1       | 7 " in section.split("## ")[1]
 
 
 def test_the_further_attempts_at_the_filters_tasks_are_a_job_the_report_knows():
