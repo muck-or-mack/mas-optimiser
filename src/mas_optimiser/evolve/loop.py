@@ -7,8 +7,9 @@ commit on a branch of its own) and everything the loop writes. Its steps:
 1. The baseline: the starting harness on the training tasks, kept in full
    for the search roles, and on the validation tasks, kept for the gate.
 2. A round, repeated: the analyst and the proposer are given the current
-   harness's score on every training task, and may read the traces of the
-   round's pool, a share of those tasks picked each round; the
+   harness's score on every training task and a count of how its attempts
+   at them went wrong, and may read the traces of the round's pool, a share
+   of those tasks picked each round; the
    proposer drafts each candidate in its own checkout, told of
    earlier proposals only whether each was accepted; a candidate that passes
    the review and still runs is scored on the validation tasks, on a share
@@ -92,6 +93,13 @@ SCORES = (
     "is in this round's pool, and only those have a trace that can be read; "
     "the others are listed for their scores."
 )
+# Put before the count of how the current harness's training attempts went,
+# in the same two roles' instructions, each round.
+FAILURES = (
+    "How the current harness's attempts at the training tasks went, counted "
+    "over every attempt and not only those of this round's pool, and what "
+    "their failed checks found, most frequent first."
+)
 TOLD = (
     "t",
     "variant",
@@ -114,7 +122,8 @@ class Experiment(Run):
 
     Args:
         domain: The benchmark, a ``Domain`` that also gives
-            ``validation_ids`` and, for a filter, ``domain_of`` (each task's
+            ``validation_ids``, ``failures`` (how a job's attempts went
+            wrong, as text) and, for a filter, ``domain_of`` (each task's
             group, of which the filter takes the same share).
         cfg: RRSI's settings: rounds, the attempts at the gate (its ``k``),
             candidates, the edits a candidate may hold and the models.
@@ -436,8 +445,9 @@ class Experiment(Run):
                 training.per_task, key=lambda task: training.per_task[task].mean
             )
         )
+        failures = d.failures(self.runs, current["training_job"])
         d.briefs = self.briefs | {
-            role: f"{self.briefs[role]}\n\n{SCORES}\n{scores}"
+            role: f"{self.briefs[role]}\n\n{FAILURES}\n{failures}\n\n{SCORES}\n{scores}"
             for role in ("analyst", "proposer")
         }
         # The most independent edits a candidate may hold this round: RRSI's
