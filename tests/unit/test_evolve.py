@@ -514,7 +514,7 @@ def test_an_experiment_says_and_records_what_differs_from_the_defaults(
         frontier_path = tmp_path / "none"
 
         def __init__(self, *args):
-            pass
+            Stop.cfg = args[1]
 
         def baseline(self):
             raise Reached
@@ -527,11 +527,15 @@ def test_an_experiment_says_and_records_what_differs_from_the_defaults(
     unset = dict.fromkeys(adapter.runner.EXPERIMENT_DEFAULTS)
     chosen = {"experiment": "evolve-smoke", "accept_unreviewed_code": False}
     with pytest.raises(Reached):
-        loop.run(SimpleNamespace(**(unset | chosen)))
+        loop.run(SimpleNamespace(**(unset | chosen | {"edits_first": 3})))
 
     said = capsys.readouterr().out
     assert "Settings that differ from the defaults:" in said
     assert "rounds           1" in said and "proposer_model" not in said
+    # The edits a candidate may hold are RRSI's two bounds: the first
+    # round's number is the upper one, the last round's the lower.
+    assert "edits_first      3" in said
+    assert (Stop.cfg.b_max, Stop.cfg.b_min) == (3, 1)
     folder = tmp_path / "evolve-smoke" / "haiku-20-40-40"
     record = json.loads((folder / "experiment.json").read_text())
     assert record["changed"]["rounds"] == 1
@@ -644,7 +648,7 @@ def experiment(tmp_path, monkeypatch, candidate_scores, **settings):
     monkeypatch.setattr(loop.analyst, "analyze", lambda *args, **kwargs: {})
 
     def draft(t, variant, folder, report, digests, traces, current, *rest):
-        given.update(traces=traces, current=current, told=rest[4])
+        given.update(traces=traces, current=current, told=rest[4], allowed=rest[0])
         given.update(briefs=dict(run.domain.briefs))
         (folder / variant).mkdir(exist_ok=True)
         branch = f"{run.domain.name}/r{t}{variant}"
@@ -864,6 +868,22 @@ def test_both_roles_are_given_every_training_score_with_the_pool_marked(
     assert given["briefs"]["analyst"].endswith("t1 0.50\nt2 0.50 *")
     # The benchmark's own texts are left as they were.
     assert Scores.briefs["analyst"] == "the analyst's brief"
+
+
+def test_the_edits_allowed_go_from_the_first_rounds_number_to_the_last_rounds(
+    tmp_path, monkeypatch
+):
+    run, given = experiment(tmp_path, monkeypatch, [0.5, 0.4, 0.6, 0.5, 0.45, 0.55])
+    run.cfg.b_max, run.cfg.b_min = 3, 1
+    run.baseline()
+    allowed = []
+    for t in range(3):
+        run.domain.scores[f"r{t}A"] = run.domain.scores["r0A"]
+        run.round(t)
+        allowed.append(given["allowed"])
+    # Three rounds: the first round's number, the last round's, and RRSI's
+    # half cosine between them.
+    assert allowed == [3, 2, 1]
 
 
 def test_the_proposer_reads_training_tasks_and_hears_only_the_outcome(

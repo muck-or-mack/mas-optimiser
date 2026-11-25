@@ -113,6 +113,14 @@ rounds: 10
 # more, and raise the bar for every one of them. Default: 1. (planner)
 candidates: 1
 
+# The most independent edits one candidate may hold, in the first round and
+# in the last; the rounds between go from the one number to the other along
+# RRSI's schedule. An edit is one change that works by itself, with a kind
+# and a hypothesis of its own. A candidate is judged as a whole, so with
+# several edits the gate cannot say which of them helped. Defaults: 1 and 1.
+edits_first: 1
+edits_last: 1
+
 # The chance, over the whole experiment, of keeping a change that does
 # nothing. Higher keeps more changes, more of them useless; lower needs
 # larger gains. Above 0, below 1. Default: 0.05. (planner)

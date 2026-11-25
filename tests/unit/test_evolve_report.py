@@ -194,6 +194,18 @@ def test_rounds_say_where_each_candidate_ended_and_give_the_gates_numbers(experi
     )
 
 
+def test_a_candidate_of_several_edits_shows_the_kind_and_hypothesis_of_each(experiment):
+    second = {"t": 0, "variant": "A", "edit_id": "C2"}
+    second |= {"component": "control_flow", "hypothesis": "one more turn"}
+    with (experiment / "enterpriseops" / "history.jsonl").open("a") as f:
+        f.write(json.dumps(second) + "\n")
+    first, _ = report.rounds(experiment).to_dict("records")
+    assert first["changed"] == "prompt, control_flow"
+    assert first["hypothesis"] == (
+        "Edit 1 (prompt): it helps Edit 2 (control_flow): one more turn"
+    )
+
+
 def test_errors_list_each_job_with_attempts_in_error_and_their_kinds(experiment):
     # Nothing in error, and an attempt its service never answered is not one.
     assert report.errors(experiment).empty

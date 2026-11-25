@@ -191,23 +191,33 @@ def rounds(folder: Path) -> pd.DataFrame:
     Returns:
         One row per candidate, in the order they were decided. The gain on
         the filter's tasks and the gate's gain and standard error are in
-        percentage points. What the candidate proposed is the proposer's
-        hypothesis, the files its change edited, the lines it added and
-        removed, and where its diff is kept, from the experiment's folder.
+        percentage points. What the candidate proposed is the kind of each
+        of its edits, the proposer's hypothesis (one per edit, numbered,
+        when a candidate holds several), the files its change edited, the
+        lines it added and removed, and where its diff is kept, from the
+        experiment's folder.
     """
     domain = folder / EnterpriseOps.name
     said = {}
     for line in (domain / "history.jsonl").read_text().splitlines():
         record = json.loads(line)
         if record.get("edit_id"):
-            said[record["t"], record["variant"]] = record
+            said.setdefault((record["t"], record["variant"]), []).append(record)
     rows = []
     for path in sorted(
         domain.glob("r*/decisions.json"), key=lambda p: int(p.parent.name[1:])
     ):
         t = int(path.parent.name[1:])
         for decision in json.loads(path.read_text()):
-            record = said.get((t, decision["variant"]), {})
+            edits = said.get((t, decision["variant"]), [])
+            # One edit is given in the proposer's words as they are; several
+            # are numbered, each with its kind.
+            hypothesis = " ".join(
+                str(edit.get("hypothesis"))
+                if len(edits) == 1
+                else f"Edit {n} ({edit.get('component')}): {edit.get('hypothesis')}"
+                for n, edit in enumerate(edits, start=1)
+            )
             gated = "t" in decision
             # The candidate's change as the loop kept it: a unified diff.
             patch = path.parent / decision["variant"] / "diff.patch"
@@ -216,7 +226,8 @@ def rounds(folder: Path) -> pd.DataFrame:
                 {
                     "round": t + 1,
                     "candidate": decision["variant"],
-                    "changed": record.get("component"),
+                    "changed": ", ".join(str(e.get("component")) for e in edits)
+                    or None,
                     "ended_at": (
                         ("accepted by the gate" if decision["accept"] else "the gate")
                         if gated
@@ -232,7 +243,7 @@ def rounds(folder: Path) -> pd.DataFrame:
                     "p": decision.get("p"),
                     "false_acceptances_allowed_percent": 100 * decision["level"],
                     "accepted": decision["accept"],
-                    "hypothesis": record.get("hypothesis"),
+                    "hypothesis": hypothesis or None,
                     "files": ", ".join(
                         line[6:] for line in lines if line.startswith("+++ b/")
                     ),

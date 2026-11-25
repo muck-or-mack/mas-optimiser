@@ -1311,6 +1311,16 @@ def test_a_pool_setting_that_makes_no_sense_is_refused():
     assert (settings["pool_share"], settings["pool_pick"]) == (1, "ends")
 
 
+@pytest.mark.parametrize("key", ["edits_first", "edits_last"])
+@pytest.mark.parametrize("edits", [0, 1.5, "two"])
+def test_the_edits_a_candidate_may_hold_are_whole_numbers_of_at_least_one(key, edits):
+    unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
+    with pytest.raises(SystemExit, match=f"{key} must be a whole number"):
+        runner.load_experiment("smoke", unset | {key: edits})
+    settings = runner.load_experiment("smoke", unset | {key: 2})
+    assert settings[key] == 2 and settings["changed"][key] == 2
+
+
 @pytest.mark.parametrize("limit", [0, -5, "soon", True])
 def test_a_time_limit_that_is_not_a_positive_number_is_refused(limit):
     unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)

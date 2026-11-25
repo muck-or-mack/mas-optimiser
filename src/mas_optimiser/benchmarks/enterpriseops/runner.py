@@ -125,7 +125,9 @@ EXPERIMENT_DEFAULTS = {
     "harness": "default",
     # The rest is read by ``mas-optimiser evolve`` only: the model of the
     # search roles (the agent's when not given), the rounds of the loop, the
-    # candidates proposed in each, the error budget of the whole experiment,
+    # candidates proposed in each, the most independent edits one candidate
+    # may hold (in the first round and in the last, with RRSI's schedule from
+    # the one to the other), the error budget of the whole experiment,
     # the filter a candidate passes before the full test (the share of the
     # validation tasks it is run on first, none at 0, and the gain in
     # percentage points it must be above there), the pool of training tasks
@@ -137,6 +139,8 @@ EXPERIMENT_DEFAULTS = {
     "proposer_model": None,
     "rounds": 10,
     "candidates": 1,
+    "edits_first": 1,
+    "edits_last": 1,
     "alpha": 0.05,
     "filter_share": 0.5,
     "filter_threshold": 0.0,
@@ -609,7 +613,7 @@ def load_experiment(spec: str, overrides: dict) -> dict:
         )
     if settings["approval"] not in ("none", "each"):
         raise SystemExit("error: approval must be none or each")
-    for key in ("rounds", "candidates"):
+    for key in ("rounds", "candidates", "edits_first", "edits_last"):
         if not isinstance(settings[key], int) or settings[key] < 1:
             raise SystemExit(f"error: {key} must be a whole number of at least 1")
     if not isinstance(settings["alpha"], float) or not 0 < settings["alpha"] < 1:

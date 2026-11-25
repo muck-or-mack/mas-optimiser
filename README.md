@@ -838,8 +838,9 @@ and the files it writes are on "The improvement loop" in the documentation.
 The experiment file holds the settings of `run` and the loop's own, which
 only `evolve` reads: the split, the harness the experiment starts from, the
 proposer's model (the agent's when not given), the rounds and the candidates
-in each, the chance of keeping a useless change, the filter, the pool, the
-types of file a proposal may edit and whether a person approves each change.
+in each, the edits one candidate may hold, the chance of keeping a useless
+change, the filter, the pool, the types of file a proposal may edit and
+whether a person approves each change.
 `configs/experiments/template.yaml` lists each at its default, and
 "Experiment settings" in the documentation explains them.
 

@@ -103,6 +103,22 @@ anything. The record of kinds is read in two places: the proposer is shown
 each earlier proposal's kind and hypothesis with whether it was accepted,
 and the report gives the kind in its column `changed`.
 
+### How many edits a candidate may hold
+
+An edit is one independent change: it works by itself and has a kind and a
+hypothesis of its own, and parts that depend on each other are one edit.
+When the proposer says it is done it lists its edits, and a list longer
+than the round allows is sent back to be merged or cut. The number allowed
+is `edits_first` in the first round and `edits_last` in the last, and
+follows RRSI's schedule between them, a half cosine rounded up; both are 1
+unless set. The released code divides the round by the number of rounds,
+which leaves the last round one step short of the lower number (3 and 1
+over 10 rounds end at 2); here the last round is the schedule's end.
+
+A candidate is run and judged as a whole. With several edits in it, an
+accepted candidate shows that they helped together, and each edit is
+recorded with the candidate's outcome.
+
 ### What stands between a change and its first run
 
 | check, in order                 | what it is                                        | what it stops                                                                                                                                                                                                                                                 |
@@ -243,17 +259,17 @@ same traces read again, and `spread` has other tasks read.
 The search roles run under limits that are constants of the released code.
 Its paper does not give them, and they are not settings here.
 
-| limit                                                                            | value            |
-|----------------------------------------------------------------------------------|------------------|
-| turns the analyst may take in a round                                            | 30               |
-| digesters the analyst may send in one turn                                       | 8                |
-| calls to the model by one digester                                               | 15               |
-| length of one digest                                                             | 6,000 characters |
-| turns the proposer may take on one candidate                                     | 40               |
-| edits the proposer may make in one drafting of a candidate                       | 80               |
-| characters of a trace given to the proposer by one read                          | 60,000           |
-| times a proposal is sent back after the reviewer objects                         | 5                |
-| share of a job's attempts that may have left no result before the job is refused | 15%              |
+| limit                                                                               | value            |
+|-------------------------------------------------------------------------------------|------------------|
+| turns the analyst may take in a round                                               | 30               |
+| digesters the analyst may send in one turn                                          | 8                |
+| calls to the model by one digester                                                  | 15               |
+| length of one digest                                                                | 6,000 characters |
+| turns the proposer may take on one candidate                                        | 40               |
+| file operations (a passage replaced, a file created) in one drafting of a candidate | 80               |
+| characters of a trace given to the proposer by one read                             | 60,000           |
+| times a proposal is sent back after the reviewer objects                            | 5                |
+| share of a job's attempts that may have left no result before the job is refused    | 15%              |
 
 ## The gate inside the loop
 
@@ -364,9 +380,9 @@ take no part until the end.
 
 An experiment file holds the settings of `mas-optimiser run` (the model,
 the domains, the attempts and so on) and those only `evolve` reads: `split`,
-`harness`, `proposer_model`, `rounds`, `candidates`, `alpha`,
-`filter_share`, `filter_threshold`, `pool_share`, `pool_pick`, `editable`
-and `approval`. [Experiment settings](../settings.md) gives each one's
+`harness`, `proposer_model`, `rounds`, `candidates`, `edits_first`,
+`edits_last`, `alpha`, `filter_share`, `filter_threshold`, `pool_share`,
+`pool_pick`, `editable` and `approval`. [Experiment settings](../settings.md) gives each one's
 meaning, its default and what changing it does, and
 `configs/experiments/template.yaml` lists them all to copy.
 
