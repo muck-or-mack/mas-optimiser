@@ -130,15 +130,20 @@ recorded with the candidate's outcome.
 
 ### What stands between a change and its first run
 
-| check, in order                 | what it is                                        | what it stops                                                                                                                                                                                                                                                 |
-|---------------------------------|---------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| the screen                      | a fixed list of patterns                          | a task's id or a record number; a reference to the checks; code that reads the environment, imports a module that reaches files, other programs or the network, runs text as code, reaches files outside the folder, or calls the model by a route of its own |
-| the reviewer                    | a model that reads the change against the rules   | anything taken from one task, anything aimed at the checks, and code that reaches outside the folder or the clients it is given                                                                                                                               |
-| a person, with `approval: each` | the change shown at the terminal, and a yes or no | whatever the person declines; a no ends the candidate and is recorded                                                                                                                                                                                         |
-| the one-task run                | the changed harness run on one training task      | a harness that no longer runs, or no longer writes its record in the form the package reads                                                                                                                                                                   |
+| check, in order                 | what it is                                        | what it stops                                                                                                                                                                                                                                                                                                      |
+|---------------------------------|---------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| the screen                      | a fixed list of patterns                          | a change to a file of a type that is not `editable`; a task's id or a record number; a reference to the checks; code that reads the environment, imports a module that reaches files, other programs or the network, runs text as code, reaches files outside the folder, or calls the model by a route of its own |
+| the reviewer                    | a model that reads the change against the rules   | anything taken from one task, anything aimed at the checks, and code that reaches outside the folder or the clients it is given                                                                                                                                                                                    |
+| a person, with `approval: each` | the change shown at the terminal, and a yes or no | whatever the person declines; a no ends the candidate and is recorded                                                                                                                                                                                                                                              |
+| the one-task run                | the changed harness run on one training task      | a harness that no longer runs, or no longer writes its record in the form the package reads                                                                                                                                                                                                                        |
 
 A change stopped by the screen or the reviewer goes back to the proposer
 with the reasons.
+
+The screen is what holds a proposal to the types of file in `editable`.
+RRSI's tool for creating a file checks its type; its tool for editing one
+does not, so with `.md` alone an edit of `agent.py` would otherwise go
+through and be run.
 
 ### What code edits ask of the machine
 
