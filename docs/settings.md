@@ -202,7 +202,10 @@ whose service never answered in that time is marked as the service's
 failure, is left out of every score, and the command ends with an error
 that says so; giving the command again carries on. A long wait rides out a
 short outage, and a short one ends sooner when the service will not return,
-as when a key's usage cap is reached.
+as when a key's usage cap is reached. The roles that read and propose wait
+the same way: a call of theirs that fails while their model service is
+silent is tried again once it answers, and a service silent for this long
+in all ends the experiment with a message that says so.
 
 ## What is recorded
 

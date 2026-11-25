@@ -34,6 +34,9 @@ timeout: float = 300
 # Seconds one call of a role may take in all, its tries and the waits between
 # them included; the loop sets it from the experiment's ``attempt_timeout``.
 limit: float = 3600
+# Seconds a model service that is not answering is waited for before the
+# experiment is ended; the loop sets it from the experiment's ``service_wait``.
+wait: float = 1800
 # Clients by model file, built on first use and kept for the process.
 _clients: dict = {}
 
@@ -67,7 +70,8 @@ def generate(
         prompt: The user message.
         system: The system message, if any.
         max_retries: Tries in all before giving up; a try that raises or
-            answers with no text is repeated after a growing pause.
+            answers with no text is repeated after a growing pause. A try
+            that failed while the service was not answering is not counted.
         json_only: Ask for a single JSON object and return only that part of
             the answer, as the released function does.
         model: The model file's name or path, as an experiment gives it.
@@ -81,7 +85,9 @@ def generate(
 
     Raises:
         RuntimeError: If no try gave an answer, or the call ran past
-            ``limit`` seconds.
+            ``limit`` seconds, with the model service answering.
+        SystemExit: If the model service did not answer a one-word question
+            for ``wait`` seconds in all.
     """
     if model not in _clients:
         config, _ = runner.load_model(runner.config_path("models", model))
@@ -121,7 +127,8 @@ def generate(
     failure = "no try was made"
     late = f"no answer within its limit of {limit:g} seconds"
     deadline = time.monotonic() + limit
-    for attempt in range(max_retries):
+    tries, silent = 0, 0.0
+    while tries < max_retries:
         started = time.monotonic()
         if started >= deadline:
             raise RuntimeError(late)
@@ -135,13 +142,50 @@ def generate(
         )
         asking.start()
         asking.join(deadline - started)
-        if asking.is_alive():
-            raise RuntimeError(late)
-        answer = outcome[0]
-        if isinstance(answer, Exception):
-            failure = repr(answer)
-            time.sleep(min(2**attempt, 30))
+        past_limit = asking.is_alive()
+        if past_limit or isinstance(outcome[0], Exception):
+            failure = late if past_limit else repr(outcome[0])
+            # The failure is the call's own only if the service answers a
+            # one-word question, as for an attempt of the agent
+            # (``runner.TaskExecutor.service_answers``). While it does not,
+            # it is asked again each minute, each ask given a minute.
+            waiting, at_once = time.monotonic(), True
+            while True:
+                word: list = []
+                ask = threading.Thread(
+                    target=_ask,
+                    args=(_clients[model], [HumanMessage("ping")], word),
+                    daemon=True,
+                )
+                ask.start()
+                ask.join(60)
+                if not ask.is_alive() and not isinstance(word[0], Exception):
+                    break
+                at_once = False
+                if silent + time.monotonic() - waiting >= wait:
+                    raise SystemExit(
+                        "error: the model service of the roles that read and "
+                        f"propose did not answer, after {wait:g} seconds of "
+                        "waiting for it. Give the command again when the "
+                        "service answers; the experiment carries on from "
+                        "this round."
+                    )
+                time.sleep(60)
+            if at_once:
+                if past_limit:
+                    raise RuntimeError(late)
+                tries += 1
+                time.sleep(min(2 ** (tries - 1), 30))
+            else:
+                # The try is not counted, and the time the service was
+                # silent is not taken from the call's limit: a call that had
+                # used the whole of its limit starts afresh.
+                waited = time.monotonic() - waiting
+                silent += waited
+                deadline = time.monotonic() + limit if past_limit else deadline + waited
             continue
+        tries += 1
+        answer = outcome[0]
         if usage_log is not None:
             usage = answer.usage_metadata or {}
             with usage_log.open("a") as f:

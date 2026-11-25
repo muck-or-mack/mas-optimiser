@@ -24,14 +24,17 @@ from rrsi.selection import Candidate
 
 
 class Scripted:
-    """A model that gives its answers in turn and keeps what it was sent."""
+    """A model that gives its answers in turn, raising those that are errors, and keeps what it was sent."""
 
     def __init__(self, *answers):
         self.answers, self.sent = list(answers), []
 
     def invoke(self, messages):
         self.sent.append([(type(m).__name__, m.content) for m in messages])
-        return self.answers.pop(0)
+        answer = self.answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
 
 
 def test_generate_returns_the_text_and_logs_the_call(tmp_path, monkeypatch):
@@ -94,11 +97,77 @@ def test_generate_tries_again_and_then_gives_up(monkeypatch):
 
 def test_generate_gives_up_a_call_that_runs_past_its_limit_of_seconds(monkeypatch):
     release = threading.Event()
-    stuck = SimpleNamespace(invoke=lambda messages: release.wait(5))
-    monkeypatch.setitem(models._clients, "a-model", stuck)
+
+    def invoke(messages):
+        # The service answers a one-word question, so the lateness is the call's.
+        return "pong" if messages[-1].content == "ping" else release.wait(5)
+
+    monkeypatch.setitem(models._clients, "a-model", SimpleNamespace(invoke=invoke))
     monkeypatch.setattr(models, "limit", 0.05)
     with pytest.raises(RuntimeError, match="within its limit of 0.05 seconds"):
         models.generate("Say something.", model="a-model")
+    release.set()
+
+
+def test_generate_counts_a_failed_try_only_if_the_service_answers(monkeypatch):
+    monkeypatch.setattr(models.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(models, "wait", 600)
+    pong = AIMessage(content="pong")
+    # The call fails and the service is silent, then answers at the third
+    # time of asking: the try is not counted, and the one try allowed is left.
+    down = [OSError("down")] * 3
+    model = Scripted(*down, pong, AIMessage(content="back"))
+    monkeypatch.setitem(models._clients, "a-model", model)
+    assert models.generate("Say something.", model="a-model", max_retries=1) == "back"
+    assert [sent[-1][1] for sent in model.sent] == [
+        "Say something.",
+        "ping",
+        "ping",
+        "ping",
+        "Say something.",
+    ]
+    # The service answers at once, so each failure is the call's own.
+    refused = ValueError("too long")
+    monkeypatch.setitem(
+        models._clients, "a-model", Scripted(refused, pong, refused, pong)
+    )
+    with pytest.raises(RuntimeError, match="no answer after 2 tries: ValueError"):
+        models.generate("Say something.", model="a-model", max_retries=2)
+
+
+def test_generate_ends_the_experiment_when_the_service_stays_silent(monkeypatch):
+    monkeypatch.setattr(models.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(models, "wait", 0)
+    model = Scripted(OSError("down"), OSError("down"))
+    monkeypatch.setitem(models._clients, "a-model", model)
+    with pytest.raises(SystemExit, match="did not answer, after 0 seconds"):
+        models.generate("Say something.", model="a-model")
+
+
+def test_a_call_past_its_limit_starts_afresh_once_a_silent_service_answers(
+    monkeypatch,
+):
+    monkeypatch.setattr(models.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(models, "limit", 0.05)
+    monkeypatch.setattr(models, "wait", 600)
+    release = threading.Event()
+    words = [OSError("down"), AIMessage(content="pong")]
+    calls = []
+
+    def invoke(messages):
+        if messages[-1].content == "ping":
+            word = words.pop(0)
+            if isinstance(word, Exception):
+                raise word
+            return word
+        calls.append(messages)
+        if len(calls) == 1:
+            release.wait(5)
+        return AIMessage(content="back")
+
+    monkeypatch.setitem(models._clients, "a-model", SimpleNamespace(invoke=invoke))
+    assert models.generate("Say something.", model="a-model", max_retries=1) == "back"
+    assert len(calls) == 2
     release.set()
 
 

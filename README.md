@@ -412,6 +412,13 @@ file can tell the provider's library to go on sending a call
   ends with an error. The improvement loop stops at such a job and carries
   on from it when its command is given again.
 
+A call of the improvement loop's own roles, which read the results and
+propose, is settled the same way. A call that fails is tried six times; a
+try made while the model service did not answer its one-word question is not
+counted, and the call is tried again once the service answers. A service
+that stays silent for `service_wait` seconds in all ends the experiment with
+a message that says so, and the same command carries it on from that round.
+
 A self-hosted open-weight model is run the same way, through its own model
 file. `configs/models/qwen3.6-27b-fp8.yaml` is one, for the 8-bit version of
 Qwen3.6-27B served by vLLM, which answers in the OpenAI API's format: the
