@@ -23,7 +23,7 @@ COLUMNS = [
 ]
 
 
-def write_job(folder, job, passed, lost=()):
+def write_job(folder, job, passed, lost=(), failed=()):
     """A job's one evaluation: a task per entry of ``passed`` (checks of 4), each attempt 1,000 tokens in, a cent and 36 seconds.
 
     Args:
@@ -31,6 +31,8 @@ def write_job(folder, job, passed, lost=()):
         job: The job's name.
         passed: The checks each task's attempt passed.
         lost: The tasks whose attempt the model service never answered.
+        failed: The error each task's attempt ended in, in the order of
+            the tasks, for as many tasks as it has entries.
     """
     evaluation = folder / "enterpriseops" / "jobs" / job / "itsm"
     evaluation.mkdir(parents=True)
@@ -40,8 +42,21 @@ def write_job(folder, job, passed, lost=()):
         writer.writerow(COLUMNS)
         for n, checks in enumerate(passed, 1):
             task = f"h{n}"
+            said = failed[n - 1] if n <= len(failed) else ""
             writer.writerow(
-                [task, 1, checks == 4, checks, 4, "", task in lost, 1000, 100, 0.01, 36]
+                [
+                    task,
+                    1,
+                    checks == 4,
+                    checks,
+                    4,
+                    said,
+                    task in lost,
+                    1000,
+                    100,
+                    0.01,
+                    36,
+                ]
             )
 
 
@@ -166,6 +181,34 @@ def test_rounds_say_where_each_candidate_ended_and_give_the_gates_numbers(experi
     )
 
 
+def test_errors_list_each_job_with_attempts_in_error_and_their_kinds(experiment):
+    # Nothing in error, and an attempt its service never answered is not one.
+    assert report.errors(experiment).empty
+    write_job(
+        experiment,
+        "r1A_filter",
+        [0, 0, 0, 3],
+        failed=[
+            "the attempt ran past its limit of 3600 seconds",
+            "the attempt made more than 100 calls to the model",
+            "RuntimeError('something else')",
+        ],
+    )
+    write_job(experiment, "heldout_t2", [0, 4], failed=["KeyError('a')"])
+    write_job(experiment, "r9A_rest", [0], failed=["KeyError('a')"])
+    table = report.errors(experiment)
+    # In the order of the experiment, rounds by number and the test step last.
+    assert list(table["job"]) == ["r1A_filter", "r9A_rest", "heldout_t2"]
+    assert list(table["what"]) == [
+        "round 2: the filter",
+        "round 10: the rest of the validation tasks",
+        "the harness kept in round 2, test tasks",
+    ]
+    first = table.iloc[0]
+    assert (first.attempts, first.in_error) == (4, 3)
+    assert (first.past_seconds, first.past_calls, first.other) == (1, 1, 1)
+
+
 def test_harnesses_give_each_ones_scores_and_its_gain_on_the_test_tasks(experiment):
     start, changed = report.harnesses(experiment).to_dict("records")
     assert (start["test_score"], start["test_tasks"]) == (50.0, 4)
@@ -194,6 +237,7 @@ def test_the_command_writes_the_tables_the_figure_and_a_page_to_read(
         "report.md",
         "harnesses.csv",
         "rounds.csv",
+        "errors.csv",
         "parts.csv",
         "scores.csv",
         "scores.pdf",
@@ -203,6 +247,12 @@ def test_the_command_writes_the_tables_the_figure_and_a_page_to_read(
     assert "2 of 2 rounds are decided; changes kept: 1." in page
     assert "| +25.0 " in page and "-7.5 to +57.5" in page
     assert "its one-task trial" in page
+    assert "No attempt of any job ended in an error." in page
+    # With an attempt in error, its job is a row of the page's table.
+    write_job(experiment, "r1A_filter", [0, 3], failed=["KeyError('a')"])
+    report.run(argparse.Namespace(folder=experiment))
+    page = (out / "report.md").read_text()
+    assert "| round 2: the filter | 2          | 1          |" in page
     # The figure's numbers: the score steps up where the change was kept.
     scores = list(csv.DictReader((out / "figures" / "scores.csv").open()))
     assert [row["validation_score"] for row in scores] == ["50.0", "75.0", "75.0"]
