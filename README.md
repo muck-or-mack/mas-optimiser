@@ -103,7 +103,17 @@ to capital letters, digits and underscores, with a letter first. The
 exception is the three `LANGFUSE_` lines, which the package reads under
 those names.
 
-To check a model and its key, run one task on it:
+To check a model and its key, ask it one word:
+
+```bash
+mas-optimiser check gpt-5.1-azure
+```
+
+It prints whether the model answered, the seconds that took and, where the
+service states them, the tokens and the requests it allows in a minute with
+what is left of each. Several models can be named at once, and a model that
+did not answer is shown with what the service said. Then run one task on
+it:
 
 ```bash
 mas-optimiser run smoke --model gpt-5.1-azure --limit 1
@@ -116,7 +126,7 @@ keys; every shipped file has a comment on each.
 
 | key of a model file                            | what it gives                                                                                                                                                      |
 |------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `llm_provider`                                 | the service: `anthropic`, `openai`, `azureopenai`, `google`, `googlevertexai`, `aws_bedrock`, `openrouter`, `deepseek`, `qwq`, or `vllm` for a server of one's own |
+| `llm_provider`                                 | the service: `anthropic`, `openai`, `azureopenai`, `google`, `googlevertexai`, `aws_bedrock`, `openrouter`, `deepseek`, `qwq`, or `vllm` for any service that answers in the OpenAI API's format at an address of one's own |
 | `llm_model`                                    | the model's name at that service; for Azure OpenAI, the name of the deployment                                                                                     |
 | `llm_api_endpoint`, `llm_api_version`          | the address and the version of the API, for a service that needs them                                                                                              |
 | `api_key_env`                                  | the name of the variable of `.env` that holds the key; left out for a server that asks for none                                                                    |
