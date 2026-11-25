@@ -226,7 +226,9 @@ class EnterpriseOps(Domain):
 
         An attempt that ended because a service it needs did not answer is
         no verdict on the harness, so a job that holds one stops the
-        experiment, and is run again when the command is next given.
+        experiment, and is run again when the command is next given. Its
+        other domains are not run first: the whole job is run again, and
+        each would wait for the service as long.
 
         Args:
             root: The checkout whose harness folder is run.
@@ -296,6 +298,10 @@ class EnterpriseOps(Domain):
                 print(
                     f"[{self.name}] run of {job}/{domain} ended with {done.returncode}; see {log}"
                 )
+            if any(
+                row.get("service_error") == "True" for row in self.rows(out).values()
+            ):
+                break
         unanswered = sum(
             row.get("service_error") == "True" for row in self.rows(out).values()
         )

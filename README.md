@@ -409,8 +409,10 @@ file can tell the provider's library to go on sending a call
   (1,800): the attempt is run again, as after a failed call.
 - **The service does not answer** within that time: the attempt is marked
   `service_error` in `tasks.csv`, left out of every score, and the command
-  ends with an error. The improvement loop stops at such a job and carries
-  on from it when its command is given again.
+  ends with an error. Once one attempt has been so marked no further
+  attempt is started, since each would wait for the service as long; those
+  not started leave no row. The improvement loop stops at such a job and
+  carries on from it when its command is given again.
 
 A call of the improvement loop's own roles, which read the results and
 propose, is settled the same way. A call that fails is tried six times; a

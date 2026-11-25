@@ -1103,6 +1103,47 @@ def test_totals_leave_out_an_attempt_a_service_did_not_answer():
     )
 
 
+def test_run_tasks_starts_no_attempt_once_a_service_has_not_answered(
+    tmp_path, monkeypatch
+):
+    started = []
+
+    async def fake_run_task(task_id, config, attempt, *args, **kwargs):
+        started.append(task_id)
+        row = {"task_id": task_id, "attempt": attempt, "error": "down"}
+        row |= {"success": False, "checks_passed": 0, "checks_total": 2}
+        row |= {"model_calls": 0, "input_tokens": 0, "output_tokens": 0}
+        row |= {"cost_usd": 0.0, "seconds": 0}
+        # The first attempt's service never answered; the others would pass.
+        return row | {"service_error": task_id == "task_a"}, [], [], []
+
+    async def no_tools(out, tasks):
+        return None
+
+    monkeypatch.setattr(runner, "run_task", fake_run_task)
+    monkeypatch.setattr(runner, "save_tools", no_tools)
+    outcomes, _, _, _ = asyncio.run(
+        runner.run_tasks(
+            {"task_a": {}, "task_b": {}, "task_c": {}},
+            None,
+            PRICING,
+            tmp_path,
+            domain="itsm",
+            attempts=1,
+            concurrency=1,
+            trace=False,
+            thinking=None,
+            caching=False,
+            timeout=None,
+            agent=None,
+            tags=[],
+        )
+    )
+    # One wait for the service is enough: the rest leave no row.
+    assert started == ["task_a"]
+    assert [row["task_id"] for row in outcomes] == ["task_a"]
+
+
 def test_a_run_with_attempts_the_service_did_not_answer_ends_in_an_error(
     tmp_path, monkeypatch
 ):
