@@ -77,6 +77,32 @@ that the request or a policy table determines."
 | `[".md"]`        | the text the agent is given   | nothing new runs: the model reads other words                   |
 | `[".md", ".py"]` | the text and the agent's code | code written by a model runs on the machine that runs the tasks |
 
+### The kind of a change
+
+With each edit the proposer names its kind: the part of a harness the edit
+changes. The names are RRSI's nine.
+
+| kind              | what an edit of this kind changes                                  |
+|-------------------|--------------------------------------------------------------------|
+| `prompt`          | what the agent is told                                             |
+| `context_mgmt`    | what the agent is shown: which tools, how much of the conversation |
+| `output_plumbing` | how a tool's answer reaches the agent                              |
+| `control_flow`    | when the agent goes on, stops or takes another turn                |
+| `config`          | limits and constants                                               |
+| `client_tool`     | a tool the harness runs by itself                                  |
+| `skill`           | instructions loaded when they are needed                           |
+| `memory`          | what is kept from one task to the next                             |
+| `subagent`        | an extra call to a model, such as a planner or a checker           |
+
+The kind says what a change does, not which file it is in: an instruction
+written into `agent.py` is still `prompt`. The loop records the kind the
+proposer names whenever the change edits the agent's code, and records
+`prompt` for a change to `prompt.md` alone, whatever was named. The kind is
+the proposer's own word: nothing checks that a change named `memory` keeps
+anything. The record of kinds is read in two places: the proposer is shown
+each earlier proposal's kind and hypothesis with whether it was accepted,
+and the report gives the kind in its column `changed`.
+
 ### What stands between a change and its first run
 
 | check, in order                 | what it is                                        | what it stops                                                                                                                                                                                                                                                 |
@@ -393,14 +419,14 @@ mas-optimiser report evolutions/<experiment>/<split>
 reads what an experiment wrote, finished or still going, and writes a
 `report/` folder inside it. Nothing is run and nothing is measured again.
 
-| file                 | what it holds                                                                                                                                                                             |
-|----------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `report.md`          | the tables below and the figure, as a page to read                                                                                                                                        |
-| `harnesses.csv`      | each harness the experiment kept, the starting one first: its validation and test scores, what an attempt at a test task used, and its gain on the test tasks over the starting harness |
-| `rounds.csv`         | each candidate: the proposer's hypothesis, the files and lines its change edited, where it ended (review, one-task trial, filter or gate), and the filter's and the gate's numbers        |
-| `errors.csv`         | each job with attempts that ended in an error, which are scored zero: its attempts, those in error, and how many ran past their seconds or their calls                                    |
-| `parts.csv`          | the runs, tokens, dollars and hours of each part of the experiment, the agent's and the search roles'                                                                                    |
-| `figures/scores.png` | the current harness's score after each round, on the validation tasks and, once the test step has run, on the test tasks; also as PDF, with its numbers in `scores.csv`                  |
+| file                 | what it holds                                                                                                                                                                                              |
+|----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `report.md`          | the tables below and the figure, as a page to read                                                                                                                                                         |
+| `harnesses.csv`      | each harness the experiment kept, the starting one first: its validation and test scores, what an attempt at a test task used, and its gain on the test tasks over the starting harness                    |
+| `rounds.csv`         | each candidate: the kind of its change, the proposer's hypothesis, the files and lines its change edited, where it ended (review, one-task trial, filter or gate), and the filter's and the gate's numbers |
+| `errors.csv`         | each job with attempts that ended in an error, which are scored zero: its attempts, those in error, and how many ran past their seconds or their calls                                                     |
+| `parts.csv`          | the runs, tokens, dollars and hours of each part of the experiment, the agent's and the search roles'                                                                                                      |
+| `figures/scores.png` | the current harness's score after each round, on the validation tasks and, once the test step has run, on the test tasks; also as PDF, with its numbers in `scores.csv`                                    |
 
 `errors.csv` is the table to read before a figure is quoted. An attempt
 that ends in an error is scored zero, and a job is run again only when more
@@ -422,17 +448,18 @@ times added up, not time on the clock.
 The loop is built on the released code of RRSI (Xia et al.,
 arXiv:2609.24972; Apache License 2.0), kept unchanged in `vendor/rrsi`.
 
-| part                                                           | whose                                   |
-|----------------------------------------------------------------|-----------------------------------------|
-| the analysis of traces, the proposer, the review of a proposal | RRSI's, as released                     |
-| the record of proposals, a git checkout per candidate          | RRSI's, as released                     |
-| what a benchmark must provide (its `Domain` interface)         | RRSI's; `domain.EnterpriseOps` fills it |
-| the round and the baseline                                     | this package's (`evolve.loop`)          |
-| the pick of the training traces the roles may read             | this package's (`evolve.loop`)          |
-| the scoring of a candidate                                     | this package's when there is a filter   |
-| the rule that keeps a change                                   | this package's: the gate                |
-| the model call of the search roles                             | this package's (`evolve.models`)        |
-| what the search roles are told about the benchmark             | this package's (`prompts`)              |
+| part                                                           | whose                                             |
+|----------------------------------------------------------------|---------------------------------------------------|
+| the analysis of traces, the proposer, the review of a proposal | RRSI's, as released                               |
+| the record of proposals, a git checkout per candidate          | RRSI's, as released                               |
+| what a benchmark must provide (its `Domain` interface)         | RRSI's; `domain.EnterpriseOps` fills it           |
+| the nine kinds of change and the rule that records one         | RRSI's; `domain.EnterpriseOps` gives its patterns |
+| the round and the baseline                                     | this package's (`evolve.loop`)                    |
+| the pick of the training traces the roles may read             | this package's (`evolve.loop`)                    |
+| the scoring of a candidate                                     | this package's when there is a filter             |
+| the rule that keeps a change                                   | this package's: the gate                          |
+| the model call of the search roles                             | this package's (`evolve.models`)                  |
+| what the search roles are told about the benchmark             | this package's (`prompts`)                        |
 
 The round is replaced because RRSI reads its traces and judges its
 candidates on one and the same set of tasks, and controls the resulting

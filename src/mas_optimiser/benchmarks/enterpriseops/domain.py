@@ -36,6 +36,7 @@ from mas_optimiser.benchmarks.enterpriseops import (
     splits,
 )
 
+from rrsi.components import K
 from rrsi.domain import Domain
 from rrsi.evaluate import TaskResult
 
@@ -43,6 +44,8 @@ TURN = re.compile(r"^### Turn (\d+)")
 # The kinds of entry an attempt's record may hold; the pages, the diagnosis
 # and the cost all read them.
 RECORD_TYPES = {"system_message", "user_message", "ai_message", "tool_result"}
+# A file of code among those a diff changes, by its header line.
+CODE = r"(?m)^(?:\+\+\+ b|--- a)/\S+\.py$"
 
 
 class EnterpriseOps(Domain):
@@ -59,7 +62,13 @@ class EnterpriseOps(Domain):
         harness_path: The harness folder inside the experiment's repository.
         critic_patterns: What a proposal's diff must not contain, each with
             the reason given when it does.
-        component_signals: The patterns by which RRSI tags an edit.
+        component_signals: The patterns by which RRSI settles the kind of
+            change an edit is recorded as. RRSI keeps the kind the proposer
+            declares only where the diff holds one of that kind's patterns,
+            and otherwise reads the kind from the diff. A change to the
+            agent's code can be of any kind, so every kind has the pattern
+            of a changed code file and the proposer's word stands there; a
+            change to the text file alone is ``prompt`` whatever was declared.
     """
 
     name = "enterpriseops"
@@ -106,7 +115,9 @@ class EnterpriseOps(Domain):
             "the agent is given",
         ),
     ]
-    component_signals = [("prompt", [r"prompt\.md"])]
+    component_signals = [
+        (kind, [CODE] + ([r"prompt\.md"] if kind == "prompt" else [])) for kind in K
+    ]
 
     def __init__(self, experiment: dict):
         self.experiment = experiment
