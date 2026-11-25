@@ -185,14 +185,15 @@ A person's no is a decision made outside the gate. An experiment run with
 
 ## Who may read what
 
-| what                                             | the analyst and the proposer   | the gate   | a person, while the experiment runs   |
-|--------------------------------------------------|--------------------------------|------------|---------------------------------------|
-| the score of every training task                 | yes                            | no         | yes                                   |
-| the training attempts, in full                   | those of the round's pool      | no         | yes                                   |
-| the validation tasks and attempts                | no                             | scores     | the headline only                     |
-| whether an earlier proposal was accepted         | yes                            | made it    | yes                                   |
-| by how much a proposal changed the score or cost | no                             | yes        | yes, in the record                    |
-| the test tasks and attempts                      | no                             | no         | the headline only, at the end         |
+| what                                             | the analyst and the proposer | the gate | a person, while the experiment runs |
+|--------------------------------------------------|------------------------------|----------|-------------------------------------|
+| the score of every training task                 | yes                          | no       | yes                                 |
+| how the training attempts went wrong, counted    | yes                          | no       | yes                                 |
+| the training attempts, in full                   | those of the round's pool    | no       | yes                                 |
+| the validation tasks and attempts                | no                           | scores   | the headline only                   |
+| whether an earlier proposal was accepted         | yes                          | made it  | yes                                 |
+| by how much a proposal changed the score or cost | no                           | yes      | yes, in the record                  |
+| the test tasks and attempts                      | no                           | no       | the headline only, at the end       |
 
 The proposer learns one thing from the validation tasks, the outcome of
 each decision. The unit tests check it: the traces handed to the proposer
@@ -203,11 +204,19 @@ number (`tests/unit/test_evolve.py`).
 
 The analyst and the proposer, the search roles, work from the current
 harness's run on the training tasks. A trace is the page of one attempt of
-that run. Each round the two roles are given two things.
+that run. Each round the two roles are given three things.
 
 - **The score of every training task.** The tasks and their scores, lowest
   first, are put into both roles' instructions, so that neither takes the
   part it reads for the whole.
+- **A count of how the attempts went wrong.** Over every training attempt
+  of the current harness: how many passed every check, how many ended in
+  an error and how, and what the failed checks found, most frequent first
+  (the table and the column, what was wrong, and in how many attempts and
+  tasks). It is added up from the table the runner writes for every
+  evaluation, `failures.csv`, in the same words. A trace shows one attempt;
+  the count shows which failures are common, so that a change is aimed at
+  what happens often.
 - **The traces of the round's pool.** The pool is a share of the training
   tasks, `pool_share`. Only a task of the pool has a trace that can be
   read: the analyst can have it examined, and the proposer can open it.

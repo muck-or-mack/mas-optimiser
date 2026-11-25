@@ -11,6 +11,8 @@ asks a benchmark for a few things through RRSI's ``Domain`` interface, and
 - an attempt's score is its fraction of checks passed, the outcome the
   acceptance gate tests, read from ``tasks.csv``;
 - the trace the search roles read is the attempt's page;
+- how a job's attempts went wrong, counted over all of them, is the
+  runner's own table of what the failed checks found, added up;
 - the check that a candidate still works is one task run with it, and its
   record read for the shape everything else depends on.
 
@@ -32,6 +34,7 @@ from mas_optimiser.benchmarks.enterpriseops import (
     REPO_ROOT,
     checks,
     prompts,
+    report,
     runner,
     splits,
 )
@@ -44,6 +47,16 @@ TURN = re.compile(r"^### Turn (\d+)")
 # The kinds of entry an attempt's record may hold; the pages, the diagnosis
 # and the cost all read them.
 RECORD_TYPES = {"system_message", "user_message", "ai_message", "tool_result"}
+# How an attempt that ended in an error ended, by the start of its error:
+# the runner's fixed messages for its two limits (``runner.run_task`` and
+# ``runner.TaskExecutor.initialize``), and what the benchmark's agent raises
+# when the model asks for a tool its server does not have
+# (``orchestrators/base.py``, a ``raise`` with nothing to raise).
+ENDINGS = (
+    ("the attempt ran past its limit", "ran past its seconds"),
+    ("the attempt made more than", "made more calls to the model than allowed"),
+    ("No active exception to reraise", "asked for a tool the server does not have"),
+)
 # A file of code among those a diff changes, by its header line.
 CODE = r"(?m)^(?:\+\+\+ b|--- a)/\S+\.py$"
 
@@ -371,6 +384,64 @@ class EnterpriseOps(Domain):
             "seconds": round(seconds),
         }
         return per_task, totals
+
+    def failures(self, runs_dir: Path, job: str, most: int = 20) -> str:
+        """How a job's attempts went, counted over all of them, for the search roles.
+
+        The runner writes, for every evaluation, what its failed checks
+        found (``failures.csv``: the table, the column, what was wrong and
+        how the value came to be set, with the attempts and the tasks it
+        happened in). The job's domains are added up here. It is asked for
+        a job on the training tasks only.
+
+        Args:
+            runs_dir: The experiment's folder.
+            job: The job's name.
+            most: The most rows of what the failed checks found to give.
+
+        Returns:
+            One line with the attempts, those that passed every check, those
+            that ended in an error, by how (``ENDINGS``), and those in which
+            a tool answered with an error; then a line for each thing the
+            failed checks found, most frequent first; then the meaning of
+            the words those lines use (``report.WORDS``).
+        """
+        out = Path(runs_dir) / "jobs" / job
+        rows = list(self.rows(out).values())
+        said = [row["error"] for row in rows if row["error"]]
+        how = {
+            words: sum(error.startswith(start) for error in said)
+            for start, words in ENDINGS
+        }
+        how["ended otherwise"] = len(said) - sum(how.values())
+        ended = ", ".join(f"{n} {words}" for words, n in how.items() if n)
+        lines = [
+            f"{len(rows)} attempts: "
+            f"{sum(row['success'] == 'True' for row in rows)} passed every check; "
+            f"{len(said)} ended in an error{f' ({ended})' if ended else ''}; "
+            f"a tool answered with an error in "
+            f"{sum(int(row.get('tool_errors') or 0) > 0 for row in rows)}."
+        ]
+        found: dict[tuple, list[int]] = {}
+        for path in sorted(out.glob("*/failures.csv")):
+            with path.open() as f:
+                for row in csv.DictReader(f):
+                    key = (row["table"], row["column"], row["failure"], row["how"])
+                    counts = found.setdefault(key, [0, 0])
+                    counts[0] += int(row["attempts"])
+                    counts[1] += int(row["tasks"])
+        listed = sorted(found.items(), key=lambda item: -item[1][0])[:most]
+        for (table, column, failure, came), (attempts, tasks) in listed:
+            where = f"{table}.{column}" if column else table
+            lines.append(
+                f"- {where}: {failure}{f', {came}' if came else ''} "
+                f"({attempts} attempts, {tasks} tasks)"
+            )
+        used = {word for (_, _, failure, came), _ in listed for word in (failure, came)}
+        lines += [
+            f"{word}: {meaning}." for word, meaning in report.WORDS if word in used
+        ]
+        return "\n".join(lines)
 
     def load_trial(
         self, runs_dir: Path, job: str, task_id: str, trial: int

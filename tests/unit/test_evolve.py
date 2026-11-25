@@ -351,6 +351,45 @@ def test_score_is_the_fraction_of_checks_and_an_error_is_a_failure_not_a_gap(
     assert totals == {"attempts_passed": 1, "cost_usd": 0.03, "seconds": 15}
 
 
+def test_the_count_of_failures_adds_up_a_jobs_domains(benchmark, tmp_path):
+    out = tmp_path / "jobs" / "a-job"
+    rows = [
+        ("itsm", "t1", 1, 4, ""),
+        ("itsm", "t2", 1, 0, "No active exception to reraise"),
+        ("hr", "t3", 1, 2, "the attempt ran past its limit of 900 seconds"),
+        ("hr", "t3", 2, 1, ""),
+    ]
+    write_rows(out, rows)
+    found = {
+        "itsm": [("incident", "", "table not written", "", 2, 2)],
+        "hr": [
+            ("incident", "", "table not written", "", 1, 1),
+            ("hr_case", "priority", "wrong value", "left out", 2, 1),
+        ],
+    }
+    for name, lines in found.items():
+        with (out / name / "failures.csv").open("w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["table", "column", "failure", "how", "attempts", "tasks"])
+            writer.writerows(lines)
+    said = benchmark.failures(tmp_path, "a-job").splitlines()
+    assert said[0] == (
+        "4 attempts: 1 passed every check; 2 ended in an error (1 ran past its "
+        "seconds, 1 asked for a tool the server does not have); a tool answered "
+        "with an error in 0."
+    )
+    # The same failure in two domains is one line, and the lines are in order.
+    assert said[1:3] == [
+        "- incident: table not written (3 attempts, 3 tasks)",
+        "- hr_case.priority: wrong value, left out (2 attempts, 1 tasks)",
+    ]
+    # The words the lines use are explained, and no others.
+    assert said[3].startswith("table not written: no call wrote the table")
+    assert len(said) == 6 and not any("too many rows" in line for line in said)
+    # The most frequent only, when asked for fewer.
+    assert len(benchmark.failures(tmp_path, "a-job", most=1).splitlines()) == 3
+
+
 def test_the_trace_marks_each_turn_and_the_checks(benchmark):
     page = "# t1\n## Request\nDo it.\n### Turn 1\nA call.\n## Checks\nFailed."
     text = benchmark.render_trace({"page": page})
@@ -623,6 +662,9 @@ class Scores(Domain):
 
     def load_trial(self, runs_dir, job, task_id, trial):
         return {"task_id": task_id, "job": job}
+
+    def failures(self, runs_dir, job):
+        return f"the count of {job}"
 
 
 def experiment(tmp_path, monkeypatch, candidate_scores, **settings):
@@ -916,6 +958,10 @@ def test_both_roles_are_given_every_training_score_with_the_pool_marked(
     run.round(1)
     assert list(given["traces"]) == ["t2"]
     assert given["briefs"]["analyst"].endswith("t1 0.50\nt2 0.50 *")
+    # Before the scores, the count of how the current harness's training
+    # attempts went wrong: still the starting harness's, nothing being kept.
+    counted = f"{loop.FAILURES}\nthe count of base_training\n\n{loop.SCORES}"
+    assert counted in given["briefs"]["proposer"]
     # The benchmark's own texts are left as they were.
     assert Scores.briefs["analyst"] == "the analyst's brief"
 
