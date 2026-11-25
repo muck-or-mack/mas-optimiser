@@ -800,12 +800,18 @@ def write_run_summary(run_dir: Path, experiment: str) -> dict:
     task is the same for all and kept as it is), so the headline of the run is
     the harness on the benchmark as a whole, with the domains as rows below it.
 
+    The run's pace is given beside them: its attempts and its tokens, input
+    and output, over the time on the clock from its start to its end. That
+    is what the model service let the run do at its number of attempts at
+    once, where the table's hours are the attempts' own, added up.
+
     Args:
         run_dir: The run's folder, holding one evaluation folder per domain.
         experiment: The experiment's name.
 
     Returns:
-        The record written to ``run.json``.
+        The record written to ``run.json``; its ``pace`` is ``None`` for a
+        run that began and ended within one second.
     """
     records = {}
     for path in sorted(run_dir.glob("*/evaluation.json")):
@@ -835,6 +841,20 @@ def write_run_summary(run_dir: Path, experiment: str) -> dict:
         "domains": {d: records[d]["totals"] for d in domains},
         "totals": pooled,
     }
+    clock = (
+        datetime.fromisoformat(record["finished"])
+        - datetime.fromisoformat(record["started"])
+    ).total_seconds()
+    tokens = pooled.get("input_tokens", 0) + pooled.get("output_tokens", 0)
+    record["pace"] = (
+        {
+            "minutes": round(clock / 60, 1),
+            "attempts_an_hour": round(pooled["total_attempts"] * 3600 / clock),
+            "tokens_a_minute": round(tokens * 60 / clock),
+        }
+        if clock > 0
+        else None
+    )
     (run_dir / "run.json").write_text(json.dumps(record, indent=2, default=str))
     model = first.get("model")
     model_name = model.get("llm_model", "?") if isinstance(model, dict) else model
@@ -867,6 +887,18 @@ def write_run_summary(run_dir: Path, experiment: str) -> dict:
         f"{model_name}, mode {first.get('mode')}, {pooled['attempts']} attempts per "
         f"task, started {record['started']}. Each domain's own summary is "
         f"`<domain>/summary.md`.",
+    ]
+    if record["pace"]:
+        at_once = first.get("concurrency")
+        lines += [
+            "",
+            f"By the clock the run took {record['pace']['minutes']:g} minutes"
+            + (f" at {at_once} attempts at once" if at_once else "")
+            + f": {record['pace']['attempts_an_hour']:,} attempts an hour and "
+            f"{record['pace']['tokens_a_minute']:,} tokens a minute, input and "
+            "output together.",
+        ]
+    lines += [
         "",
         markdown.table(
             header,
@@ -1827,8 +1859,13 @@ def run(args: argparse.Namespace) -> None:
             kept_out=kept_out,
         )
     if not experiment["out"]:
-        write_run_summary(run_dir, experiment["experiment"])
+        pace = write_run_summary(run_dir, experiment["experiment"])["pace"]
         print(f"Run summary in {run_dir / 'summary.md'}")
+        if pace:
+            print(
+                f"Pace by the clock: {pace['attempts_an_hour']:,} attempts an hour "
+                f"and {pace['tokens_a_minute']:,} tokens a minute."
+            )
     if trace:
         tracing.shutdown()
     if unanswered:

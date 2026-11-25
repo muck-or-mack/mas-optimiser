@@ -578,7 +578,9 @@ or `2026-10-27-0930-retry` with a label; the seconds are added only when a
 second run starts within the minute. Inside it, one evaluation folder per
 domain (`itsm/`, `csm/`, `hr/`), `run.json` with the settings and the
 pooled totals, and a `summary.md` with the headline for the run as a whole
-and a row per domain. Every other setting (model, mode, split, task limit,
+and a row per domain. Both also give the run's pace by the clock, in
+attempts an hour and tokens a minute: what the model service let the run do
+at its number of attempts at once. Every other setting (model, mode, split, task limit,
 command-line overrides) is a column of `index.csv` and a field of
 `evaluation.json`, not part of a name. Runs made before 13 November 2026
 were regrouped into this layout; their index rows carry the same columns. The experiment, not

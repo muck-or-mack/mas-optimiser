@@ -206,6 +206,8 @@ def test_write_run_summary_pools_the_domains(tmp_path):
                         "errors": 0,
                         "checks_passed": 500,
                         "checks_total": 1000,
+                        "input_tokens": 1_000_000,
+                        "output_tokens": 140_000,
                         "cost_usd": cost,
                         "seconds": 1800,
                     },
@@ -218,7 +220,15 @@ def test_write_run_summary_pools_the_domains(tmp_path):
     assert record["totals"]["cost_usd"] == pytest.approx(5.6)
     assert record["started"] == "2026-11-03T08:03:00"
     assert list(record["domains"]) == ["itsm", "csm"]
+    # The pace by the clock: 600 attempts and 2,280,000 tokens in the 57
+    # minutes from the first domain's start to the last one's end.
+    assert record["pace"] == {
+        "minutes": 57.0,
+        "attempts_an_hour": 632,
+        "tokens_a_minute": 40000,
+    }
     text = (run_dir / "summary.md").read_text()
+    assert "632 attempts an hour and 40,000 tokens a minute" in text
     table = [line for line in text.split("\n") if line.startswith("|")]
     assert cells(table[2])[:3] == ["all", "200", "139 of 600"]
     assert cells(table[3])[:3] == ["itsm", "100", "58 of 300"]
@@ -232,3 +242,11 @@ def test_write_run_summary_pools_the_domains(tmp_path):
         runner.json.loads((run_dir / "run.json").read_text())["run"]
         == "2026-11-03-0803"
     )
+    # A run that began and ended within one second has no pace to give.
+    for path in run_dir.glob("*/evaluation.json"):
+        settings = runner.json.loads(path.read_text())
+        path.write_text(
+            runner.json.dumps(settings | {"started": "2026-11-03T09:00:00"})
+        )
+    assert runner.write_run_summary(run_dir, "baseline")["pace"] is None
+    assert "By the clock" not in (run_dir / "summary.md").read_text()
