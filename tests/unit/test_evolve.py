@@ -14,7 +14,7 @@ from mas_optimiser.benchmarks.enterpriseops import domain as adapter
 from mas_optimiser.evolve import loop, models
 from mas_optimiser.stats import budget
 
-from rrsi import components, critic, gitops
+from rrsi import components, critic, gitops, propose
 from rrsi.config import RRSIConfig
 from rrsi.domain import Domain
 from rrsi.evaluate import TaskResult
@@ -450,6 +450,21 @@ def test_the_screen_passes_the_starting_harness_and_prose_and_stops_unsafe_code(
         "client = LLMClient('openai', 'm', key)",
     ]
     assert all(reasons(line) for line in unsafe)
+
+
+def test_the_brief_says_how_the_empty_text_file_is_filled(tmp_path):
+    # The starting harness's text file exists and is empty. The released
+    # tools refuse to write a file that exists, and replace a passage only
+    # where it is found once, which in an empty file an empty passage is.
+    (tmp_path / "prompt.md").write_text("")
+    folder = propose.Workspace(tmp_path, {".md"})
+    assert folder.write("prompt.md", "Check every field.").startswith("ERROR")
+    assert folder.edit("prompt.md", "", "Check every field.").startswith("OK")
+    assert (tmp_path / "prompt.md").read_text() == "Check every field."
+    # Once it holds text, an empty passage is found many times and is refused.
+    assert folder.edit("prompt.md", "", "More.").startswith("ERROR")
+    brief = adapter.prompts.PROPOSER
+    assert "write_file refuses it" in brief and "an empty old string" in brief
 
 
 def diff_of(*files):
