@@ -379,6 +379,49 @@ def test_the_screen_passes_the_starting_harness_and_prose_and_stops_unsafe_code(
     assert all(reasons(line) for line in unsafe)
 
 
+def test_an_experiment_says_and_records_what_differs_from_the_defaults(
+    tmp_path, monkeypatch, capsys
+):
+    class Reached(Exception):
+        pass
+
+    class Benchmark:
+        harness_path = "harness"
+
+        def __init__(self, experiment):
+            pass
+
+    class Stop:
+        frontier_path = tmp_path / "none"
+
+        def __init__(self, *args):
+            pass
+
+        def baseline(self):
+            raise Reached
+
+    monkeypatch.setattr(loop, "EVOLUTIONS", tmp_path)
+    monkeypatch.setattr(loop, "EnterpriseOps", Benchmark)
+    monkeypatch.setattr(loop, "Experiment", Stop)
+    for name in ("usage_log", "timeout", "limit"):
+        monkeypatch.setattr(loop.models, name, getattr(loop.models, name))
+    unset = dict.fromkeys(adapter.runner.EXPERIMENT_DEFAULTS)
+    chosen = {"experiment": "evolve-smoke", "accept_unreviewed_code": False}
+    with pytest.raises(Reached):
+        loop.run(SimpleNamespace(**(unset | chosen)))
+
+    said = capsys.readouterr().out
+    assert "Settings that differ from the defaults:" in said
+    assert "rounds           1" in said and "proposer_model" not in said
+    folder = tmp_path / "evolve-smoke" / "haiku-20-40-40"
+    record = json.loads((folder / "experiment.json").read_text())
+    assert record["changed"]["rounds"] == 1
+    assert record["changed"]["editable"] == [".md"]
+    # The search roles' model is the agent's here, and its file is kept.
+    assert record["proposer_settings"]["llm_provider"] == "anthropic"
+    assert "llm_api_key" not in record["proposer_settings"]
+
+
 def test_code_edits_with_no_approval_start_only_once_the_risk_is_accepted(
     tmp_path, monkeypatch
 ):

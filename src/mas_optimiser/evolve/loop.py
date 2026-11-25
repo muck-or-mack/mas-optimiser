@@ -34,6 +34,7 @@ import shutil
 from pathlib import Path
 
 import numpy as np
+import yaml
 from dotenv import load_dotenv
 
 import mas_optimiser
@@ -665,6 +666,9 @@ def run(args: argparse.Namespace) -> None:
     """
     overrides = {key: getattr(args, key) for key in runner.EXPERIMENT_DEFAULTS}
     experiment = runner.load_experiment(args.experiment, overrides)
+    print("Settings that differ from the defaults:")
+    for key, value in experiment["changed"].items():
+        print(f"  {key:<17}{value}", flush=True)
     split = experiment["split"]
     if not split or ":" in split:
         raise SystemExit(
@@ -722,7 +726,14 @@ def run(args: argparse.Namespace) -> None:
     models.usage_log = folder / "search_usage.jsonl"
     models.timeout = experiment["model_timeout"]
     models.limit = experiment["attempt_timeout"]
-    settings = experiment | {"mas_optimiser_version": mas_optimiser.code_version()}
+    # The search roles' model file as written: it names the variables that
+    # hold a key or an address, and never their values.
+    settings = experiment | {
+        "proposer_settings": yaml.safe_load(
+            runner.config_path("models", proposer).read_text()
+        ),
+        "mas_optimiser_version": mas_optimiser.code_version(),
+    }
     (folder / "experiment.json").write_text(json.dumps(settings, indent=2, default=str))
 
     if not loop.frontier_path.exists():
