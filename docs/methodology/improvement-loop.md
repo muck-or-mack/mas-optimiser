@@ -66,6 +66,15 @@ experiment's repository keeps every candidate as a commit on a branch of
 its own, so the difference between a candidate and the current harness can
 be read exactly, with `git diff`.
 
+Its instructions ask for an order of work: open the trace of at least one
+task the change is expected to move, and check there that the failure is
+what the analyst's report says, before any edit; put a change where its
+kind belongs, words for the agent in `prompt.md` and not in a string of
+`agent.py`; and read each changed file back once before saying it is done.
+None of this is enforced. The report says what the proposer did in each
+round, under "How each proposal was made": the actions it took, the traces
+it opened and the files it read.
+
 In a trial of the loop the proposer's whole change was one paragraph added
 to `prompt.md`, which began: "Before you finish a request, check every field
 that the request or a policy table determines."
