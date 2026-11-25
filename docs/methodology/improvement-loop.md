@@ -529,6 +529,13 @@ that ends in an error is scored zero, and a job is run again only when more
 than 15% of its attempts left no result, so a filter of 80 tasks may hold
 up to 12 such zeros and be scored as it stands.
 
+The page's table of rounds gives each candidate's gain on the validation
+tasks beside the gain its decision needed, the bar times the standard
+error: a candidate is kept when the first is above the second. The gain
+needed grows from round to round, because each decision is allowed a
+smaller share of the experiment's false acceptances than the one before
+([The acceptance gate](acceptance-gate.md), "The level of each decision").
+
 The gain on the test tasks is the mean, over the test tasks, of a task's
 score with the harness less its score with the starting harness. It comes
 with the gate's one-sided test and with a 95% confidence interval, 1.98
