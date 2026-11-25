@@ -193,8 +193,8 @@ def rounds(folder: Path) -> pd.DataFrame:
     Returns:
         One row per candidate, in the order they were decided. The gain on
         the training tasks (where the experiment had every candidate run on
-        them), the gain on the filter's tasks and the gate's gain and
-        standard error are in percentage points. What the candidate proposed is the kind of each
+        them), the gain on the filter's tasks and the gate's gain, the gain
+        its decision needed and the standard error are in percentage points. What the candidate proposed is the kind of each
         of its edits, the proposer's hypothesis (one per edit, numbered,
         when a candidate holds several), the files its change edited, the
         lines it added and removed, and where its diff is kept, from the
@@ -265,6 +265,11 @@ def rounds(folder: Path) -> pd.DataFrame:
                     else None,
                     "gain_points": 100 * decision["mean"] if gated else None,
                     "standard_error_points": 100 * decision["se"] if gated else None,
+                    # The smallest gain this decision would have kept: the
+                    # bar on T times the standard error.
+                    "gain_needed_points": 100 * decision["x0"] * decision["se"]
+                    if gated
+                    else None,
                     "t": decision.get("t"),
                     "bar": decision.get("x0"),
                     "p": decision.get("p"),
@@ -585,7 +590,10 @@ def run(args: argparse.Namespace) -> None:
             "",
             "Each candidate and where it ended: at the review, at its one-task "
             "trial, at the filter, or at the gate. Gains are in percentage "
-            "points; a candidate is kept when T is above the bar.",
+            "points. A candidate is kept when its gain is above the gain "
+            "needed, which is the bar times the standard error; that is the "
+            "same as T, the gain divided by its standard error, being above "
+            "the bar. The bar rises with each round and each change kept.",
             "",
             table(
                 decided,
@@ -603,6 +611,7 @@ def run(args: argparse.Namespace) -> None:
                 | {
                     "filter_gain_points": "gain on the filter's tasks",
                     "gain_points": "gain on all validation tasks",
+                    "gain_needed_points": "gain needed",
                     "standard_error_points": "standard error",
                     "t": "T",
                     "bar": "bar",
@@ -612,6 +621,7 @@ def run(args: argparse.Namespace) -> None:
                     "training_gain_points": "{:+.1f}",
                     "filter_gain_points": "{:+.1f}",
                     "gain_points": "{:+.1f}",
+                    "gain_needed_points": "{:+.1f}",
                     "standard_error_points": "{:.1f}",
                     "t": "{:+.2f}",
                     "bar": "{:.2f}",

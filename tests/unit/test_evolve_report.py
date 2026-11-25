@@ -182,6 +182,8 @@ def test_rounds_say_where_each_candidate_ended_and_give_the_gates_numbers(experi
     assert first["ended_at"] == "accepted by the gate" and first["accepted"]
     assert first["filter_gain_points"] == 25.0
     assert (first["gain_points"], first["standard_error_points"]) == (25.0, 5.0)
+    # The gain the decision needed: its bar of 4.5 standard errors of 5 points.
+    assert first["gain_needed_points"] == pytest.approx(22.5)
     assert first["false_acceptances_allowed_percent"] == pytest.approx(1.25)
     # What it proposed: the hypothesis, and its change read from the diff.
     assert (first["hypothesis"], first["files"]) == ("it helps", "harness/agent.py")
@@ -322,6 +324,7 @@ def test_the_command_writes_the_tables_the_figure_and_a_page_to_read(
     page = (out / "report.md").read_text()
     assert "2 of 2 rounds are decided; changes kept: 1." in page
     assert "| +25.0 " in page and "-7.5 to +57.5" in page
+    assert "| gain needed   |" in page and "| +22.5 " in page
     assert "its one-task trial" in page
     assert (
         "**Round 1** (accepted by the gate; harness/agent.py, +2 −1 lines, "
