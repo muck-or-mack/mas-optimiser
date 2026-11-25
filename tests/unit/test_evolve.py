@@ -14,7 +14,7 @@ from mas_optimiser.benchmarks.enterpriseops import domain as adapter
 from mas_optimiser.evolve import loop, models
 from mas_optimiser.stats import budget
 
-from rrsi import critic, gitops
+from rrsi import components, critic, gitops
 from rrsi.config import RRSIConfig
 from rrsi.domain import Domain
 from rrsi.evaluate import TaskResult
@@ -450,6 +450,37 @@ def test_the_screen_passes_the_starting_harness_and_prose_and_stops_unsafe_code(
         "client = LLMClient('openai', 'm', key)",
     ]
     assert all(reasons(line) for line in unsafe)
+
+
+def diff_of(*files):
+    """A unified diff that changes one line in each of the files named."""
+    return "".join(
+        f"diff --git a/{f} b/{f}\n--- a/{f}\n+++ b/{f}\n@@ -1 +1 @@\n-old\n+new\n"
+        for f in files
+    )
+
+
+@pytest.mark.parametrize(
+    ("declared", "files", "recorded"),
+    [
+        # A change to the agent's code: the proposer's word stands.
+        ("control_flow", ["harness/agent.py"], "control_flow"),
+        ("output_plumbing", ["harness/agent.py"], "output_plumbing"),
+        ("prompt", ["harness/agent.py"], "prompt"),
+        ("memory", ["harness/agent.py", "harness/prompt.md"], "memory"),
+        # A change to the text file alone is a change of text.
+        ("prompt", ["harness/prompt.md"], "prompt"),
+        ("control_flow", ["harness/prompt.md"], "prompt"),
+        # A word that is none of the nine never passes the proposer's own
+        # check; here it would be read from the diff, as RRSI does.
+        ("a new kind", ["harness/agent.py"], "prompt"),
+    ],
+)
+def test_an_edit_is_recorded_as_the_kind_declared_when_it_changes_code(
+    declared, files, recorded
+):
+    signals = adapter.EnterpriseOps.component_signals
+    assert components.normalize(declared, diff_of(*files), signals) == recorded
 
 
 def test_an_experiment_says_and_records_what_differs_from_the_defaults(
