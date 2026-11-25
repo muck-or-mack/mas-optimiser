@@ -37,6 +37,7 @@ import csv
 import dataclasses
 import json
 import random
+import re
 import shutil
 from pathlib import Path
 
@@ -68,6 +69,17 @@ from rrsi.selection import Candidate
 # RRSI's four search roles reach their model through this one name.
 for _role in (analyst, critic, digester, propose):
     _role.generate = models.generate
+# RRSI's digester is offered a shell beside its two tools for reading a
+# trace. The released check of a command looks only at each program's name,
+# so a command can name any file of the machine, the validation and test
+# results and the keys among them, and some of the programs allowed can
+# write or delete. The shell is switched off and taken out of the digester's
+# instructions; reading a file and searching it, which are held to the
+# folder of the round's traces, remain.
+digester._bash_ok = lambda cmd: False
+digester.SYSTEM_TMPL = re.sub(
+    r'  \{\{"action": "bash".*?rejected\)\n', "", digester.SYSTEM_TMPL, flags=re.S
+)
 
 EVOLUTIONS = REPO_ROOT / "evolutions"
 DESCRIPTION = (
