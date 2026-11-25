@@ -277,9 +277,18 @@ def test_only_a_live_vllm_process_counts_as_the_server(tmp_path, monkeypatch):
     monkeypatch.setattr(server, "STATE", tmp_path)
     assert server._process("model") is None
     sleeper = subprocess.Popen(
-        [sys.executable, "-c", "import time; time.sleep(60)", "vllm"]
+        [
+            sys.executable,
+            "-c",
+            "import time; print(1, flush=True); time.sleep(60)",
+            "vllm",
+        ],
+        stdout=subprocess.PIPE,
     )
     try:
+        # A new process shows its parent's command line until its own program
+        # has started, so its first line of output is waited for.
+        sleeper.stdout.readline()
         (tmp_path / "model.pid").write_text(str(sleeper.pid))
         assert server._process("model") == sleeper.pid
     finally:
