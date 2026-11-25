@@ -39,11 +39,13 @@ class whose execute method sends the policy document and the request to the
 model, runs the tool calls the model asks for, feeds the answers back, and
 repeats until the model answers without a tool call. prompt.md is text that
 agent.py adds to the end of the system message; while it is empty nothing is
-added. You may edit files of these types only: {editable}. The tools, the
-tasks, the checks and the scoring are outside the folder and cannot be
-changed. A change must be general: it has to help on requests and records
-its author has never seen. The agent's model is not you: read the traces for
-how it actually behaves."""
+added. The file exists from the start, so write_file refuses it: to put text
+into it while it is empty, use edit_file with an empty old string. You may
+edit files of these types only: {editable}. The tools, the tasks, the checks
+and the scoring are outside the folder and cannot be changed. A change must
+be general: it has to help on requests and records its author has never
+seen. The agent's model is not you: read the traces for how it actually
+behaves."""
 
 CRITIC = """The harness is a folder of two files: agent.py, the agent's loop
 of model calls and tool calls, and prompt.md, text added to the end of the
