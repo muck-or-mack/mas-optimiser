@@ -87,6 +87,22 @@ variables it reads, so choosing a model chooses its keys and nothing has to
 be swapped. A run on a model whose lines are blank stops at once and names
 the variable that is missing.
 
+The names of the variables are free: the provider fixes none of them. A
+provider's library looks for a key under a name of its own
+(`ANTHROPIC_API_KEY`, say) only when it is handed no key, and the package
+always hands it one. The model file names a variable, the package reads
+that variable's value from `.env`, and the value goes to the library with
+the call:
+
+| in the model file                   | in `.env`                        | what the provider's library is given |
+|-------------------------------------|----------------------------------|--------------------------------------|
+| `api_key_env: AZURE_OPENAI_API_KEY` | `AZURE_OPENAI_API_KEY=<the key>` | the key itself, with the call        |
+
+So a name has to agree in two places only, the model file and `.env`. Keep
+to capital letters, digits and underscores, with a letter first. The
+exception is the three `LANGFUSE_` lines, which the package reads under
+those names.
+
 To check a model and its key, run one task on it:
 
 ```bash
@@ -111,8 +127,32 @@ keys; every shipped file has a comment on each.
 | `server`                                       | for a model served on the machine: how its server is started                                                                                                       |
 
 A second account at the same service is a second file that names other
-variables, `AZURE_OPENAI_API_KEY_2` for instance, with those lines added to
-`.env`.
+variables. For a second Azure OpenAI resource, copy `gpt-5.1-azure.yaml` as
+`gpt-5.1-azure-2.yaml` and give its four lines ending in `_env` names of
+their own:
+
+```yaml
+api_key_env: AZURE_OPENAI_API_KEY_2
+llm_api_endpoint_env: AZURE_OPENAI_ENDPOINT_2
+llm_model_env: AZURE_OPENAI_DEPLOYMENT_2
+llm_api_version_env: AZURE_OPENAI_API_VERSION_2
+```
+
+Then add those four lines to `.env`, with the second account's values
+(made up here):
+
+```
+AZURE_OPENAI_API_KEY_2=fedcba9876543210fedcba9876543210
+AZURE_OPENAI_ENDPOINT_2=https://my-second-resource.openai.azure.com/
+AZURE_OPENAI_DEPLOYMENT_2=my-other-gpt-5-1-deployment
+AZURE_OPENAI_API_VERSION_2=2025-04-01-preview
+```
+
+`--model gpt-5.1-azure-2` then runs on the second account, and the one-task
+check of [Where the keys go](#where-the-keys-go) tests it. One label on the
+file and on its variables (`-2` and `_2` here) keeps the two easy to match.
+A model file may be committed and shared, and its variable names with it,
+so a label should not say whose the account is; the values stay in `.env`.
 
 ## Benchmark servers
 
