@@ -370,7 +370,7 @@ opening.
 | `attempt-<n>.json`            | the whole attempt: the conversation, every tool call and result, each check's verdict |
 | `attempt-<n>.changes.json`    | every row inserted, updated (each changed cell before and after) or deleted           |
 | `tools.json`                  | every tool the domain's server offers, with its description and arguments             |
-| `evaluation.json`, `run.json` | the settings and totals of the evaluation and of the run                              |
+| `evaluation.json`, `run.json` | the settings and totals of the evaluation and of the run; the run's pace by the clock |
 
 `tools.json` is the same for every task of a domain. The tools one task was
 given are on its attempt's page.
