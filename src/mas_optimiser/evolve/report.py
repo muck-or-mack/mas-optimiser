@@ -10,11 +10,13 @@ folder inside it:
   harness, task by task, with the gate's test and a 95% confidence interval;
 - ``rounds.csv``: each candidate, how far it got and the numbers of the
   filter and of the gate;
+- ``errors.csv``: each job with attempts that ended in an error, which are
+  scored zero, and how many of them ran past a limit;
 - ``parts.csv``: the attempts, tokens, dollars and hours of each part of the
   experiment, the agent's and the search roles';
 - ``figures/scores``: the current harness's score after each round, as PDF,
   PNG and the CSV it was drawn from;
-- ``report.md``: the three tables and the figure, for reading.
+- ``report.md``: the tables and the figure, for reading.
 
 Nothing is measured here. Every number is read from what the experiment
 wrote: the jobs' ``tasks.csv``, ``frontier.json``, each round's
@@ -56,6 +58,20 @@ PARTS = (
     ("the candidates on the validation tasks", r"r\d+[A-Z](_filter|_rest)?"),
     ("each harness kept, on the training tasks", r"r\d+[A-Z]_training"),
     ("each harness kept, on the test tasks", r"heldout_t\d+"),
+)
+# What a job is, by its name: a pattern, the words for it, and where it comes
+# in the order of an experiment. The number in a round's job counts from 0 and
+# the words count from 1, as the table of rounds does; a kept harness's test
+# job is numbered by the round that kept it, the starting harness's being 0.
+JOBS = (
+    (r"base_(training|validation)", "the starting harness, {} tasks", 0),
+    (r"r(\d+)[A-Z]_smoke", "round {}: the one-task trial", 1),
+    (r"r(\d+)[A-Z]_filter", "round {}: the filter", 1),
+    (r"r(\d+)[A-Z]_rest", "round {}: the rest of the validation tasks", 1),
+    (r"r(\d+)[A-Z]", "round {}: the validation tasks", 1),
+    (r"r(\d+)[A-Z]_training", "round {}: the kept harness, training tasks", 1),
+    (r"heldout_t0", "the starting harness, test tasks", 2),
+    (r"heldout_t(\d+)", "the harness kept in round {}, test tasks", 2),
 )
 SEARCH = "the search roles: analysis, proposals and reviews"
 # Where a candidate that reached no test ended, by the loop's own name for it.
@@ -214,6 +230,64 @@ def rounds(folder: Path) -> pd.DataFrame:
                 }
             )
     return pd.DataFrame(rows)
+
+
+def errors(folder: Path) -> pd.DataFrame:
+    """The jobs with attempts that ended in an error, which are scored zero.
+
+    An attempt a service it needs never answered is no part of this, as it
+    is of no score. The kind of an error is told from the runner's two fixed
+    messages (``runner.run_task`` and ``runner.TaskExecutor.initialize``);
+    an error's own words may quote a task and are not copied.
+
+    Args:
+        folder: The experiment's folder.
+
+    Returns:
+        One row per job with such an attempt, in the order of the
+        experiment: what the job is, its attempts, those in error, and how
+        many of them ran past their seconds, past their calls to the model,
+        or ended otherwise.
+    """
+    rows = []
+    for job in (folder / EnterpriseOps.name / "jobs").iterdir():
+        made = attempts(job)
+        if not len(made) or made["error"].isna().all():
+            continue
+        said = made["error"].dropna().astype(str)
+        seconds = int(said.str.startswith("the attempt ran past its limit").sum())
+        calls = int(said.str.startswith("the attempt made more than").sum())
+        what, place, number = job.name, len(JOBS), 0
+        for pattern, words, order in JOBS:
+            match = re.fullmatch(pattern, job.name)
+            if match:
+                named = match.group(1) if match.groups() else ""
+                number = int(named) + (order == 1) if named.isdigit() else 0
+                what = words.format(number if named.isdigit() else named)
+                place = order
+                break
+        row = {
+            "job": job.name,
+            "what": what,
+            "attempts": len(made),
+            "in_error": len(said),
+            "past_seconds": seconds,
+            "past_calls": calls,
+            "other": len(said) - seconds - calls,
+        }
+        rows.append(((place, number, job.name), row))
+    return pd.DataFrame(
+        [row for _, row in sorted(rows, key=lambda pair: pair[0])],
+        columns=[
+            "job",
+            "what",
+            "attempts",
+            "in_error",
+            "past_seconds",
+            "past_calls",
+            "other",
+        ],
+    )
 
 
 def harnesses(folder: Path) -> pd.DataFrame:
@@ -470,6 +544,36 @@ def run(args: argparse.Namespace) -> None:
                 },
             ),
         ]
+
+    failed = errors(folder)
+    failed.to_csv(out / "errors.csv", index=False)
+    text += ["", "## Attempts that ended in an error", ""]
+    if len(failed):
+        text += [
+            "An attempt that ends in an error is scored zero for its task, and "
+            "the loop runs a job again only when more than a set share of its "
+            "attempts left no result. Each job with such attempts is below: "
+            "how many there were, and how many of them ran past their limit "
+            "of seconds, past their limit of calls to the model, or ended "
+            "otherwise. An error's own words are in the `error` column of the "
+            "job's `tasks.csv`. An attempt whose service never answered is "
+            "not here: it is scored nowhere.",
+            "",
+            table(
+                failed,
+                {
+                    "what": "job",
+                    "attempts": "attempts",
+                    "in_error": "in error",
+                    "past_seconds": "past their seconds",
+                    "past_calls": "past their calls",
+                    "other": "otherwise",
+                },
+                {},
+            ),
+        ]
+    else:
+        text += ["No attempt of any job ended in an error."]
 
     spent = parts(folder)
     spent.to_csv(out / "parts.csv", index=False)
