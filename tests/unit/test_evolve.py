@@ -1025,6 +1025,20 @@ def test_the_edits_allowed_go_from_the_first_rounds_number_to_the_last_rounds(
     assert allowed == [3, 2, 1]
 
 
+def test_the_proposer_is_told_how_a_candidate_is_judged_here(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(
+        loop.propose, "propose", lambda *args, **kwargs: seen.update(kwargs, args=args)
+    )
+    # RRSI's drafting calls its proposer with its own sentence, which says
+    # that the tasks the proposer reads decide. Here others decide.
+    released = "each is evaluated on the full evolve set; the best one is kept"
+    loop.rrsi.loop.propose("the benchmark", variant_brief=released, model="a-model")
+    assert seen["variant_brief"] == loop.JUDGED and "cannot read" in loop.JUDGED
+    # Everything else it was called with is passed on as it was.
+    assert (seen["args"], seen["model"]) == (("the benchmark",), "a-model")
+
+
 def test_the_digester_has_no_shell(tmp_path):
     # The released digester may run shell commands that are checked by the
     # program's name alone, which would let one read the validation results

@@ -52,6 +52,7 @@ from mas_optimiser.benchmarks.enterpriseops.domain import EnterpriseOps
 from mas_optimiser.evolve import models
 from mas_optimiser.stats import budget, gate
 
+import rrsi.loop
 from rrsi import analyst, critic, digester, gitops, propose
 from rrsi.config import RRSIConfig
 from rrsi.evaluate import (
@@ -77,6 +78,11 @@ for _role in (analyst, critic, digester, propose):
 # instructions; reading a file and searching it, which are held to the
 # folder of the round's traces, remain.
 digester._bash_ok = lambda cmd: False
+# RRSI's drafting of a candidate hands the proposer a sentence on how the
+# candidate will be judged, written for RRSI's own round; it is replaced.
+rrsi.loop.propose = lambda *args, **kwargs: propose.propose(
+    *args, **(kwargs | {"variant_brief": JUDGED})
+)
 digester.SYSTEM_TMPL = re.sub(
     r'  \{\{"action": "bash".*?rejected\)\n', "", digester.SYSTEM_TMPL, flags=re.S
 )
@@ -108,6 +114,15 @@ SCORES = (
     "mean over its attempts of the fraction of checks passed. A task marked * "
     "is in this round's pool, and only those have a trace that can be read; "
     "the others are listed for their scores."
+)
+# How a candidate is judged here, said to the proposer in place of RRSI's own
+# sentence, which tells it that every candidate is scored on the tasks it
+# reads and that the best of them is kept.
+JUDGED = (
+    "This candidate, and any other drafted this round from the same current "
+    "harness, is run on tasks you cannot read. One of them replaces the "
+    "current harness only if a statistical test on those tasks shows it to "
+    "be better than the current one."
 )
 # Put before the count of how the current harness's training attempts went,
 # in the same two roles' instructions, each round.
