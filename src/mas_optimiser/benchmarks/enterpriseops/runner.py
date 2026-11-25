@@ -128,7 +128,9 @@ EXPERIMENT_DEFAULTS = {
     # search roles (the agent's when not given), the rounds of the loop, the
     # candidates proposed in each, the most independent edits one candidate
     # may hold (in the first round and in the last, with RRSI's schedule from
-    # the one to the other), the error budget of the whole experiment,
+    # the one to the other), the attempts at each stage where they are to
+    # differ from ``attempts`` (the training tasks, the filter, the gate and
+    # the test tasks), the error budget of the whole experiment,
     # the filter a candidate passes before the full test (the share of the
     # validation tasks it is run on first, none at 0, and the gain in
     # percentage points it must be above there), the pool of training tasks
@@ -142,6 +144,10 @@ EXPERIMENT_DEFAULTS = {
     "candidates": 1,
     "edits_first": 1,
     "edits_last": 1,
+    "attempts_training": None,
+    "attempts_filter": None,
+    "attempts_gate": None,
+    "attempts_test": None,
     "alpha": 0.05,
     "filter_share": 0.5,
     "filter_threshold": 0.0,
@@ -667,6 +673,23 @@ def load_experiment(spec: str, overrides: dict) -> dict:
     for key in ("rounds", "candidates", "edits_first", "edits_last"):
         if not isinstance(settings[key], int) or settings[key] < 1:
             raise SystemExit(f"error: {key} must be a whole number of at least 1")
+    stages = ("attempts_training", "attempts_filter", "attempts_gate", "attempts_test")
+    for key in stages:
+        value = settings[key]
+        if value is None:
+            continue
+        if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+            raise SystemExit(
+                f"error: {key} must be a whole number of at least 1, or left out"
+            )
+    # The filter's attempts are the first of the gate's, so it cannot have more.
+    at_filter = settings["attempts_filter"] or settings["attempts"]
+    at_gate = settings["attempts_gate"] or settings["attempts"]
+    if at_filter > at_gate:
+        raise SystemExit(
+            f"error: the filter's attempts ({at_filter}) cannot be more than "
+            f"the gate's ({at_gate}): they are the first of them"
+        )
     if not isinstance(settings["alpha"], float) or not 0 < settings["alpha"] < 1:
         raise SystemExit("error: alpha must be a number between 0 and 1")
     share, threshold = settings["filter_share"], settings["filter_threshold"]

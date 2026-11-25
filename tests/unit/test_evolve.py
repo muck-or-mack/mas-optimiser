@@ -17,7 +17,7 @@ from mas_optimiser.stats import budget
 from rrsi import components, critic, gitops, propose
 from rrsi.config import RRSIConfig
 from rrsi.domain import Domain
-from rrsi.evaluate import TaskResult
+from rrsi.evaluate import EvalResult, TaskResult
 from rrsi.selection import Candidate
 
 # ---------------------------------------------------------------- the model call
@@ -514,7 +514,7 @@ def test_an_experiment_says_and_records_what_differs_from_the_defaults(
         frontier_path = tmp_path / "none"
 
         def __init__(self, *args):
-            Stop.cfg = args[1]
+            Stop.cfg, Stop.attempts = args[1], args[-1]
 
         def baseline(self):
             raise Reached
@@ -527,7 +527,8 @@ def test_an_experiment_says_and_records_what_differs_from_the_defaults(
     unset = dict.fromkeys(adapter.runner.EXPERIMENT_DEFAULTS)
     chosen = {"experiment": "evolve-smoke", "accept_unreviewed_code": False}
     with pytest.raises(Reached):
-        loop.run(SimpleNamespace(**(unset | chosen | {"edits_first": 3})))
+        stages = {"edits_first": 3, "attempts_gate": 3, "attempts_test": 2}
+        loop.run(SimpleNamespace(**(unset | chosen | stages)))
 
     said = capsys.readouterr().out
     assert "Settings that differ from the defaults:" in said
@@ -536,6 +537,10 @@ def test_an_experiment_says_and_records_what_differs_from_the_defaults(
     # round's number is the upper one, the last round's the lower.
     assert "edits_first      3" in said
     assert (Stop.cfg.b_max, Stop.cfg.b_min) == (3, 1)
+    # RRSI's number of attempts is the gate's; a stage that is not set has
+    # the experiment's ``attempts``.
+    assert Stop.cfg.k == 3
+    assert Stop.attempts == {"training": 1, "filter": 1, "test": 2}
     folder = tmp_path / "evolve-smoke" / "haiku-20-40-40"
     record = json.loads((folder / "experiment.json").read_text())
     assert record["changed"]["rounds"] == 1
@@ -591,7 +596,7 @@ class Scores(Domain):
     briefs = {"analyst": "the analyst's brief", "proposer": "the proposer's brief"}
 
     def __init__(self, scores):
-        self.scores, self.jobs = scores, []
+        self.scores, self.jobs, self.attempts = scores, [], {}
 
     def evolve_ids(self):
         return TRAINING
@@ -611,9 +616,10 @@ class Scores(Domain):
     def run(self, root, runs_dir, job, ids, k, log_prefix=""):
         (runs_dir / "jobs" / job).mkdir(parents=True, exist_ok=True)
         self.jobs.append((job, list(ids)))
+        self.attempts[job] = k
 
     def score(self, runs_dir, job, ids, k):
-        return {i: TaskResult(rewards=[self.scores[job][i]]) for i in ids}, {}
+        return {i: TaskResult(rewards=[self.scores[job][i]] * k) for i in ids}, {}
 
     def load_trial(self, runs_dir, job, task_id, trial):
         return {"task_id": task_id, "job": job}
@@ -633,8 +639,9 @@ def experiment(tmp_path, monkeypatch, candidate_scores, **settings):
         "base_training": flat,
         "base_validation": flat,
         "r0A": candidate,
-        # The two parts a candidate is scored in when there is a filter.
+        # The parts a candidate is scored in when there is a filter.
         "r0A_filter": candidate,
+        "r0A_more": candidate,
         "r0A_rest": candidate,
         "r0A_training": dict.fromkeys(TRAINING, 0.75),
         "heldout_t0": flat,
@@ -759,6 +766,49 @@ def test_a_candidate_that_passes_the_filter_is_judged_on_every_validation_task(
     assert state["promotions"] == 1 and state["incumbent"]["S"] == pytest.approx(0.9)
     kept = loop.EvalResult.load(run.eval_path(state["incumbent"]["job"]))
     assert list(kept.per_task) == VALIDATION
+
+
+def test_each_stage_has_its_own_attempts_and_the_filters_are_the_first_of_the_gates(
+    tmp_path, monkeypatch
+):
+    better = [0.9, 0.8, 1.0, 0.85, 0.95, 0.9]
+    stages = {"training": 2, "filter": 1, "test": 4}
+    run, _ = experiment(
+        tmp_path, monkeypatch, better, filter_share=0.5, seed=1, attempts=stages
+    )
+    run.cfg.k = 3
+    run.baseline()
+    run.round(0)
+    run.test()
+    asked, tasks = run.domain.attempts, dict(run.domain.jobs)
+    # The validation scores a candidate is compared with have the gate's attempts.
+    assert (asked["base_training"], asked["base_validation"]) == (2, 3)
+    # The filter's one attempt; then, the candidate having passed, the two
+    # those tasks still lack and the other tasks in full.
+    assert (asked["r0A_filter"], asked["r0A_more"], asked["r0A_rest"]) == (1, 2, 3)
+    assert tasks["r0A_more"] == tasks["r0A_filter"]
+    assert sorted(tasks["r0A_filter"] + tasks["r0A_rest"]) == VALIDATION
+    # The gate judged every validation task on three attempts.
+    judged = EvalResult.load(run.eval_path("r0A"))
+    assert {len(result.rewards) for result in judged.per_task.values()} == {3}
+    assert (judged.n_expected, judged.missing) == (18, 0)
+    # The kept harness on the training tasks, and each harness on the test tasks.
+    assert asked["r0A_training"] == 2
+    assert asked["heldout_t0"] == asked["heldout_t1"] == 4
+
+
+def test_a_candidate_dropped_at_the_filter_is_run_for_no_further_attempts(
+    tmp_path, monkeypatch
+):
+    worse = [0.4, 0.3, 0.5, 0.4, 0.45, 0.35]
+    run, _ = experiment(
+        tmp_path, monkeypatch, worse, filter_share=0.5, seed=1, attempts={"filter": 1}
+    )
+    run.cfg.k = 3
+    run.baseline()
+    run.round(0)
+    assert run.domain.attempts["r0A_filter"] == 1
+    assert not {"r0A_more", "r0A_rest"} & set(run.domain.attempts)
 
 
 @pytest.mark.parametrize(("threshold", "passed"), [(30.0, True), (50.0, False)])

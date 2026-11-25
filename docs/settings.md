@@ -19,39 +19,43 @@ anything is run or spent.
 tasks, and `evolve` is the improvement loop, which also uses every setting
 of `run`. "Planner" marks the settings the planner has a control for.
 
-| setting                                 | default           | read by | planner |
-|-----------------------------------------|-------------------|---------|---------|
-| [`model`](#model)                       | none, must be set | both    |         |
-| [`proposer_model`](#proposer-model)     | the agent's model | evolve  |         |
-| [`harness`](#harness)                   | `default`         | both    |         |
-| [`domain`](#domain)                     | none, must be set | both    |         |
-| [`mode`](#mode)                         | `all_tools`       | both    |         |
-| [`split`](#split)                       | none              | both    |         |
-| [`limit`](#limit)                       | none (all)        | both    |         |
-| [`task`](#task)                         | none              | run     |         |
-| [`attempts`](#attempts)                 | 1                 | both    | yes     |
-| [`concurrency`](#concurrency)           | 4                 | both    |         |
-| [`model_timeout`](#model-timeout)       | 300               | both    |         |
-| [`attempt_timeout`](#attempt-timeout)   | 3600              | both    |         |
-| [`attempt_calls`](#attempt-calls)       | 100               | both    |         |
-| [`attempt_retries`](#attempt-retries)   | 2                 | both    |         |
-| [`service_wait`](#service-wait)         | 1800              | both    |         |
-| [`trace`](#trace)                       | true              | both    |         |
-| [`thinking_summary`](#thinking-summary) | false             | both    |         |
-| [`prompt_caching`](#prompt-caching)     | true              | both    |         |
-| [`label`](#label)                       | none              | both    |         |
-| [`out`](#out)                           | none              | run     |         |
-| [`rounds`](#rounds)                     | 10                | evolve  | yes     |
-| [`candidates`](#candidates)             | 1                 | evolve  | yes     |
-| [`edits_first`](#edits-first)           | 1                 | evolve  |         |
-| [`edits_last`](#edits-last)             | 1                 | evolve  |         |
-| [`alpha`](#alpha)                       | 0.05              | evolve  | yes     |
-| [`filter_share`](#filter-share)         | 0.5               | evolve  | yes     |
-| [`filter_threshold`](#filter-threshold) | 0                 | evolve  |         |
-| [`pool_share`](#pool-share)             | 0.5               | evolve  | yes     |
-| [`pool_pick`](#pool-pick)               | `spread`          | evolve  |         |
-| [`editable`](#editable)                 | `.md` and `.py`   | evolve  |         |
-| [`approval`](#approval)                 | `none`            | evolve  |         |
+| setting                                   | default           | read by | planner |
+|-------------------------------------------|-------------------|---------|---------|
+| [`model`](#model)                         | none, must be set | both    |         |
+| [`proposer_model`](#proposer-model)       | the agent's model | evolve  |         |
+| [`harness`](#harness)                     | `default`         | both    |         |
+| [`domain`](#domain)                       | none, must be set | both    |         |
+| [`mode`](#mode)                           | `all_tools`       | both    |         |
+| [`split`](#split)                         | none              | both    |         |
+| [`limit`](#limit)                         | none (all)        | both    |         |
+| [`task`](#task)                           | none              | run     |         |
+| [`attempts`](#attempts)                   | 1                 | both    | yes     |
+| [`concurrency`](#concurrency)             | 4                 | both    |         |
+| [`model_timeout`](#model-timeout)         | 300               | both    |         |
+| [`attempt_timeout`](#attempt-timeout)     | 3600              | both    |         |
+| [`attempt_calls`](#attempt-calls)         | 100               | both    |         |
+| [`attempt_retries`](#attempt-retries)     | 2                 | both    |         |
+| [`service_wait`](#service-wait)           | 1800              | both    |         |
+| [`trace`](#trace)                         | true              | both    |         |
+| [`thinking_summary`](#thinking-summary)   | false             | both    |         |
+| [`prompt_caching`](#prompt-caching)       | true              | both    |         |
+| [`label`](#label)                         | none              | both    |         |
+| [`out`](#out)                             | none              | run     |         |
+| [`rounds`](#rounds)                       | 10                | evolve  | yes     |
+| [`candidates`](#candidates)               | 1                 | evolve  | yes     |
+| [`edits_first`](#edits-first)             | 1                 | evolve  |         |
+| [`edits_last`](#edits-last)               | 1                 | evolve  |         |
+| [`attempts_training`](#attempts-training) | `attempts`        | evolve  |         |
+| [`attempts_filter`](#attempts-filter)     | `attempts`        | evolve  |         |
+| [`attempts_gate`](#attempts-gate)         | `attempts`        | evolve  |         |
+| [`attempts_test`](#attempts-test)         | `attempts`        | evolve  |         |
+| [`alpha`](#alpha)                         | 0.05              | evolve  | yes     |
+| [`filter_share`](#filter-share)           | 0.5               | evolve  | yes     |
+| [`filter_threshold`](#filter-threshold)   | 0                 | evolve  |         |
+| [`pool_share`](#pool-share)               | 0.5               | evolve  | yes     |
+| [`pool_pick`](#pool-pick)                 | `spread`          | evolve  |         |
+| [`editable`](#editable)                   | `.md` and `.py`   | evolve  |         |
+| [`approval`](#approval)                   | `none`            | evolve  |         |
 
 ## What is run
 
@@ -288,6 +292,41 @@ between, the number goes from `edits_first` to `edits_last` along RRSI's
 schedule, a half cosine rounded up: over 10 rounds, 3 and 1 give
 3, 3, 3, 3, 3, 2, 2, 2, 2, 1. RRSI's released defaults are 4 and 1, so that early rounds may try
 several ideas at once and late rounds test one at a time.
+
+### `attempts_training`
+
+How many times each training task is attempted, by the starting harness and
+by every harness that is kept. Left out, it is `attempts`. These are the
+attempts the analyst and the proposer read, a task's lowest-scoring one
+first, so more of them show more of how the agent fails. They take no part
+in any decision.
+
+### `attempts_filter`
+
+How many times each of the filter's tasks is attempted before the filter
+decides. Left out, it is `attempts`, and it cannot be more than the gate's.
+The filter's attempts are the first of the gate's: a candidate that passes
+is run only for the attempts it still lacks, on the filter's tasks and on
+the others, so nothing is run twice. Fewer attempts here make a dropped
+candidate cheaper and the filter's own decision more a matter of chance, so
+that a good candidate is dropped more often.
+
+### `attempts_gate`
+
+How many times each validation task is attempted for the gate: by the
+starting harness, and by every candidate that passes the filter. Left out,
+it is `attempts`. This is the number that decides how small a gain the gate
+can find, since most of the chance in a candidate's measured gain comes from
+one attempt differing from the next
+([Sizing an experiment](methodology/sizing.md)). It is also the dearest to
+raise: every candidate that passes the filter is run on every validation
+task this many times.
+
+### `attempts_test`
+
+How many times each test task is attempted, at the end, by each harness the
+experiment kept. Left out, it is `attempts`. More attempts narrow the
+confidence interval of the final gain. They take no part in any decision.
 
 ### `alpha`
 

@@ -1445,6 +1445,27 @@ def test_a_pool_setting_that_makes_no_sense_is_refused():
     assert (settings["pool_share"], settings["pool_pick"]) == (1, "ends")
 
 
+def test_the_attempts_of_a_stage_are_checked_and_the_filters_are_not_above_the_gates():
+    unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
+    for stage in ("training", "filter", "gate", "test"):
+        for value in (0, 1.5, "two", True):
+            with pytest.raises(SystemExit, match=f"attempts_{stage} must be"):
+                runner.load_experiment("smoke", unset | {f"attempts_{stage}": value})
+    # The filter's attempts are the first of the gate's.
+    with pytest.raises(SystemExit, match="cannot be more than the gate's"):
+        runner.load_experiment("smoke", unset | {"attempts_filter": 2})
+    with pytest.raises(SystemExit, match="cannot be more than the gate's"):
+        runner.load_experiment("smoke", unset | {"attempts": 3, "attempts_gate": 2})
+    settings = runner.load_experiment(
+        "smoke", unset | {"attempts_gate": 3, "attempts_filter": 1}
+    )
+    assert (settings["attempts_gate"], settings["attempts_filter"]) == (3, 1)
+    # A stage that is not set stays unset: it takes the experiment's attempts.
+    assert (
+        settings["attempts_test"] is None and "attempts_test" not in settings["changed"]
+    )
+
+
 @pytest.mark.parametrize("key", ["edits_first", "edits_last"])
 @pytest.mark.parametrize("edits", [0, 1.5, "two"])
 def test_the_edits_a_candidate_may_hold_are_whole_numbers_of_at_least_one(key, edits):
