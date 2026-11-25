@@ -397,7 +397,7 @@ reads what an experiment wrote, finished or still going, and writes a
 |----------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `report.md`          | the tables below and the figure, as a page to read                                                                                                                                        |
 | `harnesses.csv`      | each harness the experiment kept, the starting one first: its validation and test scores, what an attempt at a test task used, and its gain on the test tasks over the starting harness |
-| `rounds.csv`         | each candidate: what it changed, where it ended (the review, its one-task trial, the filter or the gate), and the filter's and the gate's numbers                                         |
+| `rounds.csv`         | each candidate: the proposer's hypothesis, the files and lines its change edited, where it ended (review, one-task trial, filter or gate), and the filter's and the gate's numbers        |
 | `errors.csv`         | each job with attempts that ended in an error, which are scored zero: its attempts, those in error, and how many ran past their seconds or their calls                                    |
 | `parts.csv`          | the runs, tokens, dollars and hours of each part of the experiment, the agent's and the search roles'                                                                                    |
 | `figures/scores.png` | the current harness's score after each round, on the validation tasks and, once the test step has run, on the test tasks; also as PDF, with its numbers in `scores.csv`                  |

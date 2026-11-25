@@ -8,8 +8,9 @@ folder inside it:
   first: its scores on the validation and the test tasks, what an attempt
   at a test task used, and its gain on the test tasks over the starting
   harness, task by task, with the gate's test and a 95% confidence interval;
-- ``rounds.csv``: each candidate, how far it got and the numbers of the
-  filter and of the gate;
+- ``rounds.csv``: each candidate, what it proposed (the proposer's
+  hypothesis, the files it edited and the lines it changed), how far it got
+  and the numbers of the filter and of the gate;
 - ``errors.csv``: each job with attempts that ended in an error, which are
   scored zero, and how many of them ran past a limit;
 - ``parts.csv``: the attempts, tokens, dollars and hours of each part of the
@@ -190,7 +191,9 @@ def rounds(folder: Path) -> pd.DataFrame:
     Returns:
         One row per candidate, in the order they were decided. The gain on
         the filter's tasks and the gate's gain and standard error are in
-        percentage points.
+        percentage points. What the candidate proposed is the proposer's
+        hypothesis, the files its change edited, the lines it added and
+        removed, and where its diff is kept, from the experiment's folder.
     """
     domain = folder / EnterpriseOps.name
     said = {}
@@ -206,6 +209,9 @@ def rounds(folder: Path) -> pd.DataFrame:
         for decision in json.loads(path.read_text()):
             record = said.get((t, decision["variant"]), {})
             gated = "t" in decision
+            # The candidate's change as the loop kept it: a unified diff.
+            patch = path.parent / decision["variant"] / "diff.patch"
+            lines = patch.read_text().splitlines() if patch.is_file() else []
             rows.append(
                 {
                     "round": t + 1,
@@ -227,6 +233,18 @@ def rounds(folder: Path) -> pd.DataFrame:
                     "false_acceptances_allowed_percent": 100 * decision["level"],
                     "accepted": decision["accept"],
                     "hypothesis": record.get("hypothesis"),
+                    "files": ", ".join(
+                        line[6:] for line in lines if line.startswith("+++ b/")
+                    ),
+                    "lines_added": sum(
+                        line.startswith("+") and not line.startswith("+++")
+                        for line in lines
+                    ),
+                    "lines_removed": sum(
+                        line.startswith("-") and not line.startswith("---")
+                        for line in lines
+                    ),
+                    "diff": str(patch.relative_to(folder)) if lines else None,
                 }
             )
     return pd.DataFrame(rows)
@@ -544,6 +562,32 @@ def run(args: argparse.Namespace) -> None:
                 },
             ),
         ]
+
+    if len(decided):
+        text += [
+            "",
+            "## What each round proposed",
+            "",
+            "Each candidate's hypothesis in the proposer's own words, written "
+            "before the candidate was run: what the change is and why it "
+            "should help. With it, the files the change edited, the lines it "
+            "added and removed, and where its diff is kept in the "
+            "experiment's folder.",
+        ]
+        for row in decided.itertuples():
+            # An empty value of a column read back is not a string.
+            change = (
+                f"{row.files}, +{row.lines_added} −{row.lines_removed} lines, "
+                f"`{row.diff}`"
+                if isinstance(row.diff, str)
+                else "no change kept"
+            )
+            said = row.hypothesis if isinstance(row.hypothesis, str) else ""
+            text += [
+                "",
+                f"**Round {row.round}** ({row.ended_at}; {change}). "
+                f"{said or 'No hypothesis was recorded.'}",
+            ]
 
     failed = errors(folder)
     failed.to_csv(out / "errors.csv", index=False)

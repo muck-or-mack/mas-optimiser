@@ -858,8 +858,9 @@ mas-optimiser report evolutions/<experiment>/<split>
 
 writes `report/report.md` in that folder, for an experiment that has
 finished or one still going: each harness kept, with its gain on the test
-tasks and a 95% confidence interval; each round's candidate and where it
-ended; the jobs with attempts that ended in an error, which are scored
+tasks and a 95% confidence interval; each round's candidate, what it
+proposed in the proposer's own words and where it ended; the jobs with
+attempts that ended in an error, which are scored
 zero; what every part of the experiment cost; and a figure of the score
 after each round. The tables are beside it as CSV files.
 

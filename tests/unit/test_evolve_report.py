@@ -142,6 +142,13 @@ def experiment(tmp_path):
     for name, decision in (("r0", kept), ("r1", stopped)):
         (domain / name).mkdir()
         (domain / name / "decisions.json").write_text(json.dumps([decision]))
+    # The first round's change: two lines added and one removed, in one file.
+    (domain / "r0" / "A").mkdir()
+    (domain / "r0" / "A" / "diff.patch").write_text(
+        "diff --git a/harness/agent.py b/harness/agent.py\n"
+        "--- a/harness/agent.py\n+++ b/harness/agent.py\n"
+        "@@ -1,2 +1,3 @@\n unchanged\n-old\n+new\n+newer\n"
+    )
     (domain / "test.csv").write_text(
         "round,commit,validation,test,missing_attempts\n"
         "0,aaa,0.5,0.5,0\n"
@@ -174,6 +181,12 @@ def test_rounds_say_where_each_candidate_ended_and_give_the_gates_numbers(experi
     assert first["filter_gain_points"] == 25.0
     assert (first["gain_points"], first["standard_error_points"]) == (25.0, 5.0)
     assert first["false_acceptances_allowed_percent"] == pytest.approx(1.25)
+    # What it proposed: the hypothesis, and its change read from the diff.
+    assert (first["hypothesis"], first["files"]) == ("it helps", "harness/agent.py")
+    assert (first["lines_added"], first["lines_removed"]) == (2, 1)
+    assert first["diff"] == "enterpriseops/r0/A/diff.patch"
+    assert (second["files"], second["lines_added"]) == ("", 0)
+    assert not isinstance(second["diff"], str)
     # A candidate that did not reach the gate has no numbers of it.
     assert (second["round"], second["ended_at"]) == (2, "its one-task trial")
     assert (
@@ -247,6 +260,11 @@ def test_the_command_writes_the_tables_the_figure_and_a_page_to_read(
     assert "2 of 2 rounds are decided; changes kept: 1." in page
     assert "| +25.0 " in page and "-7.5 to +57.5" in page
     assert "its one-task trial" in page
+    assert (
+        "**Round 1** (accepted by the gate; harness/agent.py, +2 −1 lines, "
+        "`enterpriseops/r0/A/diff.patch`). it helps" in page
+    )
+    assert "**Round 2** (its one-task trial; no change kept). it helps more" in page
     assert "No attempt of any job ended in an error." in page
     # With an attempt in error, its job is a row of the page's table.
     write_job(experiment, "r1A_filter", [0, 3], failed=["KeyError('a')"])
