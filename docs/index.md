@@ -14,6 +14,7 @@ decisions, the data model of each domain and the API.
 :caption: Using the package
 
 Install, run, read the results <usage>
+settings
 results
 gpu-memory
 ```

@@ -269,10 +269,12 @@ and gpt-oss-20b has been served and has run a task in about 25 seconds.
 A run needs its model's key in `.env` ([Models and keys](#models-and-keys)).
 An experiment is a short
 YAML file in `configs/experiments/` that sets the model, the domain or
-domains, mode, task limit and tracing options, with a comment on each;
-`smoke.yaml` is the annotated example, `demo.yaml` the two-task
+domains and whatever else differs from the defaults. `template.yaml` lists
+every setting at its default with a few lines on what it does;
+`smoke.yaml` is the smoke test, `demo.yaml` the two-task
 demonstration and `baseline-haiku.yaml` the full baseline (every task of the
-three domains, three attempts each). Run one by name:
+three domains, three attempts each). "Experiment settings" in the
+documentation explains each setting in full. Run an experiment by name:
 
 ```bash
 mas-optimiser run smoke
@@ -289,7 +291,8 @@ Experiments give the agent every tool its domain's server offers
 (`mode: all_tools`); `--mode oracle` gives it only the tools the benchmark
 lists with each task, the setting that published results use (see "What is
 fixed and what is optimised" in the documentation).
-To define a new experiment, copy `smoke.yaml` under a new name. Models are
+To define a new experiment, copy `template.yaml` under a new name, set the
+model and the domain, and delete the settings left at their defaults. Models are
 named the same way: `model: haiku-5-5` means `configs/models/haiku-5-5.yaml`,
 and a path works in place of any name. The command checks that the domain's
 server answers before it starts, and names the servers' start command if not.
@@ -763,22 +766,13 @@ decides whether it replaces the current harness. At the end every harness
 that was kept is run once on the test tasks. The method, who may read what,
 and the files it writes are on "The improvement loop" in the documentation.
 
-The experiment file holds the settings of `run` and the loop's own:
-
-| setting            | what it sets                                                                                                                                      | default           |
-|--------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|-------------------|
-| `split`            | the split whose three sets are used, by its name alone                                                                                            | none, must be set |
-| `harness`          | the folder the experiment starts from                                                                                                             | `default`         |
-| `proposer_model`   | the model file of the roles that read and propose                                                                                                 | the agent's model |
-| `rounds`           | rounds of the loop                                                                                                                                | 10                |
-| `candidates`       | candidates proposed in each round                                                                                                                 | 1                 |
-| `alpha`            | the chance, over the experiment, of keeping a useless change                                                                                      | 0.05              |
-| `filter_share`     | the share of the validation tasks a candidate is run on first, and dropped if it does no better there; 0 for no filter                            | 0.5               |
-| `filter_threshold` | the gain, in percentage points, a candidate must be above on the filter's tasks                                                                   | 0                 |
-| `pool_share`       | the share of the training tasks whose traces the roles that read and propose may open in a round; 1 for every task                                | 0.5               |
-| `pool_pick`        | how that share is picked from the tasks ranked by score: `spread`, evenly and one place further each round, or `ends`, the lowest and the highest | `spread`          |
-| `editable`         | the types of file a proposal may edit: `.md` for the agent's text, `.py` for its code                                                             | `.md` and `.py`   |
-| `approval`         | `each`: every change is shown at the terminal and run only after a yes; `none`: no one is asked                                                   | `none`            |
+The experiment file holds the settings of `run` and the loop's own, which
+only `evolve` reads: the split, the harness the experiment starts from, the
+proposer's model (the agent's when not given), the rounds and the candidates
+in each, the chance of keeping a useless change, the filter, the pool, the
+types of file a proposal may edit and whether a person approves each change.
+`configs/experiments/template.yaml` lists each at its default, and
+"Experiment settings" in the documentation explains them.
 
 ```
 mas-optimiser evolve evolve-smoke

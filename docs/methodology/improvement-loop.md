@@ -328,23 +328,12 @@ take no part until the end.
 ## The settings
 
 An experiment file holds the settings of `mas-optimiser run` (the model,
-the domains, the attempts and so on) and these, which only `evolve` reads:
-
-| setting            | what it sets                                                                                                    | default           |
-|--------------------|-----------------------------------------------------------------------------------------------------------------|-------------------|
-| `split`            | the split whose three sets are used, by its name alone                                                          | none, must be set |
-| `harness`          | the folder the experiment starts from                                                                           | `default`         |
-| `proposer_model`   | the model file of the analyst, the proposer and the reviewer                                                    | the agent's model |
-| `rounds`           | rounds of the loop                                                                                              | 10                |
-| `candidates`       | candidates proposed in each round                                                                               | 1                 |
-| `alpha`            | the error budget of the whole experiment                                                                        | 0.05              |
-| `filter_share`     | the share of the validation tasks a candidate is run on first; 0 for no filter                                  | 0.5               |
-| `filter_threshold` | the gain, in percentage points of the score, a candidate must be above on the filter's tasks                    | 0                 |
-| `pool_share`       | the share of the training tasks whose traces the analyst and the proposer may read in a round; 1 for every task | 0.5               |
-| `pool_pick`        | how the pool is picked from the training tasks ranked by score: `spread` or `ends`                              | `spread`          |
-| `editable`         | the types of file in the harness folder a proposal may edit                                                     | `.md` and `.py`   |
-| `approval`         | whether a person approves each change before it first runs: `each` or `none`                                    | `none`            |
-| `limit`            | at most this many tasks of each set, for a trial of the loop itself                                             | all               |
+the domains, the attempts and so on) and those only `evolve` reads: `split`,
+`harness`, `proposer_model`, `rounds`, `candidates`, `alpha`,
+`filter_share`, `filter_threshold`, `pool_share`, `pool_pick`, `editable`
+and `approval`. [Experiment settings](../settings.md) gives each one's
+meaning, its default and what changing it does, and
+`configs/experiments/template.yaml` lists them all to copy.
 
 The agent's model and the proposer's are two settings, so they can be the
 same model or different ones, hosted or self-hosted. `editable` and

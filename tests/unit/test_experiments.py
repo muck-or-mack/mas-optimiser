@@ -1,5 +1,7 @@
 """Unit tests of the experiment and model config loading in ``runner``."""
 
+import re
+
 import pytest
 import yaml
 
@@ -121,6 +123,13 @@ def test_every_experiment_file_loads_and_the_template_cannot_be_run():
                 runner.load_experiment(name, no_overrides)
         else:
             runner.load_experiment(name, no_overrides)
+
+
+def test_the_settings_page_has_a_section_for_every_setting():
+    page = (runner.REPO_ROOT / "docs" / "settings.md").read_text()
+    assert sorted(re.findall(r"^### `(\w+)`$", page, re.M)) == sorted(
+        runner.EXPERIMENT_DEFAULTS
+    )
 
 
 def test_run_name_is_the_start_minute_and_the_label():
