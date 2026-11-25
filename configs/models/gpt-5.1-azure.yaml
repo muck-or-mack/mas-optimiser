@@ -23,7 +23,9 @@ max_tokens: 16384
 # allowance of tokens a minute is used up, as one shared with other users
 # often is, and says how long to wait, a few seconds as a rule: each try
 # waits that long. The limit on an attempt's seconds (attempt_timeout, in
-# the experiment file) is the cap on the waiting.
+# the experiment file) is the cap on the waiting; an attempt that reaches it
+# is not counted against the harness until the service has been asked a
+# one-word question and answers (attempt_retries and service_wait, there).
 max_retries: 1000
 # US dollars per million tokens, from OpenAI's price list for gpt-5.1
 # (developers.openai.com/api/docs/pricing, read 24/11/2026; Azure's own page

@@ -832,6 +832,25 @@ def test_the_service_is_asked_a_word_until_it_answers_or_the_wait_is_over(monkey
     assert asyncio.run(executor.service_answers(600)) is True and len(asked) == 3
 
 
+def test_an_ask_of_the_service_is_given_up_after_a_minute(monkeypatch):
+    limits = []
+
+    async def cut_off(asking, limit):
+        limits.append(limit)
+        asking.close()
+        raise TimeoutError
+
+    async def ainvoke(prompt):
+        return "never reached"
+
+    monkeypatch.setattr(runner.asyncio, "wait_for", cut_off)
+    executor = runner.TaskExecutor.__new__(runner.TaskExecutor)
+    executor.llm_client = SimpleNamespace(llm=SimpleNamespace(ainvoke=ainvoke))
+    # An ask the client would go on sending is ended, and counts as no answer.
+    assert asyncio.run(executor.service_answers(0)) is False
+    assert limits == [60]
+
+
 @pytest.mark.parametrize(
     ("answers", "retry", "expected"),
     [(True, True, "repeat"), (True, False, False), (False, True, True)],
@@ -1112,11 +1131,24 @@ def test_a_setting_for_failed_calls_that_makes_no_sense_is_refused():
     assert (settings["attempt_retries"], settings["service_wait"]) == (0, 0)
 
 
-def test_an_attempt_past_its_seconds_is_ended_and_recorded_as_an_error(
-    tmp_path, monkeypatch
+@pytest.mark.parametrize(
+    ("client", "answers", "retry", "expected"),
+    [
+        (True, True, True, "repeat"),
+        (True, True, False, False),
+        (True, False, True, True),
+        (False, True, True, False),
+    ],
+)
+def test_an_attempt_past_its_seconds_is_settled_by_asking_the_service(
+    tmp_path, monkeypatch, client, answers, retry, expected
 ):
+    waited = []
+
     class Stuck:
         diagnosis_error, changes, call_error = None, None, None
+        # ``None`` until the benchmark has built the model client.
+        llm_client = SimpleNamespace() if client else None
         names = checks.prepare("task_a", [])[1]
         layout = {"keys": {}}
 
@@ -1126,6 +1158,10 @@ def test_an_attempt_past_its_seconds_is_ended_and_recorded_as_an_error(
         async def execute_benchmark(self):
             await asyncio.sleep(60)
 
+        async def service_answers(self, wait):
+            waited.append(wait)
+            return answers
+
     async def server_up(urls, wait):
         return True
 
@@ -1133,34 +1169,48 @@ def test_an_attempt_past_its_seconds_is_ended_and_recorded_as_an_error(
     monkeypatch.setattr(runner, "servers_answer", server_up)
     monkeypatch.setattr(runner, "BenchmarkConfig", lambda **fields: fields)
     monkeypatch.setattr(runner.states, "seed_copy", lambda path, domain: ((), {}))
-    monkeypatch.setattr(runner, "save_attempt", lambda *args: None)
+    saved = []
+    monkeypatch.setattr(runner, "save_attempt", lambda *args: saved.append(args))
     config = {
         "gym_servers_config": [
             {"seed_database_file": "s.sql", "mcp_server_url": "http://server"}
         ],
         "selected_tools": [],
     }
-    outcome, _, _, _ = asyncio.run(
-        runner.run_task(
-            "task_a",
-            config,
-            1,
-            SimpleNamespace(),
-            PRICING,
-            tmp_path,
-            domain="itsm",
-            trace=False,
-            thinking=None,
-            caching=False,
-            timeout=None,
-            agent=None,
-            tags=[],
-            arguments={},
-            seconds=0.05,
-        )
+    attempt = runner.run_task(
+        "task_a",
+        config,
+        1,
+        SimpleNamespace(),
+        PRICING,
+        tmp_path,
+        domain="itsm",
+        trace=False,
+        thinking=None,
+        caching=False,
+        timeout=None,
+        agent=None,
+        tags=[],
+        arguments={},
+        seconds=0.05,
+        retry=retry,
+        wait=90,
     )
-    assert outcome["error"] == "the attempt ran past its limit of 0.05 seconds"
-    assert outcome["success"] is False
+    if expected == "repeat":
+        # The service answers and a try is left: asked for again, nothing kept.
+        with pytest.raises(runner.Repeat):
+            asyncio.run(attempt)
+        assert saved == []
+    else:
+        outcome, _, _, _ = asyncio.run(attempt)
+        assert outcome["error"] == "the attempt ran past its limit of 0.05 seconds"
+        assert outcome["success"] is False and len(saved) == 1
+        # With the service answering and no try left the attempt is the
+        # harness's failure; with the service silent it is the service's.
+        assert outcome["service_error"] is expected
+    # Cut off before the model client was built, no call can have been
+    # waiting, and the service is not asked.
+    assert waited == ([90] if client else [])
 
 
 @pytest.mark.parametrize(
