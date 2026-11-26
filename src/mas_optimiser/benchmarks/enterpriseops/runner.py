@@ -689,14 +689,6 @@ def load_experiment(spec: str, overrides: dict) -> dict:
             raise SystemExit(
                 f"error: {key} must be a whole number of at least 1, or left out"
             )
-    # The filter's attempts are the first of the gate's, so it cannot have more.
-    at_filter = settings["attempts_filter"] or settings["attempts"]
-    at_gate = settings["attempts_gate"] or settings["attempts"]
-    if at_filter > at_gate:
-        raise SystemExit(
-            f"error: the filter's attempts ({at_filter}) cannot be more than "
-            f"the gate's ({at_gate}): they are the first of them"
-        )
     if not isinstance(settings["alpha"], float) or not 0 < settings["alpha"] < 1:
         raise SystemExit("error: alpha must be a number between 0 and 1")
     share, threshold = settings["filter_share"], settings["filter_threshold"]

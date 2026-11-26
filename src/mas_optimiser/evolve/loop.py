@@ -901,6 +901,17 @@ def run(args: argparse.Namespace) -> None:
             f"error: candidates can be at most {len(VARIANT_LABELS)}: RRSI's "
             "code names a round's candidates by letter, and has that many"
         )
+    # The filter's attempts are the first of the gate's, so it cannot have
+    # more. Checked here and not with the other settings: each job of the
+    # loop is a ``run`` of the same experiment file with one stage's
+    # attempts, which would be compared with another stage's.
+    at_filter = experiment["attempts_filter"] or experiment["attempts"]
+    at_gate = experiment["attempts_gate"] or experiment["attempts"]
+    if at_filter > at_gate:
+        raise SystemExit(
+            f"error: the filter's attempts ({at_filter}) cannot be more than "
+            f"the gate's ({at_gate}): they are the first of them"
+        )
     if ".py" in experiment["editable"] and experiment["approval"] == "none":
         if not args.accept_unreviewed_code:
             raise SystemExit(
