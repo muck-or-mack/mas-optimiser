@@ -50,7 +50,7 @@ from scipy.stats import sem
 import mas_optimiser
 from mas_optimiser.benchmarks.enterpriseops import REPO_ROOT, runner, splits
 from mas_optimiser.benchmarks.enterpriseops.domain import EnterpriseOps
-from mas_optimiser.evolve import models
+from mas_optimiser.evolve import models, report
 from mas_optimiser.stats import budget, gate
 
 import rrsi.loop
@@ -1058,9 +1058,21 @@ def run(args: argparse.Namespace) -> None:
             f"Round {t + 1} of {cfg.T}: {state['promotions']} accepted so far, "
             f"validation score {state['incumbent']['S']:.3f}"
         )
+        # The report so far, to read while the experiment goes on. It is a
+        # view of results already on disk, so a fault in writing it is said
+        # and the experiment, which may have days to go, carries on.
+        try:
+            report.run(argparse.Namespace(folder=folder))
+        except Exception as error:  # noqa: BLE001 - a view, not a result
+            print(
+                f"warning: the report could not be written after round {t + 1}: "
+                f"{error!r}. Give `mas-optimiser report {folder}` to see why."
+            )
     for row in loop.test():
         print(
             f"After round {row['round']}: validation {row['validation']:.3f}, "
             f"test {row['test']:.3f}"
         )
+    # An experiment ends with its report, which now has the test scores.
+    report.run(argparse.Namespace(folder=folder))
     print(f"Results in {folder}")

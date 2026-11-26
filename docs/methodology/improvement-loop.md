@@ -525,7 +525,7 @@ evolutions/<experiment>/<split>/
       <candidate>/            the proposal, its diff, its review, its trial run,
                               and with `feedback: training` how it did on
                               the training tasks (training.json)
-  report/                     written by `mas-optimiser report`, see below
+  report/                     the report, written after each round and at the end, see below
 ```
 
 Each job folder is an evaluation as described in
@@ -541,6 +541,11 @@ mas-optimiser report evolutions/<experiment>/<split>
 
 reads what an experiment wrote, finished or still going, and writes a
 `report/` folder inside it. Nothing is run and nothing is measured again.
+`evolve` does the same by itself after each round and when the experiment
+ends, so the command is for writing a report again: for an experiment made
+by an earlier version, one that stopped part-way through a round, or one
+whose report a newer version would write better. A report that cannot be
+written after a round is said in a warning and the experiment carries on.
 
 | file                 | what it holds                                                                                                                                                                                                                                                                                                    |
 |----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
