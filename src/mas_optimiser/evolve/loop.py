@@ -1037,8 +1037,9 @@ def run(args: argparse.Namespace) -> None:
         analyst_model=proposer,
         critic_model=proposer,
     )
+    domain = EnterpriseOps(experiment)
     loop = Experiment(
-        EnterpriseOps(experiment),
+        domain,
         cfg,
         repository,
         folder,
@@ -1066,6 +1067,9 @@ def run(args: argparse.Namespace) -> None:
             runner.config_path("models", proposer).read_text()
         ),
         "mas_optimiser_version": mas_optimiser.code_version(),
+        # How many tasks each set holds, which the split and the limit
+        # settle: what a look at the experiment while it runs counts with.
+        "tasks": {name: len(ids) for name, ids in domain.sets.items()},
     }
     (folder / "experiment.json").write_text(json.dumps(settings, indent=2, default=str))
 
