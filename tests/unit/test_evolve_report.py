@@ -5,6 +5,7 @@ import csv
 import json
 import math
 import re
+import shutil
 
 import pytest
 
@@ -161,7 +162,17 @@ def experiment(tmp_path):
 
 def test_parts_add_up_each_part_and_price_the_search_roles(experiment):
     spent = report.parts(experiment).set_index("part")
-    assert list(spent.index) == [part for part, _ in report.PARTS] + [report.SEARCH]
+    # Every part but one: no candidate was run on the training tasks.
+    fed = "the candidates on the training tasks, for the proposer"
+    assert list(spent.index) == [part for part, _ in report.PARTS if part != fed] + [
+        report.SEARCH
+    ]
+    assert spent.loc["each harness kept, on the training tasks", "runs"] == 2
+    # A candidate that was not kept, run there for what the proposer is told.
+    write_job(experiment, "r1A_training", [1, 1, 1])
+    spent = report.parts(experiment).set_index("part")
+    assert spent.loc[fed, "runs"] == 3
+    assert spent.loc["each harness kept, on the training tasks", "runs"] == 2
     # Two candidates were tried on one task each, and the attempt the model
     # service never answered is no run.
     assert spent.loc["the one-task trial of each candidate", "runs"] == 1
@@ -224,6 +235,20 @@ def test_rounds_give_the_proposers_own_record_of_each_drafting(experiment):
     assert (made["done_refused"], made["sent_back"], made["edits"]) == (1, 1, 1)
     # A candidate that left no record of its drafting has none of these.
     assert math.isnan(bare["actions"]) and math.isnan(bare["sent_back"])
+    # One that declared no edit has the row RRSI's record gives it all the
+    # same, of no kind: the report shows no edit, not one called "None".
+    (experiment / "enterpriseops" / "r1" / "A").mkdir()
+    (experiment / "enterpriseops" / "r1" / "A" / "proposal.json").write_text(
+        json.dumps({"status": "no_edits", "log": [{"action": "done"}]})
+    )
+    history = experiment / "enterpriseops" / "history.jsonl"
+    lines = [json.loads(line) for line in history.read_text().splitlines()]
+    lines[2] |= {"component": None, "hypothesis": None, "bundle": 0}
+    history.write_text("\n".join(json.dumps(line) for line in lines) + "\n")
+    _, none = report.rounds(experiment).to_dict("records")
+    assert none["edits"] == 0
+    assert not isinstance(none["changed"], str)
+    assert not isinstance(none["hypothesis"], str)
     report.run(argparse.Namespace(folder=experiment))
     page = (experiment / "report" / "report.md").read_text()
     section = page[page.index("## How each proposal was made") :]
@@ -274,15 +299,27 @@ def test_errors_list_each_job_with_attempts_in_error_and_their_kinds(experiment)
     )
     write_job(experiment, "heldout_t2", [0, 4], failed=["KeyError('a')"])
     write_job(experiment, "r9A_rest", [0], failed=["KeyError('a')"])
+    # The first round's candidate was kept and the second's was not.
+    for job in ("r0A_training", "r1A_training"):
+        shutil.rmtree(experiment / "enterpriseops" / "jobs" / job, ignore_errors=True)
+        write_job(experiment, job, [0], failed=["KeyError('a')"])
     table = report.errors(experiment)
     # In the order of the experiment, rounds by number and the test step last.
-    assert list(table["job"]) == ["r1A_filter", "r9A_rest", "heldout_t2"]
+    assert list(table["job"]) == [
+        "r0A_training",
+        "r1A_filter",
+        "r1A_training",
+        "r9A_rest",
+        "heldout_t2",
+    ]
     assert list(table["what"]) == [
+        "round 1: the kept harness, training tasks",
         "round 2: the filter",
+        "round 2: a candidate, training tasks",
         "round 10: the rest of the validation tasks",
         "the harness kept in round 2, test tasks",
     ]
-    first = table.iloc[0]
+    first = table.set_index("job").loc["r1A_filter"]
     assert (first.attempts, first.in_error) == (4, 3)
     assert (first.past_seconds, first.past_calls, first.other) == (1, 1, 1)
 

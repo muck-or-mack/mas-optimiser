@@ -285,7 +285,9 @@ runs: of the training tasks the edit said it would move, which did, and
 which other tasks fell. No decision uses any of this. A candidate that is
 kept is run on the training tasks in any case, for the next round's
 traces, so the cost is one more run of them for each candidate that is
-not kept.
+not kept. The report gives those runs as a part of their own, "the
+candidates on the training tasks, for the proposer", beside the runs of the
+harnesses that were kept.
 
 ### Why not every trace
 
