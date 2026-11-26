@@ -365,15 +365,39 @@ def test_the_command_writes_the_tables_the_figure_and_a_page_to_read(
         "gate.png",
     }
     page = (out / "report.md").read_text()
-    assert "2 of 2 rounds are decided; changes kept: 1." in page
+    # The page opens with its headline as a table.
+    headline = {
+        cells[1].strip(): cells[2].strip()
+        for cells in (line.split("|") for line in page.split("\n\n")[1].splitlines())
+        if len(cells) == 4
+    }
+    assert headline["experiment"] == "an-experiment on split a-split"
+    assert (headline["rounds decided"], headline["changes kept"]) == ("2 of 2", "1")
+    assert headline["test score, starting harness"] == "50.0%"
+    assert headline["test score, last harness kept"] == "75.0%"
+    assert headline["gain on the test tasks"].startswith("+25.0 points (95% conf")
+    assert headline["cost"].startswith("$")
     assert "| +25.0 " in page and "-7.5 to +57.5" in page
     assert "| gain needed   |" in page and "| +22.5 " in page
     assert "its one-task trial" in page
-    assert (
-        "**Round 1** (accepted by the gate; harness/agent.py, +2 −1 lines, "
-        "`enterpriseops/r0/A/diff.patch`). it helps" in page
-    )
-    assert "**Round 2** (its one-task trial; no change kept). it helps more" in page
+    # Each round's proposal is a row: where it ended, what it changed, and
+    # the proposer's hypothesis last.
+    proposed = page[page.index("## What each round proposed") :].split("## ")[1]
+    rows = [
+        [cell.strip() for cell in line.split("|")[1:-1]]
+        for line in proposed.splitlines()
+        if line.startswith("| ") and not line.startswith("| round")
+    ]
+    assert rows[0] == [
+        "1",
+        "accepted by the gate",
+        "harness/agent.py",
+        "2",
+        "1",
+        "enterpriseops/r0/A/diff.patch",
+        "it helps",
+    ]
+    assert (rows[1][:2], rows[1][-1]) == (["2", "its one-task trial"], "it helps more")
     assert "No attempt of any job ended in an error." in page
     # With an attempt in error, its job is a row of the page's table.
     write_job(experiment, "r1A_filter", [0, 3], failed=["KeyError('a')"])

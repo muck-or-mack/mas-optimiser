@@ -680,19 +680,52 @@ def run(args: argparse.Namespace) -> None:
             disable_numparse=True,
         )
 
+    spent = parts(folder)
+    spent.to_csv(out / "parts.csv", index=False)
+    total = spent[["runs", "input_tokens", "output_tokens", "dollars", "hours"]].sum()
+    kept = harnesses(folder) if (domain / "test.csv").is_file() else None
+    # The headline: what was run, how far it got, and what it found.
+    headline = [
+        ("experiment", f"{settings['experiment']} on split {settings['split']}"),
+        ("the agent's model", settings["model"]),
+        ("the search roles' model", settings["proposer_model"] or settings["model"]),
+        (
+            "rounds decided",
+            f"{len(state['trajectory']) - 1} of {settings['rounds']}",
+        ),
+        ("changes kept", state["promotions"]),
+    ]
+    if kept is None:
+        headline += [("test score", "the test step has not run yet")]
+    else:
+        first, last = kept.iloc[0], kept.iloc[-1]
+        headline += [("test score, starting harness", f"{first['test_score']:.1f}%")]
+        if len(kept) > 1:
+            headline += [
+                ("test score, last harness kept", f"{last['test_score']:.1f}%"),
+                (
+                    "gain on the test tasks",
+                    f"{last['test_gain_points']:+.1f} points (95% confidence "
+                    f"interval {last['test_gain_interval_low']:+.1f} to "
+                    f"{last['test_gain_interval_high']:+.1f}; "
+                    f"p {last['test_gain_p']:.4f})",
+                ),
+            ]
+    headline += [
+        ("cost", f"${total['dollars']:.2f}"),
+        ("code version", settings["mas_optimiser_version"]),
+    ]
     text = [
         f"# Report of the experiment {settings['experiment']}, split {settings['split']}",
         "",
-        f"The agent's model is `{settings['model']}` and the search roles' is "
-        f"`{settings['proposer_model'] or settings['model']}`. "
-        f"{len(state['trajectory']) - 1} of {settings['rounds']} rounds are "
-        f"decided; changes kept: {state['promotions']}. A score is the mean "
-        "over tasks of the checks an attempt passed, in percent. Code "
-        f"version {settings['mas_optimiser_version']}.",
+        tabulate(
+            headline[1:], headers=headline[0], tablefmt="github", disable_numparse=True
+        ),
+        "",
+        "A score is the mean over tasks of the checks an attempt passed, in percent.",
     ]
 
-    if (domain / "test.csv").is_file():
-        kept = harnesses(folder)
+    if kept is not None:
         kept.to_csv(out / "harnesses.csv", index=False)
         text += [
             "",
@@ -863,26 +896,32 @@ def run(args: argparse.Namespace) -> None:
             "",
             "## What each round proposed",
             "",
-            "Each candidate's hypothesis in the proposer's own words, written "
-            "before the candidate was run: what the change is and why it "
-            "should help. With it, the files the change edited, the lines it "
-            "added and removed, and where its diff is kept in the "
-            "experiment's folder.",
+            "Each candidate's change and the proposer's hypothesis for it, in "
+            "the proposer's own words, written before the candidate was run. "
+            "The diff is the change itself, kept in the experiment's folder.",
+            "",
+            table(
+                decided.assign(
+                    # A table's cell is one line, and a bar would end it.
+                    hypothesis=[
+                        " ".join(said.replace("|", "/").split())
+                        if isinstance(said, str)
+                        else ""
+                        for said in decided["hypothesis"]
+                    ]
+                ),
+                {
+                    "round": "round",
+                    "ended_at": "ended at",
+                    "files": "files changed",
+                    "lines_added": "lines added",
+                    "lines_removed": "lines removed",
+                    "diff": "diff",
+                    "hypothesis": "hypothesis",
+                },
+                {"lines_added": "{:.0f}", "lines_removed": "{:.0f}"},
+            ),
         ]
-        for row in decided.itertuples():
-            # An empty value of a column read back is not a string.
-            change = (
-                f"{row.files}, +{row.lines_added} −{row.lines_removed} lines, "
-                f"`{row.diff}`"
-                if isinstance(row.diff, str)
-                else "no change kept"
-            )
-            said = row.hypothesis if isinstance(row.hypothesis, str) else ""
-            text += [
-                "",
-                f"**Round {row.round}** ({row.ended_at}; {change}). "
-                f"{said or 'No hypothesis was recorded.'}",
-            ]
 
     if len(decided) and decided["actions"].notna().any():
         text += [
@@ -945,9 +984,6 @@ def run(args: argparse.Namespace) -> None:
     else:
         text += ["No attempt of any job ended in an error."]
 
-    spent = parts(folder)
-    spent.to_csv(out / "parts.csv", index=False)
-    total = spent[["runs", "input_tokens", "output_tokens", "dollars", "hours"]].sum()
     text += [
         "",
         "## What it cost",
