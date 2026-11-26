@@ -1067,6 +1067,24 @@ def test_the_digester_has_no_shell(tmp_path):
         digester._safe(tmp_path, "../outside.txt")
 
 
+def test_the_analyst_is_given_the_names_it_used_the_round_before(tmp_path, monkeypatch):
+    run, _ = experiment(tmp_path, monkeypatch, [0.5, 0.4, 0.6, 0.5, 0.45, 0.55])
+    given = []
+    found = {"failure_modes": [{"mode": "stops early"}], "success_habits": ["checks"]}
+
+    def analyze(*args, prior_modes=None, prior_habits=None, model=None):
+        given.append((prior_modes, prior_habits))
+        return found
+
+    monkeypatch.setattr(loop.analyst, "analyze", analyze)
+    run.baseline()
+    run.round(0)
+    run.domain.scores["r1A"] = run.domain.scores["r0A"]
+    run.round(1)
+    # Nothing to give in the first round; the first round's names in the second.
+    assert given == [(None, None), ([{"mode": "stops early"}], ["checks"])]
+
+
 def test_the_proposer_reads_training_tasks_and_hears_only_the_outcome(
     tmp_path, monkeypatch
 ):
