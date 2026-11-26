@@ -274,7 +274,7 @@ rises round by round. The formula is under "The level of each decision" on
 How many changes are proposed in each round. More candidates search wider
 in a round. Each is run on the validation tasks, so the cost of a round
 grows with them, and each decision's share of the error budget is divided
-among them, so the bar is higher for every one.
+among them, so the bar is higher for every one. At most 8.
 
 ### `edits_first`
 
