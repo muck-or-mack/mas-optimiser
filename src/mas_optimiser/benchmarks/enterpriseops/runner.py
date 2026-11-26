@@ -1004,6 +1004,11 @@ def write_run_summary(run_dir: Path, experiment: str) -> dict:
 def check_servers(urls: set[str]) -> None:
     """Stop with the command that starts the domain servers if one is not answering.
 
+    A server that is busy with many attempts can take longer than the three
+    seconds of one check to answer, which is not a server that is down: each
+    server is asked up to four times, ten seconds apart, before the command
+    stops.
+
     Args:
         urls: The servers' base URLs.
 
@@ -1011,13 +1016,18 @@ def check_servers(urls: set[str]) -> None:
         SystemExit: If a server does not answer its health check.
     """
     for url in sorted(urls):
-        try:
-            httpx.get(f"{url}/health", timeout=3).raise_for_status()
-        except httpx.HTTPError as exc:
-            raise SystemExit(
-                f"error: domain server {url} is not answering ({type(exc).__name__}); "
-                "start the servers with: docker compose -f docker/compose.yaml up -d"
-            ) from exc
+        for tries_left in (3, 2, 1, 0):
+            try:
+                httpx.get(f"{url}/health", timeout=3).raise_for_status()
+                break
+            except httpx.HTTPError as exc:
+                if not tries_left:
+                    raise SystemExit(
+                        f"error: domain server {url} is not answering "
+                        f"({type(exc).__name__}); start the servers with: "
+                        "docker compose -f docker/compose.yaml up -d"
+                    ) from exc
+                time.sleep(10)
 
 
 async def servers_answer(urls: list[str], wait: float) -> bool:

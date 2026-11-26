@@ -1057,6 +1057,29 @@ def test_an_attempt_that_ends_in_an_error_keeps_the_conversation_up_to_it(
     assert outcome["output_tokens"] == 10 and outcome["cost_usd"] > 0
 
 
+def test_a_busy_server_is_asked_again_before_the_command_stops(monkeypatch):
+    waits, answers = [], []
+
+    def get(url, timeout):
+        if answers.pop(0) == "slow":
+            raise runner.httpx.ReadTimeout("no answer in time")
+        return SimpleNamespace(raise_for_status=lambda: None)
+
+    monkeypatch.setattr(runner.httpx, "get", get)
+    monkeypatch.setattr(runner.time, "sleep", waits.append)
+    # Slow twice and then answering: the check goes through, having waited twice.
+    answers[:] = ["slow", "slow", "ok"]
+    runner.check_servers({"http://a-server"})
+    assert waits == [10, 10] and answers == []
+    # Slow four times in a row: the command stops, with the command that starts
+    # the servers in its message.
+    waits.clear()
+    answers[:] = ["slow"] * 4
+    with pytest.raises(SystemExit, match="is not answering .ReadTimeout.; start"):
+        runner.check_servers({"http://a-server"})
+    assert waits == [10, 10, 10]
+
+
 def test_the_domain_servers_are_asked_for_their_health_until_they_answer(monkeypatch):
     asked = []
 
