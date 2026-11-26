@@ -54,6 +54,13 @@ each decision" on the gate's page) gives a smaller share to each later
 decision, and a smaller one again once a change has been kept. A smaller
 level puts the bar higher.
 
+That is with the setting `alpha_per` at `experiment`, its default. At
+`decision`, `alpha` is the level of every decision by itself: the bar stays
+at 1.65 standard errors for 161 tasks and 0.05, round after round, and what
+is given up is the promise over the whole experiment (over five decisions,
+up to a 23% chance that at least one useless change is kept). The table
+below is for `experiment`.
+
 | decision | changes kept before it | level   | bar  | gain needed | a real gain of 5 points is kept |
 |----------|------------------------|---------|------|-------------|---------------------------------|
 | 1        | 0                      | 1.25%   | 2.27 | 3.1 points  | 92 times in 100                 |

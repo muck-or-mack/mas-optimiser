@@ -51,6 +51,7 @@ of `run`. "Planner" marks the settings the planner has a control for.
 | [`attempts_test`](#attempts-test)         | `attempts`        | evolve  |         |
 | [`feedback`](#feedback)                   | `outcome`         | evolve  |         |
 | [`alpha`](#alpha)                         | 0.05              | evolve  | yes     |
+| [`alpha_per`](#alpha-per)                 | `experiment`      | evolve  |         |
 | [`filter_share`](#filter-share)           | 0.5               | evolve  | yes     |
 | [`filter_threshold`](#filter-threshold)   | 0                 | evolve  |         |
 | [`pool_share`](#pool-share)               | 0.5               | evolve  | yes     |
@@ -263,10 +264,11 @@ decides is on [The acceptance gate](methodology/acceptance-gate.md).
 How many rounds the loop runs. In each round the search roles read the
 training results, propose `candidates` changes, and each is tested against
 the current harness. More rounds give more chances to find a change worth
-keeping and cost more. They also make each decision stricter: every
-decision takes a share of the experiment's error budget ([`alpha`](#alpha))
-and later rounds get smaller shares, so the bar a candidate must clear
-rises round by round. The formula is under "The level of each decision" on
+keeping and cost more. With [`alpha_per`](#alpha-per) at `experiment`, its
+default, they also make each decision stricter: every decision takes a share
+of the experiment's error budget ([`alpha`](#alpha)) and later rounds get
+smaller shares, so the bar a candidate must clear rises round by round. The
+formula is under "The level of each decision" on
 [The acceptance gate](methodology/acceptance-gate.md).
 
 ### `candidates`
@@ -348,14 +350,34 @@ more run of the training tasks for every candidate that is not kept. See
 
 ### `alpha`
 
-The chance, over the whole experiment, that at least one change is kept
-that does nothing. It is a number above 0 and below 1. Higher keeps more
-changes, more of them useless; lower keeps fewer and needs larger gains. It
-is shared out over the decisions of the experiment, so the level of a single
-decision is far below it. See
-[The acceptance gate](methodology/acceptance-gate.md) for the test and its
-level, and [Sizing an experiment](methodology/sizing.md) for the smallest
-gain a design can find at a given `alpha`.
+The chance of keeping a change that does nothing. It is a number above 0
+and below 1. Higher keeps more changes, more of them useless; lower keeps
+fewer and needs larger gains. [`alpha_per`](#alpha-per) says whether it is
+the chance over the whole experiment, shared out over its decisions so that
+the level of a single decision is far below it, or the chance at each
+decision. See [The acceptance gate](methodology/acceptance-gate.md) for the
+test and its level, and [Sizing an experiment](methodology/sizing.md) for
+the smallest gain a design can find at a given `alpha`.
+
+### `alpha_per`
+
+What `alpha` is the chance of.
+
+| `alpha_per`  | `alpha` is the chance that                           | the level of a decision                                  | what is promised                                                                                     |
+|--------------|------------------------------------------------------|----------------------------------------------------------|------------------------------------------------------------------------------------------------------|
+| `experiment` | a useless change is kept anywhere in the experiment  | a share of `alpha`, smaller for each later decision      | with every change useless, at most `alpha` that any is kept, however the proposer adapts             |
+| `decision`   | a useless change is kept at one decision             | `alpha` itself, split between a round's candidates       | that for each decision; over n decisions, up to 1 - (1 - `alpha`)^n that at least one useless is kept |
+
+With `experiment` the gain a change needs rises round by round: at 0.05 and
+one candidate a round the first decision is tested at 1.25%, the fifth at
+0.08% and the tenth at 0.02%. With `decision` it stays where it is: at 0.05
+every decision is tested at 5%, and over five decisions the chance that at
+least one useless change is kept is up to 23%, over ten up to 40%. The test
+tasks take part in no decision, so the gain they show for the harnesses kept
+is honest under either. `decision` is for finding out how more changes do;
+`experiment` is for an experiment whose every kept change is to stand as a
+claim. An equal share for each of a number of decisions fixed in advance is
+`decision` with `alpha` divided by that number.
 
 ### `filter_share`
 

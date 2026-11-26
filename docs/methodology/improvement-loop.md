@@ -385,9 +385,16 @@ candidate a round and 125 validation tasks:
 | 5       | 0                         | 0.00083                 | 3.21                      |
 | 10      | 0                         | 0.00023                 | 3.60                      |
 
-A single test at 5% has a bar of 1.66 standard errors. `stats.budget` also
-holds an equal split over a fixed number of decisions; the loop does not yet
-offer it as a setting.
+A single test at 5% has a bar of 1.66 standard errors, and the setting
+`alpha_per: decision` gives every decision that: `alpha` is then the level
+of each decision by itself, split equally between a round's candidates
+(`stats.budget.bonferroni_level` for one decision), and the bar is the same
+in every round. Nothing is then promised over the experiment as a whole.
+With every change useless, the chance that at least one is kept is up to
+1 - (1 - alpha)^n over n decisions: 23% for five at 0.05, and 40% for ten.
+What carries the claim in that case is the test at the end, on tasks that
+took part in no decision. An equal share for each of a number of decisions
+fixed in advance is the same setting with `alpha` divided by that number.
 
 ## The filter before the full test
 
