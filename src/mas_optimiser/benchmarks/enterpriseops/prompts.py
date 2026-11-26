@@ -74,6 +74,16 @@ delta_C_training is the relative change in tokens an attempt used. The
 attribution scoreboard says, for the tasks an edit predicted it would move,
 which of them did move on the training tasks."""
 
+# Added to the proposer's paragraph when a round's candidates are drafted
+# one after another (``drafting: in_turn``).
+IN_TURN = """A proposal in the edit history with the outcome
+DRAFTED THIS ROUND is another candidate of this round, drafted before yours
+from the same current harness and not yet run. Only one candidate of a round
+can replace the current harness, so a second candidate with the same idea
+tests nothing new. Do not propose its change again in other words: aim at a
+different way the attempts go wrong, taken from the count and the analyst's
+report."""
+
 CRITIC = """The harness is a folder of two files: agent.py, the agent's loop
 of model calls and tool calls, and prompt.md, text added to the end of the
 system message. A general way of working is acceptable. Anything taken from

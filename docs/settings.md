@@ -43,6 +43,7 @@ of `run`. "Planner" marks the settings the planner has a control for.
 | [`out`](#out)                             | none              | run     |         |
 | [`rounds`](#rounds)                       | 10                | evolve  | yes     |
 | [`candidates`](#candidates)               | 1                 | evolve  | yes     |
+| [`drafting`](#drafting)                   | `independent`     | evolve  |         |
 | [`edits_first`](#edits-first)             | 1                 | evolve  |         |
 | [`edits_last`](#edits-last)               | 1                 | evolve  |         |
 | [`attempts_training`](#attempts-training) | `attempts`        | evolve  |         |
@@ -289,6 +290,29 @@ How many changes are proposed in each round. More candidates search wider
 in a round. Each is run on the validation tasks, so the cost of a round
 grows with them, and each decision's share of the error budget is divided
 among them, so the bar is higher for every one. At most 8.
+
+### `drafting`
+
+How a round's candidates are drafted when `candidates` is above 1. With one
+candidate a round it changes nothing.
+
+| `drafting`    | what each candidate is told of the others in its round                    | what it is for                                                        |
+|---------------|---------------------------------------------------------------------------|-----------------------------------------------------------------------|
+| `independent` | nothing: each is drafted from the same analysis and the same history      | several tries at the proposer's best idea, the best of them kept      |
+| `in_turn`     | the kind, hypothesis and target of each candidate drafted before it       | several different ideas in one round                                  |
+
+Drafted independently, candidates given the same evidence can all make the
+same change, and the round then tests one idea several times: the one kept
+is the one whose score came out highest, part of which is chance. Drafted
+in turn, the second candidate reads what the first proposed, as a row of
+the edit history with the outcome `DRAFTED THIS ROUND`, and is asked to aim
+at a different way the attempts go wrong; the third reads both. Only what
+the proposer wrote of each is passed on, never a score: no candidate of the
+round has been run when the next is drafted. A candidate stopped at its
+review or at its one-task trial will not be run, so it is not passed on,
+and a later candidate may take its idea up. Each candidate is still judged
+alone against the current harness, at the round's level divided by the
+number of candidates, and at most one is kept.
 
 ### `edits_first`
 

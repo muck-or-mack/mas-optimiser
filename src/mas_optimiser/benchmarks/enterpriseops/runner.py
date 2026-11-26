@@ -145,6 +145,7 @@ EXPERIMENT_DEFAULTS = {
     "proposer_model": None,
     "rounds": 10,
     "candidates": 1,
+    "drafting": "independent",
     "edits_first": 1,
     "edits_last": 1,
     "attempts_training": None,
@@ -168,6 +169,10 @@ POOL_PICKS = ("spread", "ends")
 #: What the proposer is told of an earlier proposal: whether it was accepted,
 #: or that and how it did on the training tasks.
 FEEDBACK = ("outcome", "training")
+#: How a round's candidates are drafted when there are several: each with
+#: no knowledge of the others, or one after another, each told what those
+#: before it in the round proposed.
+DRAFTING = ("independent", "in_turn")
 #: What ``alpha`` is the chance of: a useless change kept anywhere in the
 #: experiment, shared out over its decisions, or at one decision.
 ALPHA_PER = ("experiment", "decision")
@@ -731,6 +736,11 @@ def load_experiment(spec: str, overrides: dict) -> dict:
         raise SystemExit(
             f"error: alpha_per must be one of {', '.join(ALPHA_PER)}, "
             f"not {settings['alpha_per']!r}"
+        )
+    if settings["drafting"] not in DRAFTING:
+        raise SystemExit(
+            f"error: drafting must be one of {', '.join(DRAFTING)}, "
+            f"not {settings['drafting']!r}"
         )
     if settings["feedback"] not in FEEDBACK:
         raise SystemExit(

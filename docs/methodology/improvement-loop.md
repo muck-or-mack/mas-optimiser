@@ -295,6 +295,34 @@ not kept. The report gives those runs as a part of their own, "the
 candidates on the training tasks, for the proposer", beside the runs of the
 harnesses that were kept.
 
+### What a candidate is told of the others in its round
+
+With `candidates` above 1, RRSI drafts a round's candidates independently:
+each is given the same analysis, the same traces and the same history, and
+nothing of the others. Candidates drafted so can all make the same change.
+The round then tests one idea several times and keeps the try that scored
+highest, which is partly the one that was lucky, and each try has paid for
+its place with a smaller share of the round's level. `drafting` sets
+whether they are told of each other.
+
+| `drafting`    | a candidate is told of those drafted before it in the round | a round of three tests |
+|---------------|--------------------------------------------------------------|------------------------|
+| `independent` | nothing                                                      | up to three tries at what the proposer finds most promising |
+| `in_turn`     | the kind, hypothesis and target of each                      | three different ideas |
+
+Drafted in turn, each candidate's edits are added, for the candidates after
+it, to the edit history the proposer reads, with the outcome `DRAFTED THIS
+ROUND` where an earlier round's proposal has its verdict, and the
+proposer's instructions ask it to aim at a different way the attempts go
+wrong. Nothing has been run at that point, so no score is passed on, and
+nothing from the validation tasks. A candidate stopped at its review or at
+its one-task trial is not passed on: it will not be run, and a later
+candidate may take its idea up. The candidates are judged as before:
+each alone against the current harness, at the round's level divided by
+their number, and at most one is kept, so the others' changes are dropped
+with them. A later round's proposer still reads what they were and that
+they were not kept.
+
 ### Why not every trace
 
 Reading a trace is not one call to the model. The analyst reads none
@@ -537,10 +565,10 @@ take no part until the end.
 
 An experiment file holds the settings of `mas-optimiser run` (the model, the
 domains, the attempts and so on) and those only `evolve` reads: `split`,
-`harness`, `proposer_model`, `rounds`, `candidates`, `edits_first`,
-`edits_last`, the four `attempts_` settings of the stages, `feedback`,
-`alpha`, `filter_share`, `filter_threshold`, `pool_share`, `pool_pick`,
-`editable` and `approval`. [Experiment settings](../settings.md) gives each
+`harness`, `proposer_model`, `rounds`, `candidates`, `drafting`,
+`edits_first`, `edits_last`, the four `attempts_` settings of the stages,
+`feedback`, `alpha`, `alpha_per`, `second_look`, `filter_share`,
+`filter_threshold`, `pool_share`, `pool_pick`, `editable` and `approval`. [Experiment settings](../settings.md) gives each
 one's meaning, its default and what changing it does, and
 `configs/experiments/template.yaml` lists them all to copy.
 
