@@ -39,6 +39,7 @@ import json
 import random
 import re
 import shutil
+from collections.abc import Iterator
 from pathlib import Path
 
 import numpy as np
@@ -77,7 +78,8 @@ for _role in (analyst, critic, digester, propose):
 # results and the keys among them, and some of the programs allowed can
 # write or delete. The shell is switched off and taken out of the digester's
 # instructions; reading a file and searching it, which are held to the
-# folder of the round's traces, remain.
+# folder of the round's traces, remain, with a listing of files that is
+# held to it below.
 digester._bash_ok = lambda cmd: False
 # RRSI's drafting of a candidate hands the proposer a sentence on how the
 # candidate will be judged, written for RRSI's own round; it is replaced.
@@ -86,6 +88,36 @@ rrsi.loop.propose = lambda *args, **kwargs: propose.propose(
 )
 digester.SYSTEM_TMPL = re.sub(
     r'  \{\{"action": "bash".*?rejected\)\n', "", digester.SYSTEM_TMPL, flags=re.S
+)
+
+
+class TracesFolder(type(Path())):
+    """The folder of a round's traces, whose ``glob`` stays inside it.
+
+    RRSI's digester lists files with ``Path.glob`` on this folder, and a
+    pattern with ``..`` in it would list the names of files anywhere on the
+    machine, those of the validation tasks among them.
+    """
+
+    def glob(self, pattern: str, **kwargs) -> Iterator[Path]:
+        """The paths that match a pattern, those outside the folder left out.
+
+        Args:
+            pattern: The pattern, relative to the folder.
+            **kwargs: As ``Path.glob`` takes them.
+
+        Yields:
+            Each matching path that lies inside the folder.
+        """
+        inside = self.resolve()
+        for path in super().glob(pattern, **kwargs):
+            if path.resolve().is_relative_to(inside):
+                yield path
+
+
+# The analyst hands each digester the folder as a plain path.
+analyst.digest_task = lambda traces_dir, *args, **kwargs: digester.digest_task(
+    TracesFolder(traces_dir), *args, **kwargs
 )
 
 EVOLUTIONS = REPO_ROOT / "evolutions"

@@ -1144,6 +1144,32 @@ def test_the_digester_has_no_shell(tmp_path):
         digester._safe(tmp_path, "../outside.txt")
 
 
+def test_the_digesters_listing_of_files_stays_in_the_traces_folder(
+    tmp_path, monkeypatch
+):
+    traces = tmp_path / "round" / "traces"
+    traces.mkdir(parents=True)
+    (traces / "t1.txt").write_text("a trace")
+    (tmp_path / "round" / "validation.csv").write_text("held out")
+    actions = [
+        {"action": "glob", "pattern": "../*"},
+        {"action": "glob", "pattern": "*"},
+        {"action": "return", "digest": {}},
+    ]
+    shown = []
+
+    def generate(transcript, **kwargs):
+        shown.append(transcript)
+        return json.dumps(actions[len(shown) - 1])
+
+    monkeypatch.setattr(loop.digester, "generate", generate)
+    # As the analyst calls it, with the folder as a plain path.
+    loop.analyst.digest_task(traces, "t1", "failure", "the brief")
+    # The released listing follows ``..`` and names the file beside the folder.
+    assert "validation.csv" in "".join(p.name for p in traces.glob("../*"))
+    assert "validation.csv" not in shown[-1] and "t1.txt" in shown[-1]
+
+
 def test_a_kind_dropped_at_the_filter_counts_as_tried(tmp_path, monkeypatch):
     worse = [0.4, 0.3, 0.5, 0.4, 0.45, 0.35]
     run, given = experiment(tmp_path, monkeypatch, worse, filter_share=0.5, seed=1)
