@@ -640,6 +640,58 @@ def test_an_experiment_says_and_records_what_differs_from_the_defaults(
     assert "llm_api_key" not in record["proposer_settings"]
 
 
+def test_an_experiment_writes_its_report_after_each_round_and_at_its_end(
+    tmp_path, monkeypatch, capsys
+):
+    class Benchmark:
+        harness_path = "harness"
+
+        def __init__(self, experiment):
+            pass
+
+    class Rounds:
+        # A baseline already made, so the experiment starts at its rounds.
+        frontier_path = tmp_path / "frontier.json"
+
+        def __init__(self, *args):
+            self.decided = 0
+
+        def frontier(self):
+            scored = {"promotions": 0, "incumbent": {"S": 0.5}}
+            return scored | {"trajectory": [{}] * (self.decided + 1)}
+
+        def round(self, t):
+            self.decided += 1
+
+        def test(self):
+            return [{"round": 0, "validation": 0.5, "test": 0.5}]
+
+    Rounds.frontier_path.write_text("{}")
+    written = []
+
+    def write(args):
+        written.append(args.folder)
+        if len(written) == 1:
+            raise ValueError("a fault in the report")
+
+    monkeypatch.setattr(loop, "EVOLUTIONS", tmp_path)
+    monkeypatch.setattr(loop, "EnterpriseOps", Benchmark)
+    monkeypatch.setattr(loop, "Experiment", Rounds)
+    monkeypatch.setattr(loop.report, "run", write)
+    for name in ("usage_log", "timeout", "limit"):
+        monkeypatch.setattr(loop.models, name, getattr(loop.models, name))
+    unset = dict.fromkeys(adapter.runner.EXPERIMENT_DEFAULTS)
+    chosen = {"experiment": "evolve-smoke", "accept_unreviewed_code": False}
+    loop.run(SimpleNamespace(**(unset | chosen | {"rounds": 2})))
+    # After each of the two rounds, and once more when the test has run.
+    folder = tmp_path / "evolve-smoke" / "haiku-20-40-40"
+    assert written == [folder, folder, folder]
+    # A fault in a report written on the way is said, and stops nothing.
+    said = capsys.readouterr().out
+    assert "the report could not be written after round 1" in said
+    assert "Round 2 of 2" in said and "After round 0" in said
+
+
 def test_more_candidates_a_round_than_there_are_names_for_are_refused(
     tmp_path, monkeypatch
 ):

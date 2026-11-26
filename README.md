@@ -638,7 +638,7 @@ Every evaluation folder is written to be read without a tracing server:
 | every run of an experiment, at a glance, with its domains | `mas-optimiser list <experiment>`, from `index.csv` | `listing` |
 | whether a candidate beat the current harness, by how much, and the smallest gain the data could show | `comparison.md`, its data files and `figures/` in the folder `mas-optimiser compare` writes | `stats.compare` |
 | whether that test can be trusted on this benchmark and model | `calibration.md` and its data files in the folder `mas-optimiser calibrate` writes | `stats.calibrate` |
-| what an experiment of the loop found and what each part of it cost | `report/report.md` and its data files in the experiment's folder, written by `mas-optimiser report` | `evolve.report` |
+| what an experiment of the loop found and what each part of it cost | `report/report.md` and its data files in the experiment's folder, written by `evolve` after each round and at the end, and again by `mas-optimiser report` | `evolve.report` |
 
 ## Splitting the tasks
 
@@ -867,12 +867,18 @@ mas-optimiser evolve <experiment>
 Ctrl+b and then d leaves that terminal with the experiment still going,
 and `tmux attach -t evolve`, from any later connection, comes back to it.
 
+An experiment writes its own report, `report/report.md` in its folder: after
+each round, so that it can be read while the experiment goes on, and at the
+end, when it has the test scores.
+
 ```
 mas-optimiser report evolutions/<experiment>/<split>
 ```
 
-writes `report/report.md` in that folder, for an experiment that has
-finished or one still going: each harness kept, with its gain on the test
+writes that report again from the files the experiment left, for an
+experiment made by an earlier version, one that stopped part-way through a
+round, or one whose report a newer version would write better. It holds:
+each harness kept, with its gain on the test
 tasks and a 95% confidence interval; each round's candidate, what it
 proposed in the proposer's own words, how the proposal was made and where
 it ended, with the gain it found beside the gain its decision needed; the

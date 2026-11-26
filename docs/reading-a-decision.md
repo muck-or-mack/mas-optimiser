@@ -110,7 +110,7 @@ turned round: the true gain that is kept four times in five. The
 
 ## What to look at first
 
-In an experiment's report (`report.md`, written by `mas-optimiser report`):
+In an experiment's report (`report/report.md` in its folder, which the experiment writes after each round and at its end):
 
 1. **The harnesses kept.** The gain on the test tasks with its 95%
    confidence interval is the result of the experiment. The interval is
