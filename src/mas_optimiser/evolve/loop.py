@@ -218,6 +218,9 @@ class Experiment(Run):
             taking a share by the REUSE rule, smaller for each later one.
             ``"decision"``: a useless change kept at one decision, the same
             level every round, with nothing promised over the experiment.
+        second_look: The p-value at or under which a candidate the gate has
+            turned down is looked at again, on twice the attempts; 0 for no
+            second look. With one, each look has half the decision's level.
     """
 
     def __init__(
@@ -235,6 +238,7 @@ class Experiment(Run):
         attempts: dict[str, int] | None = None,
         feedback: str = "outcome",
         alpha_per: str = "experiment",
+        second_look: float = 0.0,
     ):
         # RRSI's own scoring step, which a candidate goes through when there
         # is no filter, scores an attempt that left no result as zero while
@@ -249,6 +253,7 @@ class Experiment(Run):
         self.harness_rel = domain.harness_path
         self.alpha = alpha
         self.alpha_per = alpha_per
+        self.second_look = second_look
         self.filter_share = filter_share
         self.filter_threshold = filter_threshold
         self.seed = seed
@@ -694,7 +699,15 @@ class Experiment(Run):
             if self.alpha_per == "decision"
             else budget.reuse_level(self.alpha, t + 1, state["promotions"], cfg.m)
         )
-        decisions, winner, best = [], None, None
+        # With a second look each look is tested at half the decision's
+        # level. A change that does nothing is kept if it passes either look,
+        # and the chance of that is at most the sum of the two chances (the
+        # union bound), so at most the level, however a candidate comes to
+        # its second look.
+        look = level / 2 if self.second_look else level
+        # The current harness's result each candidate was last compared with:
+        # the one the round began with, or the one with its further attempts.
+        decisions, winner, best, faced = [], None, None, {}
         for candidate in candidates:
             decision = {"variant": candidate.variant, "level": level, "accept": False}
             filtered = folder / candidate.variant / "filter.json"
@@ -717,10 +730,73 @@ class Experiment(Run):
                     ]
                 )
                 try:
-                    test = gate.mean_test(differences, level)
+                    test = gate.mean_test(differences, look)
                 except ValueError as error:
                     decision["stopped"] = f"no test: {error}"
                 else:
+                    faced[candidate.variant] = validation
+                    if not test.accept and test.p <= self.second_look:
+                        # A near miss: both harnesses are run for as many
+                        # further attempts as the gate gave them, and the
+                        # test is made once more on all the attempts
+                        # together. A harness that has had its further
+                        # attempts keeps them and is not run again.
+                        both = []
+                        for result, checkout in (
+                            (validation, self.checkout("current", self.branch)),
+                            (candidate.ev, self.wt_root / f"r{t}{candidate.variant}"),
+                        ):
+                            if not result.job.endswith("_both"):
+                                more = evaluate(
+                                    d,
+                                    checkout,
+                                    self.runs,
+                                    f"{result.job}_again",
+                                    ids,
+                                    cfg.k,
+                                )
+                                if more.missing:
+                                    # A zero put in a gap is not a score: the
+                                    # first look stands.
+                                    decision["second_look"] = (
+                                        f"not made: {more.missing} of "
+                                        f"{more.n_expected} further attempts of "
+                                        f"{more.job} have no result"
+                                    )
+                                    break
+                                result = aggregate(
+                                    f"{result.job}_both",
+                                    2 * cfg.k,
+                                    {
+                                        task: TaskResult(
+                                            rewards=result.per_task[task].rewards
+                                            + more.per_task[task].rewards,
+                                            tokens=result.per_task[task].tokens
+                                            + more.per_task[task].tokens,
+                                        )
+                                        for task in ids
+                                    },
+                                )
+                                self.eval_path(result.job).parent.mkdir(
+                                    parents=True, exist_ok=True
+                                )
+                                result.save(self.eval_path(result.job))
+                            both.append(result)
+                        if len(both) == 2:
+                            further = np.array(
+                                [
+                                    both[1].per_task[i].mean - both[0].per_task[i].mean
+                                    for i in ids
+                                ]
+                            )
+                            try:
+                                second = gate.mean_test(further, look)
+                            except ValueError as error:
+                                decision["second_look"] = f"not made: {error}"
+                            else:
+                                decision["first"] = dataclasses.asdict(test)
+                                faced[candidate.variant], candidate.ev = both
+                                test = second
                     decision |= dataclasses.asdict(test)
                     if test.accept and (best is None or test.mean > best):
                         winner, best = candidate, test.mean
@@ -757,14 +833,21 @@ class Experiment(Run):
                 candidate.variant,
                 candidate.edits,
                 "ACCEPTED" if candidate is winner else outcome,
-                candidate.ev.S - validation.S,
-                relative_cost_change(candidate.ev.C, validation.C),
+                candidate.ev.S - faced.get(candidate.variant, validation).S,
+                relative_cost_change(
+                    candidate.ev.C, faced.get(candidate.variant, validation).C
+                ),
                 candidate is winner,
                 candidate.ev.S,
                 candidate.ev.C,
                 candidate.diff_path,
             )
 
+        # A current harness that was run for further attempts at a second
+        # look keeps them: later candidates are compared with all of them.
+        widened = next((r for r in faced.values() if r.job != current["job"]), None)
+        if winner is None and widened is not None:
+            current |= {"job": widened.job, "S": widened.S, "C": widened.C}
         if winner is not None:
             # Its training traces first, then the move, so that a stop in
             # between leaves the current harness as it was.
@@ -916,6 +999,14 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         "nothing promised over the experiment",
     )
     parser.add_argument(
+        "--second-look",
+        type=float,
+        help="the p-value at or under which a candidate the gate has turned "
+        "down is run for as many attempts again, with the current harness, "
+        "and tested once more on all of them, each look at half the "
+        "decision's level (0, the default, for no second look)",
+    )
+    parser.add_argument(
         "--filter-share",
         type=float,
         help="the share of the validation tasks a candidate is run on first; "
@@ -1055,6 +1146,7 @@ def run(args: argparse.Namespace) -> None:
         },
         experiment["feedback"],
         experiment["alpha_per"],
+        experiment["second_look"],
     )
     models.usage_log = folder / "search_usage.jsonl"
     models.timeout = experiment["model_timeout"]

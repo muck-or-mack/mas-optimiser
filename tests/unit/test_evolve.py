@@ -628,7 +628,7 @@ def test_an_experiment_says_and_records_what_differs_from_the_defaults(
 
         def __init__(self, *args):
             Stop.cfg = args[1]
-            Stop.attempts, Stop.feedback, Stop.alpha_per = args[-3:]
+            Stop.attempts, Stop.feedback, Stop.alpha_per, Stop.again = args[-4:]
 
         def baseline(self):
             raise Reached
@@ -643,6 +643,7 @@ def test_an_experiment_says_and_records_what_differs_from_the_defaults(
     with pytest.raises(Reached):
         stages = {"edits_first": 3, "attempts_gate": 3, "attempts_test": 2}
         stages |= {"feedback": "training", "alpha_per": "decision"}
+        stages |= {"second_look": 0.2}
         loop.run(SimpleNamespace(**(unset | chosen | stages)))
 
     said = capsys.readouterr().out
@@ -657,6 +658,7 @@ def test_an_experiment_says_and_records_what_differs_from_the_defaults(
     assert Stop.cfg.k == 3
     assert Stop.attempts == {"training": 1, "filter": 1, "test": 2}
     assert (Stop.feedback, Stop.alpha_per) == ("training", "decision")
+    assert Stop.again == 0.2
     folder = tmp_path / "evolve-smoke" / "haiku-20-40-40"
     record = json.loads((folder / "experiment.json").read_text())
     assert record["changed"]["rounds"] == 1
@@ -914,6 +916,93 @@ def test_with_alpha_for_each_decision_the_level_is_alpha_in_every_round(
     run.round(1)
     second = json.loads((run.runs / "r1" / "decisions.json").read_text())[0]
     assert second["level"] == 0.05 > budget.reuse_level(0.05, 2, 1, 1)
+
+
+def test_a_near_miss_is_looked_at_again_on_twice_the_attempts(tmp_path, monkeypatch):
+    # Differences with a mean of 0.092 and a standard error of 0.044 over six
+    # tasks: T is 2.10 and p 0.045. With a second look each look has half of
+    # the decision's 5%, a bar of 2.57, so the first look turns it down, and
+    # its p is inside the band of 0.2.
+    near = [0.7, 0.5, 0.65, 0.55, 0.7, 0.45]
+    run, _ = experiment(
+        tmp_path, monkeypatch, near, alpha_per="decision", second_look=0.2
+    )
+    # The further attempts: the current harness scores as before, and the
+    # candidate's further scores even out its first ones.
+    run.domain.scores["base_validation_again"] = run.domain.scores["base_validation"]
+    run.domain.scores["r0A_again"] = dict(
+        zip(VALIDATION, [0.52, 0.7, 0.55, 0.65, 0.5, 0.75], strict=True)
+    )
+    run.baseline()
+    run.round(0)
+    decision = json.loads((run.runs / "r0" / "decisions.json").read_text())[0]
+    assert decision["level"] == 0.05 and decision["alpha"] == 0.025
+    first = decision["first"]
+    assert first["accept"] is False and 0.025 < first["p"] <= 0.2
+    assert first["mean"] == pytest.approx(0.0917, abs=1e-4)
+    # Both harnesses were run once more on every validation task, with the
+    # gate's attempts, and the second look is of all the attempts together.
+    assert ("base_validation_again", VALIDATION) in run.domain.jobs
+    assert ("r0A_again", VALIDATION) in run.domain.jobs
+    assert run.domain.attempts["r0A_again"] == run.cfg.k
+    assert decision["accept"] is True and decision["mean"] == pytest.approx(
+        0.1017, abs=1e-4
+    )
+    # The kept harness is the candidate with all its attempts.
+    state = run.frontier()
+    assert state["incumbent"]["job"] == "r0A_both" and state["promotions"] == 1
+    both = loop.EvalResult.load(run.eval_path("r0A_both"))
+    assert both.k == 2 and both.per_task["v1"].rewards == [0.7, 0.52]
+
+
+def test_a_second_look_can_turn_down_and_leaves_the_current_harness_its_attempts(
+    tmp_path, monkeypatch
+):
+    near = [0.7, 0.5, 0.65, 0.55, 0.7, 0.45]
+    run, _ = experiment(
+        tmp_path, monkeypatch, near, alpha_per="decision", second_look=0.2
+    )
+    # Further attempts that take the gain away.
+    run.domain.scores["base_validation_again"] = run.domain.scores["base_validation"]
+    run.domain.scores["r0A_again"] = run.domain.scores["base_validation"]
+    run.baseline()
+    run.round(0)
+    decision = json.loads((run.runs / "r0" / "decisions.json").read_text())[0]
+    assert decision["accept"] is False and "first" in decision
+    assert decision["mean"] == pytest.approx(0.0917 / 2, abs=1e-4)
+    state = run.frontier()
+    assert state["promotions"] == 0
+    # The current harness keeps its further attempts for the rounds to come.
+    assert state["incumbent"]["job"] == "base_validation_both"
+    # The next near miss is compared with all of them, and only the candidate
+    # is run again.
+    run.domain.scores["r1A"] = run.domain.scores["r0A"]
+    run.domain.scores["r1A_again"] = run.domain.scores["r0A"]
+    run.round(1)
+    again = [job for job, _ in run.domain.jobs if job.endswith("_again")]
+    assert again == ["base_validation_again", "r0A_again", "r1A_again"]
+    second = json.loads((run.runs / "r1" / "decisions.json").read_text())[0]
+    assert "first" in second and second["n"] == 6
+
+
+def test_a_candidate_outside_the_band_gets_no_second_look(tmp_path, monkeypatch):
+    # No better than the current harness: p is far above the band.
+    same = [0.5, 0.4, 0.6, 0.5, 0.45, 0.55]
+    run, _ = experiment(
+        tmp_path, monkeypatch, same, alpha_per="decision", second_look=0.2
+    )
+    run.baseline()
+    run.round(0)
+    decision = json.loads((run.runs / "r0" / "decisions.json").read_text())[0]
+    assert decision["accept"] is False and "first" not in decision
+    assert decision["alpha"] == 0.025
+    assert not [job for job, _ in run.domain.jobs if job.endswith("_again")]
+    # With no second look the one look has the whole level.
+    run, _ = experiment(tmp_path / "one", monkeypatch, same, alpha_per="decision")
+    run.baseline()
+    run.round(0)
+    decision = json.loads((run.runs / "r0" / "decisions.json").read_text())[0]
+    assert decision["alpha"] == 0.05
 
 
 def test_a_candidate_that_is_no_better_is_dropped(tmp_path, monkeypatch):

@@ -609,6 +609,13 @@ about three times larger than $T$ does before it clears zero (table below);
 with $T$ the guarantee holds in the large-sample sense that the central limit
 theorem provides.
 
+A decision can also be made in two looks. With the loop's setting
+`second_look`, a candidate that is turned down narrowly is tested once more
+on twice the attempts, and each look has half the decision's level, so that
+by the same inequality the decision as a whole keeps its level
+([the improvement loop](improvement-loop.md), "A second look at a near
+miss").
+
 ## Results on the baseline runs
 
 The two baseline runs of 27 October and 3 November are the same harness,

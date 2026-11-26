@@ -154,6 +154,7 @@ EXPERIMENT_DEFAULTS = {
     "feedback": "outcome",
     "alpha": 0.05,
     "alpha_per": "experiment",
+    "second_look": 0.0,
     "filter_share": 0.5,
     "filter_threshold": 0.0,
     "pool_share": 0.5,
@@ -716,6 +717,15 @@ def load_experiment(spec: str, overrides: dict) -> dict:
     ):
         raise SystemExit(
             "error: pool_share must be a number above 0, up to 1 (every training task)"
+        )
+    again = settings["second_look"]
+    if (
+        isinstance(again, bool)
+        or not isinstance(again, (int, float))
+        or not 0 <= again < 1
+    ):
+        raise SystemExit(
+            "error: second_look must be a p-value from 0 (no second look) to below 1"
         )
     if settings["alpha_per"] not in ALPHA_PER:
         raise SystemExit(
