@@ -1479,6 +1479,17 @@ def test_alpha_is_for_the_experiment_or_for_each_decision():
     assert chosen["changed"]["alpha_per"] == "decision"
 
 
+def test_drafting_is_independent_or_in_turn():
+    unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
+    with pytest.raises(
+        SystemExit, match="drafting must be one of independent, in_turn"
+    ):
+        runner.load_experiment("smoke", unset | {"drafting": "together"})
+    assert runner.load_experiment("smoke", unset)["drafting"] == "independent"
+    chosen = runner.load_experiment("smoke", unset | {"drafting": "in_turn"})
+    assert chosen["changed"]["drafting"] == "in_turn"
+
+
 def test_a_second_look_is_a_p_value_or_none():
     unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
     assert runner.load_experiment("smoke", unset)["second_look"] == 0

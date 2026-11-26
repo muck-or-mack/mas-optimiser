@@ -115,6 +115,13 @@ rounds: 10
 # more, and raise the bar for every one of them. Default: 1. (planner)
 candidates: 1
 
+# How a round's candidates are drafted when there are several.
+# independent: each with no knowledge of the others, so they may all make
+# the same change. in_turn: one after another, each told what those before
+# it in the round proposed and asked to aim at a different failure.
+# Default: independent.
+drafting: independent
+
 # The most independent edits one candidate may hold, in the first round and
 # in the last; the rounds between go from the one number to the other along
 # RRSI's schedule. An edit is one change that works by itself, with a kind

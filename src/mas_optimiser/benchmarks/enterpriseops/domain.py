@@ -184,7 +184,8 @@ class EnterpriseOps(Domain):
                 f"\n\n{prompts.FEEDBACK}"
                 if experiment["feedback"] == "training"
                 else ""
-            ),
+            )
+            + (f"\n\n{prompts.IN_TURN}" if experiment["drafting"] == "in_turn" else ""),
             "critic": prompts.CRITIC,
         }
 

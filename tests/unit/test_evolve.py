@@ -201,6 +201,7 @@ def benchmark(monkeypatch):
         "limit": None,
         "editable": [".md"],
         "feedback": "outcome",
+        "drafting": "independent",
         "approval": "none",
         "concurrency": 2,
         "model_timeout": 300,
@@ -257,6 +258,12 @@ def test_the_sets_are_the_splits_tasks_that_can_be_run(benchmark):
     assert fed.briefs["proposer"].endswith(
         f"{adapter.prompts.WORKING}\n\n{adapter.prompts.FEEDBACK}"
     )
+    # A proposer whose round is drafted in turn is told what the outcome on
+    # a candidate of its own round means, in the loop's own words for it.
+    assert loop.DRAFTED not in benchmark.briefs["proposer"]
+    turned = adapter.EnterpriseOps(benchmark.experiment | {"drafting": "in_turn"})
+    assert turned.briefs["proposer"].endswith(adapter.prompts.IN_TURN)
+    assert loop.DRAFTED in adapter.prompts.IN_TURN
     assert benchmark.constitution("anywhere")[0].startswith("# Rules")
 
 
@@ -628,7 +635,8 @@ def test_an_experiment_says_and_records_what_differs_from_the_defaults(
 
         def __init__(self, *args):
             Stop.cfg = args[1]
-            Stop.attempts, Stop.feedback, Stop.alpha_per, Stop.again = args[-4:]
+            Stop.attempts, Stop.feedback, Stop.alpha_per, Stop.again = args[-5:-1]
+            Stop.drafting = args[-1]
 
         def baseline(self):
             raise Reached
@@ -643,7 +651,7 @@ def test_an_experiment_says_and_records_what_differs_from_the_defaults(
     with pytest.raises(Reached):
         stages = {"edits_first": 3, "attempts_gate": 3, "attempts_test": 2}
         stages |= {"feedback": "training", "alpha_per": "decision"}
-        stages |= {"second_look": 0.2}
+        stages |= {"second_look": 0.2, "drafting": "in_turn"}
         loop.run(SimpleNamespace(**(unset | chosen | stages)))
 
     said = capsys.readouterr().out
@@ -658,7 +666,7 @@ def test_an_experiment_says_and_records_what_differs_from_the_defaults(
     assert Stop.cfg.k == 3
     assert Stop.attempts == {"training": 1, "filter": 1, "test": 2}
     assert (Stop.feedback, Stop.alpha_per) == ("training", "decision")
-    assert Stop.again == 0.2
+    assert (Stop.again, Stop.drafting) == (0.2, "in_turn")
     folder = tmp_path / "evolve-smoke" / "haiku-20-40-40"
     record = json.loads((folder / "experiment.json").read_text())
     assert record["changed"]["rounds"] == 1
@@ -1003,6 +1011,57 @@ def test_a_candidate_outside_the_band_gets_no_second_look(tmp_path, monkeypatch)
     run.round(0)
     decision = json.loads((run.runs / "r0" / "decisions.json").read_text())[0]
     assert decision["alpha"] == 0.05
+
+
+def test_drafted_in_turn_a_candidate_is_told_what_those_before_it_proposed(
+    tmp_path, monkeypatch
+):
+    same = [0.5, 0.4, 0.6, 0.5, 0.45, 0.55]
+    heard = {}
+    for drafting in ("independent", "in_turn"):
+        run, _ = experiment(tmp_path / drafting, monkeypatch, same, drafting=drafting)
+        run.cfg.m = 3
+        for job in ("r0B", "r0C", "r1A", "r1B", "r1C"):
+            run.domain.scores[job] = run.domain.scores["r0A"]
+        draft = run._draft
+
+        def listen(t, variant, *rest, draft=draft, drafting=drafting):
+            # The history handed to the proposer, the tenth argument after these.
+            heard[drafting, t, variant] = list(rest[9])
+            candidate = draft(t, variant, *rest)
+            # The second round's first candidate is stopped at the review.
+            if (t, variant) == (1, "A"):
+                candidate.gate_failure = "critic_reject"
+            return candidate
+
+        monkeypatch.setattr(run, "_draft", listen)
+        run.baseline()
+        run.round(0)
+        run.round(1)
+    # Drafted independently, no candidate of the first round hears of another.
+    assert [heard["independent", 0, v] for v in "ABC"] == [[], [], []]
+    # Drafted in turn, the second hears of the first and the third of both.
+    assert heard["in_turn", 0, "A"] == []
+    assert heard["in_turn", 0, "B"] == [
+        {
+            "t": 0,
+            "variant": "A",
+            "edit_id": "C1",
+            "outcome": loop.DRAFTED,
+            "component": "prompt",
+            "hypothesis": "it helps",
+        }
+    ]
+    assert [row["variant"] for row in heard["in_turn", 0, "C"]] == ["A", "B"]
+    # The next round's first candidate reads all three with their verdicts.
+    # It is stopped at the review, so it will not be run, and the second is
+    # not told of it; the third is told of the second.
+    assert [row["outcome"] for row in heard["in_turn", 1, "A"]] == ["REJECTED"] * 3
+    assert heard["in_turn", 1, "B"] == heard["in_turn", 1, "A"]
+    assert [(row["variant"], row["outcome"]) for row in heard["in_turn", 1, "C"]][
+        3:
+    ] == [("B", loop.DRAFTED)]
+    assert heard["independent", 1, "C"] == heard["independent", 1, "A"]
 
 
 def test_a_candidate_that_is_no_better_is_dropped(tmp_path, monkeypatch):

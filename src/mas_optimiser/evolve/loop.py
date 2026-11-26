@@ -157,6 +157,10 @@ JUDGED = (
     "current harness only if a statistical test on those tasks shows it to "
     "be better than the current one."
 )
+# The outcome given, under ``drafting: in_turn``, to a proposal of the round
+# being drafted, where an earlier round's proposal has ACCEPTED, REJECTED or
+# LOST. The proposer's instructions name it (``prompts.IN_TURN``).
+DRAFTED = "DRAFTED THIS ROUND"
 # Put before the count of how the current harness's training attempts went,
 # in the same two roles' instructions, each round.
 FAILURES = (
@@ -221,6 +225,10 @@ class Experiment(Run):
         second_look: The p-value at or under which a candidate the gate has
             turned down is looked at again, on twice the attempts; 0 for no
             second look. With one, each look has half the decision's level.
+        drafting: How a round's candidates are drafted when there are
+            several. ``"independent"``: each with no knowledge of the
+            others, as RRSI drafts them. ``"in_turn"``: one after another,
+            each told what those before it in the round proposed.
     """
 
     def __init__(
@@ -239,6 +247,7 @@ class Experiment(Run):
         feedback: str = "outcome",
         alpha_per: str = "experiment",
         second_look: float = 0.0,
+        drafting: str = "independent",
     ):
         # RRSI's own scoring step, which a candidate goes through when there
         # is no filter, scores an attempt that left no result as zero while
@@ -254,6 +263,7 @@ class Experiment(Run):
         self.alpha = alpha
         self.alpha_per = alpha_per
         self.second_look = second_look
+        self.drafting = drafting
         self.filter_share = filter_share
         self.filter_threshold = filter_threshold
         self.seed = seed
@@ -616,8 +626,14 @@ class Experiment(Run):
             and record.get("component") in K
         }
         rules, patterns = d.constitution(self.repo)
-        candidates = [
-            self._draft(
+        # RRSI drafts a round's candidates independently: each is given the
+        # same analysis and the same history, and so they can all make the
+        # same change. Drafted in turn, each is also told what those before
+        # it in this round proposed, as rows of the history with an outcome
+        # of their own.
+        candidates, drafted = [], []
+        for n in range(cfg.m):
+            candidate = self._draft(
                 t,
                 VARIANT_LABELS[n],
                 folder,
@@ -629,12 +645,28 @@ class Experiment(Run):
                 exploration(t, 0, tried, cfg.m_draft),
                 False,
                 [],
-                told,
+                told + drafted,
                 rules,
                 patterns,
             )
-            for n in range(cfg.m)
-        ]
+            candidates.append(candidate)
+            # One stopped at the review or at its one-task trial will not be
+            # run, so the next candidate is free to take its idea up.
+            if self.drafting == "in_turn" and not candidate.gate_failure:
+                drafted += [
+                    {
+                        "t": t,
+                        "variant": candidate.variant,
+                        "edit_id": edit.get("id"),
+                        "outcome": DRAFTED,
+                    }
+                    | {
+                        key: edit[key]
+                        for key in ("component", "hypothesis", "targets_mode")
+                        if edit.get(key) is not None
+                    }
+                    for edit in candidate.edits or []
+                ]
 
         # Each candidate that got this far, on the validation tasks.
         ids = d.validation_ids()
@@ -978,6 +1010,14 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
             help=f"attempts at a task {words} (default: --attempts)",
         )
     parser.add_argument(
+        "--drafting",
+        choices=runner.DRAFTING,
+        help="how a round's candidates are drafted when there are several: "
+        "independent, each with no knowledge of the others (the default); or "
+        "in_turn, one after another, each told what those before it in the "
+        "round proposed and asked to aim at another failure",
+    )
+    parser.add_argument(
         "--feedback",
         choices=runner.FEEDBACK,
         help="what the proposer is told of its earlier proposals: outcome, "
@@ -1147,6 +1187,7 @@ def run(args: argparse.Namespace) -> None:
         experiment["feedback"],
         experiment["alpha_per"],
         experiment["second_look"],
+        experiment["drafting"],
     )
     models.usage_log = folder / "search_usage.jsonl"
     models.timeout = experiment["model_timeout"]
