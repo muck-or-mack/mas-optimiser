@@ -107,7 +107,7 @@ those names.
 To check a model and its key, ask it one word:
 
 ```bash
-mas-optimiser check gpt-5.1-azure
+mas-optimiser status gpt-5.1-azure
 ```
 
 It prints whether the model answered, the seconds that took and, where the

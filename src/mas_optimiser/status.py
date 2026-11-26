@@ -1,4 +1,4 @@
-"""Whether a model answers, and what its service allows: ``mas-optimiser check``.
+"""Whether a model answers, and what its service allows: ``mas-optimiser status``.
 
 Each model named is sent a one-word question, once and with no second try,
 and a row is printed for it: whether it answered, the seconds that took and,
@@ -8,11 +8,11 @@ state them, in a refusal as in an answer; for the others those cells stay
 empty. A model that did not answer is shown with what was raised, any
 address in it left out.
 
-    mas-optimiser check gpt-5.1-azure haiku-5-5
+    mas-optimiser status gpt-5.1-azure haiku-5-5
 
 The command ends with an error if a model named did not answer.
 
-Sources: ``docs/how-it-works.md``, section 6, the rows for ``check``.
+Sources: ``docs/how-it-works.md``, section 6, the rows for ``status``.
 """
 
 import argparse
@@ -44,7 +44,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     """The command's options.
 
     Args:
-        parser: The ``check`` subparser.
+        parser: The ``status`` subparser.
     """
     parser.add_argument(
         "model",
