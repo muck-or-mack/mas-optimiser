@@ -54,7 +54,7 @@ ALLOWANCE = {
 }
 # Seconds the one question may wait for its answer.
 LIMIT = 60
-# Seconds of an experiment's latest traffic that are added up.
+# Seconds of an experiment's latest traffic that are added up, at the most.
 RECENT = 3600
 
 
@@ -129,15 +129,17 @@ def progress(folder: Path) -> dict:
         ``rounds`` decided ``of`` how many, and the changes ``kept``; that
         job's attempts ``done`` and ``expected`` (``None`` for a job started
         by a version that did not record it); the attempts finished in the
-        ``last_10`` minutes and the ``last_60``; of the hour's, those that
-        ended in an error (``errors``) and those a service left
-        ``unanswered``; the ``tokens`` the hour's attempts and search calls
-        used; the ``search_calls`` of the hour; the ``idle_minutes`` since a
-        file was last written; and ``rest``, the attempts still to run, the
-        least and the most (``None`` for an experiment that did not record
-        its sets' sizes, or whose test has run). The least is with every
-        candidate still to come dropped at the filter, the most with every
-        one kept.
+        ``last_10`` minutes, and the ``recent`` ones, those of the last
+        ``minutes``: 60, or the time since the command was last given where
+        that is less; of the recent ones, those that ended in an error
+        (``errors``) and those a service left ``unanswered``; the ``tokens``
+        the recent attempts and search calls used; those ``search_calls``;
+        the ``idle_minutes`` since a file was last written; and ``rest``,
+        the attempts still to run, the least and the most (``None`` for an
+        experiment that did not record its sets' sizes, or whose test has
+        run). The least is with every candidate still to come dropped at
+        the filter, or turned down at the gate where the experiment has no
+        ``filter``; the most with every one kept.
     """
     settings = json.loads((folder / "experiment.json").read_text())
     domain = folder / EnterpriseOps.name
@@ -147,7 +149,11 @@ def progress(folder: Path) -> dict:
         for path in domain.glob("jobs/*/*/tasks/*/attempt-*.json")
         if not path.name.endswith(".changes.json")
     }
-    recent = [path for path, at in finished.items() if at > now - RECENT]
+    # The stretch the pace is taken over: the last hour, or the time since
+    # the command was last given where that is shorter. The command writes
+    # the settings as it starts, so their file's time is that moment.
+    since = max(now - RECENT, (folder / "experiment.json").stat().st_mtime)
+    recent = [path for path, at in finished.items() if at > since]
     tokens = errors = unanswered = 0
     for path in recent:
         try:
@@ -168,7 +174,7 @@ def progress(folder: Path) -> dict:
             json.loads, log.read_text().splitlines() if log.is_file() else []
         )
         if call.get("time")
-        and time.mktime(time.strptime(call["time"], "%Y-%m-%d %H:%M:%S")) > now - RECENT
+        and time.mktime(time.strptime(call["time"], "%Y-%m-%d %H:%M:%S")) > since
     ]
     tokens += sum(call["input_tokens"] + call["output_tokens"] for call in calls)
     newest = max(finished, key=finished.get, default=None)
@@ -260,14 +266,16 @@ def progress(folder: Path) -> dict:
             path.relative_to(domain / "jobs").parts[0] == job for path in finished
         ),
         "expected": planned and planned["tasks"] * planned["attempts"],
-        "last_10": sum(at > now - 600 for at in finished.values()),
-        "last_60": len(recent),
+        "last_10": sum(at > max(now - 600, since) for at in finished.values()),
+        "recent": len(recent),
+        "minutes": max((now - since) / 60, 1 / 60),
         "errors": errors,
         "unanswered": unanswered,
         "tokens": tokens,
         "search_calls": len(calls),
         "idle_minutes": round((now - max(written)) / 60),
         "rest": rest,
+        "filter": bool(settings.get("filter_share")),
     }
 
 
@@ -317,19 +325,24 @@ def run(args: argparse.Namespace) -> None:
 
     for state in states:
         total = state["expected"]
-        # In minutes, at the last hour's pace; not known for a job with no
-        # recorded total, or when no attempt finished in the hour.
-        left = (
-            round(60 * (total - state["done"]) / state["last_60"])
-            if total and state["last_60"]
-            else None
+        # The stretch the pace is from, in words, and the pace in attempts
+        # a minute.
+        whole = round(state["minutes"])
+        stretch = (
+            "hour"
+            if state["minutes"] > 59.5
+            else f"{max(whole, 1)} minute{'s' if whole > 1 else ''}"
         )
+        pace = state["recent"] / state["minutes"]
+        # Not known for a job with no recorded total, or when no attempt
+        # finished in the stretch.
+        left = (total - state["done"]) / pace if total and pace else None
         allowed = next(
             row["tokens_a_minute"] for row in rows if row["model"] == state["models"][0]
         )
-        a_minute = state["tokens"] / (RECENT / 60)
+        a_minute = state["tokens"] / state["minutes"]
         # Where no range can be given: the experiment is over, or it did
-        # not record its sets' sizes, or nothing finished in the hour.
+        # not record its sets' sizes, or nothing finished in the stretch.
         no_range = (
             "nothing: the experiment has finished"
             if state["where"].startswith("finished")
@@ -351,27 +364,25 @@ def run(args: argparse.Namespace) -> None:
                 "(the job was started by an earlier version)"
             ),
             "attempts finished": (
-                f"{state['last_10']} in the last 10 minutes, "
-                f"{state['last_60']} in the last hour"
+                f"{state['last_10']} in the last 10 minutes, " * (whole > 10)
+                + f"{state['recent']} in the last {stretch}"
             ),
             "time left for this job": (
-                f"{clock(left)} at the last hour's pace"
-                if left is not None
-                else "not known"
+                f"{clock(left)} at that pace" if left is not None else "not known"
             ),
             # Attempts only: the search roles' own time is not in either.
             "the rest, at the least": (
-                f"{clock(60 * state['rest'][0] / state['last_60'])} "
+                f"{clock(state['rest'][0] / pace)} "
                 f"({state['rest'][0]:,} attempts): every candidate still to come "
-                "dropped at the filter"
-                if state["rest"] and state["last_60"]
+                + ("dropped at the filter" if state["filter"] else "turned down")
+                if state["rest"] and pace
                 else no_range
             ),
             "the rest, at the most": (
-                f"{clock(60 * state['rest'][1] / state['last_60'])} "
+                f"{clock(state['rest'][1] / pace)} "
                 f"({state['rest'][1]:,} attempts): every candidate still to come "
                 "kept"
-                if state["rest"] and state["last_60"]
+                if state["rest"] and pace
                 else no_range
             ),
             "last file written": (
@@ -379,12 +390,12 @@ def run(args: argparse.Namespace) -> None:
                 if state["idle_minutes"]
                 else "less than a minute ago"
             ),
-            "in the last hour": (
+            f"in the last {stretch}": (
                 f"ended in an error: {state['errors']}; "
                 f"unanswered by a service: {state['unanswered']}; "
                 f"calls by the search roles: {state['search_calls']}"
             ),
-            "its traffic": f"{a_minute:,.0f} tokens a minute over the last hour"
+            "its traffic": f"{a_minute:,.0f} tokens a minute over the last {stretch}"
             + (
                 f", {100 * a_minute / int(allowed):.0f}% of the {int(allowed):,} "
                 "its service allows"
