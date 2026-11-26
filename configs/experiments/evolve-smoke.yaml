@@ -8,7 +8,7 @@ domain: itsm
 concurrency: 3
 trace: false
 split: haiku-20-40-40
-limit: 3
+limit: 9
 rounds: 1
 # Text only, so that no code written by a model is run.
 editable: [".md"]

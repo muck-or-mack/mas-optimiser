@@ -327,6 +327,52 @@ def test_seen_tasks_go_to_training_and_overflow_shrinks_the_other_sets():
 KEYS = {"name", "seed", "proportions", "balance", "source", "seen", *splits.SETS}
 
 
+def test_a_limit_keeps_the_sets_proportions_and_the_mix_of_groups_in_each():
+    # Three sets of 6, 12 and 6 tasks, half of each in either of two groups.
+    sets = {
+        name: [f"{name[0]}{group}{n}" for group in "ab" for n in range(size // 2)]
+        for name, size in (("training", 6), ("validation", 12), ("test", 6))
+    }
+    groups = {task: (task[1],) for ids in sets.values() for task in ids}
+    kept = splits.limited(sets, groups, 8, seed=1)
+    # Eight of the 24: the sets keep their one, two and one parts in four.
+    assert {name: len(ids) for name, ids in kept.items()} == {
+        "training": 2,
+        "validation": 4,
+        "test": 2,
+    }
+    # Each set keeps its halves, and every task kept is one of its own.
+    for name, ids in kept.items():
+        assert set(ids) <= set(sets[name]) and ids == sorted(ids)
+        assert sum(task[1] == "a" for task in ids) == len(ids) // 2
+    # The same split and limit are always the same tasks; another seed gives
+    # other ones; a limit no smaller than the split keeps everything.
+    assert splits.limited(sets, groups, 8, seed=1) == kept
+    assert splits.limited(sets, groups, 8, seed=2) != kept
+    assert splits.limited(sets, groups, 24, seed=1) == {
+        name: sorted(ids) for name, ids in sets.items()
+    }
+
+
+def test_the_committed_splits_limit_is_even_over_the_domains():
+    # Split seed-1's lists are in the order of the task ids, which puts one
+    # domain first: the first 20 validation tasks are all of one domain.
+    split = splits.load_split("seed-1")
+    domain_of = {
+        task: domain
+        for domain in ("itsm", "csm", "hr")
+        for task in runner.load_tasks(domain, "all_tools")
+    }
+    assert len({domain_of[task] for task in split["validation"][:20]}) == 1
+    sets = {name: split[name] for name in splits.SETS}
+    groups = {task: (domain_of[task],) for ids in sets.values() for task in ids}
+    kept = splits.limited(sets, groups, 60, split["seed"])
+    assert [len(kept[name]) for name in splits.SETS] == [10, 31, 19]
+    for ids in kept.values():
+        counts = [sum(domain_of[t] == d for t in ids) for d in ("itsm", "csm", "hr")]
+        assert max(counts) - min(counts) <= 1
+
+
 def test_build_split_records_what_was_drawn_and_each_sets_tasks(monkeypatch):
     monkeypatch.setattr(mas_optimiser, "code_version", lambda: "v9.9.9-0-gabc")
     groups = {f"i{i:02d}": ("itsm",) for i in range(15)}

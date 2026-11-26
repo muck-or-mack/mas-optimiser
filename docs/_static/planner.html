@@ -270,7 +270,7 @@ const OTHER = [
   ["What is run", "domain", "The benchmark's domain, or a list: itsm, csm, hr. More domains give more tasks. Must be set.", "not set"],
   ["What is run", "mode", "The tools the agent is offered: all_tools, oracle, or oracle with 5, 10 or 15 distractors.", "all_tools"],
   ["What is run", "split", "The split of the tasks into training, validation and test sets, by its name.", "not set"],
-  ["What is run", "limit", "Only the first N tasks, or the first N of each set in the loop. For trials.", "not set"],
+  ["What is run", "limit", "For trials. For run, only the first N tasks. In the loop, N tasks of the split in all, each set and each domain giving its share, drawn with the split's seed.", "not set"],
   ["What is run", "task", "Only these tasks, by id. Read by run only.", "not set"],
   ["How it is run", "concurrency", "Attempts in flight at once. Faster until a rate limit is reached; scores do not change.", "4"],
   ["How it is run", "model_timeout", "Seconds one call to the model may wait before it is given up and sent again.", "300"],

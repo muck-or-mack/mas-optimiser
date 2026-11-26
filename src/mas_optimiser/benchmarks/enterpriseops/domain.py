@@ -66,8 +66,9 @@ class EnterpriseOps(Domain):
 
     Args:
         experiment: The settings from ``runner.load_experiment``; ``split``
-            names the split, ``limit`` caps each of its sets (for a trial of
-            the loop), ``editable`` gives the file types a proposal may
+            names the split, ``limit`` is the number of its tasks to use in
+            all (for a trial of the loop; ``splits.limited`` takes them),
+            ``editable`` gives the file types a proposal may
             touch, and ``feedback`` says what the proposer is told of its
             earlier proposals.
 
@@ -146,9 +147,19 @@ class EnterpriseOps(Domain):
         }
         split = splits.load_split(experiment["split"])
         self.sets = {
-            name: [t for t in split[name] if t in self.domain_of][: experiment["limit"]]
+            name: [t for t in split[name] if t in self.domain_of]
             for name in splits.SETS
         }
+        if experiment["limit"]:
+            # A trial on fewer tasks is a small copy of the split, taken by
+            # the split's own rule: its sets in their proportions, each
+            # domain its share, the tasks by a shuffle with its seed.
+            self.sets = splits.limited(
+                self.sets,
+                {task: (domain,) for task, domain in self.domain_of.items()},
+                experiment["limit"],
+                split["seed"],
+            )
         self.source_exts = set(experiment["editable"])
         # RRSI's file tools check the type of a file that is created and not
         # of one that is edited, so a change to a file of a type that may not
