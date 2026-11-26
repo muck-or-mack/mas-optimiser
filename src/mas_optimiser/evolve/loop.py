@@ -223,8 +223,10 @@ class Experiment(Run):
             The result on the validation tasks.
 
         Raises:
-            SystemExit: If too many attempts of either job are missing for
-                it to stand as a baseline.
+            SystemExit: If an attempt of either job has no result. RRSI
+                lets up to 15% be missing and scores them zero; a zero in
+                the scores a candidate is compared with would be a gain
+                for every candidate after it.
         """
         d, cfg = self.domain, self.cfg
         self.ensure_branch()
@@ -237,7 +239,7 @@ class Experiment(Run):
             ("validation", d.validation_ids(), cfg.k),
         ):
             result = evaluate(d, checkout, self.runs, f"{job}_{name}", ids, attempts)
-            if result.missing > cfg.invalid_missing_frac * result.n_expected:
+            if result.missing:
                 raise SystemExit(
                     f"error: the baseline on the {name} tasks is missing "
                     f"{result.missing} of {result.n_expected} attempts"
@@ -354,6 +356,8 @@ class Experiment(Run):
                 continue
             # As the released step does: a second run when attempts are
             # missing, and a candidate that cannot be scored is set aside.
+            # Unlike it, one missing attempt is enough: the test compares
+            # measured scores, and a zero put in a gap is not one.
             for _ in range(2):
                 try:
                     part = evaluate(
@@ -368,7 +372,7 @@ class Experiment(Run):
                     c.gate_failure = "eval_invalid"
                     c.detail = f"evaluation crashed: {error!r}"[:600]
                     return
-                if part.missing <= cfg.invalid_missing_frac * part.n_expected:
+                if not part.missing:
                     break
             else:
                 c.gate_failure = "eval_invalid"
@@ -594,7 +598,7 @@ class Experiment(Run):
                     self.attempts["training"],
                 )
                 result.save(self.eval_path(job))
-                if result.missing <= cfg.invalid_missing_frac * result.n_expected:
+                if not result.missing:
                     gains = [
                         result.per_task[i].mean - training.per_task[i].mean
                         for i in training.per_task
