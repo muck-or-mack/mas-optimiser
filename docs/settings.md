@@ -297,10 +297,13 @@ several ideas at once and late rounds test one at a time.
 ### `attempts_training`
 
 How many times each training task is attempted, by the starting harness and
-by every harness that is kept. Left out, it is `attempts`. These are the
-attempts the analyst and the proposer read, a task's lowest-scoring one
-first, so more of them show more of how the agent fails. They take no part
-in any decision.
+by every harness that is kept. Left out, it is `attempts`. Of a task's
+attempts the analyst and the proposer can open one, by default its
+lowest-scoring one; the score they are given for the task is its mean over
+all of them, and the count of how attempts failed is over all of them. More
+attempts therefore give steadier scores, a fuller count and a worse worst
+attempt to read, and no further trace to open. They take no part in any
+decision.
 
 ### `attempts_filter`
 
