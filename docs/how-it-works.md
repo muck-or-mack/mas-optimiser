@@ -584,7 +584,7 @@ What goes wrong, and where to look:
 
 | Symptom | Meaning | Where |
 |---|---|---|
-| `error: domain server ... is not answering` | the Docker servers are down | [`check_servers`][runner.check_servers]; start them and rerun |
+| `error: domain server ... is not answering` | the Docker servers are down, or one stayed too busy to answer four checks ten seconds apart | [`check_servers`][runner.check_servers]; start them and rerun |
 | `ANTHROPIC_API_KEY is not set; add it to .env`, or the same for another model's variable | no `.env`, or the model's line missing from it | [`load_model`][runner.load_model]; `.env.example` lists every line |
 | a `tasks.csv` row with `error` filled and zero checks | the attempt raised: before the agent's first call (a server fault, a bad config), or partway, where the page gives the turns up to the error from the runner's own record | the record's `error`; the attempt's page; the traceback in `evaluation.log` |
 | `diagnosis_error` on the run in `attempt-N.json` | the checks ran but the diagnosis raised; verdicts are intact | `_run_verifiers` in [`TaskExecutor`][runner.TaskExecutor] |
