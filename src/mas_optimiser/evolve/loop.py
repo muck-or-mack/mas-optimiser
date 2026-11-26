@@ -834,8 +834,9 @@ def run(args: argparse.Namespace) -> None:
 
     Raises:
         SystemExit: If the experiment names no split, names one set of it,
-            names a harness with no ``agent.py``, or would run code no person
-            has read without that having been accepted.
+            asks for more candidates a round than RRSI has names for, names a
+            harness with no ``agent.py``, or would run code no person has
+            read without that having been accepted.
     """
     overrides = {key: getattr(args, key) for key in runner.EXPERIMENT_DEFAULTS}
     experiment = runner.load_experiment(args.experiment, overrides)
@@ -847,6 +848,11 @@ def run(args: argparse.Namespace) -> None:
         raise SystemExit(
             "error: evolve needs a split by its name alone (split: <name>), "
             "since it uses all three of its sets"
+        )
+    if experiment["candidates"] > len(VARIANT_LABELS):
+        raise SystemExit(
+            f"error: candidates can be at most {len(VARIANT_LABELS)}: RRSI's "
+            "code names a round's candidates by letter, and has that many"
         )
     if ".py" in experiment["editable"] and experiment["approval"] == "none":
         if not args.accept_unreviewed_code:

@@ -632,6 +632,19 @@ def test_an_experiment_says_and_records_what_differs_from_the_defaults(
     assert "llm_api_key" not in record["proposer_settings"]
 
 
+def test_more_candidates_a_round_than_there_are_names_for_are_refused(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(loop, "EVOLUTIONS", tmp_path)
+    unset = dict.fromkeys(adapter.runner.EXPERIMENT_DEFAULTS)
+    chosen = {"experiment": "evolve-smoke", "accept_unreviewed_code": False}
+    # RRSI names a round's candidates A to H; a ninth would end the round
+    # after eight had been drafted and paid for.
+    with pytest.raises(SystemExit, match="candidates can be at most 8"):
+        loop.run(SimpleNamespace(**(unset | chosen | {"candidates": 9})))
+    assert list(tmp_path.iterdir()) == []
+
+
 def test_code_edits_with_no_approval_start_only_once_the_risk_is_accepted(
     tmp_path, monkeypatch
 ):
