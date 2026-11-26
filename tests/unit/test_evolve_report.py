@@ -282,6 +282,14 @@ def test_the_further_attempts_at_the_filters_tasks_are_a_job_the_report_knows():
         if (found := re.fullmatch(pattern, "r3A_more"))
     ]
     assert what == ["round 4: further attempts at the filter's tasks"]
+    # So is a one-task trial given again after an attempt that ended in an error.
+    assert report.described("r3A_smoke_again", set())[0] == (
+        "round 4: the one-task trial, given again"
+    )
+    part = [
+        n for n, pattern in report.PARTS if re.fullmatch(pattern, "r3A_smoke_again")
+    ]
+    assert part == ["the one-task trial of each candidate"]
 
 
 def test_errors_list_each_job_with_attempts_in_error_and_their_kinds(experiment):

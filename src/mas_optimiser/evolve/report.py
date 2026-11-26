@@ -58,7 +58,7 @@ DESCRIPTION = (
 PARTS = (
     ("the starting harness on the training tasks", r"base_training"),
     ("the starting harness on the validation tasks", r"base_validation"),
-    ("the one-task trial of each candidate", r"r\d+[A-Z]_smoke"),
+    ("the one-task trial of each candidate", r"r\d+[A-Z]_smoke(_again)?"),
     ("the candidates on the validation tasks", r"r\d+[A-Z](_filter|_more|_rest)?"),
     ("the candidates on the training tasks, for the proposer", r"r\d+[A-Z]_training"),
     ("each harness kept, on the training tasks", r"r\d+[A-Z]_training_kept"),
@@ -71,6 +71,7 @@ PARTS = (
 JOBS = (
     (r"base_(training|validation)", "the starting harness, {} tasks", 0),
     (r"r(\d+)[A-Z]_smoke", "round {}: the one-task trial", 1),
+    (r"r(\d+)[A-Z]_smoke_again", "round {}: the one-task trial, given again", 1),
     (r"r(\d+)[A-Z]_filter", "round {}: the filter", 1),
     (r"r(\d+)[A-Z]_more", "round {}: further attempts at the filter's tasks", 1),
     (r"r(\d+)[A-Z]_rest", "round {}: the rest of the validation tasks", 1),

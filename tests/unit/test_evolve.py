@@ -461,10 +461,23 @@ def test_the_trial_run_refuses_a_record_of_another_shape(
     ok, where = record(["system_message", "user_message", "a_plan"])
     assert ok is False and where["stage"] == "record"
     assert record(["user_message", "ai_message"])[0] is False
-    # An attempt that ended in an error fails the trial before its record is read.
-    write_rows(tmp_path / "jobs" / "failed", [("itsm", "t1", 1, 0, "it raised")])
+    # An attempt that ended in an error has the trial given once more, as a
+    # job of its own, and that second try decides: an error there fails the
+    # trial before any record is read.
+    write_rows(tmp_path / "jobs" / "failed", [("itsm", "t1", 1, 0, "by chance")])
+    write_rows(tmp_path / "jobs" / "failed_again", [("itsm", "t1", 1, 0, "it raised")])
     ok, where = benchmark.smoke(tmp_path, tmp_path, "failed", ["t1"])
     assert ok is False and where == {"stage": "run", "detail": "it raised"}
+    # A second try that ends well passes the trial, and its record is the one read.
+    write_rows(tmp_path / "jobs" / "once", [("itsm", "t1", 1, 0, "by chance")])
+    write_rows(tmp_path / "jobs" / "once_again", [("itsm", "t1", 1, 4, "")])
+    again = tmp_path / "jobs" / "once_again" / "itsm" / "tasks" / "t1"
+    again.mkdir(parents=True)
+    flow = [{"type": kind} for kind in ("system_message", "user_message")]
+    (again / "attempt-1.json").write_text(
+        json.dumps({"runs": [{"conversation_flow": flow}]})
+    )
+    assert benchmark.smoke(tmp_path, tmp_path, "once", ["t1"])[0] is True
 
 
 def test_with_approval_a_person_sees_the_change_before_it_first_runs(
@@ -480,10 +493,11 @@ def test_with_approval_a_person_sees_the_change_before_it_first_runs(
     ok, where = benchmark.smoke(tmp_path, tmp_path, "smoke", ["t1"])
     assert (ok, where["stage"], ran) == (False, "approval", [])
     assert "+a line the proposer added" in capsys.readouterr().out
-    # A yes lets the trial run go ahead.
+    # A yes lets the trial run go ahead: once, and once more because the
+    # stub leaves no row, which the trial reads as an attempt that failed.
     monkeypatch.setattr("builtins.input", lambda prompt: "y")
     benchmark.smoke(tmp_path, tmp_path, "smoke", ["t1"])
-    assert len(ran) == 1
+    assert [args[2] for args in ran] == ["smoke", "smoke_again"]
 
 
 def test_approval_with_nobody_at_the_terminal_stops_the_experiment(
