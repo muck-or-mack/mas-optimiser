@@ -561,7 +561,11 @@ class EnterpriseOps(Domain):
         with it. The attempt must end without an error, and its record must
         keep the shape the rest of the package reads: a conversation that
         opens with the system and user messages and holds no entry of an
-        unknown kind.
+        unknown kind. An attempt can end in an error by chance, the model
+        naming a tool that does not exist or a service dropping a call,
+        which says nothing of the change: after an error the tasks are run
+        once more, as the job ``<job>_again`` so that the first try stays on
+        record, and the second try decides.
 
         Args:
             root: The candidate's checkout.
@@ -598,6 +602,10 @@ class EnterpriseOps(Domain):
         out = Path(runs_dir) / "jobs" / job
         self.run(root, runs_dir, job, ids, 1)
         rows = self.rows(out)
+        if any(not rows.get((task, 1)) or rows[(task, 1)]["error"] for task in ids):
+            out = Path(runs_dir) / "jobs" / f"{job}_again"
+            self.run(root, runs_dir, f"{job}_again", ids, 1)
+            rows = self.rows(out)
         for task in ids:
             row = rows.get((task, 1))
             if row is None or row["error"]:

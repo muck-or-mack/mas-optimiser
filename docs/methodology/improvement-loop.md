@@ -143,6 +143,12 @@ recorded with the candidate's outcome.
 A change stopped by the screen or the reviewer goes back to the proposer
 with the reasons.
 
+An attempt can end in an error by chance: the model names a tool that does
+not exist, or a service drops a call. That says nothing of the change, so
+when the one-task run ends in an error it is given once more, and the second
+try decides. The first try stays in the experiment's folder as the job
+`r<round><candidate>_smoke`, and the second is `r<round><candidate>_smoke_again`.
+
 The screen is what holds a proposal to the types of file in `editable`.
 RRSI's tool for creating a file checks its type; its tool for editing one
 does not, so with `.md` alone an edit of `agent.py` would otherwise go
@@ -635,5 +641,5 @@ the gate asks for a gain that a test at a stated error level supports.
 - A second benchmark. The loop holds nothing of this benchmark's; another
   one needs a class like `domain.EnterpriseOps`.
 
-The loop has been run from end to end in a trial of three tasks a set. No
-full experiment has been run with it.
+The loop has been run from end to end in full experiments of ten rounds on
+two models, and in shorter trials on a sample of the tasks.
