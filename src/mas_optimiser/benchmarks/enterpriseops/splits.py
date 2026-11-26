@@ -30,6 +30,11 @@ evaluation has none that qualifies, or if the evaluations chosen differ in
 model, mode, harness or attempts, and the split covers the tasks that run
 scored.
 
+An experiment of the loop on fewer tasks (its ``limit``) takes them from a
+split by the same rule, in ``limited``: each set gives its share of the
+number and each domain within a set its share, by a shuffle with the split's
+seed, so the trial is a small copy of the split.
+
 The draw is written to ``configs/splits/<name>.json``: the seed, the
 proportions, the balance, what was read, the tasks placed in training by
 hand and the three lists of task ids. A task's difficulty is not written, so
@@ -178,12 +183,13 @@ def read_baseline(experiment_dir: Path) -> Baseline:
     return Baseline(tasks, evaluations)
 
 
-def quotas(n: int, proportions: tuple[float, ...]) -> list[int]:
+def quotas(n: int, proportions: tuple[float | Fraction, ...]) -> list[int]:
     """Share ``n`` items in the given proportions, rounding by largest remainder.
 
     The shares sum to ``n`` exactly; ties in the remainders go to the
     earlier proportion. Each proportion is read as the decimal it is written
-    as (0.1 is exactly one tenth), so floating-point error cannot break a tie.
+    as (0.1 is exactly one tenth), or as the fraction it is, so
+    floating-point error cannot break a tie.
 
     Args:
         n: The number of items.
@@ -249,6 +255,55 @@ def draw(
         for task_id in rest[validation_quota:]:
             assignment[task_id] = "test"
     return assignment
+
+
+def limited(
+    sets: dict[str, list[str]],
+    groups: dict[str, tuple[str, ...]],
+    tasks: int,
+    seed: int,
+) -> dict[str, list[str]]:
+    """A split's sets cut down to a number of tasks in all, shared out as the draw shares.
+
+    Each set gives its share of the number, in proportion to its size, and
+    within a set each group its share, both rounded by largest remainder.
+    Which tasks of a group are taken is settled by a shuffle with the seed.
+    A limited split is so a small copy of the whole one, with the same
+    proportions between its sets and the same mix of groups in each; the
+    first tasks of each list would be whatever the order of the lists put
+    first.
+
+    Args:
+        sets: Each set's task ids, as a split holds them.
+        groups: Each task id to its group, as in ``draw``.
+        tasks: How many tasks to keep in all; every task is kept when the
+            sets hold no more than that.
+        seed: Seeds the one generator of the shuffles. With the split's own
+            seed, a limit of a split is always the same tasks.
+
+    Returns:
+        Each set's tasks that are kept, sorted.
+    """
+    rng = random.Random(seed)
+    total = sum(len(ids) for ids in sets.values())
+    if tasks >= total:
+        return {name: sorted(ids) for name, ids in sets.items()}
+    shares = quotas(tasks, tuple(Fraction(len(ids), total) for ids in sets.values()))
+    kept = {}
+    for (name, ids), share in zip(sets.items(), shares, strict=True):
+        members: dict[tuple[str, ...], list[str]] = defaultdict(list)
+        for task_id in sorted(ids):
+            members[groups[task_id]].append(task_id)
+        order = sorted(members)
+        taken = quotas(
+            share, tuple(Fraction(len(members[group]), len(ids)) for group in order)
+        )
+        kept[name] = []
+        for group, number in zip(order, taken, strict=True):
+            rng.shuffle(members[group])
+            kept[name] += members[group][:number]
+        kept[name].sort()
+    return kept
 
 
 def build_split(

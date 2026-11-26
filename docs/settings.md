@@ -131,10 +131,21 @@ of the three sets are chosen when the split is drawn:
 
 ### `limit`
 
-For `run`, only the first N tasks of the domain; for `evolve`, at most N
-tasks of each set. Left out, every task is used. It is for trials: fewer
-tasks cost less and show less, and a result on a handful of tasks decides
-nothing.
+Fewer tasks, for trials. Left out, every task is used.
+
+For `run`, only the first N tasks of the domain. For `evolve`, N tasks of
+the split in all, taken the way the split itself was drawn: each of its
+three sets gives its share of N, in proportion to its size; each domain
+within a set gives its share; and which tasks are taken is settled by a
+shuffle with the split's seed. A limited experiment is so a small copy of
+its split, with the same proportions between training, validation and test
+and the same mix of domains in each, and the same limit of the same split is
+always the same tasks. Of split `seed-1` (51, 161 and 96 tasks), a limit of
+60 takes 10, 31 and 19.
+
+Fewer tasks cost less and show less, and a result on a handful of tasks
+decides nothing: with 20 validation tasks a change must gain about 10
+points to be kept.
 
 ### `task`
 

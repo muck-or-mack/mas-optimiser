@@ -174,6 +174,7 @@ def test_a_call_past_its_limit_starts_afresh_once_a_silent_service_answers(
 # ------------------------------------------------------------------ the adapter
 
 SETS = {
+    "seed": 0,
     "training": ["t1", "t2", "t3"],
     "validation": ["v1", "v2", "x9"],
     "test": ["h1"],
@@ -239,6 +240,11 @@ def test_the_sets_are_the_splits_tasks_that_can_be_run(benchmark):
     assert benchmark.validation_ids() == ["v1", "v2"]
     assert benchmark.heldout_ids() == ["h1"]
     assert benchmark.smoke_ids() == ["t1"]
+    # A limit is a number of tasks in all, taken as the split is drawn: of
+    # three, two are training tasks, one of each domain, and one validation.
+    limited = adapter.EnterpriseOps(benchmark.experiment | {"limit": 3})
+    assert len(limited.evolve_ids()) == 2 and "t3" in limited.evolve_ids()
+    assert (len(limited.validation_ids()), limited.heldout_ids()) == (1, [])
     assert ".md" in benchmark.briefs["proposer"]
     # The numbers from the training tasks are explained to a proposer that
     # will be given them, and to no other.

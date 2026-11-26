@@ -41,8 +41,10 @@ mode: all_tools
 # Default: none, which for run is every task; evolve must be given one.
 split:
 
-# Only the first N tasks (run), or the first N of each set (evolve). Fewer
-# tasks cost less and show less: for trials. Default: none, which is all.
+# Fewer tasks, for trials: they cost less and show less. For run, only the
+# first N tasks of the domain. For evolve, N tasks of the split in all: each
+# set gives its share and each domain within a set its share, taken by a
+# shuffle with the split's seed. Default: none, which is all.
 limit:
 
 # Only these tasks, by id: one id or a list (run only). Default: none.
