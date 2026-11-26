@@ -1,6 +1,9 @@
 """The ``status`` command: one question to a model, and what its service says back."""
 
 import argparse
+import json
+import os
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -80,7 +83,7 @@ def test_the_command_prints_one_table_and_ends_in_an_error_for_a_silent_model(
     monkeypatch.setattr(status, "load_dotenv", lambda path: None)
     monkeypatch.setattr(status, "ask", rows.__getitem__)
     with pytest.raises(SystemExit, match="no answer from b"):
-        status.run(argparse.Namespace(model=["a", "b"]))
+        status.run(argparse.Namespace(target=["a", "b"]))
     table = [
         line for line in capsys.readouterr().out.split("\n") if line.startswith("|")
     ]
@@ -93,4 +96,110 @@ def test_the_command_prints_one_table_and_ends_in_an_error_for_a_silent_model(
     ]
     assert "| b " in table[3] and "Refused: no" in table[3]
     # With every model answering the command ends without an error.
-    status.run(argparse.Namespace(model=["a"]))
+    status.run(argparse.Namespace(target=["a"]))
+
+
+def experiment(tmp_path):
+    """A made-up experiment at its second job, with four of its six attempts' records.
+
+    Args:
+        tmp_path: Where to make it.
+
+    Returns:
+        The experiment's folder.
+    """
+    folder = tmp_path / "evolutions" / "an-experiment" / "a-split-first"
+    tasks = folder / "enterpriseops" / "jobs" / "base_validation" / "itsm" / "tasks"
+    settings = {"experiment": "an-experiment", "split": "a-split", "label": "first"}
+    settings |= {"model": "a-model", "proposer_model": None, "rounds": 5}
+    settings |= {"mas_optimiser_version": "v0"}
+    tasks.mkdir(parents=True)
+    (folder / "experiment.json").write_text(json.dumps(settings))
+    planned = {"tasks": 3, "attempts": 2}
+    (tasks.parent.parent / "job.json").write_text(json.dumps(planned))
+    # Each answered call used 900 tokens in and 100 out.
+    call = {"type": "ai_message", "usage_metadata": {"input_tokens": 900}}
+    call["usage_metadata"]["output_tokens"] = 100
+    now = time.time()
+    for task, attempt, calls, error, age in (
+        ("t1", 1, 3, None, 30),
+        ("t1", 2, 2, "the attempt ran past its limit of 60 seconds", 300),
+        ("t2", 1, 5, None, 2 * status.RECENT),
+    ):
+        execution = {"conversation_flow": [call] * calls}
+        execution |= {"error": error} if error else {}
+        (tasks / task).mkdir(exist_ok=True)
+        path = tasks / task / f"attempt-{attempt}.json"
+        path.write_text(json.dumps({"runs": [execution]}))
+        os.utime(path, (now - age, now - age))
+    # An attempt whose record is still being written, and its changes file.
+    (tasks / "t2" / "attempt-2.json").write_text('{"runs": [')
+    (tasks / "t2" / "attempt-1.changes.json").write_text("{}")
+    # One call by a search role in the last hour, and one long before.
+    stamp = "%Y-%m-%d %H:%M:%S"
+    (folder / "search_usage.jsonl").write_text(
+        "".join(
+            json.dumps({"time": time.strftime(stamp, time.localtime(now - age))} | used)
+            + "\n"
+            for age, used in (
+                (60, {"input_tokens": 4000, "output_tokens": 1000}),
+                (9000, {"input_tokens": 7, "output_tokens": 7}),
+            )
+        )
+    )
+    return folder
+
+
+def test_an_experiments_progress_is_read_from_its_files(tmp_path):
+    state = status.progress(experiment(tmp_path))
+    assert state["experiment"] == "an-experiment on a-split (first)"
+    assert (state["models"], state["version"]) == (["a-model"], "v0")
+    # No frontier yet: the baseline is not over.
+    assert state["where"] == "the starting harness, validation tasks"
+    assert (state["rounds"], state["of"], state["kept"]) == (0, 5, 0)
+    # Four attempt records, one of them half-written; the job is to have six.
+    assert (state["done"], state["expected"]) == (4, 6)
+    assert (state["last_10"], state["last_60"]) == (3, 3)
+    # Of the hour's attempts that could be read: five calls of 1,000 tokens,
+    # with the search role's 5,000; one attempt ended in an error.
+    assert (state["tokens"], state["errors"], state["unanswered"]) == (10_000, 1, 0)
+    assert (state["search_calls"], state["idle_minutes"]) == (1, 0)
+
+
+def test_the_status_of_an_experiment_sets_its_traffic_against_the_services_limit(
+    tmp_path, monkeypatch, capsys
+):
+    folder = experiment(tmp_path)
+    row = {"model": "a-model", "answers": False, "said": "Refused", "seconds": 0.3}
+    row |= dict.fromkeys(status.ALLOWANCE) | {"tokens_a_minute": "1000"}
+    monkeypatch.setattr(status, "load_dotenv", lambda path: None)
+    monkeypatch.setattr(status, "ask", lambda name: row)
+    # The experiment's model did not answer, which is reported and no more.
+    status.run(argparse.Namespace(target=[str(folder)]))
+    said = capsys.readouterr().out
+    lines = {
+        cells[1].strip(): cells[2].strip()
+        for cells in (line.split("|") for line in said.splitlines())
+        if len(cells) == 4
+    }
+    assert lines["experiment"] == "an-experiment on a-split (first)"
+    assert lines["this job"] == "4 of 6 attempts"
+    # Two attempts to go at three an hour.
+    assert lines["time left for this job"] == "0 h 40 min at the last hour's pace"
+    assert lines["attempts finished"] == "3 in the last 10 minutes, 3 in the last hour"
+    assert lines["last file written"] == "less than a minute ago"
+    assert lines["in the last hour"] == (
+        "ended in an error: 1; unanswered by a service: 0; calls by the search roles: 1"
+    )
+    # 10,000 tokens in the hour are 167 a minute, of the 1,000 allowed.
+    assert lines["its traffic"] == (
+        "167 tokens a minute over the last hour, 17% of the 1,000 its service allows"
+    )
+    assert "| a-model " in said and "Refused" in said
+    # No task is named.
+    assert "t1" not in said and "t2" not in said
+
+
+def test_a_folder_that_holds_no_experiment_is_refused(tmp_path):
+    with pytest.raises(SystemExit, match="holds no experiment of the loop"):
+        status.run(argparse.Namespace(target=[str(tmp_path)]))

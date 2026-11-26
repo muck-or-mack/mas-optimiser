@@ -37,11 +37,11 @@ to one commit, and for the starting harness.
 | The runner (ours) | `src/mas_optimiser/cli.py`, `tracing.py`, `benchmarks/enterpriseops/runner.py` | about 2,400 | loads the tasks, runs attempts in parallel, applies the patch list, saves every record and the tables |
 | The measure (ours) | `checks.py`, `states.py`, `sql.py`, `diagnosis.py`, `report.py`, `rescore.py`, `rebuild.py` | about 2,700 | verdicts, changes against the seed, the cell-by-cell diagnosis, the trace to the turn, the results files, recomputation |
 | Set-up tools (ours) | `seeds.py`, `splits.py` | about 800 | local copies of the seed databases; the seeded draw of the training, validation and test sets |
-| The improvement loop (ours, round RRSI's released loop) | `evolve/loop.py`, `evolve/models.py`, `evolve/report.py`, `domain.py`, `prompts.py` | about 2,400 | one experiment of the loop: baseline, rounds, test; the model call of its search roles; this benchmark as the loop sees it |
+| The improvement loop (ours, round RRSI's released loop) | `evolve/loop.py`, `evolve/models.py`, `evolve/report.py`, `domain.py`, `prompts.py` | about 2,850 | one experiment of the loop: baseline, rounds, test; the model call of its search roles; this benchmark as the loop sees it |
 | Statistics (ours) | `stats/` | about 2,150 | the gate's test and the level of each decision; the `compare` and `calibrate` commands and their figures |
 | A self-hosted model's server (ours) | `server.py` | about 330 | the `server` command: vLLM installed, started and stopped |
 
-Line counts are from `wc -l` on 24 November 2026, and a test holds them to
+Line counts are from `wc -l` on 26 November 2026, and a test holds them to
 within 15% of the files; a third of this package's
 lines are docstrings, since every function states its arguments, its return
 value and what it raises. The benchmark's own
@@ -610,6 +610,7 @@ is credited in `NOTICE.md` as well.
 | all modules | the convention shared by StarHarness, GEPA, OpenEvolve and ShinkaEvolve | the benchmark adapter kept apart from the optimiser, and the benchmark with its checks never editable | the package layout |
 | all modules | Google docstrings checked by ruff and pydoclint; setuptools-scm | every function documented and checked in CI; the code version stamped into every evaluation and split | `pyproject.toml`, `ci.yml`, `mas_optimiser.code_version` |
 | `status` | the OpenAI API's guide to rate limits (platform.openai.com/docs/guides/rate-limits), which names the reply headers, and the LangChain OpenAI client's `include_response_headers` | the four headers in which a service states its allowance of tokens and of requests a minute and what is left, read from an answer or from a refusal | `status.ALLOWANCE`, `status.ask` |
+| `status` | own design, on the files an experiment already writes | the status of an experiment in progress: the job it is at, its attempts against the number the job is to have, the attempts finished and the tokens used in the last hour against what the service allows, and how long ago a file was written; counts only, no task named | `status.progress`; the job's own record in `domain.EnterpriseOps.run` |
 | `cli` | the author's research-computing practice | one console command declared in `pyproject.toml`; each module exposes `add_arguments` and `run` so an option is defined once | `cli.COMMANDS` |
 | `server` | vLLM's installation and Docker deployment pages (docs.vllm.ai/en/latest/getting_started/installation/gpu.html, docs.vllm.ai/en/latest/deployment/docker.html); the model cards of Qwen3.6-27B and its 8-bit version (huggingface.co/Qwen/Qwen3.6-27B, huggingface.co/Qwen/Qwen3.6-27B-FP8) | the two commands that install a release with uv; the options of `docker run` (the GPUs, the host's shared memory, the cache kept outside the container); the server options for tool calling and for text only | `server.run`; the `server` blocks of `configs/models/qwen3.6-27b-fp8.yaml` and `qwen3.6-27b.yaml` |
 | `runner` | EnterpriseOps-Gym `benchmark/executor.py` | `BenchmarkExecutor` subclassed, with `initialize` and `_run_verifiers` overridden; `AgentOrchestrator`, `BenchmarkConfig` and `LLMConfig` as released | `runner.TaskExecutor` |
@@ -675,6 +676,7 @@ is credited in `NOTICE.md` as well.
 | `src/mas_optimiser/tracing.py` | Langfuse: one trace per attempt, scored |
 | `src/mas_optimiser/markdown.py` | the markdown table every report is written with, its columns aligned in the source |
 | `src/mas_optimiser/server.py` | the `server` command: a self-hosted model's server installed, started and stopped, as a process of the machine or in Docker |
+| `src/mas_optimiser/status.py` | the `status` command: whether a model answers and what its service allows; where an experiment in progress is and how its traffic has gone |
 | `src/mas_optimiser/benchmarks/enterpriseops/listing.py` | the `list` command: an experiment's runs and their domains from its index |
 | `src/mas_optimiser/stats/outcomes.py` | per-task scores and the paired differences of two evaluations |
 | `src/mas_optimiser/evolve/loop.py` | one experiment of the improvement loop: baseline, rounds, test; the `evolve` command |

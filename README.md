@@ -867,6 +867,17 @@ mas-optimiser evolve <experiment>
 Ctrl+b and then d leaves that terminal with the experiment still going,
 and `tmux attach -t evolve`, from any later connection, comes back to it.
 
+While it goes, from another terminal,
+
+```
+mas-optimiser status evolutions/<experiment>/<split>
+```
+
+says where the experiment is, how many attempts finished in the last ten
+minutes and the last hour, how long its job has to go at that pace, and how
+its traffic stands against what the model's service allows
+("Watching an experiment" in the documentation reads it line by line).
+
 An experiment writes its own report, `report/report.md` in its folder: after
 each round, so that it can be read while the experiment goes on, and at the
 end, when it has the test scores.

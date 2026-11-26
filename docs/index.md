@@ -18,6 +18,7 @@ settings
 planner
 results
 reading-a-decision
+watching-an-experiment
 gpu-memory
 ```
 

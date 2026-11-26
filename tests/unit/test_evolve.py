@@ -310,7 +310,11 @@ def test_run_leaves_a_finished_job_alone_and_repeats_one_with_no_verdict(
     out = tmp_path / "jobs" / "short"
     write_rows(out, [("itsm", "t1", 1, 4, "")])
     benchmark.run(tmp_path, tmp_path, "short", ["t1", "t3"], 1)
-    assert len(commands) == 2 and not out.exists()
+    assert len(commands) == 2
+    # Its folder is emptied, and holds what the job is to have: the number
+    # that a look at a job in progress sets its attempts against.
+    assert [path.name for path in out.iterdir()] == ["job.json"]
+    assert json.loads((out / "job.json").read_text()) == {"tasks": 2, "attempts": 1}
     # An attempt a service never answered is no verdict: run again whole.
     commands.clear()
     out = tmp_path / "jobs" / "unanswered"
@@ -319,7 +323,7 @@ def test_run_leaves_a_finished_job_alone_and_repeats_one_with_no_verdict(
         "task_id,attempt,error,service_error\nt1,1,down,True\n"
     )
     benchmark.run(tmp_path, tmp_path, "unanswered", ["t1"], 1)
-    assert len(commands) == 1 and not out.exists()
+    assert len(commands) == 1 and not (out / "itsm").exists()
 
 
 def test_run_stops_the_experiment_when_a_service_did_not_answer(

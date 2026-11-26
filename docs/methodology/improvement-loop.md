@@ -510,6 +510,8 @@ evolutions/<experiment>/<split>/
     global_analysis.json      the names the analyst last gave to failure modes and
                               habits, handed to it again in the next round
     test.csv                  one row per harness kept: its validation and test scores
+    jobs/<job>/job.json       the tasks and the attempts the job is to have,
+                              written when it starts (read by `status`)
     jobs/<job>/<domain>/      one evaluation folder per run of a harness; with
                               a filter a candidate's validation run is the
                               jobs <job>_filter and <job>_rest, and
