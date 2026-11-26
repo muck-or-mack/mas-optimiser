@@ -52,13 +52,16 @@ DESCRIPTION = (
     "report an experiment of the loop: each harness kept, each round, and "
     "what every part cost"
 )
-# The parts of an experiment, each with the names of the jobs that make it.
+# The parts of an experiment, each with the names of the jobs that make it. A
+# kept harness's job on the training tasks is matched with ``_kept`` after its
+# name (see ``kept``): with ``feedback: training`` every candidate has one.
 PARTS = (
     ("the starting harness on the training tasks", r"base_training"),
     ("the starting harness on the validation tasks", r"base_validation"),
     ("the one-task trial of each candidate", r"r\d+[A-Z]_smoke"),
     ("the candidates on the validation tasks", r"r\d+[A-Z](_filter|_more|_rest)?"),
-    ("each harness kept, on the training tasks", r"r\d+[A-Z]_training"),
+    ("the candidates on the training tasks, for the proposer", r"r\d+[A-Z]_training"),
+    ("each harness kept, on the training tasks", r"r\d+[A-Z]_training_kept"),
     ("each harness kept, on the test tasks", r"heldout_t\d+"),
 )
 # What a job is, by its name: a pattern, the words for it, and where it comes
@@ -72,7 +75,8 @@ JOBS = (
     (r"r(\d+)[A-Z]_more", "round {}: further attempts at the filter's tasks", 1),
     (r"r(\d+)[A-Z]_rest", "round {}: the rest of the validation tasks", 1),
     (r"r(\d+)[A-Z]", "round {}: the validation tasks", 1),
-    (r"r(\d+)[A-Z]_training", "round {}: the kept harness, training tasks", 1),
+    (r"r(\d+)[A-Z]_training", "round {}: a candidate, training tasks", 1),
+    (r"r(\d+)[A-Z]_training_kept", "round {}: the kept harness, training tasks", 1),
     (r"heldout_t0", "the starting harness, test tasks", 2),
     (r"heldout_t(\d+)", "the harness kept in round {}, test tasks", 2),
 )
@@ -85,6 +89,26 @@ ENDED = {
     "filtered_out": "the filter",
     "eval_invalid": "its validation run, which could not be scored",
 }
+
+
+def kept(folder: Path) -> set[str]:
+    """The training jobs of the harnesses an experiment kept.
+
+    Args:
+        folder: The experiment's folder.
+
+    Returns:
+        For each round with an accepted candidate, the name of the job that
+        ran the one with the highest gain on the training tasks: the one the
+        loop keeps.
+    """
+    names = set()
+    for path in (folder / EnterpriseOps.name).glob("r*/decisions.json"):
+        accepted = [d for d in json.loads(path.read_text()) if d.get("accept")]
+        if accepted:
+            best = max(accepted, key=lambda decision: decision["mean"])
+            names.add(f"{path.parent.name}{best['variant']}_training")
+    return names
 
 
 def attempts(job: Path) -> pd.DataFrame:
@@ -121,12 +145,13 @@ def parts(folder: Path) -> pd.DataFrame:
         part's share of the dollars and of the input tokens.
     """
     jobs = folder / EnterpriseOps.name / "jobs"
+    kept_jobs = kept(folder)
     rows = []
     for part, pattern in PARTS:
         made = [
             attempts(job)
             for job in sorted(jobs.iterdir())
-            if re.fullmatch(pattern, job.name)
+            if re.fullmatch(pattern, job.name + "_kept" * (job.name in kept_jobs))
         ]
         made = pd.concat(made) if made else pd.DataFrame()
         if len(made):
@@ -208,7 +233,9 @@ def rounds(folder: Path) -> pd.DataFrame:
     said = {}
     for line in (domain / "history.jsonl").read_text().splitlines():
         record = json.loads(line)
-        if record.get("edit_id"):
+        # RRSI's record gives a candidate that declared no edit one row all
+        # the same, of no kind and for a bundle of none; it is no edit.
+        if record.get("edit_id") and record.get("bundle") != 0:
             said.setdefault((record["t"], record["variant"]), []).append(record)
     rows = []
     for path in sorted(
@@ -318,7 +345,7 @@ def errors(folder: Path) -> pd.DataFrame:
         many of them ran past their seconds, past their calls to the model,
         or ended otherwise.
     """
-    rows = []
+    rows, kept_jobs = [], kept(folder)
     for job in (folder / EnterpriseOps.name / "jobs").iterdir():
         made = attempts(job)
         if not len(made) or made["error"].isna().all():
@@ -328,7 +355,7 @@ def errors(folder: Path) -> pd.DataFrame:
         calls = int(said.str.startswith("the attempt made more than").sum())
         what, place, number = job.name, len(JOBS), 0
         for pattern, words, order in JOBS:
-            match = re.fullmatch(pattern, job.name)
+            match = re.fullmatch(pattern, job.name + "_kept" * (job.name in kept_jobs))
             if match:
                 named = match.group(1) if match.groups() else ""
                 number = int(named) + (order == 1) if named.isdigit() else 0
