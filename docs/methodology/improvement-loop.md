@@ -220,11 +220,14 @@ A person's no is a decision made outside the gate. An experiment run with
 | the test tasks and attempts                                              | no                           | no       | the headline only, at the end       |
 
 The analyst has each trace of the pool examined by a digester, a call of
-the model with two tools: reading a file and searching it, both held to
-the folder of that round's traces. RRSI's digester is also offered a shell,
-whose commands are checked by the name of the program alone, so that one
-could have named any file of the machine, the validation results and the
-keys among them. That shell is switched off here and is not offered.
+the model with three tools: listing the files of a folder, reading a file
+and searching it, all held to the folder of that round's traces. RRSI's
+digester is also offered a shell, whose commands are checked by the name of
+the program alone, so that one could have named any file of the machine,
+the validation results and the keys among them. That shell is switched off
+here and is not offered. RRSI's listing follows `..` out of the folder and
+would give the names of files anywhere, though not what they hold; here it
+gives only what lies inside.
 
 The proposer learns one thing from the validation tasks, the outcome of
 each decision. The unit tests check it: the traces handed to the proposer
@@ -578,6 +581,7 @@ arXiv:2609.24972; Apache License 2.0), kept unchanged in `vendor/rrsi`.
 |----------------------------------------------------------------|-------------------------------------------------------------|
 | the analysis of traces, the proposer, the review of a proposal | RRSI's, as released, but for the digester's shell           |
 | the shell RRSI offers a digester                               | switched off by this package (`evolve.loop`)                |
+| a digester's listing of files                                  | held to the traces folder (`evolve.loop.TracesFolder`)      |
 | the sentence that tells the proposer how a candidate is judged | this package's (`evolve.loop`): tasks it cannot read decide |
 | the record of proposals, a git checkout per candidate          | RRSI's, as released                                         |
 | what a benchmark must provide (its `Domain` interface)         | RRSI's; `domain.EnterpriseOps` fills it                     |
