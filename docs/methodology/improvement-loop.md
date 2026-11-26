@@ -497,6 +497,8 @@ evolutions/<experiment>/<split>/
   enterpriseops/
     frontier.json             the current harness and the score after each round
     history.jsonl             every proposal: what it changed, its outcome, its numbers
+    global_analysis.json      the names the analyst last gave to failure modes and
+                              habits, handed to it again in the next round
     test.csv                  one row per harness kept: its validation and test scores
     jobs/<job>/<domain>/      one evaluation folder per run of a harness; with
                               a filter a candidate's validation run is the

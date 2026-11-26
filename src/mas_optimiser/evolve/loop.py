@@ -503,10 +503,31 @@ class Experiment(Run):
         if report_path.exists():
             report = json.loads(report_path.read_text())
         else:
+            # As RRSI's round does: the analyst is given the names it gave
+            # to failure modes and habits in the round before, so that one
+            # mode keeps one name from round to round.
+            earlier = (
+                json.loads(self.global_analysis.read_text())
+                if self.global_analysis.exists()
+                else {}
+            )
             report = analyst.analyze(
-                d, traces, training.per_task, folder, model=cfg.analyst_model
+                d,
+                traces,
+                training.per_task,
+                folder,
+                prior_modes=earlier.get("failure_modes"),
+                prior_habits=earlier.get("success_habits"),
+                model=cfg.analyst_model,
             )
             report_path.write_text(json.dumps(report, ensure_ascii=False, indent=1))
+        self.global_analysis.write_text(
+            json.dumps(
+                {key: report.get(key) for key in ("failure_modes", "success_habits")},
+                ensure_ascii=False,
+                indent=1,
+            )
+        )
         told = [
             {key: record[key] for key in TOLD if record.get(key) is not None}
             for record in self.history.records()
