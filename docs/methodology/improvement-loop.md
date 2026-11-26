@@ -404,12 +404,12 @@ them, so no attempt is run twice.
 An experiment's `attempts` is the number of times a task is attempted at
 every stage. Each stage can be given its own number.
 
-| stage              | setting             | who is run                                                                                | what the attempts are for         |
-|--------------------|---------------------|-------------------------------------------------------------------------------------------|-----------------------------------|
-| the training tasks | `attempts_training` | the starting harness, and each harness kept                                               | the traces the search roles read  |
-| the filter         | `attempts_filter`   | each candidate, on the filter's tasks                                                     | dropping a weak candidate cheaply |
-| the gate           | `attempts_gate`     | the starting harness, and each candidate that passes the filter, on every validation task | the decision to keep a change     |
-| the test           | `attempts_test`     | each harness kept, at the end                                                             | the gain that is reported         |
+| stage              | setting             | who is run                                                                                | what the attempts are for                                                                        |
+|--------------------|---------------------|-------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|
+| the training tasks | `attempts_training` | the starting harness, and each harness kept                                               | the scores, the count of failures and the one trace of each task that the search roles are given |
+| the filter         | `attempts_filter`   | each candidate, on the filter's tasks                                                     | dropping a weak candidate cheaply                                                                |
+| the gate           | `attempts_gate`     | the starting harness, and each candidate that passes the filter, on every validation task | the decision to keep a change                                                                    |
+| the test           | `attempts_test`     | each harness kept, at the end                                                             | the gain that is reported                                                                        |
 
 The gate's attempts are the ones that let it find a smaller gain, and the
 dearest. The filter can have fewer. Its attempts are then the first of the

@@ -122,7 +122,7 @@ edits_first: 1
 edits_last: 1
 
 # Attempts at a task at each stage of the loop, where they are to differ
-# from `attempts`: on the training tasks (what the proposing model reads),
+# from `attempts`: on the training tasks (the ones the proposing model reads),
 # at the filter, at the gate (every validation task, for the starting
 # harness and for each candidate that passes the filter) and on the test
 # tasks. The filter's are the first of the gate's and cannot be more: a
