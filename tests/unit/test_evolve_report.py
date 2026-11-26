@@ -357,6 +357,12 @@ def test_the_command_writes_the_tables_the_figure_and_a_page_to_read(
         "scores.csv",
         "scores.pdf",
         "scores.png",
+        "test_gain.csv",
+        "test_gain.pdf",
+        "test_gain.png",
+        "gate.csv",
+        "gate.pdf",
+        "gate.png",
     }
     page = (out / "report.md").read_text()
     assert "2 of 2 rounds are decided; changes kept: 1." in page
@@ -378,6 +384,22 @@ def test_the_command_writes_the_tables_the_figure_and_a_page_to_read(
     scores = list(csv.DictReader((out / "figures" / "scores.csv").open()))
     assert [row["validation_score"] for row in scores] == ["50.0", "75.0", "75.0"]
     assert [row["test_score"] for row in scores] == ["50.0", "75.0", "75.0"]
+    # Each figure is on the page where its table is, with its numbers beside it.
+    for name in ("test_gain", "gate", "scores"):
+        assert f"](figures/{name}.png)" in page
+        assert f"`figures/{name}.csv`" in page
+    # The gain of the one harness kept, with its interval, on the test tasks.
+    [gain] = list(csv.DictReader((out / "figures" / "test_gain.csv").open()))
+    assert (gain["after_round"], float(gain["test_gain_points"])) == ("1", 25.0)
+    assert float(gain["test_gain_interval_low"]) == pytest.approx(-7.5, abs=0.05)
+    # The gate: the first round's gain beside the gain it needed; the second
+    # round's candidate ended at its trial and has neither.
+    first, second = list(csv.DictReader((out / "figures" / "gate.csv").open()))
+    assert (float(first["gain_points"]), float(first["gain_needed_points"])) == (
+        25.0,
+        pytest.approx(22.5),
+    )
+    assert (second["gain_points"], second["filter_gain_points"]) == ("", "")
 
 
 def test_an_experiment_still_going_is_reported_without_its_test_scores(experiment):

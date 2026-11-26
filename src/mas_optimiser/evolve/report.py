@@ -455,6 +455,169 @@ def harnesses(folder: Path) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def draw_gain(kept: pd.DataFrame, out: Path) -> None:
+    """The gain of each harness kept over the starting one, on the test tasks.
+
+    A row for each harness kept: a point at its gain and a bar over the 95%
+    confidence interval of that gain, which is from the paired differences
+    over the test tasks. A bar that lies wholly to the right of the no-gain
+    line is a gain at that level. A row's label gives the round after which
+    the harness was the current one and its test score beside the starting
+    harness's. The numbers drawn are written beside the figure.
+
+    Args:
+        kept: The harnesses, as ``harnesses.csv`` holds them, the test step
+            having run.
+        out: The folder to write ``test_gain.pdf``, ``test_gain.png`` and
+            ``test_gain.csv`` into.
+    """
+    start = kept["test_score"].iloc[0]
+    rows = kept[kept["test_gain_points"].notna()].iloc[::-1]
+    rows[
+        ["after_round", "test_score", "test_gain_points", "test_gain_interval_low"]
+        + ["test_gain_interval_high", "test_gain_p", "test_tasks"]
+    ].to_csv(out / "test_gain.csv", index=False)
+    gain = rows["test_gain_points"].to_numpy()
+    with plt.style.context(figures.STYLE):
+        fig, ax = plt.subplots(figsize=(3.4, 0.5 * len(rows) + 0.8))
+        ax.axvline(0, color=figures.REFERENCE, linewidth=0.8)
+        ax.text(
+            0,
+            1.01,
+            "no gain",
+            transform=ax.get_xaxis_transform(),
+            ha="center",
+            va="bottom",
+            color=figures.MUTED,
+            fontsize=7,
+        )
+        ax.errorbar(
+            gain,
+            range(len(rows)),
+            xerr=[
+                gain - rows["test_gain_interval_low"].to_numpy(),
+                rows["test_gain_interval_high"].to_numpy() - gain,
+            ],
+            fmt="o",
+            color=figures.OBSERVED,
+            capsize=2,
+        )
+        for y, value in enumerate(gain):
+            ax.annotate(
+                f"{value:+.1f}",
+                (value, y),
+                xytext=(0, 5),
+                textcoords="offset points",
+                ha="center",
+                color=figures.INK,
+                fontsize=7,
+            )
+        ax.set_yticks(
+            range(len(rows)),
+            [
+                f"after round {after}\n{start:.1f}% to {score:.1f}%"
+                for after, score in zip(
+                    rows["after_round"], rows["test_score"], strict=True
+                )
+            ],
+        )
+        ax.set_ylim(-0.6, len(rows) - 0.3)
+        ax.set_xlabel(
+            "gain on the test tasks over the starting harness\n"
+            "[percentage points, 95% confidence interval]"
+        )
+        for kind in ("pdf", "png"):
+            fig.savefig(out / f"test_gain.{kind}")
+        plt.close(fig)
+
+
+def draw_gate(decided: pd.DataFrame, out: Path) -> None:
+    """Each round's candidate at the gate: the gain it found against the gain it needed.
+
+    For each candidate that reached the gate, a point at its gain on the
+    validation tasks with one standard error either side, and a short line at
+    the gain its decision needed, the bar times the standard error. A
+    candidate is kept when its point is above its line; a kept one is filled
+    and in the accent, one turned down is hollow. A candidate dropped at the
+    filter had no test at the gate: it is marked with a cross at its gain on
+    the filter's tasks, a smaller set. A candidate that ended before either
+    has no mark. The numbers drawn are written beside the figure.
+
+    Args:
+        decided: The rounds, as ``rounds.csv`` holds them.
+        out: The folder to write ``gate.pdf``, ``gate.png`` and ``gate.csv``
+            into.
+    """
+    decided[
+        ["round", "ended_at", "accepted", "filter_gain_points", "gain_points"]
+        + ["standard_error_points", "gain_needed_points"]
+    ].to_csv(out / "gate.csv", index=False)
+    gated = decided[decided["gain_points"].notna()]
+    dropped = decided[
+        decided["gain_points"].isna() & decided["filter_gain_points"].notna()
+    ]
+    with plt.style.context(figures.STYLE):
+        fig, ax = plt.subplots(figsize=(3.4, 2.6))
+        ax.axhline(0, color=figures.REFERENCE, linewidth=0.8)
+        for accepted, colour, face, label in (
+            (True, figures.OBSERVED, figures.OBSERVED, "kept"),
+            (False, figures.INK, "white", "turned down at the gate"),
+        ):
+            rows = gated[gated["accepted"].astype(bool) == accepted]
+            if len(rows):
+                ax.errorbar(
+                    rows["round"],
+                    rows["gain_points"],
+                    yerr=rows["standard_error_points"],
+                    fmt="o",
+                    color=colour,
+                    markerfacecolor=face,
+                    capsize=2,
+                    label=label,
+                )
+        if len(gated):
+            ax.scatter(
+                gated["round"],
+                gated["gain_needed_points"],
+                marker="_",
+                s=140,
+                color=figures.THEORY,
+                label="gain needed",
+                zorder=3,
+            )
+        if len(dropped):
+            ax.scatter(
+                dropped["round"],
+                dropped["filter_gain_points"],
+                marker="x",
+                color=figures.MUTED,
+                label="dropped at the filter",
+            )
+        ax.set_xticks(decided["round"])
+        ax.set_xlabel("round")
+        ax.set_ylabel(
+            "gain on the validation tasks\n[percentage points, ± 1 standard error]"
+        )
+        # Above the plot, where it covers no point and takes none of the
+        # plot's width, and in the order read.
+        order = ["kept", "turned down at the gate", "gain needed"]
+        order += ["dropped at the filter"]
+        handles, labels = ax.get_legend_handles_labels()
+        placed = sorted(
+            zip(labels, handles, strict=True), key=lambda p: order.index(p[0])
+        )
+        fig.legend(
+            [handle for _, handle in placed],
+            [label for label, _ in placed],
+            frameon=False,
+            loc="outside upper center",
+            ncol=2,
+        )
+        for kind in ("pdf", "png"):
+            fig.savefig(out / f"gate.{kind}")
+        plt.close(fig)
+
+
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     """Add the ``report`` options to ``parser``.
 
@@ -571,6 +734,19 @@ def run(args: argparse.Namespace) -> None:
                 },
             ),
         ]
+        if kept["test_gain_points"].notna().any():
+            draw_gain(kept, out / "figures")
+            text += [
+                "",
+                "![The gain of each harness kept, on the test tasks]"
+                "(figures/test_gain.png)",
+                "",
+                "*The gain of each harness kept over the starting harness, on "
+                "the test tasks, with its 95% confidence interval from the "
+                "paired differences over those tasks. A bar wholly to the "
+                "right of the no-gain line is a gain at that level. Numbers in "
+                "`figures/test_gain.csv`.*",
+            ]
     else:
         text += ["", "The test step has not run yet, so no harness has a test score."]
 
@@ -604,7 +780,6 @@ def run(args: argparse.Namespace) -> None:
                 marker="s",
                 label="test tasks",
             )
-        ax.set_title("The current harness's score after each round")
         ax.set_xlabel("rounds decided")
         ax.set_ylabel("score of the current harness (% of checks passed)")
         ax.set_xticks(scores["after_round"])
@@ -668,6 +843,19 @@ def run(args: argparse.Namespace) -> None:
                     "p": "{:.4f}",
                 },
             ),
+        ]
+        draw_gate(decided, out / "figures")
+        text += [
+            "",
+            "![Each round's candidate at the gate](figures/gate.png)",
+            "",
+            "*Each round's candidate at the gate. A point is the gain a "
+            "candidate found on the validation tasks, with one standard error "
+            "either side; the short line in its column is the gain its "
+            "decision needed. A candidate is kept when its point is above its "
+            "line. A cross is a candidate dropped at the filter, at its gain "
+            "on the filter's tasks, which are fewer; a round with no mark "
+            "ended before either. Numbers in `figures/gate.csv`.*",
         ]
 
     if len(decided):
