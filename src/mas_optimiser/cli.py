@@ -15,14 +15,14 @@ module, which defines its options (``add_arguments``) and its work (``run``):
     mas-optimiser evolve evolve-smoke
     mas-optimiser report evolutions/evolve-smoke/haiku-20-40-40
     mas-optimiser server qwen3.6-27b-fp8
-    mas-optimiser check haiku-5-5
+    mas-optimiser status haiku-5-5
 
 Sources: ``docs/how-it-works.md``, section 6, the rows for ``cli``.
 """
 
 import argparse
 
-from mas_optimiser import check, server
+from mas_optimiser import server, status
 from mas_optimiser.benchmarks.enterpriseops import (
     listing,
     rebuild,
@@ -46,7 +46,7 @@ COMMANDS = {
     "evolve": loop,
     "report": report,
     "server": server,
-    "check": check,
+    "status": status,
 }
 
 
