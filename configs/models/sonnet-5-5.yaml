@@ -1,0 +1,21 @@
+# Claude Sonnet 5.5 on the Claude API, a stronger model for the search roles.
+# Keys are the benchmark's LLMConfig fields (benchmark/models.py); the API key
+# is read from the environment variable named by api_key_env.
+llm_provider: anthropic
+llm_model: claude-sonnet-5-5
+api_key_env: ANTHROPIC_API_KEY
+# As in haiku-5-5.yaml: the default temperature of 1, and thinking left as
+# the model has it, its tokens counting towards max_tokens.
+temperature: 1.0
+max_tokens: 16384
+# US dollars per million tokens on the Claude API, from
+# platform.claude.com/docs/en/about-claude/pricing (read 26/11/2026).
+# cache_write is the five-minute cache rate. The model has no higher price
+# for a long prompt.
+pricing:
+  input: 2.00
+  output: 10.00
+  cache_read: 0.10
+  cache_write: 2.50
+  long_prompt_tokens: 0
+  long_prompt_multiplier: 1
