@@ -153,6 +153,7 @@ EXPERIMENT_DEFAULTS = {
     "attempts_test": None,
     "feedback": "outcome",
     "alpha": 0.05,
+    "alpha_per": "experiment",
     "filter_share": 0.5,
     "filter_threshold": 0.0,
     "pool_share": 0.5,
@@ -166,6 +167,9 @@ POOL_PICKS = ("spread", "ends")
 #: What the proposer is told of an earlier proposal: whether it was accepted,
 #: or that and how it did on the training tasks.
 FEEDBACK = ("outcome", "training")
+#: What ``alpha`` is the chance of: a useless change kept anywhere in the
+#: experiment, shared out over its decisions, or at one decision.
+ALPHA_PER = ("experiment", "decision")
 # The providers whose client takes the time limit on a model call and the
 # number of tries of a failed one:
 # Anthropic's, and the OpenAI-style client the benchmark builds for the other
@@ -712,6 +716,11 @@ def load_experiment(spec: str, overrides: dict) -> dict:
     ):
         raise SystemExit(
             "error: pool_share must be a number above 0, up to 1 (every training task)"
+        )
+    if settings["alpha_per"] not in ALPHA_PER:
+        raise SystemExit(
+            f"error: alpha_per must be one of {', '.join(ALPHA_PER)}, "
+            f"not {settings['alpha_per']!r}"
         )
     if settings["feedback"] not in FEEDBACK:
         raise SystemExit(

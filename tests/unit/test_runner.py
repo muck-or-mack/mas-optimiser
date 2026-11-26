@@ -1445,6 +1445,17 @@ def test_a_pool_setting_that_makes_no_sense_is_refused():
     assert (settings["pool_share"], settings["pool_pick"]) == (1, "ends")
 
 
+def test_alpha_is_for_the_experiment_or_for_each_decision():
+    unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
+    with pytest.raises(
+        SystemExit, match="alpha_per must be one of experiment, decision"
+    ):
+        runner.load_experiment("smoke", unset | {"alpha_per": "round"})
+    assert runner.load_experiment("smoke", unset)["alpha_per"] == "experiment"
+    chosen = runner.load_experiment("smoke", unset | {"alpha_per": "decision"})
+    assert chosen["changed"]["alpha_per"] == "decision"
+
+
 def test_what_the_proposer_is_told_is_one_of_two_things():
     unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
     with pytest.raises(SystemExit, match="feedback must be one of outcome, training"):

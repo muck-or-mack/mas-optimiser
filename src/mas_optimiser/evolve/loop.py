@@ -193,7 +193,8 @@ class Experiment(Run):
             candidates, the edits a candidate may hold and the models.
         repo: The experiment's git repository, with the harness at its top.
         runs_root: The experiment's folder.
-        alpha: The Type-I error budget of the whole experiment.
+        alpha: The chance allowed of keeping a change that does nothing:
+            over the whole experiment, or at each decision (``alpha_per``).
         filter_share: The share of the validation tasks a candidate is run on
             first; 0 for no filter.
         filter_threshold: The gain, in percentage points of the score, that a
@@ -212,6 +213,11 @@ class Experiment(Run):
             ``"outcome"``, whether it was accepted, or ``"training"``, that
             and how it did on the training tasks, each candidate then being
             run on them.
+        alpha_per: What ``alpha`` is the chance of. ``"experiment"``: a
+            useless change kept anywhere in the experiment, each decision
+            taking a share by the REUSE rule, smaller for each later one.
+            ``"decision"``: a useless change kept at one decision, the same
+            level every round, with nothing promised over the experiment.
     """
 
     def __init__(
@@ -228,6 +234,7 @@ class Experiment(Run):
         pool_pick: str = "spread",
         attempts: dict[str, int] | None = None,
         feedback: str = "outcome",
+        alpha_per: str = "experiment",
     ):
         # RRSI's own scoring step, which a candidate goes through when there
         # is no filter, scores an attempt that left no result as zero while
@@ -241,6 +248,7 @@ class Experiment(Run):
         )
         self.harness_rel = domain.harness_path
         self.alpha = alpha
+        self.alpha_per = alpha_per
         self.filter_share = filter_share
         self.filter_threshold = filter_threshold
         self.seed = seed
@@ -678,8 +686,14 @@ class Experiment(Run):
             self._evaluate(t, candidate, folder, ids)
 
         # The gate: a paired test of each candidate against the current
-        # harness, at this decision's share of the experiment's error budget.
-        level = budget.reuse_level(self.alpha, t + 1, state["promotions"], cfg.m)
+        # harness. Its level is this decision's share of the experiment's
+        # error budget or, where alpha is each decision's, alpha itself,
+        # split between the round's candidates.
+        level = (
+            budget.bonferroni_level(self.alpha, 1, cfg.m)
+            if self.alpha_per == "decision"
+            else budget.reuse_level(self.alpha, t + 1, state["promotions"], cfg.m)
+        )
         decisions, winner, best = [], None, None
         for candidate in candidates:
             decision = {"variant": candidate.variant, "level": level, "accept": False}
@@ -890,8 +904,16 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--alpha",
         type=float,
-        help="the chance, over the whole experiment, of keeping a change that "
-        "does nothing",
+        help="the chance of keeping a change that does nothing: over the whole "
+        "experiment, or at each decision with --alpha-per decision",
+    )
+    parser.add_argument(
+        "--alpha-per",
+        choices=runner.ALPHA_PER,
+        help="what alpha is the chance of: experiment, a useless change kept "
+        "anywhere in it, shared out so that each later decision is stricter "
+        "(the default); or decision, the same level at every decision, with "
+        "nothing promised over the experiment",
     )
     parser.add_argument(
         "--filter-share",
@@ -1031,6 +1053,7 @@ def run(args: argparse.Namespace) -> None:
             for stage in ("training", "filter", "test")
         },
         experiment["feedback"],
+        experiment["alpha_per"],
     )
     models.usage_log = folder / "search_usage.jsonl"
     models.timeout = experiment["model_timeout"]

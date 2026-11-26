@@ -141,10 +141,18 @@ attempts_test:
 # from the validation tasks. Default: outcome.
 feedback: outcome
 
-# The chance, over the whole experiment, of keeping a change that does
-# nothing. Higher keeps more changes, more of them useless; lower needs
-# larger gains. Above 0, below 1. Default: 0.05. (planner)
+# The chance of keeping a change that does nothing. Higher keeps more
+# changes, more of them useless; lower needs larger gains. Above 0, below 1.
+# Default: 0.05. (planner)
 alpha: 0.05
+
+# What alpha is the chance of. experiment: a useless change kept anywhere
+# in the experiment; it is shared out over the decisions, a smaller share
+# for each later one, so the gain a change needs rises round by round.
+# decision: a useless change kept at one decision; the same level every
+# round, and nothing promised over the experiment as a whole.
+# Default: experiment.
+alpha_per: experiment
 
 # The filter. A candidate is run first on filter_share of the validation
 # tasks and dropped there unless its score is above the current harness's by

@@ -606,7 +606,8 @@ def test_an_experiment_says_and_records_what_differs_from_the_defaults(
         frontier_path = tmp_path / "none"
 
         def __init__(self, *args):
-            Stop.cfg, Stop.attempts, Stop.feedback = args[1], args[-2], args[-1]
+            Stop.cfg = args[1]
+            Stop.attempts, Stop.feedback, Stop.alpha_per = args[-3:]
 
         def baseline(self):
             raise Reached
@@ -620,7 +621,7 @@ def test_an_experiment_says_and_records_what_differs_from_the_defaults(
     chosen = {"experiment": "evolve-smoke", "accept_unreviewed_code": False}
     with pytest.raises(Reached):
         stages = {"edits_first": 3, "attempts_gate": 3, "attempts_test": 2}
-        stages |= {"feedback": "training"}
+        stages |= {"feedback": "training", "alpha_per": "decision"}
         loop.run(SimpleNamespace(**(unset | chosen | stages)))
 
     said = capsys.readouterr().out
@@ -634,7 +635,7 @@ def test_an_experiment_says_and_records_what_differs_from_the_defaults(
     # the experiment's ``attempts``.
     assert Stop.cfg.k == 3
     assert Stop.attempts == {"training": 1, "filter": 1, "test": 2}
-    assert Stop.feedback == "training"
+    assert (Stop.feedback, Stop.alpha_per) == ("training", "decision")
     folder = tmp_path / "evolve-smoke" / "haiku-20-40-40"
     record = json.loads((folder / "experiment.json").read_text())
     assert record["changed"]["rounds"] == 1
@@ -865,6 +866,30 @@ def test_an_accepted_candidate_becomes_the_current_harness(tmp_path, monkeypatch
     assert (run.runs / "test.csv").read_text().splitlines()[0] == (
         "round,commit,validation,test,missing_attempts"
     )
+
+
+def test_with_alpha_for_each_decision_the_level_is_alpha_in_every_round(
+    tmp_path, monkeypatch
+):
+    # Gains with a mean of 0.10 and a standard error of 0.039 over six tasks:
+    # 2.6 standard errors, between the bar of a test at 5% (2.0) and that of
+    # the first decision's share of 5% under REUSE (3.2).
+    gains = [0.7, 0.5, 0.65, 0.55, 0.7, 0.5]
+    first = {}
+    for per in ("experiment", "decision"):
+        run, _ = experiment(tmp_path / per, monkeypatch, gains, alpha_per=per)
+        run.baseline()
+        run.round(0)
+        first[per] = json.loads((run.runs / "r0" / "decisions.json").read_text())[0]
+    shared, each = first["experiment"], first["decision"]
+    assert shared["level"] == budget.reuse_level(0.05, 1, 0, 1)
+    assert (shared["accept"], each["accept"]) == (False, True)
+    assert each["level"] == 0.05
+    # The next decision has the same level, where REUSE's share would fall.
+    run.domain.scores["r1A"] = run.domain.scores["r0A"]
+    run.round(1)
+    second = json.loads((run.runs / "r1" / "decisions.json").read_text())[0]
+    assert second["level"] == 0.05 > budget.reuse_level(0.05, 2, 1, 1)
 
 
 def test_a_candidate_that_is_no_better_is_dropped(tmp_path, monkeypatch):

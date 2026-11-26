@@ -290,6 +290,7 @@ const OTHER = [
   ["The improvement loop", "attempts_gate", "Attempts at a validation task for the gate, where they differ from attempts. The planner counts one number of attempts for every stage.", "not set"],
   ["The improvement loop", "attempts_test", "Attempts at a test task, where they differ from attempts. The planner counts one number of attempts for every stage.", "not set"],
   ["The improvement loop", "feedback", "What the proposer is told of its earlier proposals: outcome, or training for how each did on the training tasks as well.", "outcome"],
+  ["The improvement loop", "alpha_per", "What alpha is the chance of: a useless change kept anywhere in the experiment, shared out over its decisions, or at one decision. The planner counts with experiment.", "experiment"],
   ["The improvement loop", "filter_threshold", "Points above the current harness a candidate must score on the filter's tasks to go on.", "0"],
   ["The improvement loop", "pool_pick", "How the pool is picked from the training tasks ranked by score: spread or ends.", "spread"],
   ["The improvement loop", "editable", "The types of file a proposal may edit: .md is the agent's text, .py its code.", "['.md', '.py']"],
