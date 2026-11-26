@@ -1197,6 +1197,23 @@ def cost(usage: list[dict], pricing: dict) -> float:
     return total / 1_000_000
 
 
+def model_usage(execution: dict) -> list[dict]:
+    """The token counts of an attempt's answered calls to the model, one per call.
+
+    Args:
+        execution: The executor's account of the attempt, one entry of the
+            ``runs`` list of its record.
+
+    Returns:
+        One LangChain ``usage_metadata`` dict per call that was answered.
+    """
+    return [
+        step["usage_metadata"]
+        for step in execution.get("conversation_flow", [])
+        if step["type"] == "ai_message" and step.get("usage_metadata")
+    ]
+
+
 def task_outcome(
     task_id: str,
     attempt: int,
@@ -1226,11 +1243,7 @@ def task_outcome(
         count; ``lookups_empty`` counts the lookups that found no record,
         which are not among the ``tool_errors``.
     """
-    usage = [
-        step["usage_metadata"]
-        for step in execution.get("conversation_flow", [])
-        if step["type"] == "ai_message" and step.get("usage_metadata")
-    ]
+    usage = model_usage(execution)
     details = [u.get("input_token_details") or {} for u in usage]
     results = execution.get("verification_results", {})
     benchmark_passed, benchmark_total, benchmark_success = checks.benchmark_verdict(

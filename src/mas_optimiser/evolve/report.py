@@ -111,6 +111,27 @@ def kept(folder: Path) -> set[str]:
     return names
 
 
+def described(job: str, kept_jobs: set[str]) -> tuple[str, int, int]:
+    """What a job is, in words, and where it comes in the order of an experiment.
+
+    Args:
+        job: The job's name.
+        kept_jobs: The training jobs of the harnesses kept, from ``kept``.
+
+    Returns:
+        The words for the job, or its name for one of no known kind; then
+        its place in the order of ``JOBS`` and its round's number, to sort
+        by.
+    """
+    for pattern, words, order in JOBS:
+        match = re.fullmatch(pattern, job + "_kept" * (job in kept_jobs))
+        if match:
+            named = match.group(1) if match.groups() else ""
+            number = int(named) + (order == 1) if named.isdigit() else 0
+            return words.format(number if named.isdigit() else named), order, number
+    return job, len(JOBS), 0
+
+
 def attempts(job: Path) -> pd.DataFrame:
     """A job's attempts over its domains, without those a service they need never answered.
 
@@ -353,15 +374,7 @@ def errors(folder: Path) -> pd.DataFrame:
         said = made["error"].dropna().astype(str)
         seconds = int(said.str.startswith("the attempt ran past its limit").sum())
         calls = int(said.str.startswith("the attempt made more than").sum())
-        what, place, number = job.name, len(JOBS), 0
-        for pattern, words, order in JOBS:
-            match = re.fullmatch(pattern, job.name + "_kept" * (job.name in kept_jobs))
-            if match:
-                named = match.group(1) if match.groups() else ""
-                number = int(named) + (order == 1) if named.isdigit() else 0
-                what = words.format(number if named.isdigit() else named)
-                place = order
-                break
+        what, place, number = described(job.name, kept_jobs)
         row = {
             "job": job.name,
             "what": what,

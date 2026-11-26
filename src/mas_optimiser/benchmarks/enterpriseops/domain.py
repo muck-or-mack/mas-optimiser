@@ -295,6 +295,11 @@ class EnterpriseOps(Domain):
             return
         if out.exists():
             shutil.rmtree(out)
+        # What the job is to hold, for a look at it while it runs
+        # (``mas-optimiser status``): the filter's tasks are drawn each round,
+        # so nothing else on disk says how many attempts to expect.
+        out.mkdir(parents=True)
+        (out / "job.json").write_text(json.dumps({"tasks": len(ids), "attempts": k}))
         log = Path(runs_dir) / "logs" / f"{log_prefix or job}.log"
         log.parent.mkdir(parents=True, exist_ok=True)
         settings = self.experiment
