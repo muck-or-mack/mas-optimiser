@@ -81,11 +81,37 @@ for _role in (analyst, critic, digester, propose):
 # folder of the round's traces, remain, with a listing of files that is
 # held to it below.
 digester._bash_ok = lambda cmd: False
-# RRSI's drafting of a candidate hands the proposer a sentence on how the
-# candidate will be judged, written for RRSI's own round; it is replaced.
-rrsi.loop.propose = lambda *args, **kwargs: propose.propose(
-    *args, **(kwargs | {"variant_brief": JUDGED})
-)
+
+
+def proposal(*args: object, **kwargs: object) -> dict:
+    """RRSI's proposer as this package calls it.
+
+    RRSI's drafting of a candidate hands the proposer a sentence on how the
+    candidate will be judged, written for RRSI's own round; it is replaced.
+    RRSI's instructions also say that a candidate must be shipped, and its
+    code accepts a proposer that says it is done having changed nothing,
+    which spends the round on no test. Such a proposer is asked once more.
+    A repair after a review is left as RRSI has it.
+
+    Args:
+        *args: As ``rrsi.propose.propose`` takes them.
+        **kwargs: The same.
+
+    Returns:
+        The proposer's record of its drafting; where it was asked again,
+        the record of the second drafting, with the actions of the first
+        before its own.
+    """
+    first = propose.propose(*args, **(kwargs | {"variant_brief": JUDGED}))
+    if (first["status"], first["n_edits"]) != ("done", 0) or kwargs.get("repair_brief"):
+        return first
+    again = propose.propose(
+        *args, **(kwargs | {"variant_brief": f"{JUDGED}\n\n{NOTHING}"})
+    )
+    return again | {"log": [*first.get("log", []), *again.get("log", [])]}
+
+
+rrsi.loop.propose = proposal
 digester.SYSTEM_TMPL = re.sub(
     r'  \{\{"action": "bash".*?rejected\)\n', "", digester.SYSTEM_TMPL, flags=re.S
 )
@@ -161,6 +187,14 @@ JUDGED = (
 # being drafted, where an earlier round's proposal has ACCEPTED, REJECTED or
 # LOST. The proposer's instructions name it (``prompts.IN_TURN``).
 DRAFTED = "DRAFTED THIS ROUND"
+# Said to a proposer that ended its drafting with nothing changed, when it is
+# asked once more (``proposal``).
+NOTHING = (
+    "An earlier drafting of this candidate ended with nothing changed. A "
+    "round that ships no candidate tests nothing, and the round is spent all "
+    "the same. Make the one change you judge most likely to help, however "
+    "small the gain you expect of it."
+)
 # Put before the count of how the current harness's training attempts went,
 # in the same two roles' instructions, each round.
 FAILURES = (
