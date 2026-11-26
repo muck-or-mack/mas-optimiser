@@ -557,13 +557,21 @@ class Experiment(Run):
                 if self.global_analysis.exists()
                 else {}
             )
+            # RRSI's analyst reads each name as an object, and a model may
+            # have written one as plain text, which would end this round
+            # and every start after it: only objects are handed back.
+            names = {
+                key: [entry for entry in entries if isinstance(entry, dict)]
+                for key in ("failure_modes", "success_habits")
+                if isinstance(entries := earlier.get(key), list)
+            }
             report = analyst.analyze(
                 d,
                 traces,
                 training.per_task,
                 folder,
-                prior_modes=earlier.get("failure_modes"),
-                prior_habits=earlier.get("success_habits"),
+                prior_modes=names.get("failure_modes"),
+                prior_habits=names.get("success_habits"),
                 model=cfg.analyst_model,
             )
             report_path.write_text(json.dumps(report, ensure_ascii=False, indent=1))
