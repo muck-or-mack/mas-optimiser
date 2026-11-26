@@ -894,7 +894,8 @@ tasks and a 95% confidence interval; each round's candidate, what it
 proposed in the proposer's own words, how the proposal was made and where
 it ended, with the gain it found beside the gain its decision needed; the
 jobs with attempts that ended in an error, which are scored zero; what
-every part of the experiment cost; and a figure of the score after each
+every part of the experiment cost; and figures of the gain on the test
+tasks, of each round at the gate and of the score after each
 round. The tables are beside it as CSV files. "Reading a decision" in the
 documentation says which of its numbers answers which question.
 
