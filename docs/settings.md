@@ -52,6 +52,7 @@ of `run`. "Planner" marks the settings the planner has a control for.
 | [`feedback`](#feedback)                   | `outcome`         | evolve  |         |
 | [`alpha`](#alpha)                         | 0.05              | evolve  | yes     |
 | [`alpha_per`](#alpha-per)                 | `experiment`      | evolve  |         |
+| [`second_look`](#second-look)             | 0                 | evolve  |         |
 | [`filter_share`](#filter-share)           | 0.5               | evolve  | yes     |
 | [`filter_threshold`](#filter-threshold)   | 0                 | evolve  |         |
 | [`pool_share`](#pool-share)               | 0.5               | evolve  | yes     |
@@ -389,6 +390,35 @@ is honest under either. `decision` is for finding out how more changes do;
 `experiment` is for an experiment whose every kept change is to stand as a
 claim. An equal share for each of a number of decisions fixed in advance is
 `decision` with `alpha` divided by that number.
+
+### `second_look`
+
+A second look for a candidate that misses the gate narrowly; 0 for none.
+
+A candidate the gate turns down is dropped, however near it came. With
+`second_look` above 0, one whose p-value at that first look is at or under
+the setting is run for as many attempts again at every validation task, and
+so is the current harness. The test is then made once more, on all the
+attempts of both. A current harness that has had its further attempts keeps
+them, and later candidates are compared with all of them.
+
+| `second_look` | who gets a second look                                              | the level of each look      |
+|---------------|---------------------------------------------------------------------|-----------------------------|
+| 0             | nobody                                                              | the decision's level        |
+| 0.2           | a candidate turned down with a p-value of 0.2 or less               | half the decision's level   |
+| 0.5           | every candidate turned down that scored above the current harness   | half the decision's level   |
+
+The chance of keeping a change that does nothing stays what
+[`alpha`](#alpha) sets. Such a change is kept if it passes the first look
+or the second, and the chance of that is at most the sum of the two
+chances, each half the decision's level, whichever candidates are sent to
+the second look. The price is a higher bar at the first look: with 125
+validation tasks, 1.98 standard errors at 2.5% against 1.66 at 5%. What it
+buys is a second test with twice the attempts, where the standard error of
+a difference is up to 1.4 times smaller, so a real gain that fell just short
+is found. The further attempts are run only for a candidate inside the band:
+two harnesses, every validation task, the gate's attempts, or one harness
+when the current one has had its further attempts already.
 
 ### `filter_share`
 

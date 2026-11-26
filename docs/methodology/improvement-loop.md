@@ -402,6 +402,50 @@ What carries the claim in that case is the test at the end, on tasks that
 took part in no decision. An equal share for each of a number of decisions
 fixed in advance is the same setting with `alpha` divided by that number.
 
+### A second look at a near miss
+
+A candidate that falls a little short of the gain it needs is dropped, and
+it may be a real gain that this number of tasks and attempts could not
+confirm. The setting `second_look` gives such a candidate a second test.
+When the gate turns a candidate down and its p-value is at or under
+`second_look`, the candidate and the current harness are each run for as
+many further attempts at every validation task as the gate gave them, and
+the test is made once more on all the attempts of both.
+
+Two looks are two chances for a change that does nothing to be kept, so
+with the setting on each look is tested at half the decision's level. Such
+a change is kept if it passes the first look or the second, and the chance
+of that is at most the sum of the two chances: at most the decision's
+level, whichever candidates are sent to a second look and however the two
+looks depend on each other. It is the reasoning by which a round's level is
+split between its candidates (Bonferroni's inequality). Boundaries that
+spend the level over the looks less evenly exist (Jennison and Turnbull,
+*Group Sequential Methods with Applications to Clinical Trials*, Chapman
+and Hall, 2000); they suppose more about the looks, and the even split
+supposes nothing.
+
+| | the first look | the second look |
+|---|---|---|
+| who | every candidate that reaches the gate | one turned down with a p-value at or under `second_look` |
+| attempts at a task | the gate's, both harnesses | twice the gate's, both harnesses |
+| level | half the decision's | half the decision's |
+| bar at 125 tasks and 5% for the decision | 1.98 standard errors | 1.98 standard errors |
+
+What the second look buys is a smaller standard error. Where the spread of
+the differences is all in the attempts, twice the attempts divide it by
+1.41, so a gain that stood at 1.6 standard errors stands at about 2.3 if it
+holds. A change that helps some tasks and not others has a spread that
+attempts do not reduce, and gains less. What it costs is the further
+attempts, for a candidate inside the band only: two harnesses on every
+validation task, or one when the current harness has had its further
+attempts already, since it keeps them and later candidates are compared
+with all of them. Its validation score in the report is from then on the
+mean of all its attempts, so the line of scores can move in a round where
+no change was kept.
+
+The record of a decision that took a second look holds the second look's
+numbers, and the first look's under `first`.
+
 ## The filter before the full test
 
 Most proposals do not help, and each costs a run on every validation task
@@ -530,7 +574,10 @@ evolutions/<experiment>/<split>/
                               a filter a candidate's validation run is the
                               jobs <job>_filter and <job>_rest, and
                               <job>_more where the filter has fewer
-                              attempts than the gate
+                              attempts than the gate; <job>_again is a
+                              harness's further attempts for a second
+                              look, and <job>_both the result of all its
+                              attempts
     r<round>/
       analysis/               the traces of the round's pool as the roles
                               read them, and every digest

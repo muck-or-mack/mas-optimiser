@@ -57,9 +57,12 @@ DESCRIPTION = (
 # name (see ``kept``): with ``feedback: training`` every candidate has one.
 PARTS = (
     ("the starting harness on the training tasks", r"base_training"),
-    ("the starting harness on the validation tasks", r"base_validation"),
+    ("the starting harness on the validation tasks", r"base_validation(_again)?"),
     ("the one-task trial of each candidate", r"r\d+[A-Z]_smoke(_again)?"),
-    ("the candidates on the validation tasks", r"r\d+[A-Z](_filter|_more|_rest)?"),
+    (
+        "the candidates on the validation tasks",
+        r"r\d+[A-Z](_filter|_more|_rest|_again)?",
+    ),
     ("the candidates on the training tasks, for the proposer", r"r\d+[A-Z]_training"),
     ("each harness kept, on the training tasks", r"r\d+[A-Z]_training_kept"),
     ("each harness kept, on the test tasks", r"heldout_t\d+"),
@@ -76,6 +79,8 @@ JOBS = (
     (r"r(\d+)[A-Z]_more", "round {}: further attempts at the filter's tasks", 1),
     (r"r(\d+)[A-Z]_rest", "round {}: the rest of the validation tasks", 1),
     (r"r(\d+)[A-Z]", "round {}: the validation tasks", 1),
+    (r"r(\d+)[A-Z]_again", "the harness of round {}: further attempts", 1),
+    (r"base_validation_again", "the starting harness: further attempts", 0),
     (r"r(\d+)[A-Z]_training", "round {}: a candidate, training tasks", 1),
     (r"r(\d+)[A-Z]_training_kept", "round {}: the kept harness, training tasks", 1),
     (r"heldout_t0", "the starting harness, test tasks", 2),
@@ -322,6 +327,15 @@ def rounds(folder: Path) -> pd.DataFrame:
                     "t": decision.get("t"),
                     "bar": decision.get("x0"),
                     "p": decision.get("p"),
+                    # A candidate the gate looked at twice has the second
+                    # look's numbers above and the first look's here.
+                    "looks": (2 if "first" in decision else 1) if gated else None,
+                    "first_look_gain_points": 100 * decision["first"]["mean"]
+                    if "first" in decision
+                    else None,
+                    "first_look_p": decision["first"]["p"]
+                    if "first" in decision
+                    else None,
                     "false_acceptances_allowed_percent": 100 * decision["level"],
                     "accepted": decision["accept"],
                     "hypothesis": hypothesis or None,
@@ -865,7 +879,18 @@ def run(args: argparse.Namespace) -> None:
                     "t": "T",
                     "bar": "bar",
                     "p": "p",
-                },
+                }
+                # Shown where the gate took a second look at a candidate:
+                # the numbers before it are then the second look's.
+                | (
+                    {
+                        "looks": "looks",
+                        "first_look_gain_points": "gain at the first look",
+                        "first_look_p": "p at the first look",
+                    }
+                    if (decided["looks"] == 2).any()
+                    else {}
+                ),
                 {
                     "training_gain_points": "{:+.1f}",
                     "filter_gain_points": "{:+.1f}",
@@ -875,9 +900,23 @@ def run(args: argparse.Namespace) -> None:
                     "t": "{:+.2f}",
                     "bar": "{:.2f}",
                     "p": "{:.4f}",
+                    "looks": "{:.0f}",
+                    "first_look_gain_points": "{:+.1f}",
+                    "first_look_p": "{:.4f}",
                 },
             ),
         ]
+        if (decided["looks"] == 2).any():
+            text += [
+                "",
+                'A candidate with 2 under "looks" missed narrowly at its first '
+                "look and was run for as many attempts again, as was the current "
+                "harness. Its gain, standard error, T and p are from all the "
+                "attempts of both, and its first look's gain and p stand beside "
+                "them. From then on the current harness's validation score is "
+                "the mean of all its attempts, so the line of scores above can "
+                "move in a round where no change was kept.",
+            ]
         draw_gate(decided, out / "figures")
         text += [
             "",

@@ -102,6 +102,17 @@ before any result exists. The minimum detectable effect is the same thing
 turned round: the true gain that is kept four times in five. The
 [planner](planner.md) shows both for a design.
 
+## A decision in two looks
+
+With the setting `second_look`, a candidate that the gate turns down
+narrowly is run for as many attempts again, with the current harness, and
+tested once more. In the report's table of rounds such a candidate has 2
+under "looks": its gain, standard error, T and p are the second look's, on
+all the attempts, and the first look's gain and p stand beside them. Each
+look is tested at half the decision's level, so the bar is higher than the
+level alone would give: read the gain against the gain needed, as for any
+other decision.
+
 ## What the numbers are not
 
 - **p is not the chance that the change is good**, nor the chance that it

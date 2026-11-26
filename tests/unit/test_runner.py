@@ -1479,6 +1479,16 @@ def test_alpha_is_for_the_experiment_or_for_each_decision():
     assert chosen["changed"]["alpha_per"] == "decision"
 
 
+def test_a_second_look_is_a_p_value_or_none():
+    unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
+    assert runner.load_experiment("smoke", unset)["second_look"] == 0
+    for wrong in (1, -0.1, "0.2", True):
+        with pytest.raises(SystemExit, match="second_look must be a p-value from 0"):
+            runner.load_experiment("smoke", unset | {"second_look": wrong})
+    chosen = runner.load_experiment("smoke", unset | {"second_look": 0.2})
+    assert chosen["changed"]["second_look"] == 0.2
+
+
 def test_what_the_proposer_is_told_is_one_of_two_things():
     unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
     with pytest.raises(SystemExit, match="feedback must be one of outcome, training"):

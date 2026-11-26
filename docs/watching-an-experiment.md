@@ -60,6 +60,10 @@ rest of the experiment count attempts only: the search roles' own time, some
 minutes a round, is not in them, and an experiment started before its sets'
 sizes were recorded shows them as not known.
 
+The further attempts of a second look (the setting `second_look`) are in
+neither figure for the rest: whether a candidate will miss narrowly cannot
+be known before it is tested.
+
 ## Three questions to read it for
 
 | question                        | read                                                           | what it means                                                                                                                                                                                                          |

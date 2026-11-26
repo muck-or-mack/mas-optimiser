@@ -209,6 +209,32 @@ def test_rounds_say_where_each_candidate_ended_and_give_the_gates_numbers(experi
     )
 
 
+def test_a_second_look_is_shown_with_the_first_looks_numbers_beside_it(
+    experiment, capsys
+):
+    # With one look a candidate at the gate has 1 look, and the page has no
+    # columns for a second.
+    first, stopped = report.rounds(experiment).to_dict("records")
+    assert first["looks"] == 1 and first["first_look_p"] is None
+    assert stopped["looks"] != stopped["looks"]
+    report.run(argparse.Namespace(folder=experiment))
+    assert "p at the first look" not in (experiment / "report/report.md").read_text()
+    # A decision that took a second look records the first under ``first``.
+    path = experiment / "enterpriseops" / "r0" / "decisions.json"
+    decision = json.loads(path.read_text())[0]
+    decision["first"] = decision | {"mean": 0.1, "p": 0.07, "accept": False}
+    path.write_text(json.dumps([decision]))
+    first = report.rounds(experiment).to_dict("records")[0]
+    assert (first["looks"], first["gain_points"]) == (2, 25.0)
+    assert first["first_look_gain_points"] == pytest.approx(10.0)
+    assert first["first_look_p"] == 0.07
+    report.run(argparse.Namespace(folder=experiment))
+    page = (experiment / "report/report.md").read_text()
+    assert "| looks   |" in page and "| p at the first look   |" in page
+    assert "| 2       | +10.0 " in page
+    assert 'A candidate with 2 under "looks" missed narrowly' in page
+
+
 def test_a_candidate_of_several_edits_shows_the_kind_and_hypothesis_of_each(experiment):
     second = {"t": 0, "variant": "A", "edit_id": "C2"}
     second |= {"component": "control_flow", "hypothesis": "one more turn"}
@@ -290,6 +316,20 @@ def test_the_further_attempts_at_the_filters_tasks_are_a_job_the_report_knows():
         n for n, pattern in report.PARTS if re.fullmatch(pattern, "r3A_smoke_again")
     ]
     assert part == ["the one-task trial of each candidate"]
+    # And the further attempts of a second look, a harness's or the starting one's.
+    assert report.described("r3A_again", set())[0] == (
+        "the harness of round 4: further attempts"
+    )
+    assert report.described("base_validation_again", set())[0] == (
+        "the starting harness: further attempts"
+    )
+    for job, part in (
+        ("r3A_again", "the candidates on the validation tasks"),
+        ("base_validation_again", "the starting harness on the validation tasks"),
+    ):
+        assert [n for n, pattern in report.PARTS if re.fullmatch(pattern, job)] == [
+            part
+        ]
 
 
 def test_errors_list_each_job_with_attempts_in_error_and_their_kinds(experiment):

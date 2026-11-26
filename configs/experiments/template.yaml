@@ -156,6 +156,16 @@ alpha: 0.05
 # Default: experiment.
 alpha_per: experiment
 
+# A second look for a candidate that misses the gate narrowly. A candidate
+# the gate turns down whose p-value is at or under this number is run for as
+# many attempts again at every validation task, and so is the current
+# harness; the test is then made once more on all the attempts. Each look
+# has half the decision's level, so the chance of keeping a change that does
+# nothing stays what alpha sets. 0 for no second look; 0.2 looks again at a
+# candidate that a change with no effect would beat one time in five.
+# From 0, below 1. Default: 0.
+second_look: 0
+
 # The filter. A candidate is run first on filter_share of the validation
 # tasks and dropped there unless its score is above the current harness's by
 # more than filter_threshold percentage points. A larger share spends more
