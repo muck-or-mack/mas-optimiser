@@ -198,7 +198,10 @@ them, and scores the rest zero. Here an attempt that left no result at all
 (the run of its domain ended before it wrote its results) is never scored:
 one such attempt stops the experiment in the baseline, since a zero among
 the scores a candidate is compared with would be a gain for every candidate
-after it, and sets a candidate aside when a second run leaves it too.
+after it, and sets a candidate aside when a second run leaves it too. A
+kept harness's run on the training tasks and the test at the end stop the
+experiment likewise, and their job is run again when the command is next
+given.
 
 A person's no is a decision made outside the gate. An experiment run with
 `approval: each` is the loop with a person in it, and is reported as such.
@@ -340,7 +343,6 @@ Its paper does not give them, and they are not settings here.
 | file operations (a passage replaced, a file created) in one drafting of a candidate | 80               |
 | characters of a trace given to the proposer by one read                             | 60,000           |
 | times a proposal is sent back after the reviewer objects                            | 5                |
-| share of a job's attempts that may have left no result before the job is refused    | 15%              |
 
 ## The gate inside the loop
 
@@ -545,9 +547,10 @@ reads what an experiment wrote, finished or still going, and writes a
 | `figures/scores.png` | the current harness's score after each round, on the validation tasks and, once the test step has run, on the test tasks; also as PDF, with its numbers in `scores.csv`                                                                                                                                          |
 
 `errors.csv` is the table to read before a figure is quoted. An attempt
-that ends in an error is scored zero, and a job is run again only when more
-than 15% of its attempts left no result, so a filter of 80 tasks may hold
-up to 12 such zeros and be scored as it stands.
+that ends in an error is scored zero, however many there are, so a filter
+of 80 tasks may hold any number of such zeros and be scored as it stands.
+An attempt that left no result at all is another matter and is never
+scored: its job is run again.
 
 The page's table of rounds gives each candidate's gain on the validation
 tasks beside the gain its decision needed, the bar times the standard
@@ -599,9 +602,9 @@ the gate asks for a gain that a test at a stated error level supports.
   no decision uses it.
 - Carrying a job on from where it stopped. A job that was interrupted, or
   that holds an attempt a service never answered, is run again as a whole.
-  So is a job with more than 15% of its attempts left without a result,
-  once; if it is then still so, a baseline stops the experiment and a
-  candidate is set aside.
+  So is a job with an attempt left without a result: a candidate's once,
+  after which the candidate is set aside, and any other when the command is
+  next given, the experiment having stopped.
 - A second benchmark. The loop holds nothing of this benchmark's; another
   one needs a class like `domain.EnterpriseOps`.
 

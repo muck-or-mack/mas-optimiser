@@ -819,28 +819,31 @@ def test_a_candidate_that_is_no_better_is_dropped(tmp_path, monkeypatch):
     assert [r["round"] for r in run.test()] == [0]
 
 
+def gap_in(run, monkeypatch, job):
+    """Have one attempt of a job leave no result, or of none (``job`` None)."""
+    scored = type(run.domain).score
+
+    def score(runs_dir, name, ids, k):
+        per_task, totals = scored(run.domain, runs_dir, name, ids, k)
+        if name == job:
+            first = per_task[ids[0]].rewards
+            per_task[ids[0]] = TaskResult(rewards=[0.0, *first[1:]], missing=1)
+        return per_task, totals
+
+    monkeypatch.setattr(run.domain, "score", score)
+
+
 def test_an_attempt_with_no_result_is_never_scored_as_a_zero(tmp_path, monkeypatch):
     better = [0.9, 0.8, 1.0, 0.85, 0.95, 0.9]
     run, given = experiment(tmp_path, monkeypatch, better)
-    scored = run.domain.score
-
-    def with_a_gap(job):
-        def score(runs_dir, name, ids, k):
-            per_task, totals = scored(runs_dir, name, ids, k)
-            if name == job:
-                per_task[ids[0]] = TaskResult(rewards=[0.0] * k, missing=1)
-            return per_task, totals
-
-        return score
-
     # In the baseline it stops the experiment: a zero there would be a gain
     # for every candidate compared with it.
-    monkeypatch.setattr(run.domain, "score", with_a_gap("base_validation"))
+    gap_in(run, monkeypatch, "base_validation")
     with pytest.raises(SystemExit, match="missing 1 of 6 attempts"):
         run.baseline()
 
     # In a candidate's scores it sets the candidate aside after a second run.
-    monkeypatch.setattr(run.domain, "score", with_a_gap("r0A"))
+    gap_in(run, monkeypatch, "r0A")
     run.baseline()
     run.round(0)
     assert run.frontier()["promotions"] == 0
@@ -848,6 +851,44 @@ def test_an_attempt_with_no_result_is_never_scored_as_a_zero(tmp_path, monkeypat
     decision = json.loads((run.runs / "r0" / "decisions.json").read_text())[0]
     assert decision["stopped"] == "eval_invalid"
     assert run.history.records()[-1]["outcome"] == "eval_invalid"
+
+
+def test_one_gap_among_many_attempts_sets_a_candidate_aside_with_no_filter_too(
+    tmp_path, monkeypatch
+):
+    better = [0.9, 0.8, 1.0, 0.85, 0.95, 0.9]
+    run, given = experiment(tmp_path, monkeypatch, better)
+    # One attempt of sixty: under the 15% that RRSI's own step, which scores
+    # a candidate when there is no filter, would let through as a zero.
+    run.cfg.k = 10
+    run.baseline()
+    gap_in(run, monkeypatch, "r0A")
+    run.round(0)
+    assert run.frontier()["promotions"] == 0
+    assert run.history.records()[-1]["outcome"] == "eval_invalid"
+
+
+def test_a_gap_stops_a_kept_harnesss_training_run_and_the_test(tmp_path, monkeypatch):
+    better = [0.9, 0.8, 1.0, 0.85, 0.95, 0.9]
+    run, given = experiment(tmp_path, monkeypatch, better)
+    run.baseline()
+    # The round stops before the harness is moved to, and carries on when
+    # the command is given again.
+    gap_in(run, monkeypatch, "r0A_training")
+    with pytest.raises(SystemExit, match="training tasks is missing 1 of"):
+        run.round(0)
+    assert run.frontier()["promotions"] == 0
+    gap_in(run, monkeypatch, None)
+    run.round(0)
+    assert run.frontier()["promotions"] == 1
+
+    # A gap stops the test, and the saved result that holds it is not taken
+    # when the command is given again.
+    gap_in(run, monkeypatch, "heldout_t0")
+    with pytest.raises(SystemExit, match="test of the harness of round 0"):
+        run.test()
+    gap_in(run, monkeypatch, None)
+    assert [row["missing_attempts"] for row in run.test()] == [0, 0]
 
 
 def test_a_candidate_that_does_no_better_on_the_filter_is_not_run_on_the_rest(
