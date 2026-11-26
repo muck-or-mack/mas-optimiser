@@ -193,9 +193,12 @@ conversation up to the error, from the runner's own record, so the search
 roles can read what led to it. These attempts do not stop an experiment,
 however many they are, and a change after which fewer attempts end in an
 error gains by it at the gate. The released loop counts every attempt that
-ended in an error as one with no result, and refuses a job with more than
-15% of them; here that limit is kept for attempts that left no result at
-all.
+ended in an error as one with no result, refuses a job with more than 15% of
+them, and scores the rest zero. Here an attempt that left no result at all
+(the run of its domain ended before it wrote its results) is never scored:
+one such attempt stops the experiment in the baseline, since a zero among
+the scores a candidate is compared with would be a gain for every candidate
+after it, and sets a candidate aside when a second run leaves it too.
 
 A person's no is a decision made outside the gate. An experiment run with
 `approval: each` is the loop with a person in it, and is reported as such.
