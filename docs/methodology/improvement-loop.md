@@ -566,19 +566,20 @@ times added up, not time on the clock.
 The loop is built on the released code of RRSI (Xia et al.,
 arXiv:2609.24972; Apache License 2.0), kept unchanged in `vendor/rrsi`.
 
-| part                                                           | whose                                             |
-|----------------------------------------------------------------|---------------------------------------------------|
-| the analysis of traces, the proposer, the review of a proposal | RRSI's, as released, but for the digester's shell |
-| the shell RRSI offers a digester                               | switched off by this package (`evolve.loop`)      |
-| the record of proposals, a git checkout per candidate          | RRSI's, as released                               |
-| what a benchmark must provide (its `Domain` interface)         | RRSI's; `domain.EnterpriseOps` fills it           |
-| the nine kinds of change and the rule that records one         | RRSI's; `domain.EnterpriseOps` gives its patterns |
-| the round and the baseline                                     | this package's (`evolve.loop`)                    |
-| the pick of the training traces the roles may read             | this package's (`evolve.loop`)                    |
-| the scoring of a candidate                                     | this package's when there is a filter             |
-| the rule that keeps a change                                   | this package's: the gate                          |
-| the model call of the search roles                             | this package's (`evolve.models`)                  |
-| what the search roles are told about the benchmark             | this package's (`prompts`)                        |
+| part                                                           | whose                                                       |
+|----------------------------------------------------------------|-------------------------------------------------------------|
+| the analysis of traces, the proposer, the review of a proposal | RRSI's, as released, but for the digester's shell           |
+| the shell RRSI offers a digester                               | switched off by this package (`evolve.loop`)                |
+| the sentence that tells the proposer how a candidate is judged | this package's (`evolve.loop`): tasks it cannot read decide |
+| the record of proposals, a git checkout per candidate          | RRSI's, as released                                         |
+| what a benchmark must provide (its `Domain` interface)         | RRSI's; `domain.EnterpriseOps` fills it                     |
+| the nine kinds of change and the rule that records one         | RRSI's; `domain.EnterpriseOps` gives its patterns           |
+| the round and the baseline                                     | this package's (`evolve.loop`)                              |
+| the pick of the training traces the roles may read             | this package's (`evolve.loop`)                              |
+| the scoring of a candidate                                     | this package's when there is a filter                       |
+| the rule that keeps a change                                   | this package's: the gate                                    |
+| the model call of the search roles                             | this package's (`evolve.models`)                            |
+| what the search roles are told about the benchmark             | this package's (`prompts`)                                  |
 
 The round is replaced because RRSI reads its traces and judges its
 candidates on one and the same set of tasks, and controls the resulting
