@@ -98,9 +98,9 @@ def kept(folder: Path) -> set[str]:
         folder: The experiment's folder.
 
     Returns:
-        For each round with an accepted candidate, the name of the job that
-        ran the one with the highest gain on the training tasks: the one the
-        loop keeps.
+        For each round with an accepted candidate, the name of the training
+        job of the one with the highest gain on the validation tasks, which
+        is the one the loop keeps.
     """
     names = set()
     for path in (folder / EnterpriseOps.name).glob("r*/decisions.json"):
