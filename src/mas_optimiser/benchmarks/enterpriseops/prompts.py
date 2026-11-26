@@ -18,19 +18,19 @@ is given the task's policy document as its system message, the request as
 the user message, and the tools of the system of record as function calls,
 and it calls tools until it answers without one. A task has checks, hidden
 from the agent: queries against the final database. An attempt passes when
-every check holds. The trace is the attempt's page: the request, then each
-turn with the agent's words, each tool call with its arguments and what came
-back, then the rows the attempt changed, then every check with its verdict
-and, for a failed check, a diagnosis of what was missing or wrong and the
-turn it came from."""
+every check holds. The trace is the attempt's page: the request, then every
+check with its verdict and, for a failed check, a diagnosis of what was
+missing or wrong and the turn it came from, then each turn with the agent's
+words, each tool call with its arguments and what came back, then the rows
+the attempt changed."""
 
 DIGESTER = """The trajectory is the page of one attempt by a service-desk
 agent: a frozen model working one request with function-call tools. Each
-<task_id>.txt holds the request, every turn ([step N] prefix: the agent's
-words, each tool call with its arguments and its result), the rows the
-attempt changed, and at the end the VERIFIER section: every check with its
-verdict and a diagnosis of each failure. Read the VERIFIER section first,
-then find in the turns where the attempt went wrong."""
+<task_id>.txt holds the request, then the section "## Checks": every check
+with its verdict and a diagnosis of each failure, then every turn ([step N]
+prefix: the agent's words, each tool call with its arguments and its
+result), then the rows the attempt changed. Read the checks first, then find
+in the turns where the attempt went wrong."""
 
 PROPOSER = """The benchmark is EnterpriseOps-Gym: requests to an enterprise
 service desk, worked by a frozen model through a loop of tool calls. The

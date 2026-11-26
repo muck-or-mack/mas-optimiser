@@ -487,34 +487,33 @@ class EnterpriseOps(Domain):
         return {"task_id": task_id, "page": page.read_text(), "row": row}
 
     def render_trace(self, rec: dict, detail: bool = False) -> str:
-        """The attempt's page in the two conventions RRSI's trace reader keys on.
+        """The attempt's page with each line of a turn marked for RRSI's trace reader.
 
         Every line of a turn is prefixed ``[step N]``, so that a range of
-        turns can be asked for, and the checks section is marked as the
-        verifier and moved to the end. RRSI's reader gives everything from
-        that mark on whatever range is asked for, so a mark before the turns,
-        where the page for people has its checks, would give every turn
-        every time; the roles are also told that the checks come last.
+        turns can be asked for. RRSI's reader gives every line with no such
+        prefix whatever range is asked for, and gives a page read with no
+        range only up to a number of characters from its start. The checks,
+        which the page has before its turns, are therefore in every read.
+        No line marks them as RRSI's verifier section: that reader gives
+        everything after such a mark, which before the turns would be every
+        turn every time, and after them would be cut from a long page.
 
         Args:
             rec: What ``load_trial`` returned.
             detail: Not used: the page is given as it was written.
 
         Returns:
-            The page's text, its checks last.
+            The page's text, in the page's own order.
         """
-        lines, checks, step = [], [], None
-        part = lines
+        lines, step = [], None
         for line in rec["page"].splitlines():
             turn = TURN.match(line)
             if turn:
                 step = int(turn.group(1))
             elif line.startswith("## "):
                 step = None
-                part = checks if line.startswith("## Checks") else lines
-            part.append(f"[step {step}] {line}" if step is not None else line)
-        mark = "=== VERIFIER: the task's checks on the final database ==="
-        return "\n".join([*lines, mark, *checks])
+            lines.append(f"[step {step}] {line}" if step is not None else line)
+        return "\n".join(lines)
 
     def task_row(self, task_id: str, rec: dict, tr: TaskResult) -> str:
         """One line about a traced task, for the tables the search roles read.
