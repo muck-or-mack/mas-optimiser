@@ -754,6 +754,7 @@ def experiment(tmp_path, monkeypatch, candidate_scores, **settings):
 
     def draft(t, variant, folder, report, digests, traces, current, *rest):
         given.update(traces=traces, current=current, told=rest[4], allowed=rest[0])
+        given.update(untried=rest[1]["untried"])
         given.update(briefs=dict(run.domain.briefs))
         (folder / variant).mkdir(exist_ok=True)
         branch = f"{run.domain.name}/r{t}{variant}"
@@ -1065,6 +1066,21 @@ def test_the_digester_has_no_shell(tmp_path):
     assert '"action": "grep"' in digester.SYSTEM_TMPL
     with pytest.raises(ValueError, match="escapes"):
         digester._safe(tmp_path, "../outside.txt")
+
+
+def test_a_kind_dropped_at_the_filter_counts_as_tried(tmp_path, monkeypatch):
+    worse = [0.4, 0.3, 0.5, 0.4, 0.45, 0.35]
+    run, given = experiment(tmp_path, monkeypatch, worse, filter_share=0.5, seed=1)
+    run.baseline()
+    run.round(0)
+    # Before any round every kind is untried.
+    assert given["untried"] == components.K
+    assert run.history.records()[1]["outcome"] == "REJECTED"
+    run.domain.scores["r1A_filter"] = run.domain.scores["r0A_filter"]
+    run.round(1)
+    # The first candidate, a change of text, was dropped at the filter: its
+    # kind has been tried all the same, and the proposer is told so.
+    assert given["untried"] == [kind for kind in components.K if kind != "prompt"]
 
 
 def test_the_analyst_is_given_the_names_it_used_the_round_before(tmp_path, monkeypatch):
