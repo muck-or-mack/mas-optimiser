@@ -117,12 +117,14 @@ def experiment(tmp_path):
     settings |= {"tasks": {"training": 2, "validation": 3, "test": 2}}
     tasks.mkdir(parents=True)
     (folder / "experiment.json").write_text(json.dumps(settings))
+    # The command was given two hours ago, so the pace is the last hour's.
+    now = time.time()
+    os.utime(folder / "experiment.json", (now - 7200, now - 7200))
     planned = {"tasks": 3, "attempts": 2}
     (tasks.parent.parent / "job.json").write_text(json.dumps(planned))
     # Each answered call used 900 tokens in and 100 out.
     call = {"type": "ai_message", "usage_metadata": {"input_tokens": 900}}
     call["usage_metadata"]["output_tokens"] = 100
-    now = time.time()
     for task, attempt, calls, error, age in (
         ("t1", 1, 3, None, 30),
         ("t1", 2, 2, "the attempt ran past its limit of 60 seconds", 300),
@@ -161,7 +163,7 @@ def test_an_experiments_progress_is_read_from_its_files(tmp_path):
     assert (state["rounds"], state["of"], state["kept"]) == (0, 5, 0)
     # Four attempt records, one of them half-written; the job is to have six.
     assert (state["done"], state["expected"]) == (4, 6)
-    assert (state["last_10"], state["last_60"]) == (3, 3)
+    assert (state["last_10"], state["recent"], state["minutes"]) == (3, 3, 60)
     # Of the hour's attempts that could be read: five calls of 1,000 tokens,
     # with the search role's 5,000; one attempt ended in an error.
     assert (state["tokens"], state["errors"], state["unanswered"]) == (10_000, 1, 0)
@@ -193,12 +195,12 @@ def test_the_status_of_an_experiment_sets_its_traffic_against_the_services_limit
     assert lines["experiment"] == "an-experiment on a-split (first)"
     assert lines["this job"] == "4 of 6 attempts"
     # Two attempts to go at three an hour.
-    assert lines["time left for this job"] == "0 h 40 min at the last hour's pace"
     # The rest at three attempts an hour: 35 attempts at the least, 85 at
     # the most.
     assert lines["the rest, at the least"].startswith("11 h 40 min (35 attempts): ")
     assert lines["the rest, at the most"].startswith("28 h 20 min (85 attempts): ")
     assert lines["attempts finished"] == "3 in the last 10 minutes, 3 in the last hour"
+    assert lines["time left for this job"] == "0 h 40 min at that pace"
     assert lines["last file written"] == "less than a minute ago"
     assert lines["in the last hour"] == (
         "ended in an error: 1; unanswered by a service: 0; calls by the search roles: 1"
@@ -207,6 +209,20 @@ def test_the_status_of_an_experiment_sets_its_traffic_against_the_services_limit
     assert lines["its traffic"] == (
         "167 tokens a minute over the last hour, 17% of the 1,000 its service allows"
     )
+    # An experiment whose command was given four minutes ago is paced over
+    # those four minutes, not over an hour it has not had: the two records
+    # written since then make one every two minutes, and the 35 attempts
+    # left take 70 minutes at that.
+    os.utime(folder / "experiment.json", (time.time() - 240,) * 2)
+    status.run(argparse.Namespace(target=[str(folder)]))
+    young = {
+        cells[1].strip(): cells[2].strip()
+        for cells in (line.split("|") for line in capsys.readouterr().out.splitlines())
+        if len(cells) == 4
+    }
+    assert young["attempts finished"] == "2 in the last 4 minutes"
+    assert young["the rest, at the least"].startswith("1 h 10 min (35 attempts): ")
+    assert "in the last 4 minutes" in young
     assert "| a-model " in said and "Refused" in said
     # No task is named.
     assert "t1" not in said and "t2" not in said
