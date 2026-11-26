@@ -30,6 +30,7 @@ import argparse
 import json
 import re
 import time
+from collections import Counter
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -131,8 +132,12 @@ def progress(folder: Path) -> dict:
         ``last_10`` minutes and the ``last_60``; of the hour's, those that
         ended in an error (``errors``) and those a service left
         ``unanswered``; the ``tokens`` the hour's attempts and search calls
-        used; the ``search_calls`` of the hour; and the ``idle_minutes``
-        since a file was last written.
+        used; the ``search_calls`` of the hour; the ``idle_minutes`` since a
+        file was last written; and ``rest``, the attempts still to run, the
+        least and the most (``None`` for an experiment that did not record
+        its sets' sizes, or whose test has run). The least is with every
+        candidate still to come dropped at the filter, the most with every
+        one kept.
     """
     settings = json.loads((folder / "experiment.json").read_text())
     domain = folder / EnterpriseOps.name
@@ -179,7 +184,58 @@ def progress(folder: Path) -> dict:
         if path.is_file()
         and not {"repository", "wt"} & set(path.relative_to(folder).parts)
     ]
-    if (domain / "test.csv").is_file():
+    rest = None
+    sizes, over = settings.get("tasks"), (domain / "test.csv").is_file()
+    if sizes and not over:
+        per = {
+            stage: settings.get(f"attempts_{stage}") or settings["attempts"]
+            for stage in ("training", "filter", "gate", "test")
+        }
+        training = sizes["training"] * per["training"]
+        gate = sizes["validation"] * per["gate"]
+        share = settings["filter_share"]
+        # With no filter a candidate goes straight to the gate.
+        sieve = (
+            max(1, round(share * sizes["validation"])) * per["filter"]
+            if share
+            else gate
+        )
+        fed = training if settings["feedback"] == "training" else 0
+        test = sizes["test"] * per["test"]
+        each = settings["candidates"]
+        # A round at its least and at its most: the one-task trial, the run
+        # on the training tasks where the proposer is told of them, then the
+        # filter alone, or every validation task and the kept harness's own
+        # run on the training tasks.
+        low = each * (1 + fed + sieve)
+        high = each * (1 + fed + gate) + (0 if fed else training)
+        made = Counter(path.relative_to(domain / "jobs").parts[0] for path in finished)
+        decided = max(len(state.get("trajectory", [])) - 1, 0)
+        to_come = settings["rounds"] - decided
+        left = least = most = 0
+        if not state:
+            least = most = max(training - made["base_training"], 0) + max(
+                gate - made["base_validation"], 0
+            )
+        if to_come:
+            # The round under way has run some of its attempts already.
+            under_way = sum(
+                count
+                for name, count in made.items()
+                if re.match(rf"r{decided}[A-Z]", name)
+            )
+            if planned and job and re.match(rf"r{decided}[A-Z]", job):
+                left = planned["tasks"] * planned["attempts"] - made[job]
+            least += (left if under_way else low) + (to_come - 1) * low
+            most += max(high - under_way, left) + (to_come - 1) * high
+        tested = sum(
+            count for name, count in made.items() if name.startswith("heldout_")
+        )
+        kept = state.get("promotions", 0)
+        least += max(test * (1 + kept) - tested, 0)
+        most += max(test * (1 + kept + to_come) - tested, 0)
+        rest = (least, most)
+    if over:
         where = "finished: the test has run"
     elif job:
         where = report.described(job, report.kept(folder))[0]
@@ -211,6 +267,7 @@ def progress(folder: Path) -> dict:
         "tokens": tokens,
         "search_calls": len(calls),
         "idle_minutes": round((now - max(written)) / 60),
+        "rest": rest,
     }
 
 
@@ -247,6 +304,17 @@ def run(args: argparse.Namespace) -> None:
         """
         return "" if value is None else f"{int(value):,}"
 
+    def clock(minutes: float) -> str:
+        """A length of time in hours and minutes.
+
+        Args:
+            minutes: The length, in minutes.
+
+        Returns:
+            It as ``H h M min``.
+        """
+        return f"{round(minutes) // 60} h {round(minutes) % 60} min"
+
     for state in states:
         total = state["expected"]
         # In minutes, at the last hour's pace; not known for a job with no
@@ -260,6 +328,13 @@ def run(args: argparse.Namespace) -> None:
             row["tokens_a_minute"] for row in rows if row["model"] == state["models"][0]
         )
         a_minute = state["tokens"] / (RECENT / 60)
+        # Where no range can be given: the experiment is over, or it did
+        # not record its sets' sizes, or nothing finished in the hour.
+        no_range = (
+            "nothing: the experiment has finished"
+            if state["where"].startswith("finished")
+            else "not known"
+        )
         lines = {
             "experiment": state["experiment"],
             "model": ", ".join(state["models"]),
@@ -280,9 +355,24 @@ def run(args: argparse.Namespace) -> None:
                 f"{state['last_60']} in the last hour"
             ),
             "time left for this job": (
-                f"{left // 60} h {left % 60} min at the last hour's pace"
+                f"{clock(left)} at the last hour's pace"
                 if left is not None
                 else "not known"
+            ),
+            # Attempts only: the search roles' own time is not in either.
+            "the rest, at the least": (
+                f"{clock(60 * state['rest'][0] / state['last_60'])} "
+                f"({state['rest'][0]:,} attempts): every candidate still to come "
+                "dropped at the filter"
+                if state["rest"] and state["last_60"]
+                else no_range
+            ),
+            "the rest, at the most": (
+                f"{clock(60 * state['rest'][1] / state['last_60'])} "
+                f"({state['rest'][1]:,} attempts): every candidate still to come "
+                "kept"
+                if state["rest"] and state["last_60"]
+                else no_range
             ),
             "last file written": (
                 f"{state['idle_minutes']} min ago"

@@ -604,6 +604,7 @@ def test_an_experiment_says_and_records_what_differs_from_the_defaults(
 
     class Benchmark:
         harness_path = "harness"
+        sets = {"training": ["t1"], "validation": ["v1", "v2"], "test": ["h1"]}
 
         def __init__(self, experiment):
             pass
@@ -645,6 +646,8 @@ def test_an_experiment_says_and_records_what_differs_from_the_defaults(
     folder = tmp_path / "evolve-smoke" / "haiku-20-40-40"
     record = json.loads((folder / "experiment.json").read_text())
     assert record["changed"]["rounds"] == 1
+    # How many tasks each set holds, for a look at the experiment as it runs.
+    assert record["tasks"] == {"training": 1, "validation": 2, "test": 1}
     assert record["changed"]["editable"] == [".md"]
     # The search roles' model is the agent's here, and its file is kept.
     assert record["proposer_settings"]["llm_provider"] == "anthropic"
@@ -656,6 +659,7 @@ def test_an_experiment_writes_its_report_after_each_round_and_at_its_end(
 ):
     class Benchmark:
         harness_path = "harness"
+        sets = {"training": ["t1"], "validation": ["v1", "v2"], "test": ["h1"]}
 
         def __init__(self, experiment):
             pass

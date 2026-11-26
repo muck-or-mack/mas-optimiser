@@ -29,6 +29,8 @@ The example is the made-up experiment of the unit tests
 | this job               | 4 of 6 attempts                                                                |
 | attempts finished      | 3 in the last 10 minutes, 3 in the last hour                                   |
 | time left for this job | 0 h 40 min at the last hour's pace                                             |
+| the rest, at the least | 11 h 40 min (35 attempts): every candidate still to come dropped at the filter |
+| the rest, at the most  | 28 h 20 min (85 attempts): every candidate still to come kept                  |
 | last file written      | less than a minute ago                                                         |
 | in the last hour       | ended in an error: 1; unanswered by a service: 0; calls by the search roles: 1 |
 | its traffic            | 167 tokens a minute over the last hour, 17% of the 1,000 its service allows    |
@@ -38,28 +40,33 @@ The example is the made-up experiment of the unit tests
 | a-model | yes       | 1.4       | 1,000             | 640    |                     |        |                   |
 ```
 
-| line                   | what it says                                                                                                   | read from                                                        |
-|------------------------|----------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------|
-| where it is            | the job its newest finished attempt belongs to, in the report's words; or that the test has run                | the job folders                                                  |
-| rounds                 | the rounds decided, of those the experiment is to have, and the changes kept so far                            | `frontier.json`                                                  |
-| this job               | that job's finished attempts, of the number it is to have                                                      | the attempts' records; the total from the job's `job.json`       |
-| attempts finished      | over every job of the experiment, in the last 10 minutes and the last hour                                     | the times of the attempts' records                               |
-| time left for this job | the attempts it still lacks at the last hour's pace                                                            | the two lines above                                              |
-| last file written      | how long ago the experiment wrote anything, the harness's own git folders aside                                | the experiment's folder                                          |
-| in the last hour       | the attempts that ended in an error, those a service left unanswered, and the calls of the search roles        | the attempts' records; `search_usage.jsonl`                      |
-| its traffic            | the tokens of the calls answered in that hour, a minute, and their share of what the service says it allows   | the same records; the limit from the model's answer just below   |
-| the second table       | each of the experiment's models asked one word: whether it answered, and the allowance its service states      | the reply's headers, as for `mas-optimiser status <model>`       |
+| line                   | what it says                                                                                                                | read from                                                                             |
+|------------------------|-----------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
+| where it is            | the job its newest finished attempt belongs to, in the report's words; or that the test has run                             | the job folders                                                                       |
+| rounds                 | the rounds decided, of those the experiment is to have, and the changes kept so far                                         | `frontier.json`                                                                       |
+| this job               | that job's finished attempts, of the number it is to have                                                                   | the attempts' records; the total from the job's `job.json`                            |
+| attempts finished      | over every job of the experiment, in the last 10 minutes and the last hour                                                  | the times of the attempts' records                                                    |
+| time left for this job | the attempts it still lacks at the last hour's pace                                                                         | the two lines above                                                                   |
+| the rest, at the least | the time for every attempt still to run, at the last hour's pace, if every candidate still to come is dropped at the filter | the experiment's settings and its sets' sizes in `experiment.json`; the attempts done |
+| the rest, at the most  | the same if every candidate still to come is kept: each then runs on every validation task and adds a run of the test tasks | the same                                                                              |
+| last file written      | how long ago the experiment wrote anything, the harness's own git folders aside                                             | the experiment's folder                                                               |
+| in the last hour       | the attempts that ended in an error, those a service left unanswered, and the calls of the search roles                     | the attempts' records; `search_usage.jsonl`                                           |
+| its traffic            | the tokens of the calls answered in that hour, a minute, and their share of what the service says it allows                 | the same records; the limit from the model's answer just below                        |
+| the second table       | each of the experiment's models asked one word: whether it answered, and the allowance its service states                   | the reply's headers, as for `mas-optimiser status <model>`                            |
 
 A job started by a version before 0.18 left no `job.json`: its attempts are
-shown without a total, and its time left is not known.
+shown without a total, and its time left is not known. The two lines for the
+rest of the experiment count attempts only: the search roles' own time, some
+minutes a round, is not in them, and an experiment started before its sets'
+sizes were recorded shows them as not known.
 
 ## Three questions to read it for
 
-| question                           | read                                          | what it means                                                                                                                                                                                                           |
-|------------------------------------|-----------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Is it moving?                      | last file written; attempts finished          | A last file some minutes old with calls by the search roles is a round being thought out, not a stop. A last file an hour old with nothing finished is an experiment that has stopped, or one waiting for its service. |
-| Is the service holding it back?    | the second table's first `left`; its traffic  | `left` near or below zero with the experiment's traffic well under the limit: the allowance is being used up by something else. `left` large: the service has room, and the pace is set by `concurrency`.               |
-| How long will it take?             | time left for this job                        | Only for the job it is at. An experiment has two jobs before its first round, and each round has up to five.                                                                                                             |
+| question                        | read                                                           | what it means                                                                                                                                                                                                          |
+|---------------------------------|----------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Is it moving?                   | last file written; attempts finished                           | A last file some minutes old with calls by the search roles is a round being thought out, not a stop. A last file an hour old with nothing finished is an experiment that has stopped, or one waiting for its service. |
+| Is the service holding it back? | the second table's first `left`; its traffic                   | `left` near or below zero with the experiment's traffic well under the limit: the allowance is being used up by something else. `left` large: the service has room, and the pace is set by `concurrency`.              |
+| How long will it take?          | time left for this job; the rest, at the least and at the most | The first is for the job it is at. The other two bound the whole of what is left: how many candidates pass the filter and are kept is not known in advance, and a kept candidate costs several times a dropped one.    |
 
 ## What it cannot tell
 

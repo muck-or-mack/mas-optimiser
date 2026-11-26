@@ -507,7 +507,8 @@ set and one round.
 
 ```
 evolutions/<experiment>/<split>/
-  experiment.json             every setting as used, those not at their defaults, the proposer's model file, the code's version
+  experiment.json             every setting as used, those not at their defaults, the proposer's model file, the code's version,
+                              and how many tasks each set holds
   search_usage.jsonl          one line per call of the analyst, proposer and reviewer
   repository/                 the experiment's git repository
     harness/                  the current harness

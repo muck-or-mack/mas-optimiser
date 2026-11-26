@@ -112,7 +112,9 @@ def experiment(tmp_path):
     tasks = folder / "enterpriseops" / "jobs" / "base_validation" / "itsm" / "tasks"
     settings = {"experiment": "an-experiment", "split": "a-split", "label": "first"}
     settings |= {"model": "a-model", "proposer_model": None, "rounds": 5}
-    settings |= {"mas_optimiser_version": "v0"}
+    settings |= {"mas_optimiser_version": "v0", "candidates": 1, "attempts": 2}
+    settings |= {"filter_share": 0.5, "feedback": "outcome"}
+    settings |= {"tasks": {"training": 2, "validation": 3, "test": 2}}
     tasks.mkdir(parents=True)
     (folder / "experiment.json").write_text(json.dumps(settings))
     planned = {"tasks": 3, "attempts": 2}
@@ -164,6 +166,12 @@ def test_an_experiments_progress_is_read_from_its_files(tmp_path):
     # with the search role's 5,000; one attempt ended in an error.
     assert (state["tokens"], state["errors"], state["unanswered"]) == (10_000, 1, 0)
     assert (state["search_calls"], state["idle_minutes"]) == (1, 0)
+    # What is still to run. The baseline lacks its 4 training attempts and 2
+    # of its 6 validation ones. A round is 1 trial attempt and the filter's
+    # 2 tasks twice, 5, if its candidate is dropped there; kept, it is the
+    # trial, the 6 validation attempts and the 4 training ones, 11. The test
+    # is 4 attempts for the starting harness and for each harness kept.
+    assert state["rest"] == (6 + 5 * 5 + 4, 6 + 5 * 11 + 4 * 6)
 
 
 def test_the_status_of_an_experiment_sets_its_traffic_against_the_services_limit(
@@ -186,6 +194,10 @@ def test_the_status_of_an_experiment_sets_its_traffic_against_the_services_limit
     assert lines["this job"] == "4 of 6 attempts"
     # Two attempts to go at three an hour.
     assert lines["time left for this job"] == "0 h 40 min at the last hour's pace"
+    # The rest at three attempts an hour: 35 attempts at the least, 85 at
+    # the most.
+    assert lines["the rest, at the least"].startswith("11 h 40 min (35 attempts): ")
+    assert lines["the rest, at the most"].startswith("28 h 20 min (85 attempts): ")
     assert lines["attempts finished"] == "3 in the last 10 minutes, 3 in the last hour"
     assert lines["last file written"] == "less than a minute ago"
     assert lines["in the last hour"] == (
