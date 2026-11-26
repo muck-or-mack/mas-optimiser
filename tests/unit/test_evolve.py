@@ -642,6 +642,10 @@ def test_more_candidates_a_round_than_there_are_names_for_are_refused(
     # after eight had been drafted and paid for.
     with pytest.raises(SystemExit, match="candidates can be at most 8"):
         loop.run(SimpleNamespace(**(unset | chosen | {"candidates": 9})))
+    # The filter's attempts are the first of the gate's.
+    for stages in ({"attempts_filter": 2}, {"attempts": 3, "attempts_gate": 2}):
+        with pytest.raises(SystemExit, match="cannot be more than the gate's"):
+            loop.run(SimpleNamespace(**(unset | chosen | stages)))
     assert list(tmp_path.iterdir()) == []
 
 

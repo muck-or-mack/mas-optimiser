@@ -1454,17 +1454,18 @@ def test_what_the_proposer_is_told_is_one_of_two_things():
     assert told["changed"]["feedback"] == "training"
 
 
-def test_the_attempts_of_a_stage_are_checked_and_the_filters_are_not_above_the_gates():
+def test_the_attempts_of_a_stage_are_checked_and_a_job_of_the_loop_can_load_them():
     unset = dict.fromkeys(runner.EXPERIMENT_DEFAULTS)
     for stage in ("training", "filter", "gate", "test"):
         for value in (0, 1.5, "two", True):
             with pytest.raises(SystemExit, match=f"attempts_{stage} must be"):
                 runner.load_experiment("smoke", unset | {f"attempts_{stage}": value})
-    # The filter's attempts are the first of the gate's.
-    with pytest.raises(SystemExit, match="cannot be more than the gate's"):
-        runner.load_experiment("smoke", unset | {"attempts_filter": 2})
-    with pytest.raises(SystemExit, match="cannot be more than the gate's"):
-        runner.load_experiment("smoke", unset | {"attempts": 3, "attempts_gate": 2})
+    # Each job of the loop is a run of the experiment's file with one stage's
+    # attempts, so the file's numbers for the other stages must not stop it:
+    # the one-task trial has one attempt whatever the filter's and the gate's.
+    for stages in ({"attempts_filter": 2}, {"attempts_gate": 3}):
+        for attempts in (1, 5):
+            runner.load_experiment("smoke", unset | stages | {"attempts": attempts})
     settings = runner.load_experiment(
         "smoke", unset | {"attempts_gate": 3, "attempts_filter": 1}
     )
