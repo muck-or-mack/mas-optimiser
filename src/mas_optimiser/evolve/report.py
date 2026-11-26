@@ -692,9 +692,9 @@ def run(args: argparse.Namespace) -> None:
     text += ["", "## Attempts that ended in an error", ""]
     if len(failed):
         text += [
-            "An attempt that ends in an error is scored zero for its task, and "
-            "the loop runs a job again only when more than a set share of its "
-            "attempts left no result. Each job with such attempts is below: "
+            "An attempt that ends in an error is scored zero for its task; only "
+            "an attempt that left no result at all has its job run again. Each "
+            "job with attempts that ended in an error is below: "
             "how many there were, and how many of them ran past their limit "
             "of seconds, past their limit of calls to the model, or ended "
             "otherwise. An error's own words are in the `error` column of the "

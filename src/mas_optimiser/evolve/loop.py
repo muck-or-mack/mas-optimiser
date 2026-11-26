@@ -197,6 +197,11 @@ class Experiment(Run):
         attempts: dict[str, int] | None = None,
         feedback: str = "outcome",
     ):
+        # RRSI's own scoring step, which a candidate goes through when there
+        # is no filter, scores an attempt that left no result as zero while
+        # under this share of a job's are missing. None may be: the gate
+        # compares measured scores.
+        cfg = dataclasses.replace(cfg, invalid_missing_frac=0.0)
         super().__init__(domain, cfg, repo, runs_root)
         self.feedback = feedback
         self.attempts = dict.fromkeys(("training", "filter", "test"), cfg.k) | (
@@ -465,6 +470,10 @@ class Experiment(Run):
 
         Args:
             t: The round, from 0.
+
+        Raises:
+            SystemExit: If an attempt of the kept harness's run on the
+                training tasks has no result.
         """
         d, cfg = self.domain, self.cfg
         state = self.frontier()
@@ -710,6 +719,15 @@ class Experiment(Run):
             result = evaluate(
                 d, checkout, self.runs, job, d.evolve_ids(), self.attempts["training"]
             )
+            if result.missing:
+                # Later candidates are compared with these scores when the
+                # proposer is told of the training tasks, and the roles read
+                # them, so a zero in a gap is not let in here either.
+                raise SystemExit(
+                    f"error: the kept harness's run on the training tasks is "
+                    f"missing {result.missing} of {result.n_expected} attempts. "
+                    "Give the command again; the round carries on from this job."
+                )
             result.save(self.eval_path(job))
             gitops.fast_forward(self.repo, self.branch, winner.commit)
             current = {
@@ -744,6 +762,9 @@ class Experiment(Run):
             One row per harness, in the order they became current: the round
             after which it was current, its commit, and its scores on the
             validation and the test tasks. Also written to ``test.csv``.
+
+        Raises:
+            SystemExit: If an attempt of a test job has no result.
         """
         rows, done = [], set()
         for entry in self.frontier()["trajectory"]:
@@ -752,16 +773,22 @@ class Experiment(Run):
             done.add(entry["commit"])
             label = f"t{entry['t']}"
             path = self.eval_path(f"heldout_{label}")
-            result = (
-                EvalResult.load(path)
-                if path.exists()
-                else self.heldout(
+            result = EvalResult.load(path) if path.exists() else None
+            # A saved result with an attempt missing is not taken: its job
+            # is run again, and a gap that is still there stops the test.
+            if result is None or result.missing:
+                result = self.heldout(
                     label,
                     self.domain.heldout_ids(),
                     ref=entry["commit"],
                     k=self.attempts["test"],
                 )
-            )
+            if result.missing:
+                raise SystemExit(
+                    f"error: the test of the harness of round {entry['t']} is "
+                    f"missing {result.missing} of {result.n_expected} attempts. "
+                    "Give the command again; the test carries on from this job."
+                )
             rows.append(
                 {
                     "round": entry["t"],
