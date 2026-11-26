@@ -54,6 +54,7 @@ from mas_optimiser.stats import budget, gate
 
 import rrsi.loop
 from rrsi import analyst, critic, digester, gitops, propose
+from rrsi.components import K
 from rrsi.config import RRSIConfig
 from rrsi.evaluate import (
     EvalResult,
@@ -537,6 +538,17 @@ class Experiment(Run):
             fed = self.runs / f"r{row['t']}" / row["variant"] / "training.json"
             if self.feedback == "training" and fed.exists():
                 row |= json.loads(fed.read_text())
+        # The kinds of change tried so far, for the proposer to be told which
+        # are still untried. RRSI counts a kind once an edit of it has been
+        # scored on its one set of tasks; here that is any edit whose
+        # candidate was run on validation tasks, one dropped at the filter
+        # included, which RRSI's own count would leave out.
+        tried = {
+            record["component"]
+            for record in self.history.records()
+            if record.get("outcome") in ("ACCEPTED", "REJECTED", "LOST")
+            and record.get("component") in K
+        }
         rules, patterns = d.constitution(self.repo)
         candidates = [
             self._draft(
@@ -548,7 +560,7 @@ class Experiment(Run):
                 traces,
                 training,
                 allowed,
-                exploration(t, 0, self.history.tried(), cfg.m_draft),
+                exploration(t, 0, tried, cfg.m_draft),
                 False,
                 [],
                 told,
