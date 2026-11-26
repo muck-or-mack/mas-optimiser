@@ -1378,9 +1378,12 @@ def test_the_edits_allowed_go_from_the_first_rounds_number_to_the_last_rounds(
 
 def test_the_proposer_is_told_how_a_candidate_is_judged_here(monkeypatch):
     seen = {}
-    monkeypatch.setattr(
-        loop.propose, "propose", lambda *args, **kwargs: seen.update(kwargs, args=args)
-    )
+
+    def released_proposer(*args, **kwargs):
+        seen.update(kwargs, args=args)
+        return {"status": "done", "n_edits": 1}
+
+    monkeypatch.setattr(loop.propose, "propose", released_proposer)
     # RRSI's drafting calls its proposer with its own sentence, which says
     # that the tasks the proposer reads decide. Here others decide.
     released = "each is evaluated on the full evolve set; the best one is kept"
@@ -1388,6 +1391,29 @@ def test_the_proposer_is_told_how_a_candidate_is_judged_here(monkeypatch):
     assert seen["variant_brief"] == loop.JUDGED and "cannot read" in loop.JUDGED
     # Everything else it was called with is passed on as it was.
     assert (seen["args"], seen["model"]) == (("the benchmark",), "a-model")
+
+
+def test_a_proposer_that_changes_nothing_is_asked_once_more(monkeypatch):
+    briefs, edits = [], iter([0, 2, 0, 0, 0])
+
+    def released_proposer(*args, **kwargs):
+        briefs.append(kwargs["variant_brief"])
+        return {"status": "done", "n_edits": next(edits), "log": [{"action": "done"}]}
+
+    monkeypatch.setattr(loop.propose, "propose", released_proposer)
+    # RRSI's proposer may say it is done having changed nothing, which would
+    # spend the round on no test: it is asked again, and told why.
+    drafted = loop.rrsi.loop.propose("the benchmark", variant_brief="RRSI's sentence")
+    assert briefs == [loop.JUDGED, f"{loop.JUDGED}\n\n{loop.NOTHING}"]
+    assert drafted["n_edits"] == 2
+    # Its record holds both draftings, so the refused "done" can be counted.
+    assert drafted["log"] == [{"action": "done"}] * 2
+    # Once more and no further: a second empty drafting stands.
+    assert loop.rrsi.loop.propose("the benchmark")["n_edits"] == 0
+    assert len(briefs) == 4
+    # A repair after a review that changes nothing is RRSI's to deal with.
+    loop.rrsi.loop.propose("the benchmark", repair_brief={"reasons": ["an objection"]})
+    assert len(briefs) == 5
 
 
 def test_the_digester_has_no_shell(tmp_path):

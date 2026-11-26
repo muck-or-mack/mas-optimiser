@@ -687,6 +687,7 @@ arXiv:2609.24972; Apache License 2.0), kept unchanged in `vendor/rrsi`.
 | the shell RRSI offers a digester                               | switched off by this package (`evolve.loop`)                |
 | a digester's listing of files                                  | held to the traces folder (`evolve.loop.TracesFolder`)      |
 | the sentence that tells the proposer how a candidate is judged | this package's (`evolve.loop`): tasks it cannot read decide |
+| a proposer that says it is done having changed nothing         | asked once more by this package (`evolve.loop.proposal`)    |
 | the record of proposals, a git checkout per candidate          | RRSI's, as released                                         |
 | what a benchmark must provide (its `Domain` interface)         | RRSI's; `domain.EnterpriseOps` fills it                     |
 | the nine kinds of change and the rule that records one         | RRSI's; `domain.EnterpriseOps` gives its patterns           |
@@ -703,6 +704,14 @@ over-fitting by limiting what a proposal may be. Here the two jobs have two
 sets, and a proposal is judged on tasks its author never saw. RRSI's rule
 keeps a candidate whose score is within a noise band of the best so far;
 the gate asks for a gain that a test at a stated error level supports.
+
+RRSI's instructions tell the proposer that a candidate must be shipped, and
+its code accepts a proposer that says it is done with no edit made. The
+round is then spent with nothing tested. Here such a proposer is asked once
+more, told that a round with no candidate tests nothing; if it again
+changes nothing the round ends as before, and the report gives it as "the
+proposal, which changed nothing". The refused "done" is counted in the
+report's table of how each proposal was made.
 
 ## Not built yet
 
