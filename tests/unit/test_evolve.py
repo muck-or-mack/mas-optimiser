@@ -402,25 +402,33 @@ def test_the_count_of_failures_adds_up_a_jobs_domains(benchmark, tmp_path):
     assert len(benchmark.failures(tmp_path, "a-job", most=1).splitlines()) == 3
 
 
-def test_the_trace_marks_each_turn_and_puts_the_checks_last(benchmark):
-    # The page for people has its checks before its turns.
+def test_the_trace_marks_each_turn_and_every_read_of_it_has_the_checks(benchmark):
+    # The page has its checks before its turns, and keeps that order.
+    head = "# t1\n## Request\nDo it.\n## Checks\n### FAIL a check\nFailed.\n"
     page = (
-        "# t1\n## Request\nDo it.\n## Checks\n### FAIL a check\nFailed.\n"
-        "## What the agent did\n### Turn 1\nA call.\n### Turn 2\nAnother.\n"
+        head + "## What the agent did\n### Turn 1\nA call.\n### Turn 2\nAnother.\n"
         "## Rows the attempt changed\nnone"
     )
     record = {"page": page}
     text = benchmark.render_trace(record)
-    assert "[step 1] ### Turn 1\n[step 1] A call." in text
-    assert text.endswith(
-        "=== VERIFIER: the task's checks on the final database ===\n## Checks\n### FAIL a check\nFailed."
-    )
-    assert "[step 2] Failed." not in text
+    assert text.startswith(head + "## What the agent did\n[step 1] ### Turn 1\n")
+    assert "[step 1] A call.\n[step 2] ### Turn 2\n[step 2] Another." in text
+    assert text.endswith("## Rows the attempt changed\nnone")
+    # No line that RRSI's reader takes for its verifier section, after which
+    # it gives every turn whatever range is asked for.
+    assert "VERIFIER" not in text and "GRAD" not in text
     # RRSI's reader, asked for the second turn alone, gives that turn, what
     # belongs to no turn, and the checks: not the first turn.
     part = propose._read_trace(benchmark, {"t1": record}, "t1", 2, 2, {}, False)
     assert "[step 2] Another." in part and "[step 1]" not in part
     assert "Do it." in part and "none" in part and "Failed." in part
+    # Asked for a page longer than it gives in one read, it cuts the turns,
+    # and the checks are still there.
+    turns = "".join(f"### Turn {n}\n{'x' * 999}\n" for n in range(1, 81))
+    long = {"page": head + "## What the agent did\n" + turns}
+    whole = propose._read_trace(benchmark, {"t1": long}, "t1", None, None, {}, False)
+    assert len(benchmark.render_trace(long)) > propose.TRACE_READ_CAP
+    assert "Failed." in whole and "[step 80]" not in whole and "capped at" in whole
 
 
 def test_the_trial_run_refuses_a_record_of_another_shape(
