@@ -599,9 +599,19 @@ class Experiment(Run):
                         result.per_task[i].mean - training.per_task[i].mean
                         for i in training.per_task
                     ]
-                    self.attribute(
-                        t, candidate.variant, candidate.edits, training, result
+                    # RRSI's record is added to, never rewritten, so a round
+                    # that was stopped between this line and the next and is
+                    # given again must not add the candidate's rows twice.
+                    known = self.attribution_path.exists() and any(
+                        (row["t"], row["variant"]) == (t, candidate.variant)
+                        for row in map(
+                            json.loads, self.attribution_path.read_text().splitlines()
+                        )
                     )
+                    if not known:
+                        self.attribute(
+                            t, candidate.variant, candidate.edits, training, result
+                        )
                     record = {
                         "delta_S_training": round(float(np.mean(gains)), 4),
                         "standard_error": round(float(sem(gains)), 4)

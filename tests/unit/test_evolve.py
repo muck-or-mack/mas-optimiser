@@ -1156,3 +1156,12 @@ def test_with_feedback_from_training_the_proposer_is_told_how_a_proposal_did_the
     assert "delta_S" not in told and "S" not in told
     # RRSI's record of what each edit predicted is kept from the training runs.
     assert [row["edit_id"] for row in run.scoreboard()] == ["C1", "C1"]
+    # A round stopped before it wrote how its candidate did, and given again,
+    # adds nothing to that record a second time.
+    (tmp_path / run.domain.name / "r1" / "A" / "training.json").unlink()
+    run.history.replace_round(1)
+    run.round(1)
+    assert [(row["t"], row["edit_id"]) for row in run.scoreboard()] == [
+        (0, "C1"),
+        (1, "C1"),
+    ]
