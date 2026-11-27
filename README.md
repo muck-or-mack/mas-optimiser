@@ -890,7 +890,8 @@ writes that report again from the files the experiment left, for an
 experiment made by an earlier version, one that stopped part-way through a
 round, or one whose report a newer version would write better. It holds:
 each harness kept, with its gain on the test
-tasks and a 95% confidence interval; each round's candidate, what it
+tasks, the gain's standard error and a 95% confidence interval; each
+round's candidate, what it
 proposed in the proposer's own words, how the proposal was made and where
 it ended, with the gain it found beside the gain its decision needed; the
 jobs with attempts that ended in an error, which are scored zero; what

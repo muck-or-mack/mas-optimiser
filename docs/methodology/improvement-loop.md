@@ -646,7 +646,7 @@ written after a round is said in a warning and the experiment carries on.
 | `errors.csv`            | each job with attempts that ended in an error, which are scored zero: its attempts, those in error, and how many ran past their seconds or their calls                                                                                                                                                           |
 | `parts.csv`             | the runs, tokens, dollars and hours of each part of the experiment, the agent's and the search roles'                                                                                                                                                                                                            |
 | `figures/scores.png`    | the current harness's score after each round, on the validation tasks and, once the test step has run, on the test tasks                                                                                                                                                                                         |
-| `figures/test_gain.png` | the gain of each harness kept over the starting harness on the test tasks, with its 95% confidence interval; drawn once the test step has run                                                                                                                                                                    |
+| `figures/test_gain.png` | the gain of each harness kept over the starting harness on the test tasks, with a bar of one standard error; drawn once the test step has run                                                                                                                                                                    |
 | `figures/gate.png`      | each round's candidate at the gate: the gain it found, with its standard error, against the gain its decision needed; a candidate dropped at the filter is marked at its gain there                                                                                                                              |
 
 Every figure is written as PDF and PNG, with the numbers it draws in a file
@@ -667,10 +667,12 @@ smaller share of the experiment's false acceptances than the one before
 ([The acceptance gate](acceptance-gate.md), "The level of each decision").
 
 The gain on the test tasks is the mean, over the test tasks, of a task's
-score with the harness less its score with the starting harness. It comes
-with the gate's one-sided test and with a 95% confidence interval, 1.98
-standard errors either way at about a hundred tasks
-([Sizing an experiment](sizing.md)). The test tasks took no part in any
+score with the harness less its score with the starting harness. It is
+reported with its standard error, and comes with the gate's one-sided test
+and with a 95% confidence interval, 1.98 standard errors either way at
+about a hundred tasks ([Sizing an experiment](sizing.md)); how to read the
+three is on [Reading a decision](../reading-a-decision.md). The test tasks
+took no part in any
 decision, so this gain is not flattered by selection as the validation
 gain of an accepted change is. A search role's call is priced from the
 tokens it used at the rates of its model file; the hours are the runs' own
