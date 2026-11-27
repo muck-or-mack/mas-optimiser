@@ -584,6 +584,14 @@ def test_the_brief_says_how_the_empty_text_file_is_filled(tmp_path):
     assert folder.edit("prompt.md", "", "More.").startswith("ERROR")
     brief = adapter.prompts.PROPOSER
     assert "write_file refuses it" in brief and "an empty old string" in brief
+    # The brief says so, and how a file that holds text is changed: a short
+    # passage named and given back with the change, as many times as needed.
+    (tmp_path / "prompt.md").write_text("Check every field.\nSay what was done.\n")
+    added = "Say what was done.\nName each record."
+    assert folder.edit("prompt.md", "Say what was done.", added).startswith("OK")
+    assert "Name each record." in (tmp_path / "prompt.md").read_text()
+    assert "no action rewrites a file whole" in brief
+    assert "One change may be several such edits" in " ".join(brief.split())
 
 
 def diff_of(*files):
