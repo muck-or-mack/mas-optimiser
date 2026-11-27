@@ -113,6 +113,50 @@ look is tested at half the decision's level, so the bar is higher than the
 level alone would give: read the gain against the gain needed, as for any
 other decision.
 
+## The final gain: its standard error and its interval
+
+A kept harness's gain on the test tasks is reported as, for example,
+"+18.0 ± 3.8 points (95% confidence interval +10.4 to +25.7)". The example
+is one experiment of this package, with 37 test tasks and two attempts at
+each.
+
+| step | number                  | value          | how it is made                                                                        |
+|------|-------------------------|----------------|---------------------------------------------------------------------------------------|
+| 1    | a task's difference     | one a task     | the task's mean score with the kept harness less its mean score with the starting one |
+| 2    | gain                    | +18.0 points   | the mean of the 37 differences                                                        |
+| 3    | standard deviation      | 22.9 points    | how much the tasks differ from one another in what they gained                        |
+| 4    | standard error          | 3.8 points     | the standard deviation over the root of the number of tasks: 22.9 / √37               |
+| 5    | 95% confidence interval | +10.4 to +25.7 | the gain less and plus 2.03 standard errors                                           |
+
+The figure after ± is the standard error: how far the gain would move by
+chance were the experiment run again on another draw of tasks. It leads
+because it shows at a glance how well the gain is known, and the report's
+figure of the gain draws the same bar.
+
+The 95% confidence interval is made by a rule that, over many repeats of
+the experiment, contains the true gain 95 times in 100. The 2.03 is not
+taken from the results. It is from Student's t distribution for 37 tasks,
+which supposes that the mean of the differences is spread about as a normal
+distribution is; at about a hundred tasks it is 1.98.
+
+One result can be stated three ways, and each is sound when it is labelled:
+
+| stated as                 | for this result | what it claims                                                    |
+|---------------------------|-----------------|-------------------------------------------------------------------|
+| gain ± one standard error | +18.0 ± 3.8     | a range that contains the true gain about 68 times in 100         |
+| 95% confidence interval   | +10.4 to +25.7  | a range that contains it 95 times in 100                          |
+| one-sided 95% bound       | at least +11.7  | the true gain is above this 95 times in 100; nothing of how large |
+
+The report writes the first two. The third is the gain less 1.69 standard
+errors, the same test as the report's p, which is one-sided.
+
+The standard error is the spread over the root of the number of tasks, so
+halving it takes four times the test tasks. The spread has two parts: tasks
+truly differ in what they gain, and one attempt differs from the next by
+chance. More attempts at each task shrink the second part only, which on
+this benchmark is the larger one for a small gain
+([Sizing an experiment](methodology/sizing.md)).
+
 ## What the numbers are not
 
 - **p is not the chance that the change is good**, nor the chance that it
@@ -125,16 +169,21 @@ other decision.
 - **A kept change's gain on the validation tasks is flattered.** It was
   kept because it came out high there. The gain to quote is the one on the
   test tasks, which took no part in any decision.
+- **A bar of one standard error that clears zero is not a gain at the 5%
+  level.** That takes about 1.7 standard errors, which is what p tests, and
+  about 2 for the 95% confidence interval to clear zero.
+- **A 95% confidence interval is not where 95% of the tasks' gains lie.**
+  It is about the mean gain, and tasks spread far more widely than it.
 
 ## What to look at first
 
 In an experiment's report (`report/report.md` in its folder, which the experiment writes after each round and at its end):
 
-1. **The harnesses kept.** The gain on the test tasks with its 95%
-   confidence interval is the result of the experiment. The interval is
-   made by a rule that catches the true gain 95 times in 100, so one that
-   lies wholly above zero is evidence of a real gain, and its width says
-   how well the gain is known.
+1. **The harnesses kept.** The gain on the test tasks with its standard
+   error is the result of the experiment. The 95% confidence interval and
+   p beside it say whether it is more than chance: an interval that lies
+   wholly above zero is evidence of a real gain
+   ("The final gain: its standard error and its interval" above).
 2. **The rounds.** For each candidate, the gain on the validation tasks
    beside the gain its decision needed.
 3. **Attempts that ended in an error**, before any figure is quoted: an
@@ -157,5 +206,6 @@ test in full" gives every number of this page with what it is.
 | level          | `false_acceptances_allowed_percent` | `false_acceptances_allowed_percent` |
 | p              | `p`                                 | `p`                                 |
 
-A harness's scores and its gain on the test tasks, with the interval, are in
-the experiment's `harnesses.csv`.
+A harness's scores and its gain on the test tasks, with the gain's standard
+error (`test_gain_standard_error`) and the interval, are in the experiment's
+`harnesses.csv`.

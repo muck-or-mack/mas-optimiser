@@ -383,6 +383,7 @@ def test_harnesses_give_each_ones_scores_and_its_gain_on_the_test_tasks(experime
     # The four test tasks rose by 25, 25, 50 and 0 points: a mean of 25, a
     # standard error of 10.2, and 3.18 standard errors either way at 95%.
     assert changed["test_gain_points"] == pytest.approx(25.0)
+    assert changed["test_gain_standard_error"] == pytest.approx(10.21, abs=0.01)
     assert changed["test_gain_interval_low"] == pytest.approx(-7.48, abs=0.01)
     assert changed["test_gain_interval_high"] == pytest.approx(57.48, abs=0.01)
     assert changed["test_gain_p"] == pytest.approx(0.046, abs=0.001)
@@ -423,9 +424,12 @@ def test_the_command_writes_the_tables_the_figure_and_a_page_to_read(
     assert (headline["rounds decided"], headline["changes kept"]) == ("2 of 2", "1")
     assert headline["test score, starting harness"] == "50.0%"
     assert headline["test score, last harness kept"] == "75.0%"
-    assert headline["gain on the test tasks"].startswith("+25.0 points (95% conf")
+    # One standard error leads; the 95% interval stands beside it.
+    assert headline["gain on the test tasks"].startswith(
+        "+25.0 ± 10.2 points (one standard error; 95% confidence interval -7.5 to"
+    )
     assert headline["cost"].startswith("$")
-    assert "| +25.0 " in page and "-7.5 to +57.5" in page
+    assert "| +25.0 ± 10.2 " in page and "-7.5 to +57.5" in page
     assert "| gain needed   |" in page and "| +22.5 " in page
     assert "its one-task trial" in page
     # Each round's proposal is a row: where it ended, what it changed, and
@@ -463,6 +467,7 @@ def test_the_command_writes_the_tables_the_figure_and_a_page_to_read(
     # The gain of the one harness kept, with its interval, on the test tasks.
     [gain] = list(csv.DictReader((out / "figures" / "test_gain.csv").open()))
     assert (gain["after_round"], float(gain["test_gain_points"])) == ("1", 25.0)
+    assert float(gain["test_gain_standard_error"]) == pytest.approx(10.2, abs=0.05)
     assert float(gain["test_gain_interval_low"]) == pytest.approx(-7.5, abs=0.05)
     # The gate: the first round's gain beside the gain it needed; the second
     # round's candidate ended at its trial and has neither.

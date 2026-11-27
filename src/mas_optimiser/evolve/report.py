@@ -7,7 +7,8 @@ folder inside it:
 - ``harnesses.csv``: each harness the experiment kept, the starting one
   first: its scores on the validation and the test tasks, what an attempt
   at a test task used, and its gain on the test tasks over the starting
-  harness, task by task, with the gate's test and a 95% confidence interval;
+  harness, task by task, with its standard error, the gate's test and a
+  95% confidence interval;
 - ``rounds.csv``: each candidate, what it proposed (the proposer's
   hypothesis, the files it edited and the lines it changed), how the
   proposal was made (the proposer's actions), how far it got and the
@@ -418,16 +419,17 @@ def harnesses(folder: Path) -> pd.DataFrame:
     """Each harness the experiment kept, with its scores and its gain on the test tasks.
 
     The gain is the mean over the test tasks of a task's score with the
-    harness less its score with the starting harness, with the gate's
-    one-sided test at 5% and a two-sided 95% confidence interval from the
-    same standard error.
+    harness less its score with the starting harness. It is given with its
+    standard error, with the gate's one-sided test at 5%, and with a
+    two-sided 95% confidence interval from the same standard error.
 
     Args:
         folder: The experiment's folder, after its test step.
 
     Returns:
         One row per harness, the starting one first; its gain columns are
-        empty. Scores, gains and intervals are in percentage points.
+        empty. Scores, gains, standard errors and intervals are in
+        percentage points.
     """
     domain = folder / EnterpriseOps.name
     kept = pd.read_csv(domain / "test.csv")
@@ -446,6 +448,7 @@ def harnesses(folder: Path) -> pd.DataFrame:
             "test_dollars_an_attempt": made["cost_usd"].mean(),
             "test_seconds_an_attempt": made["seconds"].mean(),
             "test_gain_points": None,
+            "test_gain_standard_error": None,
             "test_gain_interval_low": None,
             "test_gain_interval_high": None,
             "test_gain_p": None,
@@ -462,6 +465,7 @@ def harnesses(folder: Path) -> pd.DataFrame:
             around = stats.t.ppf(0.975, test.n - 1) * test.se
             entry |= {
                 "test_gain_points": 100 * test.mean,
+                "test_gain_standard_error": 100 * test.se,
                 "test_gain_interval_low": 100 * (test.mean - around),
                 "test_gain_interval_high": 100 * (test.mean + around),
                 "test_gain_p": test.p,
@@ -473,12 +477,15 @@ def harnesses(folder: Path) -> pd.DataFrame:
 def draw_gain(kept: pd.DataFrame, out: Path) -> None:
     """The gain of each harness kept over the starting one, on the test tasks.
 
-    A row for each harness kept: a point at its gain and a bar over the 95%
-    confidence interval of that gain, which is from the paired differences
-    over the test tasks. A bar that lies wholly to the right of the no-gain
-    line is a gain at that level. A row's label gives the round after which
-    the harness was the current one and its test score beside the starting
-    harness's. The numbers drawn are written beside the figure.
+    A row for each harness kept: a point at its gain and a bar of one
+    standard error either way, from the paired differences over the test
+    tasks. The bar says how well the gain is known. It is not a test: a bar
+    clear of the no-gain line is about one standard error from it, where the
+    95% confidence interval asks for about two, so the evidence for a gain
+    is the p-value and the interval, which the report's table and the file
+    beside the figure give. A row's label gives the round after which the
+    harness was the current one and its test score beside the starting
+    harness's.
 
     Args:
         kept: The harnesses, as ``harnesses.csv`` holds them, the test step
@@ -489,8 +496,9 @@ def draw_gain(kept: pd.DataFrame, out: Path) -> None:
     start = kept["test_score"].iloc[0]
     rows = kept[kept["test_gain_points"].notna()].iloc[::-1]
     rows[
-        ["after_round", "test_score", "test_gain_points", "test_gain_interval_low"]
-        + ["test_gain_interval_high", "test_gain_p", "test_tasks"]
+        ["after_round", "test_score", "test_gain_points", "test_gain_standard_error"]
+        + ["test_gain_interval_low", "test_gain_interval_high", "test_gain_p"]
+        + ["test_tasks"]
     ].to_csv(out / "test_gain.csv", index=False)
     gain = rows["test_gain_points"].to_numpy()
     with plt.style.context(figures.STYLE):
@@ -509,10 +517,7 @@ def draw_gain(kept: pd.DataFrame, out: Path) -> None:
         ax.errorbar(
             gain,
             range(len(rows)),
-            xerr=[
-                gain - rows["test_gain_interval_low"].to_numpy(),
-                rows["test_gain_interval_high"].to_numpy() - gain,
-            ],
+            xerr=rows["test_gain_standard_error"].to_numpy(),
             fmt="o",
             color=figures.OBSERVED,
             capsize=2,
@@ -539,7 +544,7 @@ def draw_gain(kept: pd.DataFrame, out: Path) -> None:
         ax.set_ylim(-0.6, len(rows) - 0.3)
         ax.set_xlabel(
             "gain on the test tasks over the starting harness\n"
-            "[percentage points, 95% confidence interval]"
+            "[percentage points, ± one standard error]"
         )
         for kind in ("pdf", "png"):
             fig.savefig(out / f"test_gain.{kind}")
@@ -720,7 +725,9 @@ def run(args: argparse.Namespace) -> None:
                 ("test score, last harness kept", f"{last['test_score']:.1f}%"),
                 (
                     "gain on the test tasks",
-                    f"{last['test_gain_points']:+.1f} points (95% confidence "
+                    f"{last['test_gain_points']:+.1f} ± "
+                    f"{last['test_gain_standard_error']:.1f} points (one "
+                    f"standard error; 95% confidence "
                     f"interval {last['test_gain_interval_low']:+.1f} to "
                     f"{last['test_gain_interval_high']:+.1f}; "
                     f"p {last['test_gain_p']:.4f})",
@@ -748,11 +755,22 @@ def run(args: argparse.Namespace) -> None:
             "",
             "Each harness that was the current one, run once on the test "
             "tasks. The gain is over the starting harness on the same test "
-            "tasks, with its 95% confidence interval and the p-value of the "
-            "one-sided test that it is above zero.",
+            "tasks. The figure after ± is its standard error: how far the "
+            "gain would move by chance were the experiment run again on other "
+            "tasks. The 95% confidence interval is about two standard errors "
+            "either way, and p is from the one-sided test that the gain is "
+            "above zero.",
             "",
             table(
                 kept.assign(
+                    gain=[
+                        "" if pd.isna(gain) else f"{gain:+.1f} ± {error:.1f}"
+                        for gain, error in zip(
+                            kept["test_gain_points"],
+                            kept["test_gain_standard_error"],
+                            strict=True,
+                        )
+                    ],
                     interval=[
                         "" if pd.isna(low) else f"{low:+.1f} to {high:+.1f}"
                         for low, high in zip(
@@ -760,13 +778,13 @@ def run(args: argparse.Namespace) -> None:
                             kept["test_gain_interval_high"],
                             strict=True,
                         )
-                    ]
+                    ],
                 ),
                 {
                     "after_round": "kept after round",
                     "validation_score": "validation score",
                     "test_score": "test score",
-                    "test_gain_points": "gain on test, points",
+                    "gain": "gain on test, points (± one standard error)",
                     "interval": "95% confidence interval",
                     "test_gain_p": "p",
                     "test_input_tokens_an_attempt": "input tokens an attempt",
@@ -775,7 +793,6 @@ def run(args: argparse.Namespace) -> None:
                 {
                     "validation_score": "{:.1f}",
                     "test_score": "{:.1f}",
-                    "test_gain_points": "{:+.1f}",
                     "test_gain_p": "{:.4f}",
                     "test_input_tokens_an_attempt": "{:,.0f}",
                     "test_dollars_an_attempt": "{:.4f}",
@@ -790,10 +807,11 @@ def run(args: argparse.Namespace) -> None:
                 "(figures/test_gain.png)",
                 "",
                 "*The gain of each harness kept over the starting harness, on "
-                "the test tasks, with its 95% confidence interval from the "
-                "paired differences over those tasks. A bar wholly to the "
-                "right of the no-gain line is a gain at that level. Numbers in "
-                "`figures/test_gain.csv`.*",
+                "the test tasks. Each bar is one standard error either way, "
+                "from the paired differences over those tasks. A bar clear "
+                "of the no-gain line is not by itself evidence of a gain: "
+                "the p-value and the 95% confidence interval in the table "
+                "above are. Numbers in `figures/test_gain.csv`.*",
             ]
     else:
         text += ["", "The test step has not run yet, so no harness has a test score."]
