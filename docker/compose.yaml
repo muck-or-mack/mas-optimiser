@@ -15,6 +15,12 @@ services:
       - "127.0.0.1:8006:8005"
   csm:
     image: shivakrishnareddyma225/enterpriseops-gym-mcp-csm@sha256:eaa456ac9aa85728426e7d3813a0bbca0949d6a8695be30e26f03894e6e6b189
+    # Four worker processes in place of the image's one. One process answers
+    # about 12 to 15 attempts a minute however many are sent, and so holds
+    # back every experiment that shares it. This server keeps each attempt's
+    # database as a file of its own, so its processes need share nothing.
+    # The other two servers are left as published until that is known of them.
+    command: ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8005", "--workers", "4"]
     ports:
       - "127.0.0.1:8001:8005"
   hr:
