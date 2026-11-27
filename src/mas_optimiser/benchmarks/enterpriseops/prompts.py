@@ -40,7 +40,13 @@ model, runs the tool calls the model asks for, feeds the answers back, and
 repeats until the model answers without a tool call. prompt.md is text that
 agent.py adds to the end of the system message; while it is empty nothing is
 added. The file exists from the start, so write_file refuses it: to put text
-into it while it is empty, use edit_file with an empty old string. You may
+into it while it is empty, use edit_file with an empty old string. Once a
+file holds text, edit_file replaces a passage you name, and the passage must
+be in the file exactly once: copy a short one from the file as read_file
+shows it, a line or two, and give it back with your change. To add text,
+name the file's last line and give it back with the new lines after it. An
+empty old string is refused there, and no action rewrites a file whole. One
+change may be several such edits. You may
 edit files of these types only: {editable}. The tools, the tasks, the checks
 and the scoring are outside the folder and cannot be changed. A change must
 be general: it has to help on requests and records its author has never
